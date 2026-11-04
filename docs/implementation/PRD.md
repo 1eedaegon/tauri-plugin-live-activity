@@ -18,3 +18,13 @@ Publishing requires passing relevant tests, actual native builds, emulator lifec
 evidence, independent review, package-content inspection, and consumer installation.
 Use an alpha version and npm `next` tag. Physical-device and OEM limitations stay
 explicit. Never publish a known-broken package to test credentials.
+
+## Follow-up requirements (2026-11-04)
+
+Verify npm and Cargo packages together inside actual Tauri apps, audit supported
+OS versions and native surfaces against vendor documentation, and add regression
+tests for observed coverage gaps. Keep unimplemented desktop behavior explicit.
+The demo becomes a small pet companion: Mochi's snack delivery and nap timer,
+with a polished mobile layout and real native screenshots. Existing plugin APIs
+and lifecycle checks remain available. Publish a new alpha only after the updated
+implementation, package consumers and demo pass review and validation.

@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-live-activity"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 description = "Local Live Activities and ongoing notifications for Tauri 2 on iOS and Android"
 authors = ["1eedaegon"]
 edition = "2024"

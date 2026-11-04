@@ -98,6 +98,7 @@ export interface ActivityRecord {
   readonly template: 'progress' | 'timer';
   readonly snapshot: Snapshot;
   readonly backend: Backend;
+  /** Backend lifecycle state, not proof of visible UI. iOS stale transitions depend on ActivityKit observation; Android also uses the snapshot deadline. */
   readonly state: ActivityState;
   /** A successful OS call does not prove that the user can see the activity. */
   readonly visibility: 'unknown';

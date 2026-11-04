@@ -1,6 +1,6 @@
 {
-  "name": "tauri-plugin-live-activity-api",
-  "version": "0.1.0-alpha.1",
+  "name": "tauri-plugin-live-activity",
+  "version": "0.1.0-alpha.2",
   "description": "Typed Tauri v2 API for iOS Live Activities and Android ongoing activity notifications",
   "author": "1eedaegon",
   "type": "module",
@@ -30,7 +30,7 @@
     "test": "npm run build && npm run test:contracts && npm run test:api && npm run test:demo",
     "test:contracts": "node --test --experimental-test-coverage \"--test-coverage-include=tools/validate-request.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/requests.test.mjs",
     "test:api": "node --test --experimental-test-coverage \"--test-coverage-include=dist-js/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/api.test.mjs",
-    "test:demo": "node --experimental-strip-types --test examples/demo/tests/self-test.test.mjs examples/demo/tests/ui-state.test.mjs",
+    "test:demo": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=examples/demo/src/*.ts\" \"--test-coverage-exclude=examples/demo/tests/**\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 examples/demo/tests/self-test.test.mjs examples/demo/tests/ui-state.test.mjs",
     "build:demo": "npm run build && node examples/demo/build.mjs",
     "prepack": "npm run build",
     "pack:check": "npm pack --dry-run"

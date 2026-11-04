@@ -19,23 +19,27 @@ internal const val RECORD_EXTRA = "io.github.eedaegon.liveactivity.record"
 internal const val DISMISS_ACTION = "io.github.eedaegon.liveactivity.DISMISSED"
 private const val NOTIFICATION_ID = 1
 
-internal class AndroidNotifications(private val context: Context) : NotificationPort {
+internal class AndroidNotifications(private val context: Context, private val channelId: String = CHANNEL_ID) : NotificationPort {
     private val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Live activities", NotificationManager.IMPORTANCE_LOW))
+            manager.createNotificationChannel(NotificationChannel(channelId, "Live activities", NotificationManager.IMPORTANCE_LOW))
         }
     }
 
     override fun notificationsAllowed(): Boolean {
         if (!manager.areNotificationsEnabled()) return false
         if (Build.VERSION.SDK_INT < 26) return true
-        val channel = manager.getNotificationChannel(CHANNEL_ID) ?: return true
+        val channel = manager.getNotificationChannel(channelId) ?: return true
         return channel.importance != NotificationManager.IMPORTANCE_NONE
     }
 
-    override fun promotionAllowed(): Boolean = Build.VERSION.SDK_INT >= 36 && manager.canPostPromotedNotifications()
+    override fun promotionAllowed(): Boolean {
+        if (Build.VERSION.SDK_INT < 36 || !manager.canPostPromotedNotifications()) return false
+        val importance = manager.getNotificationChannel(channelId)?.importance ?: NotificationManager.IMPORTANCE_LOW
+        return importance > NotificationManager.IMPORTANCE_MIN
+    }
 
     override fun observed(): Map<String, ActivityRecord> = manager.activeNotifications.mapNotNull { entry ->
         if (entry.tag?.startsWith(TAG_PREFIX) != true || entry.id != NOTIFICATION_ID) return@mapNotNull null
@@ -78,7 +82,7 @@ internal class AndroidNotifications(private val context: Context) : Notification
 
     @Suppress("DEPRECATION")
     private fun builder(): Notification.Builder = if (Build.VERSION.SDK_INT >= 26) {
-        Notification.Builder(context, CHANNEL_ID)
+        Notification.Builder(context, channelId)
     } else Notification.Builder(context).setPriority(Notification.PRIORITY_LOW)
 
     private fun contentIntent(): PendingIntent? {

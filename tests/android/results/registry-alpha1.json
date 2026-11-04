@@ -1,0 +1,210 @@
+{
+  "verifiedAt": "2026-11-04T18:47:33.436012+00:00",
+  "version": "0.1.0-alpha.1",
+  "consumerDirectory": "<isolated-consumer>",
+  "applicationId": "io.github.eedaegon.liveactivityregistry",
+  "npm": {
+    "version": "0.1.0-alpha.1",
+    "resolved": "https://registry.npmjs.org/tauri-plugin-live-activity-api/-/tauri-plugin-live-activity-api-0.1.0-alpha.1.tgz",
+    "integrity": "sha512-mSVS6AOnrR1wXnNjOsm+eOOFjetMfCKKQaRBCt7VzOoLehRv950A62H6DYU65PxQmfEtw4EtWRVH0itdjXSJFQ==",
+    "license": "Apache-2.0 OR MIT",
+    "engines": {
+      "node": ">=22.12.0"
+    },
+    "peerDependencies": {
+      "@tauri-apps/api": "^2.12.4"
+    }
+  },
+  "cargo": {
+    "version": "0.1.0-alpha.1",
+    "source": "registry+https://github.com/rust-lang/crates.io-index",
+    "manifest_path": "<cargo-home>/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-live-activity-0.1.0-alpha.1/Cargo.toml"
+  },
+  "apkSha256": "4e19f7cc4a9e196a340583b130ba9e29b26af75d3cdaa4fa857a8c136d54bbba",
+  "api37": {
+    "checks": [
+      {
+        "name": "start returns an opaque nonterminal handle",
+        "passed": true
+      },
+      {
+        "name": "duplicate start keeps its handle",
+        "passed": true
+      },
+      {
+        "name": "newer revision replaces the full snapshot",
+        "passed": true
+      },
+      {
+        "name": "identical update is idempotent",
+        "passed": true
+      },
+      {
+        "name": "stale revision is rejected",
+        "passed": true
+      },
+      {
+        "name": "conflicting revision is rejected",
+        "passed": true
+      },
+      {
+        "name": "list reconciles the current generation",
+        "passed": true
+      },
+      {
+        "name": "immediate end ends the generation",
+        "passed": true
+      },
+      {
+        "name": "repeated end is idempotent",
+        "passed": true
+      },
+      {
+        "name": "late update cannot revive an ended handle",
+        "passed": true
+      },
+      {
+        "name": "a new start receives a new generation",
+        "passed": true
+      },
+      {
+        "name": "old handles cannot modify the new generation",
+        "passed": true
+      },
+      {
+        "name": "the final generation is cleaned up",
+        "passed": true
+      }
+    ],
+    "platform": "android",
+    "status": "passed",
+    "visibility": "unknown"
+  },
+  "permissionCancellationRegression": {
+    "api": 37,
+    "publishedVersion": "0.1.0-alpha.1",
+    "afterCancel": "settingsRequired",
+    "androidRuntimeGranted": false,
+    "androidUserSet": false,
+    "androidUserFixed": false,
+    "tauriCachedState": "denied"
+  },
+  "api36": {
+    "checks": [
+      {
+        "name": "start returns an opaque nonterminal handle",
+        "passed": true
+      },
+      {
+        "name": "duplicate start keeps its handle",
+        "passed": true
+      },
+      {
+        "name": "newer revision replaces the full snapshot",
+        "passed": true
+      },
+      {
+        "name": "identical update is idempotent",
+        "passed": true
+      },
+      {
+        "name": "stale revision is rejected",
+        "passed": true
+      },
+      {
+        "name": "conflicting revision is rejected",
+        "passed": true
+      },
+      {
+        "name": "list reconciles the current generation",
+        "passed": true
+      },
+      {
+        "name": "immediate end ends the generation",
+        "passed": true
+      },
+      {
+        "name": "repeated end is idempotent",
+        "passed": true
+      },
+      {
+        "name": "late update cannot revive an ended handle",
+        "passed": true
+      },
+      {
+        "name": "a new start receives a new generation",
+        "passed": true
+      },
+      {
+        "name": "old handles cannot modify the new generation",
+        "passed": true
+      },
+      {
+        "name": "the final generation is cleaned up",
+        "passed": true
+      }
+    ],
+    "platform": "android",
+    "status": "passed",
+    "visibility": "unknown"
+  },
+  "api31": {
+    "checks": [
+      {
+        "name": "start returns an opaque nonterminal handle",
+        "passed": true
+      },
+      {
+        "name": "duplicate start keeps its handle",
+        "passed": true
+      },
+      {
+        "name": "newer revision replaces the full snapshot",
+        "passed": true
+      },
+      {
+        "name": "identical update is idempotent",
+        "passed": true
+      },
+      {
+        "name": "stale revision is rejected",
+        "passed": true
+      },
+      {
+        "name": "conflicting revision is rejected",
+        "passed": true
+      },
+      {
+        "name": "list reconciles the current generation",
+        "passed": true
+      },
+      {
+        "name": "immediate end ends the generation",
+        "passed": true
+      },
+      {
+        "name": "repeated end is idempotent",
+        "passed": true
+      },
+      {
+        "name": "late update cannot revive an ended handle",
+        "passed": true
+      },
+      {
+        "name": "a new start receives a new generation",
+        "passed": true
+      },
+      {
+        "name": "old handles cannot modify the new generation",
+        "passed": true
+      },
+      {
+        "name": "the final generation is cleaned up",
+        "passed": true
+      }
+    ],
+    "platform": "android",
+    "status": "passed",
+    "visibility": "unknown"
+  }
+}

@@ -1,6 +1,7 @@
 # iOS integration
 
-The iOS backend uses ActivityKit on iOS 16.1 and later. The host application must
+The backend uses ActivityKit on iPhone with iOS 16.1+ and iPad with iPadOS 17+.
+iOS app compatibility mode on Mac is unsupported. The host application must
 embed a WidgetKit extension. Installing the Rust crate or JavaScript package does
 not add that Xcode target automatically.
 
@@ -26,7 +27,9 @@ its `ios/` directory is the package location. The Rust crate includes both the t
 native Swift package under `ios/`. The npm package supplies the JavaScript API.
 
 The sample app's generated `project.yml` includes `LiveActivityWidget` and links
-`LiveActivityShared`. Regenerating the entire Tauri iOS project can replace manual
+`LiveActivityShared`. It uses `examples/demo/widget/MochiWidget.swift` for its cat
+design; the generic template remains available for other apps.
+Regenerating the entire Tauri iOS project can replace manual
 Xcode changes. Keep the widget target, package reference, and Info.plist property
 in the source XcodeGen specification used for your app.
 
@@ -41,6 +44,11 @@ there is no repeated permission prompt or automatic settings redirect.
 Start activities while the application is in the foreground. `progress` and
 `timer` use the same shared Codable attributes and state in both binaries.
 `staleAt` requires iOS 16.2; iOS 16.1 returns `UNSUPPORTED_FEATURE` when it is used.
+It is sent as ActivityKit's `staleDate`. The returned `state` follows ActivityKit's
+observed lifecycle; it does not promise a `stale` transition at an exact clock time.
+On the tested iOS 27.2 simulator, foreground and background probes did not observe
+that transition within their observation window. See
+[iOS coverage](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-coverage.md).
 The `after` dismissal policy must be in the future and no more than four hours
 away. Immediate and default dismissal are also available.
 

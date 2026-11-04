@@ -1,0 +1,35 @@
+{
+  "package": "tauri-plugin-live-activity-api",
+  "version": "0.1.0-alpha.1",
+  "distTag": "next",
+  "distTagVersion": "0.1.0-alpha.1",
+  "registry": "https://registry.npmjs.org",
+  "tarball": "https://registry.npmjs.org/tauri-plugin-live-activity-api/-/tauri-plugin-live-activity-api-0.1.0-alpha.1.tgz",
+  "sha1": "244ebc01a9f8c0ff0b91e4e04b06fbcb85ecb96a",
+  "integrity": "sha512-mSVS6AOnrR1wXnNjOsm+eOOFjetMfCKKQaRBCt7VzOoLehRv950A62H6DYU65PxQmfEtw4EtWRVH0itdjXSJFQ==",
+  "expectedReleaseArchiveMatches": true,
+  "registryMetadataMatches": true,
+  "tarballDownloadedAndVerified": true,
+  "tarballBytes": 10205,
+  "verifiedAt": "2026-11-04T18:37:15.003Z",
+  "status": "passed",
+  "nodeVersion": "v26.12.1",
+  "typescriptVersion": "7.0.2",
+  "tauriApiVersion": "2.12.4",
+  "install": {
+    "source": "npm registry",
+    "exactVersion": true,
+    "freshCache": true,
+    "usedLocalTarball": false,
+    "installScriptsEnabled": false,
+    "packageLockIntegrityMatches": true
+  },
+  "strictNodeNextTypecheck": "passed",
+  "negativeTemplateTypecheckIncluded": true,
+  "apiTests": {
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0
+  },
+  "validationScope": "Published JavaScript API exports, TypeScript declarations and Tauri mock IPC behavior; native OS tests are recorded separately."
+}

@@ -1,0 +1,35 @@
+{
+  "status": "passed-with-known-regressions",
+  "version": "0.1.0-alpha.1",
+  "npm": {
+    "version": "0.1.0-alpha.1",
+    "resolved": "https://registry.npmjs.org/tauri-plugin-live-activity-api/-/tauri-plugin-live-activity-api-0.1.0-alpha.1.tgz",
+    "integrity": "sha512-mSVS6AOnrR1wXnNjOsm+eOOFjetMfCKKQaRBCt7VzOoLehRv950A62H6DYU65PxQmfEtw4EtWRVH0itdjXSJFQ=="
+  },
+  "cargo": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.1",
+    "source": "registry+https://github.com/rust-lang/crates.io-index",
+    "checksum": "5e8b202f1dca8d3a1a68037cf035eb6827ba5ab0555ec1529075dcafcacf4305"
+  },
+  "build": {
+    "command": "npm run tauri -- ios build --target aarch64-sim --debug",
+    "result": "passed",
+    "pluginPathOverrides": false,
+    "widgetSource": "templates/ios/LiveActivityWidget.swift from downloaded Cargo crate"
+  },
+  "runtime": {
+    "iPhone27.2": {
+      "lifecycle": 13,
+      "features": 10
+    },
+    "iPad27.2": {
+      "lifecycle": 13,
+      "features": 10
+    }
+  },
+  "knownFindings": [
+    "Unicode byte-distinct same-revision update incorrectly accepted; reproduced in actual app, fixed in alpha.2 local source",
+    "ActivityKit stale state not observed within foreground/background probe windows; not counted as passing"
+  ]
+}

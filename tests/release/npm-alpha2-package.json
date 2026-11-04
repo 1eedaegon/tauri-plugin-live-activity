@@ -1,0 +1,51 @@
+{
+  "status": "passed",
+  "verification": "isolated tarball consumer before publication",
+  "package": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.2",
+    "filename": "tauri-plugin-live-activity-0.1.0-alpha.2.tgz",
+    "sha1": "24d44b4881bc3adbc6460fb625cc6276899623fe",
+    "integrity": "sha512-Iq+ypfZyFEziOaGYoUYmGbLMT5uGXnHdApzDQ3LhLTWmYdXeb+SfX6xR9nXtizAJz395/k5GF4tSFS6dkS/nNA==",
+    "size": 10385,
+    "unpackedSize": 31483,
+    "files": [
+      "LICENSE",
+      "LICENSE-APACHE",
+      "LICENSE-MIT",
+      "README.ko.md",
+      "README.md",
+      "dist-js/index.d.ts",
+      "dist-js/index.js",
+      "dist-js/types.d.ts",
+      "dist-js/types.js",
+      "package.json"
+    ]
+  },
+  "consumer": {
+    "freshDirectory": true,
+    "installation": "npm install --ignore-scripts --save-exact <archive> typescript@7.0.2",
+    "node": "v26.12.1",
+    "typescript": "7.0.2",
+    "tauriApi": "2.12.4",
+    "archiveIntegrityMatchesInstallLock": true
+  },
+  "checks": {
+    "strictNodeNextTypes": "passed",
+    "mockIPCTests": {
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0
+    },
+    "expectedPackageFiles": 10,
+    "esmAndDeclarations": "passed",
+    "publicPackageName": "tauri-plugin-live-activity",
+    "publishTag": "next",
+    "peerDependency": "@tauri-apps/api ^2.12.4",
+    "nativeSourcesIncluded": false,
+    "imagesIncluded": false,
+    "buildCachesIncluded": false,
+    "machinePathsFound": false
+  },
+  "scope": "Validates this prepublication archive and the unchanged public API. Final publication archive may have different documentation and checksums; registry verification is separate."
+}

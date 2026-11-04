@@ -103,7 +103,7 @@ targets:
     type: app-extension
     platform: iOS
     sources:
-      - ../../../../../templates/ios/LiveActivityWidget.swift
+      - ../../../widget/MochiWidget.swift
     dependencies:
       - package: LiveActivity
         product: LiveActivityShared

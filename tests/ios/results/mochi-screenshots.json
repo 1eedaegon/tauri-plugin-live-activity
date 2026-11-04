@@ -1,0 +1,38 @@
+{
+  "version": "0.1.0-alpha.2",
+  "source": "workspace candidate, local npm/JS and Cargo/native sources",
+  "platform": "iOS 27.2",
+  "device": "iPhone 18 Pro simulator",
+  "build": "npm run tauri -- ios build --target aarch64-sim --debug",
+  "test": "NativeUITests/MochiScreens/testActualMochiScreens",
+  "testStatus": "passed",
+  "widget": "examples/demo/widget/MochiWidget.swift",
+  "activity": {
+    "progress": 0.65,
+    "title": "Mochi’s snack delivery",
+    "status": "On the way to Mochi",
+    "timerTitle": "Mochi’s nap",
+    "timerStatus": "A little snooze, a little peace"
+  },
+  "screenshots": [
+    {
+      "path": "docs/images/mochi-demo.png",
+      "sha256": "6e0df1d6e55a53507aeeaffa800f6ba9a29fbe50de1ddffc119737e6caf452fd"
+    },
+    {
+      "path": "docs/images/mochi-ios-live-activity.png",
+      "sha256": "2c96958fbebfe59acef5903807f61c7fb40965592369149c2fc39584249b01b7"
+    },
+    {
+      "path": "docs/images/mochi-ios-dynamic-island.png",
+      "sha256": "0186817dc18dd4f134a29a2a097bf8785f3261d676cd764c05cd0c6fcfd848d6"
+    }
+  ],
+  "notes": [
+    "Actual app and ActivityKit presentations; no image generation or editing",
+    "Lock Screen presentation captured through Notification Center with same-app activity stack expanded",
+    "Screenshots captured during successful flows; an earlier capture of the same flow is retained for its timer composition",
+    "OS applies its own glass tint; native acceptance alone is not evidence of visibility",
+    "Original alpha.1 images preserved separately"
+  ]
+}

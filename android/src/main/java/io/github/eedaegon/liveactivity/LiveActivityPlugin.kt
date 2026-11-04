@@ -44,17 +44,23 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
             if (kind !in listOf("notifications", "liveActivities", "promotion")) {
                 throw ActivityFailure("INVALID_INPUT", "Unknown permission kind.")
             }
-            if (kind == "notifications" && notificationPermission() == "prompt") {
-                if (!preferences.edit().putBoolean("permissionRequested", true).commit()) {
-                    throw ActivityFailure("NATIVE_ERROR", "Permission request could not be saved.")
-                }
+            if (kind == "notifications" && notificationPermission() in listOf("prompt", "unknown")) {
                 requestPermissionForAlias("notifications", invoke, "permissionResult")
             } else respond(invoke) { permissions() }
         } catch (error: Exception) { failure(invoke, error) }
     }
 
     @PermissionCallback
-    private fun permissionResult(invoke: Invoke) = respond(invoke) { permissions() }
+    private fun permissionResult(invoke: Invoke) = respond(invoke) {
+        val granted = activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        val rationale = activity.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
+        if (granted || rationale) {
+            if (!preferences.edit().putBoolean("permissionDenialObserved", !granted).commit()) {
+                throw ActivityFailure("NATIVE_ERROR", "Permission result could not be saved.")
+            }
+        }
+        permissions()
+    }
 
     @Command
     fun start(invoke: Invoke) = respond(invoke) { engine.start(Input.start(invoke.getArgs())).json() }
@@ -83,13 +89,16 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
             else -> "settingsRequired"
         })
 
-    private fun notificationPermission(): String {
-        if (notifications.notificationsAllowed()) return "granted"
-        if (Build.VERSION.SDK_INT >= 33 &&
-            activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
-            !preferences.getBoolean("permissionRequested", false)) return "prompt"
-        return "settingsRequired"
-    }
+    // Tauri can cache DENIED for a cancelled dialog. Only an observed rationale proves
+    // a previous denial; otherwise report uncertainty and allow an explicit retry.
+    private fun notificationPermission(): String = notificationPermissionState(
+        Build.VERSION.SDK_INT,
+        notifications.notificationsAllowed(),
+        Build.VERSION.SDK_INT < 33 || activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED,
+        getPermissionState("notifications")?.toString(),
+        Build.VERSION.SDK_INT >= 33 && activity.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS),
+        preferences.getBoolean("permissionDenialObserved", false),
+    )
 
     private fun respond(invoke: Invoke, action: () -> Any) {
         try { invoke.resolve(JSObject().put("ok", true).put("data", action()) as JSObject) }

@@ -21,6 +21,14 @@ public struct ActivitySnapshot: Codable, Hashable, Sendable {
         self.revision = revision; self.title = title; self.status = status
         self.progress = progress; self.timer = timer; self.staleAt = staleAt
     }
+
+    /// Match the wire contract: a reused revision must contain the same encoded text.
+    /// Swift's default String equality treats canonically equivalent Unicode as identical.
+    public static func == (lhs: ActivitySnapshot, rhs: ActivitySnapshot) -> Bool {
+        lhs.revision == rhs.revision && lhs.title.utf8.elementsEqual(rhs.title.utf8)
+            && lhs.status.utf8.elementsEqual(rhs.status.utf8) && lhs.progress == rhs.progress
+            && lhs.timer == rhs.timer && lhs.staleAt == rhs.staleAt
+    }
 }
 
 public struct StartRequest: Codable, Equatable, Sendable {

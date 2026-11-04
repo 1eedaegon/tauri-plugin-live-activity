@@ -79,4 +79,11 @@ class InputTest {
         rejects { Input.end(JSONObject("""{"id":"id","policy":{"kind":"immediate","at":1}}""")) }
         assertEquals("after", Input.end(JSONObject("""{"id":"id","policy":{"kind":"after","at":1}}""")).second)
     }
+
+    @Test fun reportsObservedPromotionRejectionAsDegraded() {
+        val record = ActivityRecord("handle", Input.start(start()), promotionRequested = true, promotionState = "notPromoted")
+        assertEquals("nativeLiveActivity", record.json().getJSONArray("degradedFeatures").getString(0))
+        assertEquals(0, record.copy(promotionState = "unknown").json().getJSONArray("degradedFeatures").length())
+        assertEquals(0, record.copy(promotionState = "promoted").json().getJSONArray("degradedFeatures").length())
+    }
 }

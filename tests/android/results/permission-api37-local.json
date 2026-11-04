@@ -1,0 +1,40 @@
+{
+  "api": 37,
+  "appId": "io.github.eedaegon.liveactivitydemo",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "fresh install can request permission",
+      "expected": "prompt",
+      "actual": "prompt",
+      "passed": true
+    },
+    {
+      "name": "cancelled dialog remains explicitly retryable",
+      "expected": [
+        "prompt",
+        "unknown"
+      ],
+      "actual": "prompt",
+      "passed": true
+    },
+    {
+      "name": "retry after cancellation can grant permission",
+      "expected": "granted",
+      "actual": "granted",
+      "passed": true
+    },
+    {
+      "name": "first denial preserves an explicit request opportunity",
+      "expected": "prompt",
+      "actual": "prompt",
+      "passed": true
+    },
+    {
+      "name": "repeated denial requires settings",
+      "expected": "settingsRequired",
+      "actual": "settingsRequired",
+      "passed": true
+    }
+  ]
+}

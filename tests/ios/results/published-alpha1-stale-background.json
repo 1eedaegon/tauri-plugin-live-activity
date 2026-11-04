@@ -1,0 +1,36 @@
+{
+  "checks": [
+    {
+      "name": "iOS separates Live Activities from ordinary notification permission",
+      "passed": true
+    },
+    {
+      "name": "unsupported permission requests return stable errors",
+      "passed": true
+    },
+    {
+      "name": "timer start preserves epoch millisecond bounds",
+      "passed": true
+    },
+    {
+      "name": "timer duplicate start preserves its generation",
+      "passed": true
+    },
+    {
+      "name": "existing timer cannot switch to progress",
+      "passed": true
+    }
+  ],
+  "error": "Activity did not report stale within 20000 ms",
+  "platform": "ios",
+  "status": "failed",
+  "suite": "ios-features",
+  "visibility": "unknown",
+  "device": "iPhone 18 Pro simulator",
+  "os": "iOS 27.2",
+  "scenario": "background via Home for 8s then return; list polling 20s deadline",
+  "packageVersions": {
+    "npm": "0.1.0-alpha.1",
+    "cargo": "0.1.0-alpha.1"
+  }
+}

@@ -51,7 +51,7 @@ internal data class ActivityRecord(
         .put("id", id).put("activityKey", origin.activityKey).put("schemaVersion", 1)
         .put("template", origin.template).put("snapshot", snapshot.json())
         .put("backend", "androidNotification").put("state", state).put("visibility", "unknown")
-        .put("degradedFeatures", org.json.JSONArray(if (promotionRequested) emptyList<String>() else listOf("nativeLiveActivity")))
+        .put("degradedFeatures", org.json.JSONArray(if (!promotionRequested || promotionState == "notPromoted") listOf("nativeLiveActivity") else emptyList<String>()))
         .put("promotionRequested", promotionRequested).put("promotionState", promotionState)
         .also { if (internal) it.put("origin", origin.json()).put("awaitingObservation", awaitingObservation).put("postFailed", postFailed) }
 

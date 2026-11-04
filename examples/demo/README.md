@@ -1,8 +1,14 @@
-# Live Activity demo
+# Mochi — Live Activity demo
 
-Local Tauri app for exercising the plugin through its real TypeScript → Rust → native bridge.
-The app has explicit permission, start, update, end and lifecycle-test buttons. Desktop builds
-show unsupported capabilities; they do not substitute a browser implementation.
+Follow Mochi's snack delivery or start a nap timer. The snack moves from packing
+to delivery and arrival; the nap can be extended by a minute. Both use the real
+TypeScript → Rust → native bridge. The app supplies example state rather than
+connecting to a delivery service.
+
+Permission controls appear when needed. **Developer tools** contains capabilities,
+records and the opt-in lifecycle test. Desktop builds explicitly report an
+unsupported backend. The [iOS widget](widget/MochiWidget.swift) uses the same shared
+attributes as the plugin, with a cat design for the Lock Screen and Dynamic Island.
 
 From the repository root:
 

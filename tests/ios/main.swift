@@ -136,6 +136,8 @@ struct LifecycleTests {
         try ActivitySnapshot(revision: 0, title: "\u{0085}", status: "ok", progress: 0, timer: nil, staleAt: nil).validate(template: "progress")
         expect(true, "U+0085 is nonblank under the shared JSON Schema contract")
         await expectError("INVALID_INPUT") { try ActivitySnapshot(revision: 0, title: "\u{feff}", status: "ok", progress: 0, timer: nil, staleAt: nil).validate(template: "progress") }
+        testPlatformSupport()
+        try await testPlatformCoverageGaps()
         print("iOS lifecycle tests: \(assertions) assertions passed")
     }
 }

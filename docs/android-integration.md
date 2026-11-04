@@ -10,8 +10,12 @@ scheduler is installed.
 ## Display and permissions
 
 Call `requestPermissions('notifications')` after a user action. Android
-13+ can show the notification dialog once; a denied or channel-blocked state is
-reported as `settingsRequired` on subsequent calls. Promotion is controlled by
+13+ can show the notification dialog. A first denial can remain `prompt` when
+Android allows another request; a repeated denial after an observed rationale is
+`settingsRequired`. Tauri also caches cancelled dialogs as denied. When that cache
+cannot distinguish cancellation from an external permanent denial, the adapter
+returns `unknown` and permits an explicit request retry. A blocked channel with
+runtime permission already granted returns `settingsRequired`. Promotion is controlled by
 Android settings, so requesting `promotion` returns its current state and does not
 pretend to display a runtime permission dialog.
 
@@ -21,14 +25,16 @@ Users retain control of channel importance and visibility. Updates request
 `onlyAlertOnce`, and notification clicks open the host app. Custom click routes and
 actions are not part of this alpha.
 
-On Android 16+ the adapter checks `canPostPromotedNotifications()` and requests
+On Android 16+ the adapter checks `canPostPromotedNotifications()` and channel
+importance above `IMPORTANCE_MIN`, then requests
 promotion with the documented boolean notification extra. It avoids the framework
 builder convenience method that first requires API 36.1. Older OS builds can
 ignore unknown extras safely. The result reads `FLAG_PROMOTED_ONGOING` from
 `NotificationManager.activeNotifications`; a request is never counted as proof
 that the OS promoted it. `fallback: 'none'` rejects a start when promotion is
 unavailable before posting. The OS can still decline or subsequently remove
-promotion. Notification permission denial is always an error.
+promotion. An observed `notPromoted` result includes `nativeLiveActivity` in
+`degradedFeatures`. Notification permission denial is always an error.
 
 `end` supports `immediate` and `default`, both removing the Android notification.
 The `after` policy returns `UNSUPPORTED_FEATURE` before removal.

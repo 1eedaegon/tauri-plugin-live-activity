@@ -21,7 +21,7 @@
 		B1C8C8B4F5AA25F4673B3214 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1993A4014201B10B83405A8E /* MetalKit.framework */; };
 		B2670022379CE79443BE9E56 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 96DBFFBEF8D877ED44FFC9D0 /* libapp.a */; };
 		BA968F0C96A6F70EF3592CE2 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 55FA5591411097F6C1CEF7B7 /* LaunchScreen.storyboard */; };
-		EA57315AF3D9DF74E06B64EC /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C9C144DA3FA62F03454BACD /* LiveActivityWidget.swift */; };
+		E75356D6531815D2C599B6BE /* MochiWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6BC6D389954FB9EC38EC1D /* MochiWidget.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,7 +54,6 @@
 		1993A4014201B10B83405A8E /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		3D0F5ADE9B9F10771AE23FD9 /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = ../../../../../ios; sourceTree = SOURCE_ROOT; };
 		55FA5591411097F6C1CEF7B7 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
-		5C9C144DA3FA62F03454BACD /* LiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
 		712B829A02022B487DDFB5FD /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		8A6A418A1A9E4E382ECA40AF /* LiveActivityWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = LiveActivityWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		92D81DCC18FCCCE5DFF01CA1 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
@@ -70,6 +69,7 @@
 		DCC9D53DA425000BB4D7D9E8 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
 		E0E3E2C30DC8749F1DE30AEE /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		EC3D5F34CBE9A562F0792FBE /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		ED6BC6D389954FB9EC38EC1D /* MochiWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MochiWidget.swift; sourceTree = "<group>"; };
 		EFEFB03207CB86199C0CE934 /* live-activity-demo_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "live-activity-demo_iOS.entitlements"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -114,11 +114,11 @@
 				B1A7E2A8B74B24833EEB48FA /* Assets.xcassets */,
 				55FA5591411097F6C1CEF7B7 /* LaunchScreen.storyboard */,
 				2F18968F9A50B09D3237D774 /* Externals */,
-				CC5FB9E3FB1B1608C34A4484 /* ios */,
 				3E7610CF2FF1189994466376 /* live-activity-demo_iOS */,
 				BF122A36F41F06FCDB5178D6 /* Packages */,
 				49B1C3D45E772A92399378B0 /* Sources */,
 				9FB21C42C0D69B2A5CECAC3C /* src */,
+				C84B107A667B99E8A9529CDC /* widget */,
 				866843D59C6BE93047010C0D /* Frameworks */,
 				4260A3A4B99280CF4F540F9E /* Products */,
 			);
@@ -201,27 +201,27 @@
 			name = Packages;
 			sourceTree = "<group>";
 		};
-		CC5FB9E3FB1B1608C34A4484 /* ios */ = {
+		C84B107A667B99E8A9529CDC /* widget */ = {
 			isa = PBXGroup;
 			children = (
-				5C9C144DA3FA62F03454BACD /* LiveActivityWidget.swift */,
+				ED6BC6D389954FB9EC38EC1D /* MochiWidget.swift */,
 			);
-			name = ios;
-			path = ../../../../../templates/ios;
+			name = widget;
+			path = ../../../widget;
 			sourceTree = "<group>";
 		};
-		"TEMP_6DC20B40-34C0-4B57-AE56-75B07407CA91" /* arm64 */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = arm64;
-			sourceTree = "<group>";
-		};
-		"TEMP_E17CB7F3-C22A-4189-AF57-544244100483" /* x86_64 */ = {
+		"TEMP_55AA9F71-8C04-46E6-8D3B-6A7D0151D08B" /* x86_64 */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = x86_64;
+			sourceTree = "<group>";
+		};
+		"TEMP_E2E2037D-2112-46F1-B5AD-0B238322C061" /* arm64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = arm64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -352,7 +352,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EA57315AF3D9DF74E06B64EC /* LiveActivityWidget.swift in Sources */,
+				E75356D6531815D2C599B6BE /* MochiWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

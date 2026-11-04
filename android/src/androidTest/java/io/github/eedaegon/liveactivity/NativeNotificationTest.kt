@@ -2,6 +2,7 @@ package io.github.eedaegon.liveactivity
 
 import android.Manifest
 import android.app.Notification
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
@@ -12,6 +13,8 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.Assume.assumeTrue
+import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class NativeNotificationTest {
@@ -69,6 +72,43 @@ class NativeNotificationTest {
         assertEquals("dismissed", engine.list().first { it.id == record.id }.state)
         try { engine.update(record.id, timer.snapshot.copy(revision = 1)); fail("Dismissed activity must not be reposted") }
         catch (failure: ActivityFailure) { assertEquals("NOT_FOUND", failure.code) }
+    }
+
+    @Test fun minimumImportanceCannotSatisfyStrictPromotionAndBlockedChannelRejectsStart() {
+        assumeTrue(Build.VERSION.SDK_INT >= 26)
+        val channelId = "live-activity-test-${UUID.randomUUID()}"
+        val channelPort = AndroidNotifications(context, channelId)
+        try {
+            manager.createNotificationChannel(NotificationChannel(channelId, "Test channel", NotificationManager.IMPORTANCE_MIN))
+            assertTrue(channelPort.notificationsAllowed())
+            assertFalse("Android excludes IMPORTANCE_MIN from Live Updates", channelPort.promotionAllowed())
+            try { ActivityEngine(store, channelPort).start(request.copy(fallback = "none")); fail("Strict promotion must fail") }
+            catch (failure: ActivityFailure) { assertEquals("UNSUPPORTED_FEATURE", failure.code) }
+            manager.createNotificationChannel(NotificationChannel(channelId, "Test channel", NotificationManager.IMPORTANCE_NONE))
+            assertFalse(channelPort.notificationsAllowed())
+            try { ActivityEngine(store, channelPort).start(request); fail("Blocked channel must reject posting") }
+            catch (failure: ActivityFailure) { assertEquals("PERMISSION_DENIED", failure.code) }
+        } finally { manager.deleteNotificationChannel(channelId) }
+    }
+
+    @Test fun staleDeadlineUsesObservedStateAndAnUpdateCanRefreshIt() {
+        val staleRequest = request.copy(snapshot = request.snapshot.copy(staleAt = System.currentTimeMillis() - 1))
+        val record = engine.start(staleRequest)
+        await { engine.list().any { it.id == record.id && it.state == "stale" } }
+        engine.update(record.id, request.snapshot.copy(revision = 1, staleAt = System.currentTimeMillis() + 60000))
+        assertEquals("active", awaitRecord(record.id, 1).state)
+    }
+
+    @Test fun nativeDeleteIntentPersistsDismissalAndBlocksFutureUpdates() {
+        val record = engine.start(request)
+        awaitRecord(record.id)
+        val native = manager.activeNotifications.first { it.tag == TAG_PREFIX + record.id }
+        assertTrue(native.notification.deleteIntent.isImmutable)
+        native.notification.deleteIntent.send()
+        await { store.read().any { it.id == record.id && it.state == "dismissed" } }
+        try { engine.update(record.id, request.snapshot.copy(revision = 1)); fail("User dismissal must remain terminal") }
+        catch (failure: ActivityFailure) { assertEquals("NOT_FOUND", failure.code) }
+        await { manager.activeNotifications.none { it.tag == TAG_PREFIX + record.id } }
     }
 
     private fun awaitRecord(id: String, revision: Long = 0): ActivityRecord {

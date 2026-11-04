@@ -1,0 +1,59 @@
+{
+  "checks": [
+    {
+      "name": "start returns an opaque nonterminal handle",
+      "passed": true
+    },
+    {
+      "name": "duplicate start keeps its handle",
+      "passed": true
+    },
+    {
+      "name": "newer revision replaces the full snapshot",
+      "passed": true
+    },
+    {
+      "name": "identical update is idempotent",
+      "passed": true
+    },
+    {
+      "name": "stale revision is rejected",
+      "passed": true
+    },
+    {
+      "name": "conflicting revision is rejected",
+      "passed": true
+    },
+    {
+      "name": "list reconciles the current generation",
+      "passed": true
+    },
+    {
+      "name": "immediate end ends the generation",
+      "passed": true
+    },
+    {
+      "name": "repeated end is idempotent",
+      "passed": true
+    },
+    {
+      "name": "late update cannot revive an ended handle",
+      "passed": true
+    },
+    {
+      "name": "a new start receives a new generation",
+      "passed": true
+    },
+    {
+      "name": "old handles cannot modify the new generation",
+      "passed": true
+    },
+    {
+      "name": "the final generation is cleaned up",
+      "passed": true
+    }
+  ],
+  "platform": "android",
+  "status": "passed",
+  "visibility": "unknown"
+}

@@ -1,0 +1,14 @@
+{
+  "error": "Expected CONFLICT; native call succeeded",
+  "platform": "ios",
+  "status": "failed",
+  "suite": "ios-unicode-revision",
+  "visibility": "unknown",
+  "packageVersions": {
+    "npm": "0.1.0-alpha.1",
+    "cargo": "0.1.0-alpha.1"
+  },
+  "device": "iPhone 18 Pro simulator",
+  "os": "iOS 27.2",
+  "interpretation": "confirmed alpha.1 regression; fixed in local source after red core test"
+}

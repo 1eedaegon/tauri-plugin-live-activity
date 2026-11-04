@@ -1,5 +1,6 @@
 import ActivityKit
 import Foundation
+import UIKit
 import Tauri
 import LiveActivityShared
 import LiveActivityCore
@@ -19,7 +20,7 @@ public final class LiveActivityPlugin: Plugin {
 
     @objc public func getCapabilities(_ invoke: Invoke) {
         let available: Bool
-        if #available(iOS 16.1, *) { available = true } else { available = false }
+        if #available(iOS 16.1, *) { available = platformSupported } else { available = false }
         let supported = available ? "supported" : "unsupported"
         let result = Capabilities(backend: available ? "activityKit" : "unsupported", start: supported,
             update: supported, end: supported, progress: supported, timer: supported,
@@ -57,8 +58,8 @@ public final class LiveActivityPlugin: Plugin {
     private func run<Value: Encodable>(_ invoke: Invoke, operation: @escaping @MainActor (LiveActivityController) async throws -> Value) {
         Task { @MainActor in
             do {
-                guard #available(iOS 16.1, *) else {
-                    throw ActivityFailure("UNSUPPORTED_PLATFORM", "Live Activities require iOS 16.1 or later.")
+                guard #available(iOS 16.1, *), self.platformSupported else {
+                    throw ActivityFailure("UNSUPPORTED_PLATFORM", "Live Activities require iPhone with iOS 16.1 or iPad with iPadOS 17 or later.")
                 }
                 let instance = try controller ?? LiveActivityController(backend: ActivityKitBackend(), store: FileReceiptStore.applicationStore())
                 controller = instance
@@ -76,9 +77,24 @@ public final class LiveActivityPlugin: Plugin {
     }
 
     private func permissions(request: Bool) -> Permissions {
-        guard #available(iOS 16.1, *) else { return Permissions(liveActivities: "notApplicable") }
+        guard #available(iOS 16.1, *), platformSupported else { return Permissions(liveActivities: "notApplicable") }
         let enabled = ActivityAuthorizationInfo().areActivitiesEnabled
         return Permissions(liveActivities: enabled ? "granted" : (request ? "settingsRequired" : "denied"))
+    }
+
+    private var platformSupported: Bool {
+        #if targetEnvironment(macCatalyst)
+        return false
+        #else
+        let family: LiveActivityPlatformSupport.DeviceFamily
+        switch UIDevice.current.userInterfaceIdiom {
+        case .phone: family = .phone
+        case .pad: family = .pad
+        default: family = .unsupported
+        }
+        return LiveActivityPlatformSupport.supports(family, version: ProcessInfo.processInfo.operatingSystemVersion,
+            isiOSAppOnMac: ProcessInfo.processInfo.isiOSAppOnMac)
+        #endif
     }
 }
 
