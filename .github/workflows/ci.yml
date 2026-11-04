@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Rust, TypeScript and Swift
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt,clippy,llvm-tools-preview
+      - run: rustup default 1.99.1
+      - run: npm ci
+      - run: npm test && npm run typecheck && npm run build:demo
+      - run: cargo fmt --all -- --check
+      - run: cargo fmt --manifest-path examples/demo/src-tauri/Cargo.toml -- --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo install cargo-llvm-cov --version 0.9.1 --locked
+      - run: cargo llvm-cov --locked --summary-only --fail-under-lines 80
+      - run: cargo test --locked --manifest-path examples/demo/src-tauri/Cargo.toml
+      - run: bash tests/ios/run-core.sh
+      - run: npm pack --dry-run
+      - run: cargo package --locked
+  android:
+    name: Android unit tests and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: cargo fetch --locked
+      - run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
+      - run: ./gradlew :live-activity:testDebugUnitTest :live-activity:lintDebug --no-daemon
+        working-directory: tests/android

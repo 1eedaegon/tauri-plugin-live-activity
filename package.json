@@ -1,0 +1,48 @@
+{
+  "name": "tauri-plugin-live-activity-api",
+  "version": "0.1.0-alpha.1",
+  "description": "Typed Tauri v2 API for iOS Live Activities and Android ongoing activity notifications",
+  "author": "1eedaegon",
+  "type": "module",
+  "license": "Apache-2.0 OR MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1eedaegon/tauri-plugin-live-activity.git"
+  },
+  "homepage": "https://github.com/1eedaegon/tauri-plugin-live-activity#readme",
+  "bugs": "https://github.com/1eedaegon/tauri-plugin-live-activity/issues",
+  "keywords": ["tauri", "plugin", "live-activity", "activitykit", "android"],
+  "sideEffects": false,
+  "types": "./dist-js/index.d.ts",
+  "main": "./dist-js/index.js",
+  "exports": {
+    ".": { "types": "./dist-js/index.d.ts", "import": "./dist-js/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist-js", "README.md", "README.ko.md", "LICENSE", "LICENSE-APACHE", "LICENSE-MIT"],
+  "publishConfig": { "access": "public", "tag": "next" },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p examples/demo/tsconfig.json",
+    "test": "npm run build && npm run test:contracts && npm run test:api && npm run test:demo",
+    "test:contracts": "node --test --experimental-test-coverage \"--test-coverage-include=tools/validate-request.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/requests.test.mjs",
+    "test:api": "node --test --experimental-test-coverage \"--test-coverage-include=dist-js/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/api.test.mjs",
+    "test:demo": "node --experimental-strip-types --test examples/demo/tests/self-test.test.mjs examples/demo/tests/ui-state.test.mjs",
+    "build:demo": "npm run build && node examples/demo/build.mjs",
+    "prepack": "npm run build",
+    "pack:check": "npm pack --dry-run"
+  },
+  "peerDependencies": {
+    "@tauri-apps/api": "^2.12.4"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4",
+    "@tauri-apps/api": "2.12.4",
+    "ajv": "8.20.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}

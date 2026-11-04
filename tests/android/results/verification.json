@@ -1,0 +1,59 @@
+{
+  "verifiedAt": "2026-11-04T17:57:44.730406+00:00",
+  "apkSha256": "a5d26e2c5d3c077946b42eff4eb0f57c3cbdc35461949dc7f9582ba57ecf217d",
+  "jvmTests": 18,
+  "nativeInstrumentedTestsPerEmulator": 5,
+  "nativeEmulatorApis": [
+    31,
+    37
+  ],
+  "fullBridgeChecksPerEmulator": 13,
+  "fullBridgeEmulatorApis": [
+    31,
+    37
+  ],
+  "jacoco": {
+    "lines": {
+      "covered": 297,
+      "total": 317,
+      "percent": 93.69
+    },
+    "branches": {
+      "covered": 182,
+      "total": 258,
+      "percent": 70.54
+    }
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 1,
+    "warningId": "NewerVersionAvailable",
+    "reason": "Test-only Jackson version is pinned to match Tauri 2.12.5."
+  },
+  "api31": {
+    "backend": "androidNotification",
+    "promotionRequested": false,
+    "promotionState": "notApplicable",
+    "strictFallbackError": "UNSUPPORTED_FEATURE",
+    "backgroundProcessRestartRestoredSameHandle": true
+  },
+  "api37": {
+    "backend": "androidNotification",
+    "promotionRequested": true,
+    "promotionState": "promoted",
+    "snapshot": {
+      "revision": 0,
+      "title": "Downloading files",
+      "status": "65 of 100 files",
+      "progress": 0.65
+    },
+    "initialPermissionDenied": true,
+    "notificationPermissionGrantedThroughSystemDialog": true
+  },
+  "limitations": [
+    "No physical Galaxy/OEM validation",
+    "API24 minimum is compile/lint verified; emulator runtime covers31and37",
+    "Coverage is combined native/JVM line coverage; branch coverage is reported separately",
+    "API37 native instrumentation preceded final lifecycle-only fixes; final full bridge checks cover the final APK on both emulators"
+  ]
+}

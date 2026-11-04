@@ -1,0 +1,66 @@
+name: LiveActivityNativeTests
+options:
+  bundleIdPrefix: io.github.eedaegon
+  deploymentTarget:
+    iOS: "16.1"
+packages:
+  LiveActivity:
+    path: ../../../ios
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGNING_ALLOWED: NO
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  LiveActivityNativeTests:
+    type: application
+    platform: iOS
+    sources:
+      - App.swift
+      - ../../../ios/Sources/LiveActivityCore
+      - ../../../ios/Sources/LiveActivityPlugin/ActivityKitBackend.swift
+    dependencies:
+      - package: LiveActivity
+        product: LiveActivityShared
+      - target: LiveActivityTestWidget
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Activity tests
+        NSSupportsLiveActivities: true
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.eedaegon.LiveActivityNativeTests
+        TARGETED_DEVICE_FAMILY: "1"
+  LiveActivityTestWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - ../../../templates/ios/LiveActivityWidget.swift
+    dependencies:
+      - package: LiveActivity
+        product: LiveActivityShared
+    info:
+      path: WidgetInfo.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.eedaegon.LiveActivityNativeTests.widget
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+  NativeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: LiveActivityNativeTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.eedaegon.LiveActivityNativeTests.uitests
+        TEST_TARGET_NAME: LiveActivityNativeTests
+        GENERATE_INFOPLIST_FILE: YES

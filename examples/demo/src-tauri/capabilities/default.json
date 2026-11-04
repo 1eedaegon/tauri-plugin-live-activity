@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Local demo access to Live Activity reads and explicit user-triggered changes",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "live-activity:default",
+    "live-activity:allow-request-permissions",
+    "live-activity:allow-start",
+    "live-activity:allow-update",
+    "live-activity:allow-end"
+  ]
+}

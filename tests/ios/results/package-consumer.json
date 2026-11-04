@@ -1,0 +1,16 @@
+{
+  "crateSha256": "dd2b3d77a5392fc985b1f365c4d4e4948b118d395fb6bb2100eeb55dc60c0a3c",
+  "source": "fresh .crate extraction",
+  "preexistingTauriApi": false,
+  "status": "passed",
+  "target": "aarch64-apple-ios-sim",
+  "consumerTauriDefaultFeatures": false,
+  "pluginSuppliesIosWryFeature": true,
+  "swiftLibraryBuiltFromExtractedSource": true,
+  "tauriApiCreatedByCargo": true,
+  "iosSourceAndTemplateFilesVerified": 9,
+  "packagedContractTests": {
+    "passed": 5,
+    "failed": 0
+  }
+}

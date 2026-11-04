@@ -1,0 +1,63 @@
+# Rust and JavaScript build output
+target/
+node_modules/
+dist/
+dist-js/
+.tauri/
+coverage/
+*.tgz
+.npm/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/install-state.gz
+
+# Mobile build caches; keep native source and generated project configuration
+.gradle/
+.kotlin/
+**/android/**/build/
+**/gen/android/**/build/
+**/android/local.properties
+**/gen/android/local.properties
+**/ios/build/
+**/gen/apple/build/
+DerivedData/
+.build/
+.swiftpm/
+tests/ios/SimulatorHost/*.xcodeproj/
+Pods/
+xcuserdata/
+*.xcuserstate
+*.ipa
+*.apk
+*.aab
+*.xcarchive/
+**/src-tauri/gen/schemas/
+
+# Local environment and signing credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+*.provisionprofile
+**/key.properties
+**/keystore.properties
+
+# Local editor settings and runtime output
+.idea/
+.vs/
+.vscode/settings.json
+.vscode/launch.json
+*.log
+*.pid
+*.pid.lock
+.DS_Store
+Thumbs.db
+
+# Keep Cargo.lock and JS package-manager lockfiles for reproducible validation.
+# Keep Gradle wrapper, native project files, entitlements, and permission schemas.
