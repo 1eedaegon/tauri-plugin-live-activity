@@ -1,0 +1,23 @@
+{
+  "cargoArchiveSha256": "e26a27ca943b356b2b68a0ec7cfb02f9e8e03713ab3f2b34997b82b0243b3941",
+  "npmTarballSha256": "c277210dcb322053aa2f334efa630205eb8a50482b811d66a848b72febb9d577",
+  "newPlatformSupportPresent": true,
+  "tauriAPIAbsentBeforeBuild": true,
+  "version": "0.1.0-alpha.2",
+  "stage": "prepublication local packages",
+  "build": "passed",
+  "target": "aarch64-apple-ios-sim",
+  "npmInstalledAsSymlink": false,
+  "tauriAPIPopulatedByCargo": true,
+  "results": {
+    "lifecycle": 13,
+    "features": 10,
+    "unicodeRegression": 1
+  },
+  "commands": [
+    "npm install --ignore-scripts",
+    "cargo check --manifest-path src-tauri/Cargo.toml --target aarch64-apple-ios-sim",
+    "npm run tauri -- ios build --target aarch64-sim --debug"
+  ],
+  "note": "Archive captured before final commit metadata; final registry artifact must be verified separately"
+}

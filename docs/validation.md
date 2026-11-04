@@ -47,6 +47,15 @@ fresh request, cancellation, retry and grant, first denial, and repeated denial.
 A real swipe dismissed the API 37 promoted activity, and a late update returned
 `NOT_FOUND`. [Dismissal result](../tests/android/results/mochi-api37-user-dismissal.json).
 
+Before publication, an iPhone Tauri consumer also installed the renamed npm tarball
+and a freshly extracted alpha.2 crate. It passed all 13 lifecycle checks, 10 feature
+checks and the previously failing Unicode conflict check. Cargo prepared its own
+Tauri Swift dependency; no workspace plugin implementation was used.
+[Packaged consumer](../tests/ios/results/packaged-alpha2-consumer.json),
+[lifecycle](../tests/ios/results/packaged-alpha2-lifecycle.json),
+[features](../tests/ios/results/packaged-alpha2-features.json),
+[Unicode regression](../tests/ios/results/packaged-alpha2-unicode.json).
+
 ## Defects found and fixed
 
 - Swift's canonical Unicode equality accepted changed wire text at the same
@@ -75,6 +84,7 @@ and Android notification surfaces. The Android API 37 record contains the native
 `PROMOTED_ONGOING` flag; API 31 is an ordinary notification fallback. API 36's
 emulator did not allow promotion and correctly used the fallback.
 [Android capture evidence](../tests/android/results/mochi-screenshots.json).
+[iOS capture evidence](../tests/ios/results/mochi-screenshots.json).
 
 [OS coverage](platform-coverage.md), [iOS details](ios-coverage.md), and
 [Android details](android-coverage.md) distinguish implementation, compile checks,

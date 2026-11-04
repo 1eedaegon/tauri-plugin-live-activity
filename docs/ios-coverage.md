@@ -12,9 +12,10 @@ Research and validation date: 2026-11-04. This covers the iOS ActivityKit backen
 | iPad, iPadOS 17+ | ActivityKit backend | OS policy cases accept 17.0 and 27.2; Runtime lifecycle passed 13/13 on iPadOS 27.2 simulator |
 | iOS app running on Mac / Mac Catalyst | Unsupported by this plugin | Explicit platform gate; desktop Tauri has a separate unsupported implementation |
 | Other idioms | Unsupported | OS policy unit case |
+| visionOS, including compatible iPhone/iPad apps | Unsupported; no visionOS runtime validation | Apple documents that start requests fail; no claim of tested compatibility-mode detection |
 | Physical iPhone/iPad; Apple Watch, Mac forwarding, CarPlay | Not validated in this session | Requires physical devices and the relevant pairing/setup |
 
-Apple introduced iPad Live Activities with iPadOS 17 in [Meet ActivityKit, WWDC23](https://developer.apple.com/videos/play/wwdc2023/10184/). A Swift `#available(iOS 16.1, *)` check alone is insufficient to distinguish older iPads. The same device/OS policy now controls capabilities, permission applicability, and command execution; native Swift availability checks remain in place for safe API use. Platform support is separate from the person's app settings.
+Apple introduced iPad Live Activities with iPadOS 17 in [Meet ActivityKit, WWDC23](https://developer.apple.com/videos/play/wwdc2023/10184/). A Swift `#available(iOS 16.1, *)` check alone is insufficient to distinguish older iPads. The same device/OS policy now controls capabilities, permission applicability, and command execution; native Swift availability checks remain in place for safe API use. Platform support is separate from the person's app settings. Apple’s [ActivityKit overview](https://developer.apple.com/documentation/activitykit) explicitly excludes visionOS, including compatible iPhone/iPad apps. This release does not introduce a dependency on the newer SDK-only compatibility detection API or claim that Vision compatibility mode was tested.
 
 Apple documents [Live Activity authorization](https://developer.apple.com/documentation/activitykit/activityauthorizationinfo) independently of ordinary notification permission. This plugin checks Live Activity settings; it does not fabricate a prompt or request unrelated notification permission.
 
@@ -45,6 +46,8 @@ The isolated consumer pins `tauri-plugin-live-activity-api@0.1.0-alpha.1` from n
 - The exact released npm/Cargo combination reproduced the Unicode conflict defect (`tests/ios/results/published-alpha1-unicode-red.json`). This is a known alpha.1 failure, not a failed assertion concealed by the UI automation test that captures it.
 - The published Cargo archive checksum is `5e8b202f1dca8d3a1a68037cf035eb6827ba5ab0555ec1529075dcafcacf4305`; sparse index, lockfile, and downloaded archive agree. See `tests/release/crates-io-consumer.json` for the independent registry compile evidence.
 
+The prepublication alpha.2 npm tarball (`tauri-plugin-live-activity`) and freshly extracted Cargo crate also passed lifecycle 13/13, feature 10/10, and the Unicode conflict regression 1/1 in an actual Tauri app. `packaged-alpha2-consumer.json` records the exact local archive hashes and bootstrap order; the native package started without `.tauri`, and Cargo populated it. This is packaged-candidate evidence, not registry-release evidence.
+
 The next release's renamed npm package (`tauri-plugin-live-activity`) and exact Cargo version must be installed into this same isolated consumer and rerun after publication. Local-source success is not final registry-release verification.
 
 ## Actual Mochi presentation
@@ -52,3 +55,5 @@ The next release's renamed npm package (`tauri-plugin-live-activity`) and exact 
 The workspace alpha.2 demo embeds `examples/demo/widget/MochiWidget.swift`, a custom host widget using the plugin's shared attributes. The generic published template remains unchanged. The iPhone simulator displayed an actual 65% snack delivery and a live five-minute nap countdown; these are app-created activities, not a visual mock or test-results screen.
 
 `docs/images/mochi-demo.png` shows the real Tauri UI. `mochi-ios-live-activity.png` shows the expanded Activity stack in Notification Center's Lock Screen presentation, with both snack and nap cards. `mochi-ios-dynamic-island.png` shows the expanded Island. The OS applies its own glass tint to the widget background. The original alpha.1 screenshots are preserved separately. The XCTest capture driver is `tests/ios/SimulatorHost/UITests/MochiScreens.swift`; use a fresh install of the demo on the recorded iPhone profile before running it.
+
+The updated Mochi Developer tools lifecycle driver also passed 13/13 against the workspace app (`tests/ios/results/mochi-lifecycle.json`). The obsolete order-example capture test has been replaced by the Mochi capture driver.

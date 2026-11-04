@@ -21,7 +21,16 @@ not add that Xcode target automatically.
    host, and use the same signing team for device builds.
 
 The package's Tauri dependency at `.tauri/tauri-api` is prepared by Tauri's Cargo
-plugin build. Build the host once before resolving the local package in Xcode.
+plugin build. Before resolving the widget's local Swift package in Xcode, run
+this from the host application's `src-tauri` directory with its iOS toolchain
+configured:
+
+```sh
+cargo check --target aarch64-apple-ios-sim
+# On an Intel Mac, use --target x86_64-apple-ios instead.
+```
+
+This prepares the Tauri Swift dependency before Xcode attempts package resolution.
 For a registry installation, locate the installed crate using `cargo metadata`;
 its `ios/` directory is the package location. The Rust crate includes both the template files under `templates/ios/` and the
 native Swift package under `ios/`. The npm package supplies the JavaScript API.
