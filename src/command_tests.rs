@@ -108,7 +108,7 @@ fn ipc_denies_ungranted_mutations_and_remote_content() {
         &webview,
         request(
             "plugin:live-activity|get_capabilities",
-            "tauri://localhost",
+            crate::desktop_ipc_tests::local_ipc_url(),
             json!({}),
         ),
     );
@@ -120,7 +120,7 @@ fn ipc_denies_ungranted_mutations_and_remote_content() {
         &webview,
         request(
             "plugin:live-activity|start",
-            "tauri://localhost",
+            crate::desktop_ipc_tests::local_ipc_url(),
             json!({"input":start_input()}),
         ),
     );

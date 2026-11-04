@@ -16,6 +16,8 @@ mod command_tests;
 mod commands;
 #[cfg(desktop)]
 mod desktop;
+#[cfg(all(test, desktop))]
+mod desktop_ipc_tests;
 mod error;
 #[cfg(mobile)]
 mod mobile;
