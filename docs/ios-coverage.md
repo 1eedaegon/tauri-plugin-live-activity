@@ -48,7 +48,9 @@ The isolated consumer pins `tauri-plugin-live-activity-api@0.1.0-alpha.1` from n
 
 The prepublication alpha.2 npm tarball (`tauri-plugin-live-activity`) and freshly extracted Cargo crate also passed lifecycle 13/13, feature 10/10, and the Unicode conflict regression 1/1 in an actual Tauri app. `packaged-alpha2-consumer.json` records the exact local archive hashes and bootstrap order; the native package started without `.tauri`, and Cargo populated it. This is packaged-candidate evidence, not registry-release evidence.
 
-The next release's renamed npm package (`tauri-plugin-live-activity`) and exact Cargo version must be installed into this same isolated consumer and rerun after publication. Local-source success is not final registry-release verification.
+The released alpha.2 Cargo crate also passed an exact registry `cargo check` for the iOS simulator. Its downloaded archive, sparse index and lockfile agree on SHA-256 `157b238cc6d5f79de4c86b6c9219eac83689def958224c12be2e0f3cbf43e938`, and the archive records source commit `b91266c`. [Cargo release evidence](../tests/release/crates-io-alpha2-consumer.json).
+
+The renamed npm package (`tauri-plugin-live-activity`) must still be installed with that exact Cargo version into the isolated consumer and rerun after npm publication. Local-source success is not final paired registry-release verification.
 
 ## Actual Mochi presentation
 

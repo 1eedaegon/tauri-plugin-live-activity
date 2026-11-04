@@ -1,0 +1,48 @@
+{
+  "api": 37,
+  "appId": "io.github.eedaegon.liveactivitydemo",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "fresh install can request permission",
+      "expected": "prompt",
+      "actual": "prompt",
+      "passed": true
+    },
+    {
+      "name": "cancelled dialog remains explicitly retryable",
+      "expected": [
+        "prompt",
+        "unknown"
+      ],
+      "actual": "unknown",
+      "passed": true
+    },
+    {
+      "name": "retry after cancellation can grant permission",
+      "expected": "granted",
+      "actual": "granted",
+      "passed": true
+    },
+    {
+      "name": "first denial preserves an explicit request opportunity",
+      "expected": "prompt",
+      "actual": "prompt",
+      "passed": true
+    },
+    {
+      "name": "repeated denial requires settings",
+      "expected": "settingsRequired",
+      "actual": "settingsRequired",
+      "passed": true
+    }
+  ],
+  "scope": "local alpha.2 installed demo; test-helper verification, not registry verification",
+  "verifiedAt": "2026-11-04T19:38:05.051790+00:00",
+  "installedApkSha256": "863a25eddbe1a69d6f05144b2dfb1a8ecab855c5090bcaa0dacc654d8a55aac9",
+  "helperSourceSha256": {
+    "tests/android/permission-dialog.mjs": "210b16471dce5b0c3d7ba2865cf316b0e71e0d2447133933f6ac60fab8b9ccd7",
+    "tests/android/webview.mjs": "7c5c9b04ad38207bad45a8786fe645e78d50672d939f565c75387fc1991ed60a"
+  },
+  "automationFix": "Wait for the OS permission window to be drawn and visible before sending Escape; discard stale UI hierarchies before reading permission buttons."
+}

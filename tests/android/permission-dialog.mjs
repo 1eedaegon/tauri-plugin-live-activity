@@ -6,7 +6,8 @@ import { writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
 const [adbPath, serial, appId, output] = process.argv.slice(2);
-if (!adbPath || !serial || !appId?.startsWith('io.github.eedaegon.liveactivity') || !output) {
+const testApps = ['io.github.eedaegon.liveactivitydemo', 'io.github.eedaegon.liveactivityregistry'];
+if (!adbPath || !serial || !testApps.includes(appId) || !output) {
   throw new Error('Provide adb, emulator serial, a live-activity test app ID and report path.');
 }
 const adb = (...args) => execFileSync(adbPath, ['-s', serial, ...args], { encoding: 'utf8', timeout: 15000 }).trim();
@@ -15,7 +16,7 @@ const checks = [];
 
 async function evaluate(expression) {
   const targets = await (await fetch('http://127.0.0.1:9222/json')).json();
-  const target = targets.find(item => item.type === 'page');
+  const target = targets.find(item => item.type === 'page' && URL.canParse(item.url) && new URL(item.url).origin === 'http://tauri.localhost');
   assert.ok(target, 'A local Tauri WebView must be present.');
   const socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
@@ -59,12 +60,19 @@ async function resetApp() {
 
 async function showDialog() {
   await evaluate("document.querySelector('#permission').click(); true");
-  await waitFor(async () => adb('shell', 'dumpsys', 'activity', 'activities').includes('topResumedActivity=ActivityRecord') &&
-    /topResumedActivity=.*GrantPermissionsActivity/.test(adb('shell', 'dumpsys', 'activity', 'activities')), 'Android permission dialog');
+  await waitFor(async () => {
+    if (!/topResumedActivity=.*GrantPermissionsActivity/.test(adb('shell', 'dumpsys', 'activity', 'activities'))) return false;
+    const windows = adb('shell', 'dumpsys', 'window', 'windows').split(/\n  Window #/);
+    return windows.some(window => window.split('\n')[0].includes('GrantPermissionsActivity') &&
+      window.includes('mDrawState=HAS_DRAWN') && window.includes('mEnterAnimationPending=false') &&
+      window.includes('isReadyForDisplay()=true') && window.includes('isVisible=true'));
+  }, 'visible Android permission dialog ready for input');
 }
 
 async function choosePermission(choice) {
-  adb('shell', 'uiautomator', 'dump', '/sdcard/live-activity-permission.xml');
+  adb('shell', 'rm', '-f', '/sdcard/live-activity-permission.xml');
+  const dump = adb('shell', 'uiautomator', 'dump', '/sdcard/live-activity-permission.xml');
+  assert.match(dump, /dumped to:/, 'Read the current permission dialog, never an older hierarchy');
   const xml = adb('shell', 'cat', '/sdcard/live-activity-permission.xml');
   const button = choice === 'deny' ? 'deny(?:_and_dont_ask_again)?' : 'allow';
   const pattern = new RegExp(`resource-id="[^"]*:id/permission_${button}_button"[^>]*bounds="\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]"`);
@@ -86,8 +94,8 @@ async function expectPermission(expected, name) {
 await resetApp();
 await expectPermission('prompt', 'fresh install can request permission');
 await showDialog();
-adb('shell', 'input', 'tap', '50', '250');
-adb('shell', 'input', 'swipe', '0', '900', '500', '900', '250');
+// Escape dismisses the visible Android dialog without choosing either permission button.
+adb('shell', 'input', 'keyevent', '111');
 await expectPermission(['prompt', 'unknown'], 'cancelled dialog remains explicitly retryable');
 await showDialog();
 await choosePermission('allow');

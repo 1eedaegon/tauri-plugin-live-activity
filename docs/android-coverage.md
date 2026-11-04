@@ -61,3 +61,13 @@ locked devices. A standard notification or promoted OS flag does not prove that
 the user saw the activity. API 37 also passed an actual horizontal swipe of a promoted notification:
 `list()` reported `dismissed` and a late update returned `NOT_FOUND`. This is
 recorded separately in `tests/android/results/mochi-api37-user-dismissal.json`.
+
+The macOS 27.2 host encountered crashes in the platform-tools 37 adb daemon.
+Runtime checks used an official platform-tools 36.0.2 daemon from a temporary
+directory. The Android SDK, NDK and plugin compilation settings were unchanged.
+
+The permission driver now waits for a drawn, visible OS dialog before cancelling
+it and rejects stale UI hierarchy dumps. The hardened local WebView selector and
+test-app allowlist passed another API 37 run: [five permission checks](../tests/android/results/permission-api37-helper.json)
+and [13 lifecycle checks](../tests/android/results/mochi-api37-helper.json).
+These verify the local alpha.2 demo and test helpers, not the pending renamed npm release.

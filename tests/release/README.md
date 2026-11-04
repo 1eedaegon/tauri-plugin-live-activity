@@ -9,6 +9,9 @@ does not verify that both published artifacts contain the files a Tauri app need
 - `crates-io-consumer.json`: a new Cargo project with an exact registry dependency,
   no `[patch]` or path dependency, iOS simulator compilation including Swift;
   registry index, downloaded archive and lockfile checksums compared.
+- `crates-io-alpha2-consumer.json`: the released alpha.2 crate's exact registry
+  dependency, iOS simulator compilation and artifact identity. This does not
+  claim that the renamed npm package has been published or tested with it.
 
 The initial release's native bridge reports are under `tests/ios/results` and
 `tests/android/results`. Combined registry consumer reports are recorded separately

@@ -6,10 +6,10 @@
 | 실행 플랫폼 | 현재 구현 | 검증 범위와 남은 확인 |
 | --- | --- | --- |
 | iPhone / iOS 16.1+ | ActivityKit 진행률·타이머, 시작·갱신·종료·재조회 | iOS 27.2 시뮬레이터 실행. 16.1/16.2는 availability 분기와 빌드 검사이며 구형 OS 실기기 실행은 미검증 |
-| iPadOS | 동일한 iOS ActivityKit 코드 경로 | iPhone 실행 결과를 iPad UI 검증으로 간주하지 않음. 별도 실행 결과는 iOS 검증 문서에 기록 |
+| iPadOS 17+ | ActivityKit 진행률·타이머; iPadOS 16.x는 미지원 | iPadOS 27.2 시뮬레이터에서 lifecycle 13개와 추가 기능 10개 통과. 구형 OS는 정책 단위 테스트 |
 | Android API 24–32 | 진행률·타이머 지속 알림 | API 31 에뮬레이터 실행. API 24 최소 버전은 빌드·lint 검사 |
-| Android API 33–35 | 위 기능 + 알림 런타임 권한 | 권한 요청·거부·취소 및 채널 차단을 별도 검사. 구간 전체의 실기기 검증은 아님 |
-| Android API 36+ | 적격 알림의 Live Update 승격 요청, 불가하면 명시적 대체 | API 37 승격 플래그 관찰. API 36 경계와 사용자가 끈 승격 설정은 추가 검증 대상 |
+| Android API 33–35 | 위 기능 + 알림 런타임 권한 | 권한 요청·거부·취소 및 채널 차단은 API 36/37에서 검사. API 33–35 런타임은 미검증 |
+| Android API 36+ | 적격 알림의 Live Update 승격 요청, 불가하면 명시적 대체 | API 37 승격 플래그 관찰. API 36 에뮬레이터는 승격 불허 상태에서 일반 알림 대체 확인. 두 버전의 실제 권한 창 검사 통과 |
 | macOS | 명시적 미지원 | 호스트 Tauri IPC가 미지원 기능을 광고하지 않고 안정적인 오류를 반환하는지 검사 |
 | Windows / Linux | 명시적 미지원 | 각 OS의 CI에서 동일한 Tauri IPC 계약 통과. 네이티브 알림 UI 구현·검증은 포함하지 않음 |
 
@@ -42,16 +42,16 @@ Linux의 freedesktop 알림과 XDG Notification portal은 같은 ID로 알림을
 [freedesktop 명세](https://specifications.freedesktop.org/notification/latest-single/),
 [XDG Notification portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Notification.html).
 
-## 이번 보강에서 확인할 항목
+## 이번 보강의 검증 범위
 
-- npm·Cargo 레지스트리에서 받은 패키지 두 개를 실제 Tauri 앱에 연결해 실행
+- npm·Cargo 레지스트리의 alpha.1 패키지 두 개를 실제 Tauri 앱에 연결해 실행; alpha.2의 두 레지스트리 조합은 npm 게시 후 재검증
 - 진행률 외에 타이머·stale 시점·종료 정책·재시작과 동시 요청 검사
-- Android 권한 창 취소와 채널·승격 설정 변경 검사
+- Android 권한 창 취소, 채널 중요도 변경과 승격 허용/불허 상태 검사
 - macOS·Windows·Linux의 기능 조회 및 허가된 IPC 호출에 대한 미지원 오류 검사
 - Mochi 간식 배달·낮잠 데모를 앱과 실제 OS 표면에서 촬영
 
 실제 테스트 결과가 없는 기기·OS·표면은 지원 완료로 표시하지 않습니다.
 
 Windows와 Linux의 계약 테스트는
-[CI 실행 41889556983](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41889556983)의
+[최종 소스 CI 실행](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41894264762)의
 각 Desktop contract 작업에서 통과했습니다. macOS는 같은 테스트를 로컬에서 실행했습니다.

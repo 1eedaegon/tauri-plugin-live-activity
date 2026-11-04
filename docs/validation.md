@@ -1,8 +1,9 @@
 # 0.1.0-alpha.2 validation
 
-Validated on 2026-11-04. The release candidate uses the same package name,
-`tauri-plugin-live-activity`, on npm and crates.io. Final publication and registry
-consumer checks are pending. [First release evidence](validation-alpha.1.md).
+Validated on 2026-11-04. Alpha.2 uses the same package name,
+`tauri-plugin-live-activity`, on npm and crates.io. Cargo publication and the exact
+registry compile check passed. npm publication and paired alpha.2 registry runtime
+checks are pending. [First release evidence](validation-alpha.1.md).
 
 ## Automated checks
 
@@ -21,6 +22,10 @@ These scopes differ. Browser tests inject IPC to check UI behavior; they do not
 prove native delivery. Rust host coverage excludes mobile dispatch. Swift coverage
 measures shared models, lifecycle, persistence and platform policy, not OS rendering.
 The Android line threshold is 80%; branch coverage is reported separately.
+
+[Release source CI](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41894264762)
+passed all four jobs at commit `b91266c`: Rust/TypeScript/Swift on macOS,
+Android unit tests and lint, and desktop contracts on Windows and Linux.
 
 ## Actual Tauri apps
 
@@ -108,8 +113,12 @@ verified. APNs, FCM and background job scheduling are outside this release.
 - The renamed npm tarball installs in an isolated consumer and passes strict
   NodeNext type checking and all 14 API tests.
   [Package report](../tests/release/npm-alpha2-package.json).
-- `cargo package --locked --allow-dirty` successfully verified the candidate.
-  Final release archives must be regenerated from the committed source.
+- The final archives were regenerated from committed source `b91266c` after CI.
+  Cargo packaging and publication dry run passed. The published Cargo alpha.2
+  archive's SHA-256 is
+  `157b238cc6d5f79de4c86b6c9219eac83689def958224c12be2e0f3cbf43e938`;
+  the registry index, downloaded archive and isolated consumer lockfile agree.
+  [Released Cargo consumer](../tests/release/crates-io-alpha2-consumer.json).
 - Explicit package file lists exclude native build caches, screenshots, local
   configuration and credentials. npm contains the JS exports/types and documentation;
   Cargo contains the native code and generic widget template.
