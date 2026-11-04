@@ -10,5 +10,5 @@
 - [x] Run native builds and emulator lifecycle tests; fix observed failures.
 - [x] Review input handling, ACL, native lifecycle, dependencies and package contents.
 - [x] Install packaged artifacts in a clean consumer and rerun relevant checks.
-- [ ] Attempt crates.io and npm alpha publication after validation.
+- [x] Attempt crates.io and npm alpha publication after validation.
 - [ ] Verify published versions/installations, or record exact external blocker.

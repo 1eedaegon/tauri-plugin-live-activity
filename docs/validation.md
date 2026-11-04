@@ -24,6 +24,10 @@ real OS runs exposed delayed state propagation after an awaited ActivityKit upda
 and after Android `notify()`. Accepted snapshots are now persisted and reconciled
 with OS observations without treating accepted requests as proof of visible UI.
 
+[GitHub Actions run 41884094921](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41884094921)
+passed both jobs at release commit `0e6b8aa`: Rust, TypeScript, Swift, package
+verification, Android unit tests and lint.
+
 Actual Tauri IPC tests also verify that ungranted mutation commands and calls from
 remote web content are denied. The default plugin permission grants queries only.
 
@@ -58,6 +62,9 @@ outside this release.
   Tauri default features disabled. This check exposed and fixed a missing
   iOS-only `wry` dependency. Cargo prepared its own Tauri Swift API; no workspace
   copies were used. [Package consumer evidence](../tests/ios/results/package-consumer.json).
+- A separate Android consumer built the extracted crate into an AAR. Its normal
+  debug build contained no JaCoCo instrumentation or runtime dependency and used
+  no workspace native sources. [Package consumer evidence](../tests/android/results/package-consumer.json).
 - Explicit package file lists exclude native build caches, local configuration and credentials.
 - `npm audit` (including development dependencies): no reported vulnerabilities.
 - Android lint's remaining `NewerVersionAvailable` suggestion concerns test-only
@@ -69,6 +76,19 @@ outside this release.
   ([RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html)). Neither
   dependency is selected for this plugin's iOS or Android builds. Linux has no
   implemented backend in this release.
+
+## Registry release
+
+Release tag: [`v0.1.0-alpha.1`](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/v0.1.0-alpha.1).
+
+- [crates.io](https://crates.io/crates/tauri-plugin-live-activity/0.1.0-alpha.1):
+  published on 2026-11-04. The registry index checksum matches the verified local
+  archive: `5e8b202f1dca8d3a1a68037cf035eb6827ba5ab0555ec1529075dcafcacf4305`.
+  A new consumer resolved the exact version from crates.io without a path override
+  and passed `cargo check --target aarch64-apple-ios-sim`, including the Swift
+  library build. [Registry consumer evidence](../tests/release/crates-io-consumer.json).
+- npm publication was initiated with the `next` tag. It is awaiting npm's browser
+  account-authentication step; registry installation has not yet been verified.
 
 ## Reproduce
 

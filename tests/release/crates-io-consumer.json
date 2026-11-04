@@ -1,0 +1,34 @@
+{
+  "verifiedAtUtc": "2026-11-04T18:23:37+00:00",
+  "status": "passed",
+  "package": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.1",
+    "description": "Local Live Activities and ongoing notifications for Tauri 2 on iOS and Android",
+    "license": "Apache-2.0 OR MIT",
+    "rust-version": "1.90",
+    "repository": "https://github.com/1eedaegon/tauri-plugin-live-activity"
+  },
+  "sourceCommit": "0e6b8aa957cacfab7951338d9acc660dd8647870",
+  "registry": "crates.io",
+  "dependencyRequirement": "=0.1.0-alpha.1",
+  "resolvedSource": "registry+https://github.com/rust-lang/crates.io-index",
+  "pathOverride": false,
+  "target": "aarch64-apple-ios-sim",
+  "consumerTauriDefaultFeatures": false,
+  "cargoCheck": {
+    "exitCode": 0,
+    "elapsedSeconds": 12.28
+  },
+  "swiftLibraryBuiltFromRegistrySource": true,
+  "checksums": {
+    "downloadedArchiveSha256": "5e8b202f1dca8d3a1a68037cf035eb6827ba5ab0555ec1529075dcafcacf4305",
+    "registryIndex": "5e8b202f1dca8d3a1a68037cf035eb6827ba5ab0555ec1529075dcafcacf4305",
+    "consumerLockfile": "5e8b202f1dca8d3a1a68037cf035eb6827ba5ab0555ec1529075dcafcacf4305",
+    "matchesReleaseArchive": true
+  },
+  "yanked": false,
+  "metadataVerifiedWith": "cargo info tauri-plugin-live-activity@0.1.0-alpha.1 --registry crates-io",
+  "indexUrl": "https://index.crates.io/ta/ur/tauri-plugin-live-activity",
+  "crateUrl": "https://crates.io/crates/tauri-plugin-live-activity/0.1.0-alpha.1"
+}
