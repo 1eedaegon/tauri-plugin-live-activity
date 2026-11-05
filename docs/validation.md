@@ -72,6 +72,8 @@ GitHub description, homepage and 13 topics are set. npm alpha.4 includes 12 sear
 keywords; crates.io has five keywords and three categories. Both npm `latest` and
 `next` point to alpha.4. Public metadata readback is recorded separately from
 search-engine indexing in [discovery evidence](../tests/release/discovery-alpha4.json).
+[Default-tag CI verification](../tests/release/npm-default-tag-ci.json) passed after
+adding bounded registry-propagation checks.
 
 After the native checks and evidence push, task-created Android AVDs/images,
 iOS test apps/temporary hosts and workspace build artifacts were removed. Free

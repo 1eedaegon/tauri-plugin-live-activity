@@ -72,3 +72,6 @@ anything.
 [discovery metadata](discovery-alpha4.json) record the final metadata release.
 Both native consumers installed the exact public npm/Cargo pair. Source parity
 and the fresh native runs are separate evidence; neither substitutes for the other.
+
+[Default npm tag verification](npm-default-tag-ci.json) records `latest` and `next`
+on alpha.4. [Cleanup](cleanup-alpha4.json) records the post-validation disk recovery.

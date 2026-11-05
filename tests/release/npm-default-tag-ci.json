@@ -1,0 +1,30 @@
+{
+  "conclusion": "success",
+  "headSha": "b82ed938a870e2246fae4caf9284e7a4132f5894",
+  "jobs": [
+    {
+      "name": "package",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42004986250/job/127169368592"
+    },
+    {
+      "name": "npm",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42004986250/job/127170239878"
+    },
+    {
+      "name": "cargo",
+      "conclusion": "skipped",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42004986250/job/127170242218"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42004986250",
+  "releaseSourceCommit": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+  "version": "0.1.0-alpha.4",
+  "scope": "Verified existing npm artifact and default-tag promotion through OIDC; no new package publication requested",
+  "distTags": {
+    "latest": "0.1.0-alpha.4",
+    "next": "0.1.0-alpha.4"
+  }
+}
