@@ -65,3 +65,16 @@ visibility guarantees are claimed for this metadata release.
 [Version policy](compatibility.md), [OS coverage](platform-coverage.md),
 [Android coverage](android-coverage.md), [iOS coverage](ios-coverage.md),
 [release instructions](releasing.md).
+
+## Repository metadata and local cleanup
+
+GitHub description, homepage and 13 topics are set. npm alpha.4 includes 12 search
+keywords; crates.io has five keywords and three categories. Both npm `latest` and
+`next` point to alpha.4. Public metadata readback is recorded separately from
+search-engine indexing in [discovery evidence](../tests/release/discovery-alpha4.json).
+
+After the native checks and evidence push, task-created Android AVDs/images,
+iOS test apps/temporary hosts and workspace build artifacts were removed. Free
+space increased from 16.62 to 72.96 GiB (56.34 GiB reclaimed). Tracked source,
+screenshots, release archives and shared preexisting tools remain available.
+[Cleanup evidence](../tests/release/cleanup-alpha4.json).

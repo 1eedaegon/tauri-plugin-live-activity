@@ -87,5 +87,67 @@
     ],
     "repository": "https://github.com/1eedaegon/tauri-plugin-live-activity"
   },
-  "scope": "Public GitHub settings and exact-version npm/crates.io metadata readback. This does not assert current npm package-root metadata, search-index inclusion or ranking; those observations are recorded separately in npm-alpha4-registry.json."
+  "scope": "Public GitHub settings and exact-version npm/crates.io metadata readback. This does not assert current npm package-root metadata, search-index inclusion or ranking; those observations are recorded separately in npm-alpha4-registry.json.",
+  "defaultVersionVerification": {
+    "status": "passed",
+    "observedAt": "2026-11-05T09:42:36+00:00",
+    "distTags": {
+      "latest": "0.1.0-alpha.4",
+      "next": "0.1.0-alpha.4"
+    },
+    "maintenanceRun": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42003702198",
+    "maintenanceSteps": [
+      {
+        "name": "Update the default npm version",
+        "conclusion": "success"
+      },
+      {
+        "name": "Verify the default npm version",
+        "conclusion": "failure"
+      }
+    ],
+    "maintenanceNote": "The tag mutation succeeded. The initial immediate verification failed while reading cached metadata; this later independent observation confirms latest and next point to alpha.4.",
+    "defaultVersionMetadata": {
+      "version": "0.1.0-alpha.4",
+      "description": "Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates with ongoing notification fallback",
+      "keywords": [
+        "tauri",
+        "tauri-plugin",
+        "tauri-v2",
+        "ios",
+        "ipados",
+        "android",
+        "live-activity",
+        "live-activities",
+        "activitykit",
+        "dynamic-island",
+        "live-updates",
+        "notifications"
+      ]
+    },
+    "unversionedInstall": {
+      "command": "npm install --dry-run --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org tauri-plugin-live-activity",
+      "resolvedVersion": "0.1.0-alpha.4",
+      "tauriApiVersion": "2.12.4",
+      "exitCode": 0,
+      "packageFilesInstalled": false
+    },
+    "rawPackageRoot": {
+      "description": "Typed Tauri v2 API for iOS Live Activities and Android ongoing activity notifications",
+      "keywords": [
+        "tauri",
+        "plugin",
+        "live-activity",
+        "activitykit",
+        "android"
+      ],
+      "note": "These duplicate packument root fields still contain older metadata; npm view and unversioned installation select the updated alpha.4 version metadata."
+    },
+    "search": {
+      "endpoint": "https://registry.npmjs.org/-/v1/search?text=tauri-plugin-live-activity&size=20",
+      "exactPackageFound": false,
+      "requests": 1,
+      "note": "Single observation; indexing latency and future ranking are not guaranteed."
+    }
+  }
 }

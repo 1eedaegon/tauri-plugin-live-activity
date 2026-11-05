@@ -87,8 +87,9 @@ async function npmTagMatches(release) {
   return (await result.json())[release.distTag] === release.version;
 }
 
-async function inspect(registry, wait) {
-  const release = json(resolve(process.env.RELEASE_DIR, 'release.json'));
+async function inspect(registry, wait, useDefaultTag = false) {
+  const stored = json(resolve(process.env.RELEASE_DIR, 'release.json'));
+  const release = useDefaultTag ? { ...stored, distTag: 'latest' } : stored;
   const expected = release[registry];
   const algorithm = registry === 'npm' ? 'sha1' : 'sha256';
   if (hash(resolve(process.env.RELEASE_DIR, expected.filename), algorithm) !== (expected.shasum ?? expected.checksum)) {
@@ -119,7 +120,8 @@ async function inspect(registry, wait) {
 const [mode, argument] = process.argv.slice(2);
 if (mode === 'prepare') await prepare(resolve(argument));
 else if (mode === 'archive') archive(resolve(argument));
+else if (mode === 'verify-default') await inspect('npm', true, true);
 else if (mode === 'inspect' || mode === 'verify') {
   if (!['npm', 'cargo'].includes(argument)) throw new Error('Unknown registry');
   await inspect(argument, mode === 'verify');
-} else throw new Error('Expected prepare, archive, inspect or verify');
+} else throw new Error('Expected prepare, archive, inspect, verify or verify-default');

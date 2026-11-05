@@ -124,9 +124,7 @@ jobs:
         run: npm dist-tag add "tauri-plugin-live-activity@$RELEASE_VERSION" latest
       - name: Verify the default npm version
         if: inputs.promote_latest
-        env:
-          RELEASE_VERSION: ${{ steps.registry.outputs.version }}
-        run: test "$(npm view tauri-plugin-live-activity dist-tags.latest)" = "$RELEASE_VERSION"
+        run: node tools/release.mjs verify-default
 
   cargo:
     needs: package

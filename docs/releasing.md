@@ -21,7 +21,7 @@ added; do not move a release tag or overwrite an existing version.
 To make an already-published version the default npm install, enable
 `promote_latest` on a manual run. This also updates the version from which npm
 selects its package-page and search metadata. It verifies the existing release
-before changing the tag. Keep this unchecked when preserving a stable default
+before changing the tag and waits for registry propagation afterward. Keep this unchecked when preserving a stable default
 while publishing a prerelease to `next`.
 
 ## One-time registry setup

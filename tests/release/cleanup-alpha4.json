@@ -1,0 +1,27 @@
+{
+  "status": "completed",
+  "releaseVersion": "0.1.0-alpha.4",
+  "startedAt": "2026-11-05T09:35:59.016975+00:00",
+  "completedAt": "2026-11-05T09:41:13.403041+00:00",
+  "evidenceCommit": "365c261aa37e9ef5f73b9ec3a9ef25e286e35cf9",
+  "beforeFreeBytes": 17841266688,
+  "afterFreeBytes": 78337458176,
+  "reclaimedBytes": 60496191488,
+  "scope": "Task-created Android AVDs/images, iOS test applications/temp hosts, and workspace build artifacts removed after tests and evidence push.",
+  "preserved": [
+    "Tracked source, tests, documentation and screenshots",
+    "Release archives and checksums",
+    "Preexisting Apple simulators/runtimes and shared Android SDK/AVD",
+    "Shared Cargo/Gradle caches and credentials"
+  ],
+  "counts": {
+    "androidPaths": 23,
+    "workspaceBuildPaths": 13,
+    "iosTemporaryDirectories": 9,
+    "iosTemporaryFiles": 40,
+    "iosAppsRemoved": 5,
+    "iosProfilesShutDown": 2,
+    "releaseDiagnosticDirectories": 3
+  },
+  "errors": []
+}

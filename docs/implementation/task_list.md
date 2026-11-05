@@ -42,7 +42,7 @@
 - [x] Refine Mochi's face consistently in the app and custom iOS widget; rerun browser QA.
 - [x] Capture and inspect the revised app and native widget on actual simulators.
 - [x] Finish tests and push the complete changes before removing development artifacts.
-- [ ] Remove task-created Android/iOS test environments and build caches; report reclaimed disk space.
+- [x] Remove task-created Android/iOS test environments and build caches; reclaimed 56.34 GiB.
 
 ## Automated registry releases
 
@@ -55,4 +55,4 @@
 
 - [x] Add GitHub description, homepage and 13 relevant topics.
 - [x] Publish npm keywords and Cargo keywords/categories in alpha.4; verify public metadata.
-- [ ] Align npm's default version and package-level discovery metadata with alpha.4.
+- [x] Set npm latest/next to alpha.4 and verify default-version metadata; record indexing observations separately.
