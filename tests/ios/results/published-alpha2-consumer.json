@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "version": "0.1.0-alpha.2",
+  "npm": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.2",
+    "resolved": "https://registry.npmjs.org/tauri-plugin-live-activity/-/tauri-plugin-live-activity-0.1.0-alpha.2.tgz",
+    "integrity": "sha512-POTnmukvkmfxBrGZaso1v2sD52sRHf/A+IotxN3FmqZ9xT4Wv90URzGQNQjTdp6fnE135mdx1SdmR2QLLTeDNg==",
+    "sha1": "b91bf5e1a0d9cf4da3f0d355b044790fc980567a",
+    "frozenManifestMatches": true,
+    "registryMetadataMatches": true,
+    "installedAsSymlink": false,
+    "oldApiPackagePresent": false
+  },
+  "cargo": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.2",
+    "source": "registry+https://github.com/rust-lang/crates.io-index",
+    "checksum": "157b238cc6d5f79de4c86b6c9219eac83689def958224c12be2e0f3cbf43e938",
+    "archiveChecksumMatches": true,
+    "lockfileChecksumMatches": true,
+    "sparseIndexChecksumMatches": true,
+    "yanked": false,
+    "sourceCommit": "b91266c7727b426e8be75e32df84fbbfdeba4967",
+    "target": "aarch64-apple-ios-sim",
+    "cargoCheck": "passed",
+    "pluginPathOverride": false,
+    "tauriAPIProvidedByCargo": true,
+    "newPlatformSupportPresent": true
+  },
+  "build": {
+    "command": "npm run tauri -- ios build --target aarch64-sim --debug",
+    "status": "passed",
+    "hostMinimumOSVersion": "16.1",
+    "widgetMinimumOSVersion": "16.1",
+    "widget": "Mochi host-specific widget importing LiveActivityShared from registry crate",
+    "pluginPathOverrides": false
+  },
+  "runtime": {
+    "iPhone18Pro_iOS27.2": {
+      "lifecycle": 13,
+      "features": 10,
+      "unicodeRegression": 1,
+      "status": "passed"
+    },
+    "iPadMiniA20Pro_iPadOS27.2": {
+      "lifecycle": 13,
+      "features": 10,
+      "unicodeRegression": 1,
+      "status": "passed"
+    }
+  },
+  "visibility": "Acceptance does not imply visibility; screenshots of local candidate tracked separately",
+  "staleTransition": "Strict stale-date OS observation remains an explicit simulator limitation and is not included in these passing feature counts"
+}

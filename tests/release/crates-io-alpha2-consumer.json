@@ -19,6 +19,6 @@
   "dependency": "tauri-plugin-live-activity = \"=0.1.0-alpha.2\"",
   "command": "cargo check --manifest-path src-tauri/Cargo.toml --target aarch64-apple-ios-sim",
   "elapsedSeconds": 14.65,
-  "npmVerification": "pending public release",
-  "combinedNativeRuntimeVerification": "pending public npm release; not claimed by this evidence"
+  "npmVerification": "Completed separately; see tests/ios/results/published-alpha2-consumer.json",
+  "combinedNativeRuntimeVerification": "Completed separately on iPhone and iPad; see tests/ios/results/published-alpha2-consumer.json"
 }

@@ -45,6 +45,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
@@ -54,8 +57,10 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - run: cargo fetch --locked
       - run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
-      - run: ./gradlew :live-activity:testDebugUnitTest :live-activity:lintDebug --no-daemon
+      - run: ./gradlew :live-activity:testDebugUnitTest :live-activity:lintDebug :live-activity:assembleDebugAndroidTest --no-daemon
         working-directory: tests/android
+      - name: Verify Android minimum in the merged APK
+        run: node tests/android/verify-min-sdk.mjs "$ANDROID_HOME/build-tools/37.0.0/aapt" android/build/outputs/apk/androidTest/debug/live-activity-debug-androidTest.apk
   desktop:
     name: Desktop contract (${{ matrix.os }})
     strategy:

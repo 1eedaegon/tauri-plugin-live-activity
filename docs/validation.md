@@ -1,130 +1,85 @@
-# 0.1.0-alpha.2 validation
+# 0.1.0-alpha.3 validation
 
-Validated on 2026-11-04. Alpha.2 uses the same package name,
-`tauri-plugin-live-activity`, on npm and crates.io. Cargo publication and the exact
-registry compile check passed. npm publication and paired alpha.2 registry runtime
-checks are pending. [First release evidence](validation-alpha.1.md).
+Alpha.3 corrects the Android minimum to API 26 and refines the demo illustration.
+Publication and final registry checks are pending. The preceding alpha.2 was
+published on both registries and verified in paired Tauri consumers on iPhone,
+iPad and Android. [Alpha.2 evidence](validation-alpha.2.md).
 
-## Automated checks
+## Changes and regression evidence
 
-| Layer | Result |
+The old minimum allowed an APK to install on API 24, where Tauri's Jackson
+initialization crashed before the plugin could run. The library and demo now
+require API 26. A regression reads the merged APK's actual minimum; it failed
+against the published alpha.2 APK and passes against the corrected build. CI also
+builds the instrumented APK and verifies this metadata.
+[API 24 failure](../tests/android/results/registry-alpha2-api24-boundary.json),
+[minimum-SDK guard](../tests/android/results/min-sdk26-guard.json).
+
+Android's permission driver now uses Back after the OS dialog becomes visible.
+The API 33 controller ignored the previous Escape key. Native test assertions
+also account for the API 31 introduction of the immutability getter and API 26's
+channel-importance behavior. Production notification lifecycle logic is unchanged.
+
+Mochi's app and widget now share a single face silhouette with smaller ears and
+simple eyes and nose. The revised widget passes iOS 16.1/16.2/17.0 availability
+compilation. App and OS screenshots are captured from actual simulator/emulator
+builds; browser QA screenshots use injected IPC and are labeled separately.
+
+## Checks
+
+| Scope | Result |
 | --- | --- |
-| Request schema | 52 tests; line/branch/function coverage 100% |
-| TypeScript IPC API | 14 tests; line/branch/function coverage 100% |
-| Demo scenario and lifecycle logic | 17 tests; lines/functions 100%, branches 96.51% |
-| Demo browser behavior | 14 checks; representative axe WCAG A/AA scans report 0 violations |
-| Rust | 12 tests; host lines 96.28%, functions 87.50%; clippy clean |
-| Swift shared model/lifecycle/platform policy | 60 assertions; lines 98.17%, functions 96.15%, regions 95.31% |
-| Android | 22 JVM tests and 8 native instrumentation tests on APIs 31, 36 and 37 |
-| Android native coverage | Lines 93.79% (317/338), branches 73.08% (209/286); no lint errors |
+| JS request/API/demo tests | 83 passed; strict TypeScript checks passed |
+| JS coverage | Request/API 100%; demo lines/functions 100%, branches 96.51% |
+| Rust host | 12 tests and formatting checks passed |
+| Browser UI | 14 checks; axe scans report 0 violations |
+| Android unit/lint | 22 tests; no lint errors |
+| Android coverage | Lines 93.20% (315/338), branches 71.33% (204/286); 80% line gate passed |
+| API 26 native boundary | Eight tests passed, including real Tauri Invoke/Jackson calls |
+| API 33 published alpha.2 app | 13 lifecycle and five permission-dialog checks passed |
+| API 37 local alpha.3 app | 13 lifecycle checks passed |
+| API 37 Back cancellation regression | Five real permission-dialog checks passed with published alpha.2 |
+| Revised custom iOS widget | iOS 16.1, 16.2 and 17.0 compile-time availability passed |
 
-These scopes differ. Browser tests inject IPC to check UI behavior; they do not
-prove native delivery. Rust host coverage excludes mobile dispatch. Swift coverage
-measures shared models, lifecycle, persistence and platform policy, not OS rendering.
-The Android line threshold is 80%; branch coverage is reported separately.
+The release CI checks Rust, TypeScript, Swift, Android unit/lint/manifest behavior,
+and desktop unsupported contracts on Windows and Linux. Its final run and
+published alpha.3 consumer reports will be recorded after completion.
 
-[Release source CI](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41894264762)
-passed all four jobs at commit `b91266c`: Rust/TypeScript/Swift on macOS,
-Android unit tests and lint, and desktop contracts on Windows and Linux.
+[API 26 tests](../tests/android/results/native-api26-boundary.json),
+[API 33 lifecycle](../tests/android/results/registry-alpha2-api33-lifecycle.json),
+[API 33 permissions](../tests/android/results/permission-api33-registry-alpha2.json),
+[API 37 alpha.3 lifecycle](../tests/android/results/mochi-alpha3-api37-lifecycle.json),
+[API 37 Back regression](../tests/android/results/permission-api37-back-registry-alpha2.json),
+[custom widget availability](../tests/ios/results/mochi-widget-availability.json).
 
-## Actual Tauri apps
+The [Android coverage report](../tests/android/results/coverage-alpha3.json) was
+recomputed from existing execution data against unchanged production Kotlin
+sources; it is not presented as newly collected API 26/37 coverage. The separate
+native runs verify those runtime boundaries.
 
-The initial published npm and Cargo packages were installed together in isolated
-Tauri apps, without a plugin path dependency or copied plugin implementation:
+## Support policy and remaining runtime checks
 
-- iPhone / iOS 27.2: 13 lifecycle and 10 additional feature checks passed.
-- iPad / iPadOS 27.2: the same 13 lifecycle and 10 feature checks passed.
-- Android APIs 31, 36 and 37: all 13 JavaScript → Rust → Kotlin lifecycle checks passed.
+- iPhone: iOS 16.1+, with stale dates requiring 16.2; iPad: iPadOS 17+.
+- Android: API 26+ with a compatible WebView. Live Update promotion is requested
+  on eligible API 36+ systems and never inferred from the OS number alone.
+- macOS, Windows and Linux: explicit unsupported activity backend. Their framework
+  minima and possible notification APIs do not establish implemented support.
 
-The tests run through the actual WebView, Rust plugin and native OS backend.
-The expanded iOS checks include timers, permission mapping, template enforcement,
-and default/after dismissal. Registry sources and package integrity are recorded in
-[the iOS consumer report](../tests/ios/results/published-alpha1-consumer.json) and
-[the Android consumer report](../tests/android/results/registry-alpha1.json).
-Those reports retain the original npm name and alpha.1 version; they are not
-presented as alpha.2 registry verification.
+API 26's stock WebView 58 cannot parse Tauri's injected JavaScript. Eight native
+checks pass, but the full WebView pipeline on that emulator remains unverified.
+An APK extracted from the official API 33 image requires API 29 and cannot update
+that provider; no unofficial WebView was installed. On this host, old Apple
+runtimes have toolchain/host or archive-authentication constraints. Generic widget
+compilation is not a substitute for running those OS versions.
 
-The updated local alpha.2 app also passes the 13-check Android lifecycle suite on
-APIs 31 and 37. Actual permission dialogs passed five checks on APIs 36 and 37:
-fresh request, cancellation, retry and grant, first denial, and repeated denial.
-[API 36](../tests/android/results/permission-api36-local.json),
-[API 37](../tests/android/results/permission-api37-local.json).
-A real swipe dismissed the API 37 promoted activity, and a late update returned
-`NOT_FOUND`. [Dismissal result](../tests/android/results/mochi-api37-user-dismissal.json).
+The strict iOS 27.2 stale-transition probes remain failed observations and are
+excluded from passing counts. Physical iPhone/iPad, Samsung One UI/Now Bar and
+forwarded Watch/Mac/CarPlay surfaces remain unverified. APNs, FCM, background jobs
+and interactive actions are outside this release.
 
-Before publication, an iPhone Tauri consumer also installed the renamed npm tarball
-and a freshly extracted alpha.2 crate. It passed all 13 lifecycle checks, 10 feature
-checks and the previously failing Unicode conflict check. Cargo prepared its own
-Tauri Swift dependency; no workspace plugin implementation was used.
-[Packaged consumer](../tests/ios/results/packaged-alpha2-consumer.json),
-[lifecycle](../tests/ios/results/packaged-alpha2-lifecycle.json),
-[features](../tests/ios/results/packaged-alpha2-features.json),
-[Unicode regression](../tests/ios/results/packaged-alpha2-unicode.json).
-
-## Defects found and fixed
-
-- Swift's canonical Unicode equality accepted changed wire text at the same
-  revision. A failing unit test and the published iOS package reproduced this;
-  title/status equality now compares UTF-8 bytes.
-- iPadOS 16.x was incorrectly treated like iPhone iOS 16.1. One support policy now
-  gates capabilities, permissions and operations: iPhone 16.1+, iPad 17+, and no
-  iOS app compatibility mode on Mac.
-- Android cached a cancelled notification dialog as a denial. Ambiguous state is
-  now `unknown` and can be explicitly retried; observed repeated denial leads to
-  `settingsRequired`.
-- Android promotion checks now include channel importance. An observed rejected
-  promotion reports `nativeLiveActivity` in `degradedFeatures`.
-- A successful demo mutation followed by a failed refresh could lose its handle
-  when switching modes. Accepted receipts are retained before reconciliation.
-
-Each behavioral fix was preceded by a failing regression. The updated native
-implementations and desktop IPC changes received independent source review with
-no unresolved HIGH or CRITICAL findings.
-
-## Screenshots and OS coverage
-
-The Mochi app and iOS widget were redesigned together. Screenshots under
-`docs/images/mochi-*` come from the actual Tauri app, iOS Lock Screen/Dynamic Island,
-and Android notification surfaces. The Android API 37 record contains the native
-`PROMOTED_ONGOING` flag; API 31 is an ordinary notification fallback. API 36's
-emulator did not allow promotion and correctly used the fallback.
-[Android capture evidence](../tests/android/results/mochi-screenshots.json).
-[iOS capture evidence](../tests/ios/results/mochi-screenshots.json).
-
-[OS coverage](platform-coverage.md), [iOS details](ios-coverage.md), and
-[Android details](android-coverage.md) distinguish implementation, compile checks,
-unit coverage and runtime observations. Windows and Linux Tauri IPC tests passed
-on their GitHub-hosted runners; macOS passed locally. Desktop backends remain
-explicitly unsupported.
-
-On the iOS 27.2 simulator, a strict `staleDate` probe did not observe an ActivityKit
-`stale` transition within its 20-second window, either in the foreground or after
-backgrounding. The failed observations are retained and excluded from passing
-runtime counts. The plugin passes the requested date and preserves observed iOS
-state; it does not invent a transition to make that test pass. Android can derive
-content staleness from the snapshot deadline.
-
-Physical devices, Samsung One UI/Now Bar, forwarded Apple Watch/Mac/CarPlay
-presentations, iOS 16.1/16.2 runtimes and Android API 24 runtime have not been
-verified. APNs, FCM and background job scheduling are outside this release.
-
-## Package checks
-
-- The renamed npm tarball installs in an isolated consumer and passes strict
-  NodeNext type checking and all 14 API tests.
-  [Package report](../tests/release/npm-alpha2-package.json).
-- The final archives were regenerated from committed source `b91266c` after CI.
-  Cargo packaging and publication dry run passed. The published Cargo alpha.2
-  archive's SHA-256 is
-  `157b238cc6d5f79de4c86b6c9219eac83689def958224c12be2e0f3cbf43e938`;
-  the registry index, downloaded archive and isolated consumer lockfile agree.
-  [Released Cargo consumer](../tests/release/crates-io-alpha2-consumer.json).
-- Explicit package file lists exclude native build caches, screenshots, local
-  configuration and credentials. npm contains the JS exports/types and documentation;
-  Cargo contains the native code and generic widget template.
-- Dependency versions are unchanged from the first release. Its npm audit was
-  clean; Cargo's two informational Linux GTK advisories remain documented in
-  [the first release report](validation-alpha.1.md).
+[Version policy](compatibility.md), [OS coverage](platform-coverage.md),
+[Android details](android-coverage.md), [iOS details](ios-coverage.md),
+[desktop research](desktop-coverage.md).
 
 ## Reproduce
 
@@ -132,6 +87,7 @@ verified. APNs, FCM and background job scheduling are outside this release.
 npm ci
 npm test
 npm run typecheck
+npm run build:demo
 source tools/mobile-env.sh
 cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
@@ -142,7 +98,6 @@ bash tests/ios/run-core.sh
   :live-activity:lintDebug :live-activity:coverageVerification
 ```
 
-Browser setup and screenshots are described in
-[the demo's QA instructions](../examples/demo/design/README.md). Mobile checks need
-an available emulator and the configured native toolchain. The demo's explicit
-**Run lifecycle test** button saves a JSON report in app-private storage.
+Browser setup is in [the demo QA instructions](../examples/demo/design/README.md).
+The Android minimum-SDK regression accepts an Android `aapt` executable and a
+built APK: `node tests/android/verify-min-sdk.mjs <aapt> <apk>`.

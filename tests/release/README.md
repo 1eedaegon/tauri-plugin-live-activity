@@ -3,15 +3,25 @@
 Release checks use the public npm and crates.io packages. A workspace build alone
 does not verify that both published artifacts contain the files a Tauri app needs.
 
-- `npm-consumer.json`: a new npm project, empty npm cache, exact package version,
+- [npm-consumer.json](npm-consumer.json): a new npm project, empty npm cache, exact package version,
   strict TypeScript consumer and mock IPC tests; downloaded archive and lockfile
   integrity checked against the release artifact.
-- `crates-io-consumer.json`: a new Cargo project with an exact registry dependency,
+- [crates-io-consumer.json](crates-io-consumer.json): a new Cargo project with an exact registry dependency,
   no `[patch]` or path dependency, iOS simulator compilation including Swift;
   registry index, downloaded archive and lockfile checksums compared.
-- `crates-io-alpha2-consumer.json`: the released alpha.2 crate's exact registry
-  dependency, iOS simulator compilation and artifact identity. This does not
-  claim that the renamed npm package has been published or tested with it.
+- [npm-alpha2-registry.json](npm-alpha2-registry.json): the public renamed
+  `tauri-plugin-live-activity@0.1.0-alpha.2` package, exact registry installation
+  with an empty cache, strict NodeNext types and all 14 mock IPC tests. The `next`
+  tag, downloaded tarball, registry metadata and install lock match the frozen
+  release archive. This verifies the npm artifact, not native rendering.
+- [npm-alpha2-package.json](npm-alpha2-package.json): the earlier local alpha.2
+  tarball check. Its checksum differs from the final release after documentation
+  changes; it is preserved as prepublication evidence.
+- [crates-io-alpha2-consumer.json](crates-io-alpha2-consumer.json): the released
+  alpha.2 crate's exact registry dependency, iOS simulator compilation and artifact
+  identity. It links the subsequently completed paired iOS consumer. The separate
+  npm report above records successful npm publication.
+  Neither individual package report by itself proves the paired native runtime.
 
 The initial release's native bridge reports are under `tests/ios/results` and
 `tests/android/results`. Combined registry consumer reports are recorded separately

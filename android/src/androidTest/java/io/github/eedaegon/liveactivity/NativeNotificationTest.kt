@@ -77,6 +77,7 @@ class NativeNotificationTest {
     @Test fun minimumImportanceCannotSatisfyStrictPromotionAndBlockedChannelRejectsStart() {
         assumeTrue(Build.VERSION.SDK_INT >= 26)
         val channelId = "live-activity-test-${UUID.randomUUID()}"
+        val blockedChannelId = "$channelId-blocked"
         val channelPort = AndroidNotifications(context, channelId)
         try {
             manager.createNotificationChannel(NotificationChannel(channelId, "Test channel", NotificationManager.IMPORTANCE_MIN))
@@ -84,11 +85,16 @@ class NativeNotificationTest {
             assertFalse("Android excludes IMPORTANCE_MIN from Live Updates", channelPort.promotionAllowed())
             try { ActivityEngine(store, channelPort).start(request.copy(fallback = "none")); fail("Strict promotion must fail") }
             catch (failure: ActivityFailure) { assertEquals("UNSUPPORTED_FEATURE", failure.code) }
-            manager.createNotificationChannel(NotificationChannel(channelId, "Test channel", NotificationManager.IMPORTANCE_NONE))
-            assertFalse(channelPort.notificationsAllowed())
-            try { ActivityEngine(store, channelPort).start(request); fail("Blocked channel must reject posting") }
+            // API 26 ignores an app's attempt to lower an existing channel to NONE.
+            manager.createNotificationChannel(NotificationChannel(blockedChannelId, "Blocked test channel", NotificationManager.IMPORTANCE_NONE))
+            val blockedPort = AndroidNotifications(context, blockedChannelId)
+            assertFalse(blockedPort.notificationsAllowed())
+            try { ActivityEngine(store, blockedPort).start(request); fail("Blocked channel must reject posting") }
             catch (failure: ActivityFailure) { assertEquals("PERMISSION_DENIED", failure.code) }
-        } finally { manager.deleteNotificationChannel(channelId) }
+        } finally {
+            manager.deleteNotificationChannel(channelId)
+            manager.deleteNotificationChannel(blockedChannelId)
+        }
     }
 
     @Test fun staleDeadlineUsesObservedStateAndAnUpdateCanRefreshIt() {
@@ -103,7 +109,7 @@ class NativeNotificationTest {
         val record = engine.start(request)
         awaitRecord(record.id)
         val native = manager.activeNotifications.first { it.tag == TAG_PREFIX + record.id }
-        assertTrue(native.notification.deleteIntent.isImmutable)
+        if (Build.VERSION.SDK_INT >= 31) assertTrue(native.notification.deleteIntent.isImmutable)
         native.notification.deleteIntent.send()
         await { store.read().any { it.id == record.id && it.state == "dismissed" } }
         try { engine.update(record.id, request.snapshot.copy(revision = 1)); fail("User dismissal must remain terminal") }
@@ -117,7 +123,8 @@ class NativeNotificationTest {
     }
 
     private fun await(condition: () -> Boolean) {
-        repeat(50) { if (condition()) return; Thread.sleep(100) }
+        // Cold API 26 boot/package broadcasts can delay a deletion intent beyond five seconds.
+        repeat(150) { if (condition()) return; Thread.sleep(100) }
         assertTrue("Native notification state did not converge", condition())
     }
 

@@ -94,8 +94,9 @@ async function expectPermission(expected, name) {
 await resetApp();
 await expectPermission('prompt', 'fresh install can request permission');
 await showDialog();
-// Escape dismisses the visible Android dialog without choosing either permission button.
-adb('shell', 'input', 'keyevent', '111');
+// Android Back cancels the visible dialog without choosing either permission button.
+// Escape is ignored by the API 33 permission controller.
+adb('shell', 'input', 'keyevent', '4');
 await expectPermission(['prompt', 'unknown'], 'cancelled dialog remains explicitly retryable');
 await showDialog();
 await choosePermission('allow');

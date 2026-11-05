@@ -1,6 +1,6 @@
 {
   "name": "tauri-plugin-live-activity",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "Typed Tauri v2 API for iOS Live Activities and Android ongoing activity notifications",
   "author": "1eedaegon",
   "type": "module",

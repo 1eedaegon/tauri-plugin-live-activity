@@ -11,7 +11,7 @@ Community plugin. **Early alpha.** [한국어](https://github.com/1eedaegon/taur
 | Platform | Backend |
 | --- | --- |
 | iOS 16.1+ / iPadOS 17+ | ActivityKit · Lock Screen and Dynamic Island where available |
-| Android API 24+ | Ongoing notifications · Live Update promotion on eligible API 36+ devices |
+| Android API 26+ | Ongoing notifications · Live Update promotion on eligible API 36+ devices |
 | macOS / Windows / Linux | Not implemented |
 
 <table>
@@ -32,6 +32,8 @@ On older Android versions, the same example uses an
 ## Install
 
 Requires Tauri 2 and Rust 1.90+.
+Android requires API 26+, an updated WebView, and Android SDK 37 to build.
+See the [version policy](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/compatibility.md) for feature and toolchain requirements.
 
 ```sh
 npm install tauri-plugin-live-activity@next
@@ -41,7 +43,7 @@ npm install tauri-plugin-live-activity@next
 
 ```toml
 [dependencies]
-tauri-plugin-live-activity = "=0.1.0-alpha.2"
+tauri-plugin-live-activity = "=0.1.0-alpha.3"
 ```
 
 Register the plugin in `src-tauri/src/lib.rs`:

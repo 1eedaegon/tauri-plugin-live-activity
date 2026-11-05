@@ -21,5 +21,24 @@
 - [x] Verify unsupported desktop behavior on macOS, Windows and Linux.
 - [x] Replace the download demo with snack delivery and a nap timer; test its state transitions.
 - [x] Capture the app and native Live Activity/notification surfaces on simulators.
-- [ ] Review, run CI, package and publish the next validated alpha to both registries.
-- [ ] Verify the new published packages and update the README, badges and coverage evidence.
+- [x] Review, run CI, package and publish the next validated alpha to both registries.
+- [x] Verify the new published packages and update the README, badges and coverage evidence.
+
+## Supported-version policy and boundary tests
+
+- [x] Recheck native OS and pinned Tauri version floors against primary sources.
+- [x] Complete paired alpha.2 registry consumers on iPhone, iPad and Android.
+- [x] Exercise Android API 24, 26 and 33 boundaries; retain failed and limited observations.
+- [x] Check older Apple deployment targets and available simulator runtimes.
+- [x] Evaluate desktop update/removal/error semantics before selecting fallback scope.
+- [x] Replace preliminary compatibility goals with a concrete support and validation policy.
+- [x] Add a failing merged-APK regression and enforce the actual Android API 26 minimum.
+- [ ] Review, run final CI and publish the corrected alpha.3 to both registries.
+- [ ] Verify published alpha.3 artifacts in isolated consumers.
+
+## Demo refinement and development-environment cleanup
+
+- [x] Refine Mochi's face consistently in the app and custom iOS widget; rerun browser QA.
+- [x] Capture and inspect the revised app and native widget on actual simulators.
+- [ ] Finish tests and push the complete changes before removing development artifacts.
+- [ ] Remove task-created Android/iOS test environments and build caches; report reclaimed disk space.

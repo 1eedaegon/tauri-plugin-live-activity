@@ -1,0 +1,80 @@
+{
+  "host": {
+    "macOS": "27.2",
+    "macOSBuild": "26B123",
+    "Xcode": "27.2",
+    "XcodeBuild": "27B52"
+  },
+  "installedIOSRuntimeVersions": [
+    "27.2"
+  ],
+  "sourceCatalog": "https://devimages-cdn.apple.com/downloads/xcode/simulators/index2.dvtdownloadableindex",
+  "officialSupportMatrix": "https://developer.apple.com/xcode/system-requirements",
+  "catalogEntries": [
+    {
+      "name": "iOS 16.1 Simulator Runtime",
+      "fileSize": 6325927910,
+      "hostRequirements": {
+        "maxHostVersion": "26.99.0",
+        "maxXcodeVersion": "26.99.0"
+      },
+      "source": "https://download.developer.apple.com/Developer_Tools/iOS_16.1_Simulator_Runtime/iOS_16.1_Simulator_Runtime.dmg",
+      "simulatorVersion": {
+        "buildUpdate": "20B72",
+        "version": "16.1"
+      }
+    },
+    {
+      "name": "iOS 16.2 Simulator Runtime",
+      "fileSize": 6407069874,
+      "hostRequirements": {
+        "maxHostVersion": "26.99.0",
+        "maxXcodeVersion": "26.99.0"
+      },
+      "source": "https://download.developer.apple.com/Developer_Tools/iOS_16.2_Simulator_Runtime/iOS_16.2_Simulator_Runtime.dmg",
+      "simulatorVersion": {
+        "buildUpdate": "20C52",
+        "version": "16.2"
+      }
+    },
+    {
+      "name": "iOS 17.0 Simulator Runtime",
+      "fileSize": 7559529352,
+      "source": "https://download.developer.apple.com/Developer_Tools/iOS_17_Simulator_Runtime/iOS_17_Simulator_Runtime.dmg",
+      "simulatorVersion": {
+        "buildUpdate": "21A328",
+        "version": "17.0"
+      }
+    }
+  ],
+  "downloadProbes": [
+    {
+      "os": "17.0",
+      "architectureVariant": "arm64",
+      "result": "unavailable from xcodebuild"
+    },
+    {
+      "os": "17.0",
+      "architectureVariant": "universal",
+      "result": "unavailable from xcodebuild"
+    },
+    {
+      "os": "17.5",
+      "architectureVariant": "universal",
+      "result": "unavailable from xcodebuild"
+    }
+  ],
+  "archivedIOS17Probe": {
+    "method": "HEAD to official stable runtime URL",
+    "finalUrl": "https://developer.apple.com/unauthorized/",
+    "contentType": "text/html; charset=UTF-8",
+    "result": "Apple Developer authentication required; no runtime downloaded"
+  },
+  "ios16Conclusion": "The official catalog caps iOS16.1/16.2 at macOS/Xcode26.99; current27.2 host/toolchain cannot provide this runtime validation. Use a compatible older host/toolchain.",
+  "ios17Conclusion": "A stable17.0 archive exists, but current CLI cannot fetch it and direct archive access requires Apple Developer authentication. Minimum-version runtime remains unverified.",
+  "carPlay": {
+    "source": "https://developer.apple.com/documentation/xcode-release-notes/xcode-27_2-release-notes",
+    "constraint": "Device Hub requires a USB-connected physical device; iOS Simulator not supported for CarPlay (179494052 / FB23101450)."
+  },
+  "policy": "Keep iPhone16.1 and iPad17 API floors; distinguish API availability,host build minimum,and actually tested runtimes. No production changes made."
+}

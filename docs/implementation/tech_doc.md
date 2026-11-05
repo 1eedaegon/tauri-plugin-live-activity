@@ -23,3 +23,9 @@ Native framework limitations and any unmeasured coverage are recorded explicitly
 References: [official plugin guide](https://v2.tauri.app/develop/plugins/),
 [mobile bridge guide](https://v2.tauri.app/develop/plugins/develop-mobile/), and the
 official Tauri 2.12.4 CLI plugin template generated locally before implementation.
+
+For the supported-version audit, use version-pinned native/Tauri sources and vendor
+API references. Exercise Android notification/channel/permission/promotion boundaries
+where emulator images exist. Check Apple deployment-target compilation separately
+from simulator runtime availability. Reports identify registry artifacts versus
+workspace changes and never count an unavailable runtime as a passing test.

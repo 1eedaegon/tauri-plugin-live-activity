@@ -1,8 +1,10 @@
 # 개발 환경과 자원
 
-## 확인된 상태
+## 초기 설치 기록
 
-2026-11-04 로컬 명령 실행 결과입니다. 기기 식별자나 계정 정보는 기록하지 않습니다.
+2026-11-04 환경을 처음 구성했을 때의 기록입니다. 이후 플러그인·모바일 데모 빌드와
+에뮬레이터 검증을 완료했습니다. 현재 결과는 [검증 기록](validation.md), 지원 버전은
+[호환성 정책](compatibility.md)을 확인합니다. 기기 식별자나 계정 정보는 기록하지 않습니다.
 
 | 항목 | 상태 |
 | --- | --- |
@@ -18,11 +20,11 @@
 | macOS 개발·디버깅 권한 | `DevToolsSecurity -status`: enabled |
 | Android Studio | 2026.2.2.8 (Rabbit 2), Homebrew cask 설치 |
 | Android SDK | `$HOME/Library/Android/sdk`: platform 37.0 rev 2, build-tools 37.0.0, platform-tools 37.0.1, command-line tools 23.0 |
-| Android NDK | 30.0.16248370 (r30 LTS), ARM64 Android API 24 대상 링크 확인 |
+| Android NDK | 30.0.16248370 (r30 LTS); 앱의 지원 최소 버전은 API 26 |
 | Tauri CLI | 2.12.4, 프로젝트 devDependency와 npm lockfile에 고정 |
 | Rust 모바일 target | aarch64-apple-ios, aarch64-apple-ios-sim, aarch64-linux-android 추가 |
 | Flutter | 미설치; 소스 참고만 한다면 설치 불필요 |
-| 플러그인 / 예제 | 아직 없음. 아래 도구 검증은 플러그인 빌드와 별개 |
+| 플러그인 / 예제 | 초기 환경 조사 시점에는 없었음; 현재 구현과 데모는 저장소에 포함 |
 | 개발용 입력 계약 테스트 | 조사 후 추가; Node 22.12.0 / 26.12.1에서 50개 통과, 네이티브 테스트와 별개 |
 
 Rust 설치 시 셸 설정은 자동 수정하지 않았습니다. 현재 환경의 활성화 명령:
@@ -54,32 +56,33 @@ npm test
 ```
 
 확인한 Java는 기존 Nix Zulu 21.0.11입니다. Android Studio의 bundled JDK는 25.0.4이며
-JAVA_HOME이 없는 셸에서만 스크립트의 기본값으로 선택됩니다. 실제 Gradle 앱 빌드는
-아직 실행하지 않았으므로 Gradle/AGP 호환성을 확인한 것으로 간주하지 않습니다.
+JAVA_HOME이 없는 셸에서만 스크립트의 기본값으로 선택됩니다. 이후 실제 Gradle 앱
+빌드와 네이티브 테스트는 JDK 21로 실행했습니다.
 
-## 환경 검증 결과
+## 최초 환경 probe 결과
 
 - macOS ARM64 Rust 동적 라이브러리 컴파일·링크 성공.
-- Android ARM64 Rust 공유 라이브러리 컴파일·링크 성공, NDK의 API 24 linker 사용.
+- 초기 Android ARM64 공유 라이브러리 검사는 NDK의 API 24 linker로 통과했습니다. 이후 실제 앱 실행에서 Tauri 의존성의 API 26 요구를 확인해 앱·플러그인 최소 버전을 26으로 수정했습니다.
 - iOS ARM64 Rust 동적 라이브러리 컴파일·링크 성공, deployment target 16.1 사용.
 - iOS 27.2 SDK에서 ActivityKit의 ActivityAttributes/ContentState Swift 코드 typecheck 성공.
 - 환경 스크립트 sh/zsh 구문 검사 및 반복 source 시 PATH 중복 방지 확인.
 
 검증 코드는 임시 디렉터리에 만든 최소 probe입니다. 앱 서명·설치·화면 표시·위젯
 확장 embed·플러그인 integration/E2E·구형 기기 동작을 검증한 것은 아닙니다.
-시뮬레이터 SDK와 실행용 simulator runtime은 다릅니다. 이번에 별도 simulator runtime이나
-Android emulator 이미지를 추가 설치하지 않았습니다.
+시뮬레이터 SDK와 실행용 simulator runtime은 다릅니다. 최초 probe 이후 Android
+에뮬레이터 이미지를 추가 설치해 경계 버전을 실행했습니다. 위 목록 자체는 해당
+앱 실행 결과를 포함하지 않습니다.
 
 NDK 버전 선택 근거: [Google NDK LTS 다운로드](https://developer.android.com/ndk/downloads/).
 Android command-line tools 23.0의 sdkmanager는 Android CLI로 전환되므로 향후 SDK
 관리는 [Android CLI](https://developer.android.com/tools/agents/android-cli)를 사용합니다.
 
-## 남은 준비와 구현 순서
+## 실기기와 다른 호스트에서 재현할 때
 
 1. Xcode에서 Apple 계정/팀과 개발 서명을 설정합니다. 확인 시 유효한 코드 서명 identity는 0개였습니다.
 2. 테스트 기기를 연결하고 iPhone의 신뢰·Developer Mode, Galaxy의 USB debugging을 승인합니다.
-3. Tauri 예제 앱을 생성하고 현재 CLI가 생성하는 Gradle/AGP와 Java·NDK 조합을 실제 빌드합니다.
-4. iOS Widget Extension 연결과 서명, Android 알림을 구현하고 기기별 표시를 검증합니다.
+3. 저장소의 Tauri 예제 앱을 현재 Java·NDK 조합으로 빌드합니다.
+4. 예제의 iOS Widget Extension 서명을 설정하고 기기별 표시를 검증합니다.
 5. 다른 ABI·emulator·simulator runtime은 추가 테스트 대상이 정해질 때 설치합니다.
 
 [Tauri 사전 요구사항](https://v2.tauri.app/start/prerequisites/)을 기준으로 하되

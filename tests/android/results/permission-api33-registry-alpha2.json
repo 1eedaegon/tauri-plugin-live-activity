@@ -1,0 +1,50 @@
+{
+  "api": 33,
+  "appId": "io.github.eedaegon.liveactivityregistry",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "fresh install can request permission",
+      "expected": "prompt",
+      "actual": "prompt",
+      "passed": true
+    },
+    {
+      "name": "cancelled dialog remains explicitly retryable",
+      "expected": [
+        "prompt",
+        "unknown"
+      ],
+      "actual": "unknown",
+      "passed": true
+    },
+    {
+      "name": "retry after cancellation can grant permission",
+      "expected": "granted",
+      "actual": "granted",
+      "passed": true
+    },
+    {
+      "name": "first denial preserves an explicit request opportunity",
+      "expected": "prompt",
+      "actual": "prompt",
+      "passed": true
+    },
+    {
+      "name": "repeated denial requires settings",
+      "expected": "settingsRequired",
+      "actual": "settingsRequired",
+      "passed": true
+    }
+  ],
+  "verifiedAt": "2026-11-05T07:47:33.752624+00:00",
+  "scope": "Unchanged paired published npm and Cargo alpha.2 Tauri consumer",
+  "apkSha256": "dce4959c486ea0ec928ab84d563804f5b86e790055e961e9ef3bdc611181c310",
+  "helperSha256": "b3837c6e0a420bd7657b2f0aa8dcf6419dc00d8e0ab1b260e1be3af109b8d071",
+  "cancellationGesture": "Android Back",
+  "automationRegression": {
+    "red": "API33 permission controller ignored Escape, leaving dialog visible and callback pending",
+    "green": "Back cancels visible dialog; unknown remains retryable; all five checks pass"
+  },
+  "webViewVersion": "109.0.5414.123"
+}

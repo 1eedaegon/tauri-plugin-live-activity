@@ -1,0 +1,20 @@
+{
+  "verifiedAt": "2026-11-05T07:48:45.965569+00:00",
+  "scope": "Unchanged paired published alpha.2 APK on API26 Google ARM64 image revision3",
+  "api": 26,
+  "apkSha256": "dce4959c486ea0ec928ab84d563804f5b86e790055e961e9ef3bdc611181c310",
+  "nativeStartup": "passed; app process stays alive without Jackson error",
+  "stockWebView": "58.0.3029.125",
+  "frontendStartup": "blocked by obsolete system WebView",
+  "consoleError": "Tauri/Console: Uncaught SyntaxError: Unexpected token ...",
+  "lifecycleChecksExecuted": 0,
+  "interpretation": "API26 native host startup succeeds; the stock emulator WebView is too old for Tauri injected JavaScript. A supported WebView provider is a separate host requirement.",
+  "officialProviderProbe": {
+    "source": "Google API33 ARM64 system image revision17",
+    "package": "com.google.android.webview",
+    "version": "109.0.5414.123",
+    "minSdk": 29,
+    "apkSha256": "8450792a81b94b29efcf751afb6340109713a395c9fb05a7a96ebe499db77de8",
+    "result": "Not compatible with API26; original provider remains58"
+  }
+}

@@ -9,7 +9,7 @@ Research and validation date: 2026-11-04. This covers the iOS ActivityKit backen
 | iPhone, iOS 16.1 | Local progress and timer activities; `staleAt` requires 16.2 | Deployment/availability branches compiled; no 16.1 runtime installed |
 | iPhone, iOS 16.2+ | ActivityContent with an optional stale date | Runtime validation on iOS 27.2 simulator |
 | iPad, iPadOS 16.x | Unsupported | OS policy unit cases reject 16.1 and 16.7 |
-| iPad, iPadOS 17+ | ActivityKit backend | OS policy cases accept 17.0 and 27.2; Runtime lifecycle passed 13/13 on iPadOS 27.2 simulator |
+| iPad, iPadOS 17+ | ActivityKit backend | OS policy cases accept 17.0 and 27.2; released alpha.2 passed all 24 runtime checks on iPadOS 27.2 simulator |
 | iOS app running on Mac / Mac Catalyst | Unsupported by this plugin | Explicit platform gate; desktop Tauri has a separate unsupported implementation |
 | Other idioms | Unsupported | OS policy unit case |
 | visionOS, including compatible iPhone/iPad apps | Unsupported; no visionOS runtime validation | Apple documents that start requests fail; no claim of tested compatibility-mode detection |
@@ -38,7 +38,20 @@ Apple documents that [`staleDate`](https://developer.apple.com/documentation/act
 
 ## Published consumer
 
-The isolated consumer pins `tauri-plugin-live-activity-api@0.1.0-alpha.1` from npm and `tauri-plugin-live-activity = "=0.1.0-alpha.1"` from crates.io. It has no plugin path dependency or copied plugin implementation. Its widget imports `LiveActivityShared` and uses the template from the downloaded crate. A reused build target cache does not replace dependency resolution. The UI runner's local test-host app only provides XCTest automation; all plugin calls run inside the independently installed registry consumer.
+The final isolated consumer pins **`tauri-plugin-live-activity@0.1.0-alpha.2` from npm** and **`tauri-plugin-live-activity = "=0.1.0-alpha.2"` from crates.io**. The old `-api` npm package is absent. There are no plugin path overrides or workspace links. The app uses the Mochi host widget with `LiveActivityShared` from the downloaded crate.
+
+| Released alpha.2 runtime | Lifecycle | Additional features | Unicode regression |
+| --- | --- | --- | --- |
+| iPhone 18 Pro, iOS 27.2 simulator | 13/13 | 10/10 | 1/1 |
+| iPad mini (A20 Pro), iPadOS 27.2 simulator | 13/13 | 10/10 | 1/1 |
+
+The paired registry run passed 48 checks. The downloaded npm tarball SHA-1 `b91bf5e1a0d9cf4da3f0d355b044790fc980567a` matches the frozen publication manifest and npm registry metadata; its SHA-512 integrity also matches the lockfile. Cargo SHA-256 `157b238cc6d5f79de4c86b6c9219eac83689def958224c12be2e0f3cbf43e938` matches the downloaded crate, sparse index and lockfile; packaged source is commit `b91266c`. The actual app and widget both declare `MinimumOSVersion=16.1`. See [paired registry evidence](../tests/ios/results/published-alpha2-consumer.json) and the six `published-alpha2-{iphone,ipad}-{lifecycle,features,unicode}.json` reports.
+
+The strict OS stale transition probe remains outside those passing counts. A reused compilation cache does not replace exact registry dependency resolution, and the local XCTest host only drives the independently installed consumer.
+
+### Earlier baseline and packaged candidate
+
+The earlier isolated consumer pinned `tauri-plugin-live-activity-api@0.1.0-alpha.1` from npm and `tauri-plugin-live-activity = "=0.1.0-alpha.1"` from crates.io. It has no plugin path dependency or copied plugin implementation. Its widget imports `LiveActivityShared` and uses the template from the downloaded crate. A reused build target cache does not replace dependency resolution. The UI runner's local test-host app only provides XCTest automation; all plugin calls run inside the independently installed registry consumer.
 
 - iPhone 18 Pro simulator, iOS 27.2: JS → Rust → Swift lifecycle suite passed 13/13 (`tests/ios/results/published-alpha1-iphone-lifecycle.json`).
 - iPad mini (A20 Pro) simulator, iPadOS 27.2: the same exact published-package lifecycle suite passed 13/13 (`tests/ios/results/published-alpha1-ipad-lifecycle.json`).
@@ -50,7 +63,19 @@ The prepublication alpha.2 npm tarball (`tauri-plugin-live-activity`) and freshl
 
 The released alpha.2 Cargo crate also passed an exact registry `cargo check` for the iOS simulator. Its downloaded archive, sparse index and lockfile agree on SHA-256 `157b238cc6d5f79de4c86b6c9219eac83689def958224c12be2e0f3cbf43e938`, and the archive records source commit `b91266c`. [Cargo release evidence](../tests/release/crates-io-alpha2-consumer.json).
 
-The renamed npm package (`tauri-plugin-live-activity`) must still be installed with that exact Cargo version into the isolated consumer and rerun after npm publication. Local-source success is not final paired registry-release verification.
+The final paired registry results above supersede the earlier publication-pending status. The baseline and local-package reports remain historical evidence, with their source and version stated separately.
+
+## Version policy and remaining runtime gaps
+
+Three versions have different roles. Tauri's current [`bundle.iOS.minimumSystemVersion`](https://v2.tauri.app/reference/config/#iosconfig) defaults to **15.0**, confirmed in the pinned `tauri-utils 2.10.2` source. This plugin's Swift package also has a **15.0 build floor**. Live Activity feature availability is **iPhone 16.1+ / iPadOS 17+**; `staleAt` additionally requires iOS **16.2+**. The demo host and widget deploy at **16.1**. A lower host deployment target does not make Live Activities available on that OS.
+
+The published shared Swift module and generic WidgetKit template pass compiler availability checks for `arm64-apple-ios16.1-simulator`, `16.2` and `17.0`, including application-extension restrictions. All ActivityContent/stale-state API uses remain behind 16.2 guards and the legacy 16.1 API remains present. This confirms compile-time consistency, not execution of those older branches. [Availability evidence](../tests/ios/results/published-alpha2-availability.json).
+
+The current host is **macOS 27.2 / Xcode 27.2**, with only **iOS 27.2** runtimes installed. Apple's [Xcode support matrix](https://developer.apple.com/xcode/system-requirements) lists simulator support from iOS 17 for this Xcode. More specifically, Apple's [official simulator catalog](https://devimages-cdn.apple.com/downloads/xcode/simulators/index2.dvtdownloadableindex) caps the iOS 16.1 and 16.2 runtime packages at host and Xcode version **26.99**. Their runtime tests need a compatible older Mac/toolchain; downloading them onto this host would not close that gap.
+
+The same catalog lists a stable iOS 17.0 runtime (build 21A328, about 7.56 GB). The current Xcode download command reports 17.0 unavailable for both arm64 and universal variants, and 17.5 unavailable for universal. A HEAD request to the catalog's official 17.0 archive redirects to `developer.apple.com/unauthorized/`. No runtime was downloaded, and iPadOS 17 minimum-version execution remains unverified. See [runtime feasibility evidence](../tests/ios/results/old-runtime-feasibility.json). These environmental constraints do not justify raising the plugin's advertised API floor.
+
+Apple describes [automatic forwarding to paired Apple Watch and Mac, and CarPlay](https://developer.apple.com/design/human-interface-guidelines/live-activities): those are presentations of an iPhone activity, not independent Tauri backends. [WWDC25 widget guidance](https://developer.apple.com/videos/play/wwdc2025/278/) documents Mac forwarding from iOS 18+ and the system's default compact presentations. Watch/Mac pairing and real CarPlay remain unverified here. The [Xcode 27.2 release notes](https://developer.apple.com/documentation/xcode-release-notes/xcode-27_2-release-notes) specifically require a USB-connected physical device for Device Hub CarPlay and state that iOS Simulator is unsupported (FB23101450); older Simulator external-display instructions are insufficient evidence for this toolchain.
 
 ## Actual Mochi presentation
 

@@ -1,12 +1,25 @@
 {
   "version": "0.1.0-alpha.2",
-  "source": "workspace candidate, local npm/JS and Cargo/native sources",
+  "source": "workspace refined-face demo candidate, local npm/JS and Cargo/native sources",
+  "baseCommit": "2792964d887b8504cce61efa01806ee079a66388",
+  "sourceHashes": {
+    "examples/demo/src/index.html": "36ed0f6ee08cb4d4e23e3d409d3be6bc9268a9a2b0c85a3fef972c081c1c2dca",
+    "examples/demo/src/styles.css": "090652a3d9bfd4677269921c955d994a121e7d0023f91cd8a5be44c5e1f5e69e",
+    "examples/demo/src/main.ts": "f2a06e5ea23e94be0ff0dd1b8d47a40d921c28ca1d3867da21274f7b51f61902",
+    "examples/demo/widget/MochiWidget.swift": "0c0eeb55c5d89242cedacef1080594aa1cc10de23b3a16b92963f0505346bba3"
+  },
+  "captureDriver": {
+    "path": "tests/ios/SimulatorHost/UITests/MochiScreens.swift",
+    "sha256": "1fffee9eb9100c188736128f40a6a55e26d18f9510b02b215a124daebce3f83b"
+  },
   "platform": "iOS 27.2",
   "device": "iPhone 18 Pro simulator",
   "build": "npm run tauri -- ios build --target aarch64-sim --debug",
   "test": "NativeUITests/MochiScreens/testActualMochiScreens",
   "testStatus": "passed",
+  "testDurationSeconds": 31.591,
   "widget": "examples/demo/widget/MochiWidget.swift",
+  "availabilityEvidence": "tests/ios/results/mochi-widget-availability.json",
   "activity": {
     "progress": 0.65,
     "title": "Mochi’s snack delivery",
@@ -17,22 +30,27 @@
   "screenshots": [
     {
       "path": "docs/images/mochi-demo.png",
-      "sha256": "6e0df1d6e55a53507aeeaffa800f6ba9a29fbe50de1ddffc119737e6caf452fd"
+      "sha256": "b84d1d8e5a117a75d3efc017594248927391b6a96f7107983767421a20d922c8",
+      "capturedAt": "2026-11-05T07:58:03.269719Z"
     },
     {
       "path": "docs/images/mochi-ios-live-activity.png",
-      "sha256": "2c96958fbebfe59acef5903807f61c7fb40965592369149c2fc39584249b01b7"
+      "sha256": "f705105d58322af2de89cbe7ceb839a59eb2ba7fd251e60f0555b42dd07b72db",
+      "capturedAt": "2026-11-05T07:58:27.766608Z"
     },
     {
       "path": "docs/images/mochi-ios-dynamic-island.png",
-      "sha256": "0186817dc18dd4f134a29a2a097bf8785f3261d676cd764c05cd0c6fcfd848d6"
+      "sha256": "bcabdd74210fd2b23fb2a37cf8d270ca3660ddfc60d7602abb6d203530edc1ed",
+      "capturedAt": "2026-11-05T07:58:08.973268Z"
     }
   ],
   "notes": [
-    "Actual app and ActivityKit presentations; no image generation or editing",
+    "Actual app and ActivityKit presentations from one successful XCTest flow; no image generation or editing",
+    "Refined shared cat silhouette with integrated ears and oval nose; native plugin source unchanged",
     "Lock Screen presentation captured through Notification Center with same-app activity stack expanded",
-    "Screenshots captured during successful flows; an earlier capture of the same flow is retained for its timer composition",
+    "An ended registry test fixture was dismissed through the system UI before capture; no unrelated simulator data was removed",
     "OS applies its own glass tint; native acceptance alone is not evidence of visibility",
-    "Original alpha.1 images preserved separately"
+    "Built as alpha.2 before later Android compatibility metadata changes; these images are demo visual evidence, not a claim of a new registry release",
+    "Original alpha.1 download example images preserved separately"
   ]
 }

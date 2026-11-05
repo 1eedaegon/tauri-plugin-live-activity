@@ -1,0 +1,12 @@
+{
+  "source": "workspace refined-face demo candidate; native plugin unchanged",
+  "widget": "examples/demo/widget/MochiWidget.swift",
+  "widgetSha256": "0c0eeb55c5d89242cedacef1080594aa1cc10de23b3a16b92963f0505346bba3",
+  "targets": [
+    "arm64-apple-ios16.1-simulator",
+    "arm64-apple-ios16.2-simulator",
+    "arm64-apple-ios17.0-simulator"
+  ],
+  "status": "passed",
+  "note": "Compile-time API availability and app-extension restriction checks, not old-runtime execution."
+}

@@ -1,7 +1,4 @@
 {
-  "capturedAt": "2026-11-04T18:56:33.270782+00:00",
-  "source": "workspace alpha.2",
-  "apkSha256": "863a25eddbe1a69d6f05144b2dfb1a8ecab855c5090bcaa0dacc654d8a55aac9",
   "images": [
     {
       "path": "docs/images/mochi-android-notification-fallback.png",
@@ -10,15 +7,50 @@
       "title": "Mochi\u2019s snack delivery",
       "progress": 0.65,
       "promotionRequested": false,
-      "promotionState": "notApplicable"
+      "promotionState": "notApplicable",
+      "source": "workspace alpha.2",
+      "apkSha256": "863a25eddbe1a69d6f05144b2dfb1a8ecab855c5090bcaa0dacc654d8a55aac9",
+      "capturedAt": "2026-11-04T18:56:33.270782+00:00"
     },
     {
       "path": "docs/images/mochi-android-live-activity.png",
       "api": 37,
-      "method": "adb exec-out screencap -p",
+      "method": "adb shell screencap -p then adb pull; original complete screenshot",
       "record": {
-        "id": "4e3e6a56-b800-40e3-ad07-d8d3a4297035",
-        "activityKey": "mochi:snack:1793818652016",
+        "id": "cdfa4a81-9647-484b-88d2-9d66ecacb272",
+        "activityKey": "mochi:snack:1793865363929",
+        "schemaVersion": 1,
+        "template": "progress",
+        "snapshot": {
+          "revision": 1,
+          "title": "Mochi\u2019s snack delivery",
+          "status": "On the way to Mochi",
+          "progress": 0.65
+        },
+        "backend": "androidNotification",
+        "state": "active",
+        "visibility": "unknown",
+        "degradedFeatures": [],
+        "promotionRequested": true,
+        "promotionState": "promoted"
+      },
+      "source": "workspace alpha.3; minSdk26 and redesigned Mochi cat",
+      "apkSha256": "8d27fda00256a7a1063e6f3368988b6e4f63e08c8a6dc0eac7e9b94ffd9f2166",
+      "capturedAt": "2026-11-05T07:56:56.046976+00:00",
+      "imageSha256": "4a5d21c44167b9102e4abace4fe7e5a67b719f336daee241c2868e2a161c64f3"
+    },
+    {
+      "path": "docs/images/mochi-android-demo.png",
+      "api": 37,
+      "method": "adb shell screencap -p then adb pull; original complete screenshot",
+      "description": "Actual Mochi Tauri app showing redesigned cat and 65% snack delivery",
+      "source": "workspace alpha.3; minSdk26 and redesigned Mochi cat",
+      "apkSha256": "8d27fda00256a7a1063e6f3368988b6e4f63e08c8a6dc0eac7e9b94ffd9f2166",
+      "capturedAt": "2026-11-05T07:56:56.046976+00:00",
+      "imageSha256": "2a69d415361951616815553f06672aae184095bbe8683ccdfb1ce8b734e78c51",
+      "record": {
+        "id": "cdfa4a81-9647-484b-88d2-9d66ecacb272",
+        "activityKey": "mochi:snack:1793865363929",
         "schemaVersion": 1,
         "template": "progress",
         "snapshot": {
@@ -34,12 +66,7 @@
         "promotionRequested": true,
         "promotionState": "promoted"
       }
-    },
-    {
-      "path": "docs/images/mochi-android-demo.png",
-      "api": 37,
-      "method": "adb exec-out screencap -p",
-      "description": "Actual Mochi Tauri app showing the same65%snack delivery"
     }
-  ]
+  ],
+  "scope": "Each image records its own source version; API31 fallback remains the unchanged alpha.2 capture."
 }

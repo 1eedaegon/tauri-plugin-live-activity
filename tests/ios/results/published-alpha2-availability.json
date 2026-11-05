@@ -1,0 +1,17 @@
+{
+  "version": "0.1.0-alpha.2",
+  "source": "downloaded crates.io package",
+  "compiler": "Xcode 27.2 Swift compiler",
+  "targets": [
+    "arm64-apple-ios16.1-simulator",
+    "arm64-apple-ios16.2-simulator",
+    "arm64-apple-ios17.0-simulator"
+  ],
+  "sharedModuleCompile": "passed",
+  "genericWidgetExtensionTypecheck": "passed",
+  "note": "Compile-time availability validation only; this does not execute older OS runtime branches.",
+  "commands": [
+    "swiftc -emit-module -parse-as-library -module-name LiveActivityShared -target <target> -sdk <iphonesimulator-sdk> <published-crate>/ios/Sources/LiveActivityShared/*.swift -emit-module-path <temp>/LiveActivityShared.swiftmodule",
+    "swiftc -typecheck -parse-as-library -application-extension -target <target> -sdk <iphonesimulator-sdk> -I <temp> <published-crate>/templates/ios/LiveActivityWidget.swift"
+  ]
+}

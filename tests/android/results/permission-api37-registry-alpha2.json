@@ -1,0 +1,42 @@
+{
+  "api": 37,
+  "appId": "io.github.eedaegon.liveactivityregistry",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "fresh install can request permission",
+      "expected": "prompt",
+      "actual": "prompt",
+      "passed": true
+    },
+    {
+      "name": "cancelled dialog remains explicitly retryable",
+      "expected": [
+        "prompt",
+        "unknown"
+      ],
+      "actual": "unknown",
+      "passed": true
+    },
+    {
+      "name": "retry after cancellation can grant permission",
+      "expected": "granted",
+      "actual": "granted",
+      "passed": true
+    },
+    {
+      "name": "first denial preserves an explicit request opportunity",
+      "expected": "prompt",
+      "actual": "prompt",
+      "passed": true
+    },
+    {
+      "name": "repeated denial requires settings",
+      "expected": "settingsRequired",
+      "actual": "settingsRequired",
+      "passed": true
+    }
+  ],
+  "scope": "Published npm+Cargo alpha.2 registry consumer",
+  "apkSha256": "dce4959c486ea0ec928ab84d563804f5b86e790055e961e9ef3bdc611181c310"
+}

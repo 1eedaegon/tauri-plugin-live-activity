@@ -12,7 +12,8 @@ android {
     namespace = "io.github.eedaegon.liveactivity"
     compileSdk = 37
     defaultConfig {
-        minSdk = 24
+        // Tauri's Jackson runtime requires BootstrapMethodError (Android 8/API 26).
+        minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }

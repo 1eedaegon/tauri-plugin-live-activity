@@ -2,13 +2,16 @@
 
 조사 기준: 2026-11-04. OS가 제공하는 기능, 플러그인이 구현한 기능,
 실제로 실행한 테스트는 각각 구분합니다. 세부 결과는 [검증 기록](validation.md)에 남깁니다.
+최소 지원 버전은 [호환성 정책](compatibility.md), 데스크톱 후보는
+[별도 조사](desktop-coverage.md)에 정리했습니다.
 
 | 실행 플랫폼 | 현재 구현 | 검증 범위와 남은 확인 |
 | --- | --- | --- |
 | iPhone / iOS 16.1+ | ActivityKit 진행률·타이머, 시작·갱신·종료·재조회 | iOS 27.2 시뮬레이터 실행. 16.1/16.2는 availability 분기와 빌드 검사이며 구형 OS 실기기 실행은 미검증 |
 | iPadOS 17+ | ActivityKit 진행률·타이머; iPadOS 16.x는 미지원 | iPadOS 27.2 시뮬레이터에서 lifecycle 13개와 추가 기능 10개 통과. 구형 OS는 정책 단위 테스트 |
-| Android API 24–32 | 진행률·타이머 지속 알림 | API 31 에뮬레이터 실행. API 24 최소 버전은 빌드·lint 검사 |
-| Android API 33–35 | 위 기능 + 알림 런타임 권한 | 권한 요청·거부·취소 및 채널 차단은 API 36/37에서 검사. API 33–35 런타임은 미검증 |
+| Android API 24–25 | 미지원; 최소 버전을 API 26으로 수정 | API 24에서 게시된 alpha.2 앱의 Tauri/Jackson 초기화 충돌 재현. API 25 별도 실행은 미검증 |
+| Android API 26–32 | 진행률·타이머 지속 알림 | API 26 실제 Tauri Invoke와 네이티브 알림 8개 통과. 기본 WebView 58은 Tauri JS 해석 실패. API 31은 전체 앱 생명주기 13개 통과 |
+| Android API 33–35 | 위 기능 + 알림 런타임 권한 | API 33 전체 앱 생명주기 13개·실제 권한 창 5개 통과. API 34/35 별도 실행은 미검증 |
 | Android API 36+ | 적격 알림의 Live Update 승격 요청, 불가하면 명시적 대체 | API 37 승격 플래그 관찰. API 36 에뮬레이터는 승격 불허 상태에서 일반 알림 대체 확인. 두 버전의 실제 권한 창 검사 통과 |
 | macOS | 명시적 미지원 | 호스트 Tauri IPC가 미지원 기능을 광고하지 않고 안정적인 오류를 반환하는지 검사 |
 | Windows / Linux | 명시적 미지원 | 각 OS의 CI에서 동일한 Tauri IPC 계약 통과. 네이티브 알림 UI 구현·검증은 포함하지 않음 |
@@ -44,11 +47,15 @@ Linux의 freedesktop 알림과 XDG Notification portal은 같은 ID로 알림을
 
 ## 이번 보강의 검증 범위
 
-- npm·Cargo 레지스트리의 alpha.1 패키지 두 개를 실제 Tauri 앱에 연결해 실행; alpha.2의 두 레지스트리 조합은 npm 게시 후 재검증
+- npm·Cargo의 alpha.2 패키지 두 개를 실제 Tauri 앱에 연결해 iPhone·iPad·Android에서 실행; alpha.1 결과는 이전 기준으로 별도 보존
 - 진행률 외에 타이머·stale 시점·종료 정책·재시작과 동시 요청 검사
 - Android 권한 창 취소, 채널 중요도 변경과 승격 허용/불허 상태 검사
 - macOS·Windows·Linux의 기능 조회 및 허가된 IPC 호출에 대한 미지원 오류 검사
 - Mochi 간식 배달·낮잠 데모를 앱과 실제 OS 표면에서 촬영
+
+iOS 16.1/16.2/17.0 대상으로 게시된 공유 모듈과 일반 위젯의 availability 컴파일
+검사를 추가했습니다. Xcode 27.2의 실행 범위와 Apple 런타임 다운로드 제한 때문에
+구형 OS 실행을 대신하는 검사는 아닙니다. [구형 런타임 조사](../tests/ios/results/old-runtime-feasibility.json).
 
 실제 테스트 결과가 없는 기기·OS·표면은 지원 완료로 표시하지 않습니다.
 

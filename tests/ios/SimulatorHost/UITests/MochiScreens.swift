@@ -12,6 +12,16 @@ final class MochiScreens: XCTestCase {
         try XCUIScreen.main.screenshot().pngRepresentation.write(to: file, options: .atomic)
     }
 
+    private func dismissEndedFixture(_ springboard: XCUIApplication) {
+        let fixture = springboard.staticTexts["Mochi snack"].firstMatch
+        guard fixture.exists else { return }
+        fixture.swipeLeft()
+        let clear = springboard.buttons["Clear"].firstMatch
+        if clear.waitForExistence(timeout: 2) { clear.tap() }
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: fixture)
+        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 5), .completed)
+    }
+
     func testActualMochiScreens() throws {
         app.launch()
         let start = button("Start snack delivery")
@@ -31,14 +41,19 @@ final class MochiScreens: XCTestCase {
         try capture("mochi-ios-dynamic-island")
 
         app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
         app.webViews.switches["Nap timer"].tap()
         let nap = button("Start a little nap")
+        // Device Hub may drop the first WebView tap during the app's return animation.
+        if !nap.waitForExistence(timeout: 2) { app.webViews.switches["Nap timer"].tap() }
         XCTAssertTrue(nap.waitForExistence(timeout: 10))
         nap.tap()
         XCTAssertTrue(button("Wake up, sleepyhead").waitForExistence(timeout: 10))
         let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01))
         let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.85))
         top.press(forDuration: 0.1, thenDragTo: bottom)
+        // The registry default-dismissal test may leave its ended fixture visible.
+        dismissEndedFixture(springboard)
         XCTAssertTrue(springboard.staticTexts["Mochi’s snack delivery"].waitForExistence(timeout: 10))
         if !springboard.staticTexts["Mochi’s nap"].exists {
             springboard.staticTexts["Mochi’s snack delivery"].tap()

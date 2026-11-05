@@ -125,41 +125,55 @@ private struct MochiFace: View {
     let sleeping: Bool
 
     var body: some View {
-        ZStack {
-            ear.rotationEffect(.degrees(-18)).offset(x: -23, y: -21)
-            ear.rotationEffect(.degrees(18)).offset(x: 23, y: -21)
-            RoundedRectangle(cornerRadius: 25)
-                .fill(MochiColors.fur)
-                .overlay(RoundedRectangle(cornerRadius: 25).stroke(MochiColors.ink, lineWidth: 2))
-                .frame(width: 72, height: 60)
-            HStack(spacing: 23) {
-                eye.rotationEffect(.degrees(sleeping ? -12 : 0))
-                eye.rotationEffect(.degrees(sleeping ? 12 : 0))
+        GeometryReader { geometry in
+            let transform = CGAffineTransform(scaleX: geometry.size.width / 100, y: geometry.size.height / 90)
+            ZStack(alignment: .topLeading) {
+                head.applying(transform).fill(MochiColors.fur)
+                head.applying(transform)
+                    .stroke(MochiColors.ink, style: StrokeStyle(lineWidth: 1.5, lineJoin: .round))
+                if sleeping {
+                    sleepingEyes.applying(transform)
+                        .stroke(MochiColors.ink, style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+                } else {
+                    Path { path in
+                        path.addEllipse(in: CGRect(x: 30.8, y: 51.7, width: 4.4, height: 6.6))
+                        path.addEllipse(in: CGRect(x: 64.8, y: 51.7, width: 4.4, height: 6.6))
+                    }.applying(transform).fill(MochiColors.ink)
+                }
+                Path(ellipseIn: CGRect(x: 48.2, y: 62.8, width: 3.6, height: 2.4))
+                    .applying(transform).fill(MochiColors.coral)
             }
-            .offset(y: -4)
-            HStack(spacing: 36) {
-                Ellipse().fill(MochiColors.coral.opacity(0.32))
-                Ellipse().fill(MochiColors.coral.opacity(0.32))
-            }
-            .frame(width: 60, height: 6).offset(y: 7)
-            Image(systemName: "heart.fill")
-                .font(.system(size: 7)).foregroundStyle(MochiColors.coral).offset(y: 6)
-            Text("ω").font(.system(size: 19, weight: .medium, design: .rounded))
-                .foregroundStyle(MochiColors.ink).offset(y: 13)
         }
-        .frame(width: 86, height: 80)
+        .frame(width: 86, height: 77.4)
         .accessibilityHidden(true)
     }
 
-    private var ear: some View {
-        RoundedRectangle(cornerRadius: 7)
-            .fill(MochiColors.fur)
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(MochiColors.ink, lineWidth: 2))
-            .frame(width: 25, height: 30)
+    // The same 100×90 face path is used in the demo's SVG illustration.
+    private var head: Path {
+        Path { path in
+            path.move(to: CGPoint(x: 14, y: 40))
+            path.addCurve(to: CGPoint(x: 14, y: 14), control1: CGPoint(x: 12, y: 32), control2: CGPoint(x: 11, y: 22))
+            path.addQuadCurve(to: CGPoint(x: 18, y: 13), control: CGPoint(x: 15, y: 11))
+            path.addLine(to: CGPoint(x: 35, y: 27))
+            path.addQuadCurve(to: CGPoint(x: 65, y: 27), control: CGPoint(x: 50, y: 23))
+            path.addLine(to: CGPoint(x: 82, y: 13))
+            path.addQuadCurve(to: CGPoint(x: 86, y: 14), control: CGPoint(x: 85, y: 11))
+            path.addCurve(to: CGPoint(x: 86, y: 40), control1: CGPoint(x: 89, y: 22), control2: CGPoint(x: 88, y: 32))
+            path.addCurve(to: CGPoint(x: 87, y: 71), control1: CGPoint(x: 93, y: 48), control2: CGPoint(x: 94, y: 61))
+            path.addCurve(to: CGPoint(x: 50, y: 85), control1: CGPoint(x: 79, y: 81), control2: CGPoint(x: 66, y: 85))
+            path.addCurve(to: CGPoint(x: 13, y: 71), control1: CGPoint(x: 34, y: 85), control2: CGPoint(x: 21, y: 81))
+            path.addCurve(to: CGPoint(x: 14, y: 40), control1: CGPoint(x: 6, y: 61), control2: CGPoint(x: 7, y: 48))
+            path.closeSubpath()
+        }
     }
 
-    private var eye: some View {
-        Capsule().fill(MochiColors.ink).frame(width: sleeping ? 9 : 4, height: sleeping ? 2 : 5)
+    private var sleepingEyes: Path {
+        Path { path in
+            path.move(to: CGPoint(x: 28, y: 54))
+            path.addQuadCurve(to: CGPoint(x: 38, y: 54), control: CGPoint(x: 33, y: 58))
+            path.move(to: CGPoint(x: 62, y: 54))
+            path.addQuadCurve(to: CGPoint(x: 72, y: 54), control: CGPoint(x: 67, y: 58))
+        }
     }
 }
 

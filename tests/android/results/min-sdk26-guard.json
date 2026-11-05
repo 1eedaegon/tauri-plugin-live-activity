@@ -1,0 +1,36 @@
+{
+  "verifiedAt": "2026-11-05T08:01:03.994651+00:00",
+  "scope": "Local alpha.3 merged Tauri demo APK; production minimum SDK guard",
+  "minSdk": 26,
+  "compileSdk": 37,
+  "apkSha256": "8d27fda00256a7a1063e6f3368988b6e4f63e08c8a6dc0eac7e9b94ffd9f2166",
+  "red": {
+    "source": "Unchanged published alpha.2 paired-registry APK",
+    "minSdk": 24,
+    "metadataAssertion": "24 != 26",
+    "api24": "Installed successfully then crashed during Tauri/Jackson initialization"
+  },
+  "green": {
+    "metadataAssertion": "passed for merged Tauri demo APK and native test APK",
+    "api24Install": "INSTALL_FAILED_OLDER_SDK",
+    "api24Message": "Requires newer sdk version #26 (current version is #24)",
+    "api37LifecycleChecks": 13,
+    "api37NativeTests": 8,
+    "api26GuardedNativeTests": 8,
+    "api26ElapsedSeconds": 1.253
+  },
+  "status": "passed",
+  "testApkSha256": "0b264a83bc744ed37dd83462ac0d808f27ff217701695c6494b57b783c1be99f",
+  "testSources": {
+    "android/src/androidTest/java/io/github/eedaegon/liveactivity/NativeBridgeTest.kt": "8d0109f378fe684c35ad7db527da74b54de43fd299a2a92dc6f8f638f600fbaf",
+    "android/src/androidTest/java/io/github/eedaegon/liveactivity/NativeNotificationTest.kt": "0fada2f21f7f0ad49d6ed036ab46bc61f29d57744f3a13230e8c1d8157e4ee86"
+  },
+  "automationNote": {
+    "initialApi26ColdBoot": "Deletion intent queued in OS broadcast history for about9.5s, exceeding old5s test condition timeout",
+    "change": "Condition-based polling bound increased to15s, with no fixed settling delay",
+    "focusedRetry": "1 test passed in0.121s before timing-only change",
+    "finalSuite": "8 tests passed in1.253s after test-only bound change"
+  },
+  "jvmTests": 22,
+  "lint": "0 errors; existing NewerVersionAvailable test dependency warning"
+}

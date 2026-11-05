@@ -1,0 +1,21 @@
+{
+  "verifiedAt": "2026-11-05T07:41:27.907606+00:00",
+  "scope": "Unchanged published npm and Cargo alpha.2 Tauri consumer",
+  "api": 24,
+  "systemImage": "system-images/android-24/google_apis/arm64-v8a revision29",
+  "status": "failed-before-plugin-initialization",
+  "installation": "passed",
+  "lifecycleChecksExecuted": 0,
+  "webViewVersion": "53.0.2785.124",
+  "error": "java.lang.NoClassDefFoundError: Failed resolution of: Ljava/lang/BootstrapMethodError;",
+  "stack": [
+    "com.fasterxml.jackson.databind.util.ExceptionUtil.isFatal(ExceptionUtil.java:51)",
+    "com.fasterxml.jackson.databind.util.ExceptionUtil.rethrowIfFatal(ExceptionUtil.java:31)",
+    "com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector.<clinit>(JacksonAnnotationIntrospector.java:70)",
+    "com.fasterxml.jackson.databind.ObjectMapper.<clinit>(ObjectMapper.java:375)",
+    "app.tauri.plugin.PluginManager.<clinit>(PluginManager.kt:53)"
+  ],
+  "dependency": "Tauri2.12.5 Android Jackson databind2.15.3",
+  "apkSha256": "dce4959c486ea0ec928ab84d563804f5b86e790055e961e9ef3bdc611181c310",
+  "interpretation": "The current default full Tauri app cannot claim API24 runtime compatibility. This failure occurs before the live-activity plugin or its WebView executes."
+}

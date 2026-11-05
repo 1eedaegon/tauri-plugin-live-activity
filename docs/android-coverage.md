@@ -8,11 +8,47 @@ or guarantee OEM lock-screen surfaces.
 
 | Android API | Adapter behavior | Verification scope |
 | --- | --- | --- |
-| 24–25 | Legacy standard notification builder; low priority; countdown chronometer | Minimum SDK and lint checks; no runtime claim |
-| 26–32 | Dedicated low-importance notification channel; ordinary ongoing notification | API 31 emulator lifecycle and fallback tests |
-| 33–35 | Runtime `POST_NOTIFICATIONS`; ordinary notification fallback | Runtime permission transitions exercised on later API 37; no API 33 device claim |
+| 24–25 | Unsupported by the current Tauri/Jackson dependency graph | Unchanged published alpha.2 APK installs on API 24, then fails before plugin initialization; API 25 not run |
+| 26 | Dedicated low-importance notification channel; ordinary ongoing notification | Eight native tests pass, including real Tauri `Invoke`/Jackson calls; stock WebView 58 blocks the full JavaScript pipeline |
+| 27–32 | Same channel and ordinary notification fallback | API 31 published npm + Cargo consumer passes 13 lifecycle checks and strict-fallback rejection |
+| 33–35 | Runtime `POST_NOTIFICATIONS`; ordinary notification fallback | API 33 published consumer passes 13 lifecycle checks and five real permission-dialog checks |
 | 36 | Requests promoted ongoing notifications using the documented extra | API 36 emulator lifecycle, permission dialogs and ordinary notification fallback |
-| 37 | Same request, actual promotion read from `FLAG_PROMOTED_ONGOING` | API 37 real notification and Tauri bridge checks |
+| 36.1 | Same request; Android's full Live Update presentation requirements apply | Compile SDK 36.1 build verified; no separate 36.1 runtime claim |
+| 37 | Same request, actual promotion read from `FLAG_PROMOTED_ONGOING` | Published consumer passes 13 lifecycle and five permission checks; actual promoted notification and dismissal observed |
+
+## Minimum OS and WebView boundaries
+
+The minimum Android SDK is **26 (Android 8)**. The alpha.2 manifest declared 24,
+but an unchanged consumer installed from both registries crashed on API 24 inside
+Tauri's Jackson initialization: `java.lang.BootstrapMethodError` does not exist
+until API 26. This is an upstream host dependency boundary, so the build now
+rejects older Android versions before launch. We do not force a global Jackson
+downgrade. [Android API reference](https://developer.android.com/reference/java/lang/BootstrapMethodError),
+[Tauri issue 8788](https://github.com/tauri-apps/tauri/issues/8788),
+[Jackson's supported Android floor](https://github.com/FasterXML/jackson-databind/issues/4653).
+
+API 26 passes all eight native instrumented tests, including Tauri `Invoke`
+serialization, start/update/end, persistence, dismissal, timers and channel
+permission denial. Its stock emulator WebView 58 cannot parse Tauri's injected
+JavaScript. The app process starts successfully, but this is **not** a full API 26
+JavaScript-to-Rust-to-Kotlin pass. A compatible, updated WebView is an independent
+host requirement. The official API 33 image's WebView 109 APK has `minSdk=29` and
+cannot update this API 26 emulator; no unofficial provider was installed.
+[Tauri WebView requirements](https://v2.tauri.app/reference/webview-versions/).
+Evidence: [API 24 failure](../tests/android/results/registry-alpha2-api24-boundary.json),
+[API 26 native tests](../tests/android/results/native-api26-boundary.json),
+[API 26 WebView limitation](../tests/android/results/registry-alpha2-api26-stock-webview.json).
+The new merged demo APK declares API 26 and is actually rejected by API 24 with
+`INSTALL_FAILED_OLDER_SDK`. The same build passes 13 full Tauri lifecycle checks
+on API 37. [Minimum-SDK regression](../tests/android/results/min-sdk26-guard.json).
+
+The release build keeps **compile SDK 37**. An isolated build of the published
+Android sources failed with SDK 36 because `EXTRA_REQUEST_PROMOTED_ONGOING` is
+defined in SDK 36.1; the same sources built successfully with SDK 36.1. This
+compile-time requirement is separate from the API 26 runtime floor. The extra's
+constant value is inlined and older Android versions may ignore it.
+[Compile experiment](../tests/android/results/compile-sdk-boundary.json),
+[Android 16 QPR2 SDK setup](https://developer.android.com/about/versions/16/qpr2/setup-sdk).
 
 Android requires notification channels from API 26. Users control channel
 importance after creation; the plugin does not raise a user's chosen importance.
@@ -24,6 +60,10 @@ the promotion manifest permission and request, and sufficient channel importance
 The OS can still decline or demote the request. The adapter reports the observed
 OS flag, keeps `visibility: 'unknown'`, and marks observed promotion rejection as
 a degraded feature. [Android Live Updates requirements](https://developer.android.com/develop/ui/views/notifications/live-update).
+API 36 exposes promotion permission and flag APIs; it does not establish the full
+presentation required of API 36.1 handheld implementations. OS eligibility and OEM
+policy still decide whether a particular activity is promoted.
+[Android 16 compatibility requirements](https://source.android.com/docs/compatibility/16/android-16-cdd).
 
 ## Permission cancellation and denial
 
@@ -42,12 +82,19 @@ with an already granted runtime permission requires settings.
 
 The current suite has 22 JVM tests and eight native instrumented tests. Five
 additional real permission-dialog checks run through an installed Tauri WebView
-on both API 36 and API 37.
+on APIs 33, 36 and 37. API 26 runs the same eight native tests with an API 31-only
+test getter guarded and distinct MIN/NONE channels, because API 26 ignores the
+test's previous attempt to lower an existing channel to NONE programmatically.
 New regression tests cover observed promotion rejection, minimum/blocked channel
 importance, permission ambiguity and retry policy, stale deadlines becoming active
 after an update, and delivery of the immutable native deletion PendingIntent.
 The existing tests cover revisions, duplicate starts, terminal generations,
 process recovery, delayed OS observation, posting failures and bounded history.
+Recomputing JaCoCo against the current, unchanged main Kotlin sources with the
+retained JVM/API 31 execution data gives **315/338 lines (93.20%)** and **204/286
+branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
+coverage collection on API 26 or 37.
+[Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
 `tests/android/results/registry-alpha1.json` records an isolated Tauri application
 with both `tauri-plugin-live-activity-api@0.1.0-alpha.1` from npm and
@@ -55,8 +102,15 @@ with both `tauri-plugin-live-activity-api@0.1.0-alpha.1` from npm and
 identifies the registry source and its npm lock records the registry URL and
 integrity. These baseline results are separate from subsequent workspace fixes.
 
+[The alpha.2 paired registry consumer](../tests/android/results/registry-alpha2.json)
+uses the renamed `tauri-plugin-live-activity@0.1.0-alpha.2` npm package and exact
+Cargo alpha.2 release. APIs 31 and 37 each pass all 13 bridge checks; the additional
+[API 33 run](../tests/android/results/registry-alpha2-api33-lifecycle.json) also
+passes all 13. These reports preserve package integrity, source hashes and APK
+identity separately from local changes for the next release.
+
 Remaining device checks include physical Samsung One UI/Now Bar behavior,
-vendor battery restrictions, API 24–25 rendering, and notification visibility on
+vendor battery restrictions, API 26 with a compatible WebView, and notification visibility on
 locked devices. A standard notification or promoted OS flag does not prove that
 the user saw the activity. API 37 also passed an actual horizontal swipe of a promoted notification:
 `list()` reported `dismissed` and a late update returned `NOT_FOUND`. This is
@@ -70,4 +124,8 @@ The permission driver now waits for a drawn, visible OS dialog before cancelling
 it and rejects stale UI hierarchy dumps. The hardened local WebView selector and
 test-app allowlist passed another API 37 run: [five permission checks](../tests/android/results/permission-api37-helper.json)
 and [13 lifecycle checks](../tests/android/results/mochi-api37-helper.json).
-These verify the local alpha.2 demo and test helpers, not the pending renamed npm release.
+These historical reports verify the local alpha.2 demo and the then-current test
+helpers. The additional [API 33 permission run](../tests/android/results/permission-api33-registry-alpha2.json)
+uses Android Back for cancellation: API 33 ignores the earlier Escape key gesture.
+All five real dialog assertions pass, including cancellation followed by a retry
+that grants access. [API 37 also passes with the Back gesture](../tests/android/results/permission-api37-back-registry-alpha2.json).

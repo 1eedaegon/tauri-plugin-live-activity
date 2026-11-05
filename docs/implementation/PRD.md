@@ -28,3 +28,13 @@ The demo becomes a small pet companion: Mochi's snack delivery and nap timer,
 with a polished mobile layout and real native screenshots. Existing plugin APIs
 and lifecycle checks remain available. Publish a new alpha only after the updated
 implementation, package consumers and demo pass review and validation.
+
+## Supported-version policy follow-up (2026-11-04)
+
+Choose explicit OS support floors from native API availability, the pinned Tauri
+toolchain, and observed runtime behavior. Distinguish the host app's build floor,
+the first OS with a feature, and the versions actually exercised. Fill practical
+boundary-test gaps before changing a support claim. Keep released alpha.2 archives
+immutable; any production changes receive the next alpha version after review.
+Desktop candidates must support the existing start/update/end/receipt contract;
+a successful one-shot notification alone does not qualify as an activity backend.

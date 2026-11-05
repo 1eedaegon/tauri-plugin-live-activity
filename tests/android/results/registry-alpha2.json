@@ -1,0 +1,196 @@
+{
+  "verifiedAt": "2026-11-05T07:37:58.746450+00:00",
+  "scope": "Actual Tauri consumer installed from both public registries; no plugin path dependency or copied plugin implementation",
+  "version": "0.1.0-alpha.2",
+  "applicationId": "io.github.eedaegon.liveactivityregistry",
+  "npm": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.2",
+    "resolved": "https://registry.npmjs.org/tauri-plugin-live-activity/-/tauri-plugin-live-activity-0.1.0-alpha.2.tgz",
+    "integrity": "sha512-POTnmukvkmfxBrGZaso1v2sD52sRHf/A+IotxN3FmqZ9xT4Wv90URzGQNQjTdp6fnE135mdx1SdmR2QLLTeDNg==",
+    "sha1": "b91bf5e1a0d9cf4da3f0d355b044790fc980567a"
+  },
+  "cargo": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.2",
+    "source": "registry+https://github.com/rust-lang/crates.io-index",
+    "checksum": "157b238cc6d5f79de4c86b6c9219eac83689def958224c12be2e0f3cbf43e938",
+    "manifest_path": "<cargo-home>/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-live-activity-0.1.0-alpha.2/Cargo.toml"
+  },
+  "apkSha256": "dce4959c486ea0ec928ab84d563804f5b86e790055e961e9ef3bdc611181c310",
+  "lifecycle": {
+    "31": {
+      "checks": [
+        {
+          "name": "start returns an opaque nonterminal handle",
+          "passed": true
+        },
+        {
+          "name": "duplicate start keeps its handle",
+          "passed": true
+        },
+        {
+          "name": "newer revision replaces the full snapshot",
+          "passed": true
+        },
+        {
+          "name": "identical update is idempotent",
+          "passed": true
+        },
+        {
+          "name": "stale revision is rejected",
+          "passed": true
+        },
+        {
+          "name": "conflicting revision is rejected",
+          "passed": true
+        },
+        {
+          "name": "list reconciles the current generation",
+          "passed": true
+        },
+        {
+          "name": "immediate end ends the generation",
+          "passed": true
+        },
+        {
+          "name": "repeated end is idempotent",
+          "passed": true
+        },
+        {
+          "name": "late update cannot revive an ended handle",
+          "passed": true
+        },
+        {
+          "name": "a new start receives a new generation",
+          "passed": true
+        },
+        {
+          "name": "old handles cannot modify the new generation",
+          "passed": true
+        },
+        {
+          "name": "the final generation is cleaned up",
+          "passed": true
+        }
+      ],
+      "platform": "android",
+      "status": "passed",
+      "visibility": "unknown"
+    },
+    "37": {
+      "checks": [
+        {
+          "name": "start returns an opaque nonterminal handle",
+          "passed": true
+        },
+        {
+          "name": "duplicate start keeps its handle",
+          "passed": true
+        },
+        {
+          "name": "newer revision replaces the full snapshot",
+          "passed": true
+        },
+        {
+          "name": "identical update is idempotent",
+          "passed": true
+        },
+        {
+          "name": "stale revision is rejected",
+          "passed": true
+        },
+        {
+          "name": "conflicting revision is rejected",
+          "passed": true
+        },
+        {
+          "name": "list reconciles the current generation",
+          "passed": true
+        },
+        {
+          "name": "immediate end ends the generation",
+          "passed": true
+        },
+        {
+          "name": "repeated end is idempotent",
+          "passed": true
+        },
+        {
+          "name": "late update cannot revive an ended handle",
+          "passed": true
+        },
+        {
+          "name": "a new start receives a new generation",
+          "passed": true
+        },
+        {
+          "name": "old handles cannot modify the new generation",
+          "passed": true
+        },
+        {
+          "name": "the final generation is cleaned up",
+          "passed": true
+        }
+      ],
+      "platform": "android",
+      "status": "passed",
+      "visibility": "unknown"
+    }
+  },
+  "permissionDialogs": {
+    "api": 37,
+    "appId": "io.github.eedaegon.liveactivityregistry",
+    "status": "passed",
+    "checks": [
+      {
+        "name": "fresh install can request permission",
+        "expected": "prompt",
+        "actual": "prompt",
+        "passed": true
+      },
+      {
+        "name": "cancelled dialog remains explicitly retryable",
+        "expected": [
+          "prompt",
+          "unknown"
+        ],
+        "actual": "unknown",
+        "passed": true
+      },
+      {
+        "name": "retry after cancellation can grant permission",
+        "expected": "granted",
+        "actual": "granted",
+        "passed": true
+      },
+      {
+        "name": "first denial preserves an explicit request opportunity",
+        "expected": "prompt",
+        "actual": "prompt",
+        "passed": true
+      },
+      {
+        "name": "repeated denial requires settings",
+        "expected": "settingsRequired",
+        "actual": "settingsRequired",
+        "passed": true
+      }
+    ]
+  },
+  "sourceHashes": {
+    "android/src/main/AndroidManifest.xml": "f6059e2635728f394506d9cc4891355e3e782976186e8456fa5ac27ef2fc0371",
+    "android/src/main/java/io/github/eedaegon/liveactivity/ActivityEngine.kt": "c72fbfa8e9496377a05a6786938c8133b7c0f2d976b2f0297b244dac984586b9",
+    "android/src/main/java/io/github/eedaegon/liveactivity/AndroidNotifications.kt": "6b9f63fb7fc88ad35971e909ff165aac8de8d652fd4b9f1baaafcc5978946f23",
+    "android/src/main/java/io/github/eedaegon/liveactivity/DismissReceiver.kt": "3c6e6211080815da13b8ede9b89f48ab6a65e46da1ba7360efc87585c4bf4076",
+    "android/src/main/java/io/github/eedaegon/liveactivity/DismissalMemory.kt": "8b55065e34c4f866e7a82cf8214bfb97bc5f494ea147fc40f4db3e6ceed014d4",
+    "android/src/main/java/io/github/eedaegon/liveactivity/Input.kt": "27f6d8ea2e4b16406c41e01b2f8425e6f31b3b7fb60238b377dee9aa32af2090",
+    "android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt": "a889f186c3d4e03d51952a1e0f0f34f21f6709ed0405b12e2f248a2622895b26",
+    "android/src/main/java/io/github/eedaegon/liveactivity/Models.kt": "0ab29bc81e3b9aa0e1842b2c4754ed9c88e33b97617b1a3902ef1783651e562d",
+    "android/src/main/java/io/github/eedaegon/liveactivity/PermissionPolicy.kt": "094e8fad5e8241458017a72d3e208791d06cc5311f5af48445469dae3daf7244",
+    "android/src/main/java/io/github/eedaegon/liveactivity/PreferencesStore.kt": "5e6db698e0f4fd71b810bdff8fd57ea55ce29f39ca5fb032b870b87addbde585",
+    "android/src/main/res/drawable/live_activity_status.xml": "592a662299d92338347ac345d53dc3a4277b6ef954b44a8c56152cbe516d1409"
+  },
+  "adbVersion": "36.0.2 official temporary host daemon; SDK/compiler unchanged",
+  "status": "passed"
+}

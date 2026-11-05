@@ -1,0 +1,43 @@
+{
+  "status": "passed",
+  "verification": "public npm registry consumer",
+  "validatedAt": "2026-11-05T07:31:02+00:00",
+  "registry": "https://registry.npmjs.org",
+  "package": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.2",
+    "distTag": {
+      "next": "0.1.0-alpha.2"
+    },
+    "tarball": "https://registry.npmjs.org/tauri-plugin-live-activity/-/tauri-plugin-live-activity-0.1.0-alpha.2.tgz",
+    "sha1": "b91bf5e1a0d9cf4da3f0d355b044790fc980567a",
+    "integrity": "sha512-POTnmukvkmfxBrGZaso1v2sD52sRHf/A+IotxN3FmqZ9xT4Wv90URzGQNQjTdp6fnE135mdx1SdmR2QLLTeDNg==",
+    "size": 10519,
+    "entryCount": 10
+  },
+  "release": {
+    "sourceCommit": "b91266c7727b426e8be75e32df84fbbfdeba4967",
+    "metadataMatchesFrozenRelease": true,
+    "downloadMatchesFrozenRelease": true,
+    "installLockMatchesFrozenRelease": true
+  },
+  "consumer": {
+    "freshDirectory": true,
+    "freshNpmCache": true,
+    "installation": "npm install --ignore-scripts --save-exact tauri-plugin-live-activity@0.1.0-alpha.2 typescript@7.0.2 --registry=https://registry.npmjs.org",
+    "node": "v26.12.1",
+    "typescript": "7.0.2",
+    "tauriApi": "2.12.4"
+  },
+  "checks": {
+    "strictNodeNextTypes": "passed",
+    "mockIPCTests": {
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0
+    },
+    "publishedPackageIdentity": "passed",
+    "esmAndDeclarations": "passed"
+  },
+  "scope": "Published npm package integrity, exact registry installation, TypeScript API and mocked IPC behavior. Paired npm/Cargo native runtime checks are separate."
+}

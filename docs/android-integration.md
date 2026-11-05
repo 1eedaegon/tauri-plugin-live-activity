@@ -1,11 +1,16 @@
 # Android integration and verification
 
-The Android adapter requires API 24 or newer and compile SDK 37. The host app sets
+The Android adapter requires API 26 (Android 8) or newer and compile SDK 37. The host app sets
 its own target SDK and supplies its usual Tauri Android project. Register the Rust
 plugin and grant the Tauri command permissions shown in the repository README.
 The plugin manifest merges `POST_NOTIFICATIONS` and `POST_PROMOTED_NOTIFICATIONS`.
 No foreground service, network client, custom `RemoteViews`, or background task
 scheduler is installed.
+
+Set `bundle.android.minSdkVersion` to `26` or higher in `tauri.conf.json`. Tauri's
+Jackson dependency fails before plugin initialization below API 26. The host also
+needs a WebView compatible with its Tauri/frontend JavaScript; the API 26 emulator's
+stock WebView 58 is too old. See the [boundary evidence](android-coverage.md).
 
 ## Display and permissions
 
@@ -78,7 +83,7 @@ From the repository root, with the Android SDK and a running emulator:
 ```sh
 source tools/mobile-env.sh
 cargo fetch
-./tests/android/gradlew -p tests/android \
+./tests/android/gradlew -p tests/android -PliveActivityCoverage=true \
   :live-activity:testDebugUnitTest \
   :live-activity:connectedDebugAndroidTest \
   :live-activity:lintDebug \
@@ -92,6 +97,12 @@ fixtures. Instrumented tests execute real notifications, permission checks, Taur
 native response envelopes, persistence and dismissal. Combined JaCoCo line coverage
 must reach 80%; the report is under `android/build/reports/jacoco/coverageReport`.
 The full Tauri demo separately exercises JavaScript → Rust → Kotlin.
+Verify a built demo's merged minimum SDK with:
+
+```sh
+node tests/android/verify-min-sdk.mjs "$ANDROID_HOME/build-tools/37.0.0/aapt" \
+  examples/demo/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+```
 
 ## Research sources
 

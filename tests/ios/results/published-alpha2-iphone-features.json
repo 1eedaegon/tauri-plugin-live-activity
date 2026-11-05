@@ -1,0 +1,56 @@
+{
+  "checks": [
+    {
+      "name": "iOS separates Live Activities from ordinary notification permission",
+      "passed": true
+    },
+    {
+      "name": "unsupported permission requests return stable errors",
+      "passed": true
+    },
+    {
+      "name": "timer start preserves epoch millisecond bounds",
+      "passed": true
+    },
+    {
+      "name": "timer duplicate start preserves its generation",
+      "passed": true
+    },
+    {
+      "name": "existing timer cannot switch to progress",
+      "passed": true
+    },
+    {
+      "name": "updating timer advances its revision and returns active",
+      "passed": true
+    },
+    {
+      "name": "timer ends immediately",
+      "passed": true
+    },
+    {
+      "name": "after dismissal rejects timestamps beyond four hours",
+      "passed": true
+    },
+    {
+      "name": "after dismissal is accepted and remains idempotent after its date",
+      "passed": true
+    },
+    {
+      "name": "default dismissal reports ended without claiming visibility",
+      "passed": true
+    }
+  ],
+  "platform": "ios",
+  "status": "passed",
+  "suite": "ios-features",
+  "visibility": "unknown",
+  "device": "iPhone 18 Pro simulator",
+  "os": "iOS 27.2",
+  "packageVersions": {
+    "npm": "0.1.0-alpha.2",
+    "cargo": "0.1.0-alpha.2"
+  },
+  "npmPackage": "tauri-plugin-live-activity",
+  "source": "exact published npm and crates.io dependencies, no plugin path overrides"
+}

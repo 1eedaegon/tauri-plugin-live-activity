@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.3
+
+- Require Android 8.0 / API 26 in the plugin and demo manifests. The previous API 24 minimum allowed installation on a version where Tauri's Jackson dependency crashes during startup.
+- Document OS feature floors, build requirements, desktop limitations and actual boundary-test results separately.
+- Refine Mochi's ears and face, using the same silhouette in the app and iOS widget.
+- Make Android permission-dialog tests work across API 33 and 37 and native tests run on API 26.
+
 ## 0.1.0-alpha.2
 
 - Rename the npm package to `tauri-plugin-live-activity`, matching the crate name.

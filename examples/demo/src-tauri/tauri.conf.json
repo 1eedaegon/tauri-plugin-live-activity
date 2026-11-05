@@ -1,7 +1,7 @@
 {
   "$schema": "../../../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "live-activity-demo",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "identifier": "io.github.eedaegon.liveactivitydemo",
   "build": {
     "frontendDist": "../dist",
@@ -33,7 +33,7 @@
       "icons/icon.ico"
     ],
     "android": {
-      "minSdkVersion": 24
+      "minSdkVersion": 26
     },
     "iOS": {
       "minimumSystemVersion": "16.1"

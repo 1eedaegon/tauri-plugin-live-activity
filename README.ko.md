@@ -10,7 +10,7 @@ Tauri 2에서 iOS Live Activity와 Android 진행 알림을 표시하는 커뮤�
 | 플랫폼 | 표시 방식 |
 | --- | --- |
 | iOS 16.1+ / iPadOS 17+ | ActivityKit · 잠금 화면 / 지원 기기의 Dynamic Island |
-| Android API 24+ | 진행 알림 · API 36+에서 조건 충족 시 Live Update 승격 |
+| Android API 26+ | 진행 알림 · API 36+에서 조건 충족 시 Live Update 승격 |
 | macOS / Windows / Linux | 미구현 |
 
 <table>
@@ -30,6 +30,8 @@ iOS 27.2 시뮬레이터와 Android API 37 에뮬레이터에서 직접 캡처�
 ## 설치
 
 Tauri 2와 Rust 1.90 이상이 필요합니다.
+Android는 API 26 이상과 업데이트된 WebView가 필요하며, 빌드에는 Android SDK 37을 사용합니다.
+기능별 OS 조건과 도구 버전은 [호환성 정책](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/compatibility.md)에 정리했습니다.
 
 ```sh
 npm install tauri-plugin-live-activity@next
@@ -39,7 +41,7 @@ npm install tauri-plugin-live-activity@next
 
 ```toml
 [dependencies]
-tauri-plugin-live-activity = "=0.1.0-alpha.2"
+tauri-plugin-live-activity = "=0.1.0-alpha.3"
 ```
 
 Tauri 빌더에 등록합니다.

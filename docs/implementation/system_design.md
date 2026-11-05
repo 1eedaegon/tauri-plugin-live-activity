@@ -16,3 +16,8 @@ iOS shares one attributes module between the Swift plugin and host widget.
 Android owns a notification namespace and persists generation/revision metadata.
 Both serialize mutations, preserve duplicate-request semantics, and report unknown
 visibility. Native errors must not expose payloads, paths, or credentials.
+
+Version gates belong to the backend that calls the native API. Build-tool minima
+are recorded separately from runtime feature gates. Desktop fallback evaluation
+must include update and removal semantics, observable errors, receipt recovery,
+permissions and explicit capability degradation before selecting a library.

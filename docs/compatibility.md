@@ -1,97 +1,100 @@
 # OS 호환성 정책
 
-이 문서의 표는 전체 설계 목표입니다. 첫 알파 구현은 iOS·Android이며,
-macOS·Windows·Linux는 명시적 미지원입니다. 실제 실행한 OS 버전은
-[검증 결과](validation.md)를 확인합니다.
+현재 게시 버전은 `0.1.0-alpha.2`이며, 아래 최소 버전 수정은 `0.1.0-alpha.3`에 반영합니다. npm과 Cargo에서 같은 이름
+`tauri-plugin-live-activity`를 사용합니다. 이 문서는 지원 기준을 정하고,
+[OS별 검증 범위](platform-coverage.md)는 실제로 실행한 테스트를 기록합니다.
 
-## 지원의 의미
+## 지원 버전
 
-공통 개념은 **시작·갱신·종료 가능한 활동 상태 표시**입니다. Apple Live Activities,
-Android Live Updates, 일반 알림은 서로 다른 기능입니다. 플랫폼 이름만으로 동일한
-UI나 지속성을 약속하지 않습니다. 아래는 구현 목표이며 모든 항목은 아직 미검증입니다.
-
-지원 여부를 네 단계로 나눕니다: 네이티브 활동 표시, 업데이트 가능한 알림 대체,
-제한된 알림 대체, 미지원. `getCapabilities()`는 OS API 존재 여부와 현재 권한,
-실제로 선택 가능한 backend를 구분해서 반환해야 합니다.
-
-## 버전별 목표
-
-| OS / 버전 구간 | 권장 backend | 제약과 대응 |
+| 플랫폼 | 지원 기준 | 제공 기능 |
 | --- | --- | --- |
-| iOS 16.1 미만 | 미지원; 앱 자체 UI | Live Activities API 없음. 오래된 OS를 지원하는 호스트에서도 호출 시 명시적 오류 |
-| iOS 16.1 | ActivityKit | 초기 API를 별도 분기. 16.2 API 무조건 호출 금지 |
-| iOS 16.2+ | ActivityKit + ActivityContent | stale 상태 및 종료 정책 처리. 세부 기능은 도입 버전별 검사 |
-| iOS 17.2+ | 위 기능 + 선택적 push-to-start | 초기 MVP에는 원격 시작 미포함. 별도 APNs 설계·테스트 필요 |
-| iPadOS | ActivityKit 후보 | iPhone과 별도 SDK availability·레이아웃 검증 전에는 지원 완료로 표시하지 않음 |
-| Android API 24–25 | NotificationCompat 지속/진행 알림 | 최소 API 24는 설계 목표. Tauri 및 의존성 선택 후 확정 |
-| Android API 26–32 | 알림 채널 기반 지속/진행 알림 | 채널 차단 검사. runtime POST_NOTIFICATIONS 요청 없음 |
-| Android API 33–35 | 위 기능 + 알림 runtime permission | 거부 시 표시 불가. 일반 지속 알림을 Live Updates로 표기하지 않음 |
-| Android API 36+ | 적격 Live Updates, 불가하면 알림 대체 | OS 버전만으로 승격 보장 불가. 권한·형식·OEM·사용자 설정 검사 |
-| macOS | UserNotifications 알림 대체 후보 | macOS 11+를 잠정 기준으로 검토하되 Tauri 의존성으로 확정. 반복 갱신·재알림 여부 검증 필요 |
-| macOS 26+의 iPhone 미러링 | OS가 iPhone 활동 표시 | 데스크톱 앱의 독립 ActivityKit backend와 다름. 플러그인이 강제하거나 지원 여부를 확정할 수 없음 |
-| Windows 10/11 | 업데이트 가능한 app notification | 진행률 API, 앱 등록/설치, tag/group, activation 경로 검증. 정확한 최소 빌드는 backend 선택 후 확정 |
-| Linux | freedesktop 알림 / sandbox에서는 portal | 배포판·GNOME/KDE·서버 capability별 차이. WebKitGTK 등 Tauri 의존성도 충족해야 함 |
-| 브라우저, 기타 OS | 미지원 | OS 플러그인 명령을 흉내 내어 성공 반환하지 않음 |
+| iPhone | iOS 16.1+ | ActivityKit 시작·갱신·종료·재조회, 진행률·타이머 |
+| iPhone의 `staleAt` | iOS 16.2+ | ActivityContent에 만료 시각 전달. stale 전환은 관측된 OS 상태를 반환 |
+| iPad | iPadOS 17+ | 같은 ActivityKit API; iPadOS 16.x는 명시적 미지원 |
+| Android | Android 8.0 / API 26+ | 일반 진행률·타이머 알림 대체. API 24는 Tauri 초기화 충돌을 재현해 지원 대상에서 제외 |
+| Android 알림 채널 | Android 8.0 / API 26+ | 채널 생성·차단·중요도 검사 |
+| Android 알림 권한 | Android 13 / API 33+ | 런타임 요청·취소·거부·설정 필요 상태 처리 |
+| Android Live Updates | Android 16 / API 36+ | 적격성·사용자 설정 검사 후 승격 요청; 실제 OS 플래그로 결과 확인 |
+| macOS·Windows·Linux | 활동 backend 미지원 | 기능 조회와 안정적인 미지원 오류; 데스크톱 알림 대체는 구현 전 |
+| watchOS·CarPlay·Mac의 iPhone 활동 표시 | 독립 실행 대상 아님 | 호스트 위젯과 OS가 전달하는 보조 화면; 별도 실기기 검증 필요 |
+| visionOS | 미지원 | 호환 iPhone/iPad 앱의 ActivityKit 시작도 거부됨; 플러그인의 호환모드 탐지·런타임 미검증 |
+| 브라우저·기타 OS | 미지원 | 네이티브 활동 표시를 지원한다고 광고하지 않음 |
 
-API의 최소 버전과 이 라이브러리의 지원 최소 버전은 다릅니다. 특히 Windows 10을
-기술적으로 빌드할 수 있다는 사실이 현재 제품 지원 정책이나 장기지원 보장을 뜻하지
-않습니다. 최초 릴리스에서 SDK·Tauri·Rust·OS의 실제 검증 조합을 기록합니다.
+ActivityKit의 iPad 지원은 iPadOS 17부터입니다.
+[Apple의 ActivityKit 소개](https://developer.apple.com/videos/play/wwdc2023/10184/).
+visionOS에서 호환 iPhone/iPad 앱의 활동 시작도 실패합니다.
+[ActivityKit 플랫폼 안내](https://developer.apple.com/documentation/activitykit).
 
-근거: [ActivityKit](https://developer.apple.com/documentation/activitykit),
+Android API 36의 API 존재와 화면 승격 보장은 다릅니다. API 36.1 이상 휴대용 기기의
+호환성 규정에는 승격된 알림의 잠금 화면 표시 요구가 추가되지만, 이 규정이 모든
+앱의 알림을 자동 승격한다는 뜻은 아닙니다. API 36 에뮬레이터의 승격 불허 상태와
+API 37의 승격 성공을 각각 검사했습니다. 채널 중요도, 사용자 설정, 알림 형식,
+OEM 조건이 충족되지 않으면 명시적인 일반 알림 대체를 사용합니다.
 [Android Live Updates](https://developer.android.com/develop/ui/views/notifications/live-update),
-[Windows 진행 알림](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-progress-bar),
-[freedesktop 명세](https://specifications.freedesktop.org/notification/latest-single/),
-[Notification portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Notification.html).
+[Android 16 호환성 규정](https://source.android.com/docs/compatibility/16/android-16-cdd).
 
-## 초기 기기 테스트 매트릭스
+## 빌드 기준과 실행 검증
 
-| 대상 | 검증할 표시 | 반드시 확인할 조건 |
-| --- | --- | --- |
-| iPhone XS | 잠금 화면 Live Activity | 설치된 iOS가 16.1 이상인지 확인. Dynamic Island 없음 |
-| iPhone 16 | 잠금 화면 + Dynamic Island | compact/minimal/expanded 표시 및 잠금·해제 전환 |
-| Galaxy Note10 | 구형 Android 알림 대체 경로 | 정확한 모델·OS·One UI 확인. Android 12 기기라면 API 31 경로 검증 |
-| Galaxy S23 | 알림 대체 + 조건 충족 시 Live Updates | 실제 OS/One UI 버전 확인. Android 16 이상이어도 승격 실패/해제 테스트 |
-| macOS 현재 호스트 | 로컬 알림 대체 | 권한, 앱 설치/서명, 갱신 중 재알림, 종료/삭제 |
-| Windows 테스트 호스트 | 진행률 알림 | 설치 앱과 개발 실행 구분, 클릭 activation, 종료 후 갱신 실패 |
-| Linux GNOME/KDE | 알림 교체 | Wayland/X11, D-Bus 서버 재시작, portal/sandbox 차이 |
+API가 처음 생긴 버전, 이 패키지를 빌드할 수 있는 환경, 실제 실행한 버전은
+서로 다릅니다. 테스트가 없는 버전을 테스트 완료로 표시하지 않습니다.
 
-S23 일부 모델의 Android 16 배포는 [Samsung 업데이트 기록](https://doc.samsungmobile.com/SM-S911U1/026210230304/eng.html)에서 확인됩니다.
-이 기록을 사용자 보유 지역·통신사 모델의 설치 버전으로 간주하지 않습니다.
-Android emulator는 삼성 One UI·Now Bar를 재현하지 못합니다.
-iOS simulator도 APNs·서명·전력 제약 검증을 실기기 대신하지 못합니다.
+| 항목 | 현재 기준 |
+| --- | --- |
+| Rust | MSRV 1.90, edition 2024; 릴리스 검사 Rust 1.99.1 |
+| Tauri | Tauri 2 범위: Rust `^2.12.5`, JS API `^2.12.4` |
+| Apple 플러그인 패키지 | Swift tools 5.9, iOS 배포 대상 15+; 활동 기능은 위 표의 OS 조건 필요 |
+| 데모·Widget Extension | iOS 배포 대상 16.1; iPad에서는 17+ 정책 적용 |
+| Apple 검증 도구 | Xcode 27.2 / iOS SDK 27.2 |
+| Android 패키지 | alpha.3부터 `minSdk = 26`; `compileSdk = 37` |
+| Android 검증 도구 | JDK 21, Android SDK 37, NDK 30 |
+
+Xcode 27.2는 iOS 15 이상 배포 대상을 빌드할 수 있지만, 지원하는 기기·시뮬레이터
+실행 범위는 iOS 17 이상입니다. iOS 16.1/16.2 분기의 컴파일·단위 테스트를 구형 OS
+실행 결과로 바꾸어 표현하지 않습니다. 이 두 버전의 실행 검증에는 호환되는 별도
+Xcode·호스트가 필요합니다.
+[Apple Xcode 지원표](https://developer.apple.com/xcode/system-requirements/).
+
+Android 호스트 앱은 지원되는 WebView와 자체 프런트엔드의 브라우저 요구사항도
+충족해야 합니다. 오래된 에뮬레이터에 설치된 WebView가 현재 번들을 실행하는지는
+네이티브 알림 API 테스트와 별도로 확인합니다.
+
+alpha.2의 manifest는 API 24를 허용했으나, 실제 레지스트리 앱은 API 24에서
+Tauri의 Jackson 초기화 중 `BootstrapMethodError` 누락으로 충돌했습니다.
+Tauri도 현재 Android 8 이상을 명시합니다. 낮은 manifest 값만으로 Android 7
+호환성을 주장할 수 없습니다. API 26에서 실제 Tauri Invoke/Jackson 경로와 네이티브
+알림 검사 8개를 통과했고, 최소 설정을 26으로 바로잡았습니다. 이 에뮬레이터의
+기본 WebView 58은 Tauri JavaScript를 해석하지 못하므로 전체 WebView 경로의
+성공으로 세지 않습니다. 전체 앱 경로는 API 31·33·36·37에서 검증했습니다.
+[Tauri 재현 이슈](https://github.com/tauri-apps/tauri/issues/8788).
+
+## 데스크톱 기준
+
+현재 Tauri 2.12.5의 기준은 Windows 10+, macOS 10.15+, Linux WebKitGTK 4.1입니다.
+이는 이 플러그인이 데스크톱 활동을 구현했다는 뜻이 아닙니다. Linux 배포 가능
+버전은 빌드 환경의 glibc와 패키징 방식에 따라 정해야 합니다.
+[버전 고정 Tauri 플랫폼 표](https://github.com/tauri-apps/tauri/blob/tauri-v2.12.5/README.md#platforms).
+
+데스크톱 대체 backend를 추가하려면 시작뿐 아니라 같은 활동의 갱신·제거,
+오류 전달, 권한, 재실행 후 상태 조정까지 확인해야 합니다. 일반 알림 라이브러리의
+일부 OS에서 제거가 무동작인 구현은 이 계약을 충족하지 못합니다. 네이티브
+ActivityKit과 동일한 기능을 제공한다고 표시하지 않습니다.
+
+## 릴리스 기준
+
+모바일 지원 기준을 alpha.3에 반영합니다. 검증 결과와 문서만 보강하면
+패키지 버전을 바꾸지 않습니다. 네이티브 동작·지원 범위·필수 빌드 설정을 바꾸면
+다음 alpha에 반영하고, 두 레지스트리의 버전을 맞춥니다. 기존 게시물을 덮어쓰지
+않습니다. 데스크톱 대체는 별도 backend와 기능 계약을 검증한 뒤 지원 표에 올립니다.
+
+정식 `0.1.0` 전에는 남은 구형 Apple 런타임, 실제 iPhone/iPad, Samsung One UI의
+표시·권한·사용자 해제 동작을 확인하고 공개 API와 패키징을 확정합니다. 이 기기
+검증을 현재 시뮬레이터의 성공으로 대신하지 않습니다.
 
 ## 표시와 실행 수명
 
-| 항목 | 정책 |
-| --- | --- |
-| 앱이 background/suspended | WebView JS 실행을 전제로 갱신하지 않음 |
-| 앱 프로세스 종료 | 화면 잔존과 데이터 갱신 능력을 별도로 보고; 영구 실행 보장 없음 |
-| 사용자 dismiss/권한 철회 | 재게시로 우회하지 않음; 감지 가능한 범위에서 상태 반영 |
-| 재부팅/OS 업데이트 | 자동 복구 보장 없음. 재실행 시 OS와 저장된 ID를 대조 |
-| 잠금 화면/Focus/DND | API 성공과 사용자에게 보였음을 구분; visibility는 unknown 가능 |
-| 타이머/진행률 | OS가 지원하는 시각·진행률 표현 사용. 초당 IPC/재게시 금지 |
-| watchOS/CarPlay/Mac 보조 화면 | iPhone에서 전달되는 표시를 우선 고려. 독립 Tauri 실행 대상으로 선언하지 않음 |
-
-Apple 문서상 활동은 최대 8시간 활성화되고 잠금 화면에 추가로 최대 4시간 남을 수
-있습니다. Live Activity 자체는 네트워크나 위치에 직접 접근하지 않습니다.
-속성·상태 합계 4KB 제한을 지키고 Swift 인코딩 기준으로 검증해야 합니다.
-[Apple 제약](https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities)
-
-Android 지속 알림은 앱을 계속 실행시키는 기능이 아닙니다. Foreground Service,
-WorkManager, FCM은 각각 별도 실행 정책을 갖는 호스트 앱의 선택 사항입니다.
-macOS 미러링은 계정·기기 연결·사용자 설정에 의존합니다.
-[Apple 미러링 안내](https://support.apple.com/en-ie/120684)
-
-## 대체 표시 규칙
-
-기본 정책은 `fallback: "notification"`을 명시한 호출에서만 알림으로 낮춥니다.
-`fallback: "none"`이면 요구 기능을 충족하지 못할 때 `UNSUPPORTED_FEATURE`를 반환합니다.
-권한 거부를 대체 경로로 우회하지 않습니다. 대체 backend와 잃는 기능을 반환하고,
-OS가 승격 여부를 알려주지 않으면 `unknown`으로 유지합니다.
-Linux에 표준 진행률 표시가 없거나 macOS에서 조용한 갱신이 검증되지 않았다면
-해당 capability를 unsupported/unknown으로 보고합니다.
-
-`fallback: "none"`은 플러그인이 대체 backend를 선택하지 않는다는 정책입니다.
-Android의 게시 후 미승격·사용자 강등이나 OS의 표시 억제를 막는 보장이 아닙니다.
-승격 요청과 관측된 승격 상태는 별도로 반환하며, 항상 승격된 표시만 유지한다는
-요구는 지원하지 않습니다. 상세 형식은 [요청 계약](request-contract.md)을 참고합니다.
+- 성공 응답은 사용자가 보았다는 증거가 아닙니다. `visibility`는 `unknown`입니다.
+- 앱이 중단되거나 종료되어도 WebView JavaScript가 계속 실행된다고 보장하지 않습니다.
+- 사용자 해제·권한 철회를 재게시로 우회하지 않습니다. 재시작 시 저장된 ID와 OS 상태를 조정합니다.
+- APNs·FCM·백그라운드 작업·상호작용 버튼은 현재 릴리스에 포함하지 않습니다.
+- `fallback: "notification"`일 때만 알림 대체를 선택합니다. `none`은 OS의 표시 억제나 이후 강등을 막는 옵션이 아닙니다.
+- iOS의 `staleAt`은 ActivityKit에 전달합니다. 현재 시뮬레이터에서 관찰되지 않은 자동 stale 전환은 통과한 테스트로 세지 않습니다.
