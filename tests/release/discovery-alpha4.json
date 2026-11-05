@@ -1,0 +1,91 @@
+{
+  "version": "0.1.0-alpha.4",
+  "github": {
+    "description": "Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates with ongoing notification fallback. Early alpha.",
+    "homepageUrl": "https://www.npmjs.com/package/tauri-plugin-live-activity",
+    "repositoryTopics": [
+      {
+        "name": "activitykit"
+      },
+      {
+        "name": "android"
+      },
+      {
+        "name": "dynamic-island"
+      },
+      {
+        "name": "ios"
+      },
+      {
+        "name": "ipados"
+      },
+      {
+        "name": "live-activities"
+      },
+      {
+        "name": "live-activity"
+      },
+      {
+        "name": "rust"
+      },
+      {
+        "name": "tauri"
+      },
+      {
+        "name": "tauri-plugin"
+      },
+      {
+        "name": "tauri-v2"
+      },
+      {
+        "name": "typescript"
+      },
+      {
+        "name": "android-live-updates"
+      }
+    ],
+    "url": "https://github.com/1eedaegon/tauri-plugin-live-activity"
+  },
+  "npm": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.4",
+    "description": "Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates with ongoing notification fallback",
+    "keywords": [
+      "tauri",
+      "tauri-plugin",
+      "tauri-v2",
+      "ios",
+      "ipados",
+      "android",
+      "live-activity",
+      "live-activities",
+      "activitykit",
+      "dynamic-island",
+      "live-updates",
+      "notifications"
+    ],
+    "homepage": "https://github.com/1eedaegon/tauri-plugin-live-activity#readme",
+    "repository": {
+      "url": "git+https://github.com/1eedaegon/tauri-plugin-live-activity.git",
+      "type": "git"
+    }
+  },
+  "cargo": {
+    "name": "tauri-plugin-live-activity",
+    "description": "Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates with ongoing notification fallback",
+    "keywords": [
+      "activitykit",
+      "android",
+      "live-activities",
+      "notifications",
+      "tauri"
+    ],
+    "categories": [
+      "gui",
+      "os::android-apis",
+      "api-bindings"
+    ],
+    "repository": "https://github.com/1eedaegon/tauri-plugin-live-activity"
+  },
+  "scope": "Public GitHub settings and exact-version npm/crates.io metadata readback. This does not assert current npm package-root metadata, search-index inclusion or ranking; those observations are recorded separately in npm-alpha4-registry.json."
+}

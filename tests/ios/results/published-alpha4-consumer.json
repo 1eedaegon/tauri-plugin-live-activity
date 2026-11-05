@@ -1,0 +1,78 @@
+{
+  "status": "passed",
+  "version": "0.1.0-alpha.4",
+  "sourceCommit": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+  "validationDate": "2026-11-05",
+  "scope": "Exact public npm and crates.io dependencies, actual Tauri iOS build and fresh iPhone runtime checks",
+  "ciRun": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998681808",
+  "releaseWorkflow": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42001553056",
+  "npm": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.4",
+    "resolved": "https://registry.npmjs.org/tauri-plugin-live-activity/-/tauri-plugin-live-activity-0.1.0-alpha.4.tgz",
+    "integrity": "sha512-biLvBVI9n2cmR1w/P+phZvekLEom4f/Xdqe4I1WDJdX2f6XTk4N8E7cHtr7roPZ24H6Lz1fC1zYgmvKocrgFag==",
+    "sha1": "889f6fc90915b31c2d86d9ad1c80741dee87835f",
+    "frozenManifestMatches": true,
+    "registryMetadataMatches": true,
+    "downloadedArchiveMatches": true,
+    "lockfileRegistryOriginVerified": true,
+    "installedAsSymlink": false,
+    "oldApiPackagePresent": false
+  },
+  "cargo": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.4",
+    "source": "registry+https://github.com/rust-lang/crates.io-index",
+    "checksum": "88b33b13abe653b0224cfeb3cdd37ed89e82bf0b9e1baf1ba102a15a88cf2aba",
+    "archiveChecksumMatches": true,
+    "lockfileChecksumMatches": true,
+    "sparseIndexChecksumMatches": true,
+    "yanked": false,
+    "sourceCommit": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+    "target": "aarch64-apple-ios-sim",
+    "cargoCheck": "passed",
+    "cargoCheckSeconds": 10.88,
+    "pluginPathOverride": false,
+    "tauriAPIProvidedByCargo": true,
+    "sourceParityEvidence": "tests/ios/results/published-alpha4-source-parity.json"
+  },
+  "build": {
+    "command": "npm run tauri -- ios build --target aarch64-sim --debug",
+    "status": "passed",
+    "hostMinimumOSVersion": "16.1",
+    "widgetMinimumOSVersion": "16.1",
+    "bundleVersion": "0.1.0.4",
+    "widget": "Mochi host-specific widget importing LiveActivityShared from registry crate",
+    "pluginPathOverrides": false
+  },
+  "artifacts": {
+    "capturedAt": "2026-11-05T09:29:15.277177+00:00",
+    "appBundleTreeSha256": "6b11a6c277d457d6e0eb858f3b0c02e769449968783cb321f254b488d79c7e8d",
+    "appBundleFileCount": 13,
+    "appExecutableSha256": "2ec73ce4e9ed01ac6e86ea2cc6320266893f2df13459f1af3f82cebdfae88f4c",
+    "widgetExecutableSha256": "daad1fd90b8f965a44fdafce57bd5fcbde72379a3bbe5bde6f05f5d5f8cd000e",
+    "frontendTreeSha256": "ee639be1b0028472dce03842461e8ae4f38991c6434041e45a46f4cc4150110a",
+    "frontendFiles": {
+      "index.html": "03b1816901a24586de07677cb991cc399be1d3d5b7e3a13c3bda58dfba356e0c",
+      "main.js": "4fd7eb318be7a8f7d87eaed03589e6b7e33a796d7b1e1320511b75de940edfb2",
+      "main.js.map": "ae321cb68a14206a446f0f83e65bebb8eb395c6d09cea48f7c56659d70f3650f",
+      "styles.css": "090652a3d9bfd4677269921c955d994a121e7d0023f91cd8a5be44c5e1f5e69e"
+    },
+    "treeHashAlgorithm": "SHA256 of sorted relativePath + NUL + fileSHA256 + newline for regular non-symlink files",
+    "hostMinimumOSVersion": "16.1",
+    "widgetMinimumOSVersion": "16.1",
+    "bundleVersion": "0.1.0.4"
+  },
+  "runtime": {
+    "iPhone18Pro_iOS27.2": {
+      "lifecycle": 13,
+      "features": 10,
+      "unicodeRegression": 1,
+      "status": "passed",
+      "execution": "Fresh run of exact public alpha.4 pair"
+    }
+  },
+  "otherPlatforms": "No fresh alpha.4 iPad run; earlier iPad results remain scoped to alpha.2. Unchanged source parity is recorded separately.",
+  "visibility": "Acceptance does not imply visibility; refined demo screenshots have separate provenance. No screenshots replaced during this verification.",
+  "staleTransition": "Strict stale-date OS observation remains an explicit simulator limitation and is not included in these passing feature counts"
+}

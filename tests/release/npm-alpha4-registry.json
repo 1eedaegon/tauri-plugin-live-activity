@@ -1,0 +1,133 @@
+{
+  "status": "passed",
+  "verification": "public npm registry consumer",
+  "validatedAt": "2026-11-05T09:29:39+00:00",
+  "registry": "https://registry.npmjs.org",
+  "package": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.4",
+    "distTag": {
+      "next": "0.1.0-alpha.4"
+    },
+    "tarball": "https://registry.npmjs.org/tauri-plugin-live-activity/-/tauri-plugin-live-activity-0.1.0-alpha.4.tgz",
+    "sha1": "889f6fc90915b31c2d86d9ad1c80741dee87835f",
+    "integrity": "sha512-biLvBVI9n2cmR1w/P+phZvekLEom4f/Xdqe4I1WDJdX2f6XTk4N8E7cHtr7roPZ24H6Lz1fC1zYgmvKocrgFag==",
+    "size": 10807,
+    "entryCount": 10,
+    "description": "Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates with ongoing notification fallback",
+    "keywords": [
+      "tauri",
+      "tauri-plugin",
+      "tauri-v2",
+      "ios",
+      "ipados",
+      "android",
+      "live-activity",
+      "live-activities",
+      "activitykit",
+      "dynamic-island",
+      "live-updates",
+      "notifications"
+    ]
+  },
+  "release": {
+    "sourceCommit": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+    "ciRun": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998681808",
+    "publicationWorkflow": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42001553056",
+    "metadataMatchesCiArtifact": true,
+    "downloadMatchesCiArtifact": true,
+    "installLockMatchesCiArtifact": true
+  },
+  "consumer": {
+    "freshDirectory": true,
+    "freshNpmCache": true,
+    "installedAsSymlink": false,
+    "installation": "npm install --ignore-scripts --save-exact tauri-plugin-live-activity@0.1.0-alpha.4 typescript@7.0.2 --registry=https://registry.npmjs.org",
+    "node": "v26.12.1",
+    "typescript": "7.0.2",
+    "tauriApi": "2.12.4"
+  },
+  "checks": {
+    "strictNodeNextTypes": "passed",
+    "mockIPCTests": {
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0
+    },
+    "publishedPackageIdentity": "passed",
+    "metadataDescription": "passed",
+    "metadataKeywords": {
+      "expected": 12,
+      "actual": 12,
+      "status": "passed"
+    },
+    "distJsParityWithAlpha3": {
+      "status": "passed",
+      "files": {
+        "dist-js/index.js": "472297d3526d03e84f2975bcf2fff49051ab4de97699e232c8af808ed8c1d8e0",
+        "dist-js/types.js": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+        "dist-js/index.d.ts": "ee66f317cda7da7d15d1bb9642919ae8674a608b1c5bfeb49077b799afb16c71",
+        "dist-js/types.d.ts": "9805e1b4e649baebd46c7ac60ccfa739606b9bca39c4a2383acd61721855e290"
+      }
+    }
+  },
+  "provenance": {
+    "status": "verified",
+    "url": "https://registry.npmjs.org/-/npm/v1/attestations/tauri-plugin-live-activity@0.1.0-alpha.4",
+    "predicateType": "https://slsa.dev/provenance/v1",
+    "sourceCommit": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+    "workflow": {
+      "ref": "refs/tags/v0.1.0-alpha.4",
+      "repository": "https://github.com/1eedaegon/tauri-plugin-live-activity",
+      "path": ".github/workflows/publish.yml"
+    },
+    "invocationId": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42001553056/attempts/1",
+    "subject": {
+      "name": "pkg:npm/tauri-plugin-live-activity@0.1.0-alpha.4",
+      "digest": {
+        "sha512": "6e22ef05523d9f6726475c3f3fea6166f7a42c4a26e1ffd776a7b823558325d5f67fa5d393837c13b707b6beeba0f676e07e8bcf57c2d736209af2a872b8056a"
+      }
+    },
+    "signatureVerification": {
+      "command": "npm audit signatures --json",
+      "exitCode": 0,
+      "invalid": [],
+      "missing": []
+    },
+    "historicalComparison": "Alpha.3 intentionally disabled provenance for its historical-tag dispatch. Alpha.4 tag publication records its actual release commit."
+  },
+  "discovery": {
+    "observedAt": "2026-11-05T09:29:39+00:00",
+    "searchEndpoint": "https://registry.npmjs.org/-/v1/search?text=tauri-plugin-live-activity&size=20",
+    "searchFound": false,
+    "searchVersion": null,
+    "searchDescription": null,
+    "searchKeywords": null,
+    "packageRootDescription": "Typed Tauri v2 API for iOS Live Activities and Android ongoing activity notifications",
+    "packageRootKeywords": [
+      "tauri",
+      "plugin",
+      "live-activity",
+      "activitykit",
+      "android"
+    ],
+    "observedDistTags": {
+      "latest": "0.1.0-alpha.2",
+      "next": "0.1.0-alpha.4"
+    },
+    "note": "Exact alpha.4 metadata contains the verified new description and12keywords. Package-root and search-index metadata may still describe another dist-tag/version; indexing or ranking is not guaranteed."
+  },
+  "installedFileHashes": {
+    "LICENSE": "cdae86e7e730abef3b88e57d52048c8cf699c7617bd6fc3de87572f850f42940",
+    "LICENSE-APACHE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "LICENSE-MIT": "a008887e13a30b94e9ca14eaacf8290a2403a3fe8f0d4a5255d19cf760dc0a6d",
+    "dist-js/index.js": "472297d3526d03e84f2975bcf2fff49051ab4de97699e232c8af808ed8c1d8e0",
+    "dist-js/types.js": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+    "package.json": "e7bbac5740af9620ff7b6edf0564d182df24767a9582817870f1cec84fa6c2b4",
+    "README.ko.md": "751317a9c31528434d3478e1e694dfd75efd458789f79a973b06419ff378703c",
+    "README.md": "38f90bddeeffe50406205e8b073618a38949fc2fdf4d4fbbaf8dffa3889b7b44",
+    "dist-js/index.d.ts": "ee66f317cda7da7d15d1bb9642919ae8674a608b1c5bfeb49077b799afb16c71",
+    "dist-js/types.d.ts": "9805e1b4e649baebd46c7ac60ccfa739606b9bca39c4a2383acd61721855e290"
+  },
+  "scope": "Exact public npm installation, CI archive identity, TypeScript and mock IPC behavior, metadata, distribution-code parity and signed provenance. This report does not rerun or claim new native OS behavior."
+}

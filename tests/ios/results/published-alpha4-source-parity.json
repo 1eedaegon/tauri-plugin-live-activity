@@ -1,0 +1,228 @@
+{
+  "version": "0.1.0-alpha.4",
+  "sourceCommit": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+  "registrySource": "registry+https://github.com/rust-lang/crates.io-index",
+  "archiveChecksum": "88b33b13abe653b0224cfeb3cdd37ed89e82bf0b9e1baf1ba102a15a88cf2aba",
+  "archiveIndexLockChecksumsMatch": true,
+  "pluginPathOverride": false,
+  "comparisonVersion": "0.1.0-alpha.3",
+  "comparedArchiveFiles": 56,
+  "changedFiles": [
+    ".cargo_vcs_info.json",
+    "Cargo.lock",
+    "Cargo.toml",
+    "Cargo.toml.orig",
+    "README.md"
+  ],
+  "changesLimitedToMetadataReadmeAndProvenance": true,
+  "identicalFiles": [
+    {
+      "path": "LICENSE",
+      "sha256": "cdae86e7e730abef3b88e57d52048c8cf699c7617bd6fc3de87572f850f42940"
+    },
+    {
+      "path": "LICENSE-APACHE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "LICENSE-MIT",
+      "sha256": "a008887e13a30b94e9ca14eaacf8290a2403a3fe8f0d4a5255d19cf760dc0a6d"
+    },
+    {
+      "path": "android/build.gradle.kts",
+      "sha256": "26388f8d857faf7acda2762fcdb0524c999730ab0b06df3b18958d55c3d10778"
+    },
+    {
+      "path": "android/consumer-rules.pro",
+      "sha256": "53dd0868021d20c054c6fb861c7ee0843b5b12dedbb4da3a7f75ff47dd30f690"
+    },
+    {
+      "path": "android/src/main/AndroidManifest.xml",
+      "sha256": "f6059e2635728f394506d9cc4891355e3e782976186e8456fa5ac27ef2fc0371"
+    },
+    {
+      "path": "android/src/main/java/io/github/eedaegon/liveactivity/ActivityEngine.kt",
+      "sha256": "c72fbfa8e9496377a05a6786938c8133b7c0f2d976b2f0297b244dac984586b9"
+    },
+    {
+      "path": "android/src/main/java/io/github/eedaegon/liveactivity/AndroidNotifications.kt",
+      "sha256": "6b9f63fb7fc88ad35971e909ff165aac8de8d652fd4b9f1baaafcc5978946f23"
+    },
+    {
+      "path": "android/src/main/java/io/github/eedaegon/liveactivity/DismissReceiver.kt",
+      "sha256": "3c6e6211080815da13b8ede9b89f48ab6a65e46da1ba7360efc87585c4bf4076"
+    },
+    {
+      "path": "android/src/main/java/io/github/eedaegon/liveactivity/DismissalMemory.kt",
+      "sha256": "8b55065e34c4f866e7a82cf8214bfb97bc5f494ea147fc40f4db3e6ceed014d4"
+    },
+    {
+      "path": "android/src/main/java/io/github/eedaegon/liveactivity/Input.kt",
+      "sha256": "27f6d8ea2e4b16406c41e01b2f8425e6f31b3b7fb60238b377dee9aa32af2090"
+    },
+    {
+      "path": "android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt",
+      "sha256": "a889f186c3d4e03d51952a1e0f0f34f21f6709ed0405b12e2f248a2622895b26"
+    },
+    {
+      "path": "android/src/main/java/io/github/eedaegon/liveactivity/Models.kt",
+      "sha256": "0ab29bc81e3b9aa0e1842b2c4754ed9c88e33b97617b1a3902ef1783651e562d"
+    },
+    {
+      "path": "android/src/main/java/io/github/eedaegon/liveactivity/PermissionPolicy.kt",
+      "sha256": "094e8fad5e8241458017a72d3e208791d06cc5311f5af48445469dae3daf7244"
+    },
+    {
+      "path": "android/src/main/java/io/github/eedaegon/liveactivity/PreferencesStore.kt",
+      "sha256": "5e6db698e0f4fd71b810bdff8fd57ea55ce29f39ca5fb032b870b87addbde585"
+    },
+    {
+      "path": "android/src/main/res/drawable/live_activity_status.xml",
+      "sha256": "592a662299d92338347ac345d53dc3a4277b6ef954b44a8c56152cbe516d1409"
+    },
+    {
+      "path": "build.rs",
+      "sha256": "cbed53e2c214c718367703ac16e5983fc805bad299e3626c13247d313663d6f3"
+    },
+    {
+      "path": "docs/android-integration.md",
+      "sha256": "6c5fb46a21369805c42a18454027137e3a9a659853272cc872d8ba267b22e017"
+    },
+    {
+      "path": "docs/ios-integration.md",
+      "sha256": "61ba480c33329f57e93f7aacce2e930a08cfc4faa664e14ff620547e2ed3b230"
+    },
+    {
+      "path": "ios/Package.swift",
+      "sha256": "9ab4a23cf114d54fe7fc6a41411719774930c2a8c48d43e240b992efc6969871"
+    },
+    {
+      "path": "ios/Sources/LiveActivityCore/Lifecycle.swift",
+      "sha256": "4de0950852532bf2113a1f70a2dbd426d7dce66a6435c1a0e3650d80ff725be2"
+    },
+    {
+      "path": "ios/Sources/LiveActivityCore/PlatformSupport.swift",
+      "sha256": "10788fdada831ee78a78aaf5fde9cadb11bf9f496272320e98076a995d24215d"
+    },
+    {
+      "path": "ios/Sources/LiveActivityCore/ReceiptStore.swift",
+      "sha256": "df0276bbe0f87f71ce12b52ea02a52d0728370d5281e9415437e1c7083dfb955"
+    },
+    {
+      "path": "ios/Sources/LiveActivityPlugin/ActivityKitBackend.swift",
+      "sha256": "fa9a9a4dfed1c6e557851c422d00d7482ca6d7da64e9edee584d6d57b0dabd26"
+    },
+    {
+      "path": "ios/Sources/LiveActivityPlugin/LiveActivityPlugin.swift",
+      "sha256": "35f1969c63ee316c79f3494f4982981d80712413ee403440774d9c44b49cedcc"
+    },
+    {
+      "path": "ios/Sources/LiveActivityShared/Models.swift",
+      "sha256": "27ee79b4d6259b844a141a626b3339f4cdb118c01b3f7b7d5bfd3dc7a5be98c4"
+    },
+    {
+      "path": "ios/Sources/LiveActivityShared/Validation.swift",
+      "sha256": "40146d61441281d2df49d28b4f944ba0b4298c46be52d0fa768dfa5c41f02594"
+    },
+    {
+      "path": "permissions/autogenerated/commands/check_permissions.toml",
+      "sha256": "3c617ea5a3f35a07f0e684992293ed8ae23df4f4cbaae6a48ec8713dc77cfaba"
+    },
+    {
+      "path": "permissions/autogenerated/commands/end.toml",
+      "sha256": "bcbb393e7f6d39d9b97c21796edb84f165448633c526e581c2a586cc16ced523"
+    },
+    {
+      "path": "permissions/autogenerated/commands/get_capabilities.toml",
+      "sha256": "f7325e24968e6cb827798a410034a3e5fd97aa7bb0becce89142efc5f9ebcf47"
+    },
+    {
+      "path": "permissions/autogenerated/commands/list.toml",
+      "sha256": "7e03eb3594feed4b3d7ce3b53efd05359ccc627faee5b20d70ed9327a79f0949"
+    },
+    {
+      "path": "permissions/autogenerated/commands/request_permissions.toml",
+      "sha256": "31088e5ff35c4498eda167040375c9c242b1503c03047c5d6439150c91b9a005"
+    },
+    {
+      "path": "permissions/autogenerated/commands/start.toml",
+      "sha256": "6a12a9bf1cef80a87585959a469c80b62acfb08b8f2f0c27655f253a64553409"
+    },
+    {
+      "path": "permissions/autogenerated/commands/update.toml",
+      "sha256": "5ecc93a34194fcdcdfec9d2e106c4dbd68cbdb06c593d19aa79ab3ea4692df8c"
+    },
+    {
+      "path": "permissions/autogenerated/reference.md",
+      "sha256": "6aa2dc62f0d08a3ae2e8f745a7c793f178fa2ecc1ef5375473fde48ea84752f8"
+    },
+    {
+      "path": "permissions/default.toml",
+      "sha256": "88b92bb7158558ded727c0d0af6c43448910f5121d6f1b25f27d02b2b67bb71d"
+    },
+    {
+      "path": "permissions/schemas/schema.json",
+      "sha256": "5f11eeb2ae505f41aca05767b32c58539541359c81f4364fd4cf159d0db81120"
+    },
+    {
+      "path": "src/bridge.rs",
+      "sha256": "fd31db2cb66fc6f7994dd2c13250ebc2f1a7224f4ee1fe4b6b425dca21235a99"
+    },
+    {
+      "path": "src/command_tests.rs",
+      "sha256": "c24567205cc0840be6c1bcad8eb31acda4267143e08d6478e768b81edc2b0902"
+    },
+    {
+      "path": "src/commands.rs",
+      "sha256": "ad276169640f6a7ac09805403dc65a54306d322e198fdeeaef67f8d2379f3c7d"
+    },
+    {
+      "path": "src/desktop.rs",
+      "sha256": "740e661f0d4e564377efb725e451634710e99f70c91eadaefbc6ef0fcab16e2b"
+    },
+    {
+      "path": "src/desktop_ipc_tests.rs",
+      "sha256": "46f49931ec3d39e80c919a8473bccce98a56f0416a0a03c31e5b85bbc4d70394"
+    },
+    {
+      "path": "src/error.rs",
+      "sha256": "c0b56672ef6b329d47f9aeaf029fce5ff8dd5c926cee3d6805eb9d104916c524"
+    },
+    {
+      "path": "src/lib.rs",
+      "sha256": "ffba2b325988433d6f6e93414bf8a526c82020fd38ac5906eed50dc2cbe7a755"
+    },
+    {
+      "path": "src/mobile.rs",
+      "sha256": "1fc904de35c7cd353797d34666c28dfe9ab259a558030ceaab5ddf9f4c5d58c3"
+    },
+    {
+      "path": "src/models.rs",
+      "sha256": "f5fc9318233dd44f75c46c7f741686813f1f4c0e0d691bc21c91fefd3d06f2ee"
+    },
+    {
+      "path": "src/validation.rs",
+      "sha256": "c99fa64b5589f6f168a3f8dacdd299ec77d6eb744ff45a3f081b6ec4a3e7c986"
+    },
+    {
+      "path": "templates/ios/Info.plist",
+      "sha256": "abbf261daa68124cce548b2af1aa5cc486a42a253a7a24fa94ba5866aeb6c0b2"
+    },
+    {
+      "path": "templates/ios/LiveActivityWidget.swift",
+      "sha256": "123dd41c5178624944b1af526410c863dd0740ccd347cf3e9ec9118777fd46a4"
+    },
+    {
+      "path": "tests/contract.rs",
+      "sha256": "5002dde9e5a0fc9eff4ee3dd008b2c932507a922da3fc20cfe77ff2f9e858ab0"
+    },
+    {
+      "path": "tests/fixtures/requests.json",
+      "sha256": "64ce47f765cf619e9dbae212dccd01a68974dc7a7314742e23035c9ba28105f6"
+    }
+  ],
+  "status": "passed",
+  "validationDate": "2026-11-05",
+  "scope": "Downloaded public Cargo alpha.4 archive identity and source comparison against public alpha.3; compilation and paired npm runtime are verified separately",
+  "runtimeExecuted": false
+}

@@ -20,6 +20,6 @@
   "dependency": "tauri-plugin-live-activity = \"=0.1.0-alpha.3\"",
   "command": "cargo check --manifest-path src-tauri/Cargo.toml --target aarch64-apple-ios-sim",
   "elapsedSeconds": 27.65,
-  "npmVerification": "Awaiting public npm alpha.3 before paired installation and runtime validation",
-  "combinedNativeRuntimeVerification": "Pending exact public npm/Cargo pair; Cargo identity and compilation completed separately"
+  "npmVerification": "Public npm alpha.3 verified separately: tests/release/npm-alpha3-registry.json",
+  "combinedNativeRuntimeVerification": "Frozen npm candidate + public Cargo ran on iPhone/Android; subsequent public npm complete-tar and installed-file identity matched those tested contents. No new registry-origin native execution claimed."
 }

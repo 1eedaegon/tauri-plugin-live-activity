@@ -27,6 +27,12 @@ does not verify that both published artifacts contain the files a Tauri app need
 - [crates-io-alpha3-consumer.json](crates-io-alpha3-consumer.json): the published
   alpha.3 crate, exact registry resolution, archive/index/lockfile identity and
   iOS simulator compilation.
+- [npm-alpha3-registry.json](npm-alpha3-registry.json): public alpha.3 installed
+  with an empty cache, strict TypeScript and 14 API tests. The CI gzip archive
+  matches the public registry; its complete tar and ten installed files match the
+  earlier native-tested candidate despite different gzip compression.
+- [alpha3-publish-ci.json](alpha3-publish-ci.json): successful trusted-publishing
+  workflow, with existing Cargo skipped after checksum verification.
 - Alpha.3 native consumers used the frozen npm release tarball with the public
   Cargo crate: [iPhone](../ios/results/packaged-alpha3-consumer.json) passed 24
   checks, and [Android](../android/results/packaged-alpha3-candidate.json) passed
@@ -41,12 +47,12 @@ their public registries before starting the app.
 For a combined consumer, configure the package names and exact same release version:
 
 ```sh
-npm install --save-exact tauri-plugin-live-activity@0.1.0-alpha.2
+npm install --save-exact tauri-plugin-live-activity@0.1.0-alpha.4
 ```
 
 ```toml
 [dependencies]
-tauri-plugin-live-activity = "=0.1.0-alpha.2"
+tauri-plugin-live-activity = "=0.1.0-alpha.4"
 ```
 
 Register the plugin and capabilities as shown in the root README. On iOS, include
@@ -56,3 +62,13 @@ lifecycle test through its WebView. Check the saved result, native OS surface,
 resolved Cargo metadata and npm lockfile. A screenshot alone is not a lifecycle
 test, and a mock IPC result is not evidence that ActivityKit or Android displayed
 anything.
+
+## Alpha.4
+
+[CI](alpha4-ci.json), [trusted publication](alpha4-publish-ci.json),
+[artifacts](alpha4-artifacts.json), [npm consumer](npm-alpha4-registry.json),
+[iPhone consumer](../ios/results/published-alpha4-consumer.json),
+[Android consumer](../android/results/registry-alpha4-consumer.json), and
+[discovery metadata](discovery-alpha4.json) record the final metadata release.
+Both native consumers installed the exact public npm/Cargo pair. Source parity
+and the fresh native runs are separate evidence; neither substitutes for the other.

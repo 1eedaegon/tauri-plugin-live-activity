@@ -13,6 +13,10 @@ on:
         description: Publish missing versions after validation
         default: false
         type: boolean
+      promote_latest:
+        description: Make this verified version the default npm install
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -83,7 +87,7 @@ jobs:
 
   npm:
     needs: package
-    if: github.event_name == 'push' || inputs.publish
+    if: github.event_name == 'push' || inputs.publish || inputs.promote_latest
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -98,7 +102,7 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
-      - run: npm install --global npm@11.20.0 --ignore-scripts
+      - run: npm install --global npm@11.21.2 --ignore-scripts
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: release
@@ -106,13 +110,23 @@ jobs:
       - id: registry
         run: node tools/release.mjs inspect npm
       - name: Publish with npm trusted publishing
-        if: steps.registry.outputs.missing == 'true'
+        if: steps.registry.outputs.missing == 'true' && (github.event_name == 'push' || inputs.publish)
         env:
           RELEASE_FILE: ${{ steps.registry.outputs.file }}
           RELEASE_TAG: ${{ steps.registry.outputs.tag }}
           npm_config_provenance: ${{ steps.registry.outputs.provenance }}
         run: npm publish "$RELEASE_DIR/$RELEASE_FILE" --ignore-scripts --access public --tag "$RELEASE_TAG"
       - run: node tools/release.mjs verify npm
+      - name: Update the default npm version
+        if: inputs.promote_latest
+        env:
+          RELEASE_VERSION: ${{ steps.registry.outputs.version }}
+        run: npm dist-tag add "tauri-plugin-live-activity@$RELEASE_VERSION" latest
+      - name: Verify the default npm version
+        if: inputs.promote_latest
+        env:
+          RELEASE_VERSION: ${{ steps.registry.outputs.version }}
+        run: test "$(npm view tauri-plugin-live-activity dist-tags.latest)" = "$RELEASE_VERSION"
 
   cargo:
     needs: package

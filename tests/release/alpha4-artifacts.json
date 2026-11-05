@@ -1,0 +1,20 @@
+{
+  "version": "0.1.0-alpha.4",
+  "distTag": "next",
+  "tag": "v0.1.0-alpha.4",
+  "sourceCommit": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+  "ciRun": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998681808",
+  "npm": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.4",
+    "filename": "tauri-plugin-live-activity-0.1.0-alpha.4.tgz",
+    "shasum": "889f6fc90915b31c2d86d9ad1c80741dee87835f",
+    "integrity": "sha512-biLvBVI9n2cmR1w/P+phZvekLEom4f/Xdqe4I1WDJdX2f6XTk4N8E7cHtr7roPZ24H6Lz1fC1zYgmvKocrgFag=="
+  },
+  "cargo": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.4",
+    "filename": "tauri-plugin-live-activity-0.1.0-alpha.4.crate",
+    "checksum": "88b33b13abe653b0224cfeb3cdd37ed89e82bf0b9e1baf1ba102a15a88cf2aba"
+  }
+}

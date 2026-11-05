@@ -35,18 +35,24 @@
 - [x] Add a failing merged-APK regression and enforce the actual Android API 26 minimum.
 - [x] Review and run final CI for alpha.3; publish and verify the Cargo release.
 - [x] Verify the frozen npm alpha.3 tarball with public Cargo alpha.3 in actual iPhone and Android consumers.
-- [ ] Complete npm alpha.3 account authentication and publication, then verify its public registry identity.
+- [x] Publish npm alpha.3 through trusted GitHub Actions and verify its public registry identity.
 
 ## Demo refinement and development-environment cleanup
 
 - [x] Refine Mochi's face consistently in the app and custom iOS widget; rerun browser QA.
 - [x] Capture and inspect the revised app and native widget on actual simulators.
-- [ ] Finish tests and push the complete changes before removing development artifacts.
+- [x] Finish tests and push the complete changes before removing development artifacts.
 - [ ] Remove task-created Android/iOS test environments and build caches; report reclaimed disk space.
 
 ## Automated registry releases
 
 - [x] Research official npm/crates.io trusted publishing and existing Tauri workflows.
 - [x] Add tested tag/version/CI/artifact guards and a release workflow.
-- [ ] Validate packaging without publishing, configure repository trust, and publish alpha.3 through Actions.
-- [ ] Verify public artifacts and record the release run before environment cleanup.
+- [x] Validate packaging without publishing, configure repository trust, and publish alpha.3 through Actions.
+- [x] Verify public alpha.4 artifacts, native consumers and release runs before environment cleanup.
+
+## Discovery
+
+- [x] Add GitHub description, homepage and 13 relevant topics.
+- [x] Publish npm keywords and Cargo keywords/categories in alpha.4; verify public metadata.
+- [ ] Align npm's default version and package-level discovery metadata with alpha.4.

@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "name": "different encoded Unicode text conflicts at the same revision",
+      "passed": true
+    }
+  ],
+  "platform": "ios",
+  "status": "passed",
+  "suite": "ios-unicode-revision",
+  "visibility": "unknown",
+  "device": "iPhone 18 Pro simulator",
+  "os": "iOS 27.2",
+  "packageVersions": {
+    "npm": "0.1.0-alpha.4",
+    "cargo": "0.1.0-alpha.4"
+  },
+  "npmPackage": "tauri-plugin-live-activity",
+  "source": "exact published npm and crates.io dependencies, no plugin path overrides"
+}

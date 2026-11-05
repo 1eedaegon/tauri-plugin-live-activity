@@ -1,0 +1,30 @@
+{
+  "conclusion": "success",
+  "headSha": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+  "jobs": [
+    {
+      "name": "Android unit tests and lint",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998681808/job/127156061343"
+    },
+    {
+      "name": "Desktop contract (windows-latest)",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998681808/job/127156064659"
+    },
+    {
+      "name": "Rust, TypeScript and Swift",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998681808/job/127156065238"
+    },
+    {
+      "name": "Desktop contract (ubuntu-latest)",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998681808/job/127156120780"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998681808",
+  "scope": "Final alpha.4 source checks; Android job retried after upstream Kotlin HTTP504 and Gradle distribution timeout; test requirements unchanged",
+  "androidAttempt": 3
+}

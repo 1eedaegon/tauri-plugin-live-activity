@@ -1,0 +1,26 @@
+{
+  "conclusion": "success",
+  "event": "push",
+  "headSha": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+  "jobs": [
+    {
+      "name": "package",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42001553056/job/127157750134"
+    },
+    {
+      "name": "npm",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42001553056/job/127158626428"
+    },
+    {
+      "name": "cargo",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42001553056/job/127158626560"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42001553056",
+  "version": "0.1.0-alpha.4",
+  "scope": "Tag-triggered npm and crates.io trusted publishing with public registry checksum and npm next verification"
+}

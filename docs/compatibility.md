@@ -1,7 +1,7 @@
 # OS 호환성 정책
 
-아래 최소 버전 수정은 `0.1.0-alpha.3`에 반영됐습니다. Cargo alpha.3은 게시됐고,
-npm alpha.3은 GitHub Actions 배포 검증 중입니다. npm의 현재 공개 버전은 alpha.2입니다. 두 레지스트리에서 같은 이름
+아래 최소 버전 수정은 `0.1.0-alpha.3`에 반영됐고, npm과 Cargo에 게시됐습니다.
+검색 메타데이터를 보강한 `0.1.0-alpha.4`도 두 레지스트리에 게시하고 실제 Tauri 앱에서 검증했습니다. 네이티브 지원 범위는 같습니다. 두 레지스트리에서 같은 이름
 `tauri-plugin-live-activity`를 사용합니다. 이 문서는 지원 기준을 정하고,
 [OS별 검증 범위](platform-coverage.md)는 실제로 실행한 테스트를 기록합니다.
 

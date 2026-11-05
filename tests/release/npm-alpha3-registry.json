@@ -1,0 +1,73 @@
+{
+  "status": "passed",
+  "verification": "public npm registry consumer",
+  "validatedAt": "2026-11-05T09:08:10+00:00",
+  "registry": "https://registry.npmjs.org",
+  "package": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.3",
+    "distTag": {
+      "next": "0.1.0-alpha.3"
+    },
+    "tarball": "https://registry.npmjs.org/tauri-plugin-live-activity/-/tauri-plugin-live-activity-0.1.0-alpha.3.tgz",
+    "sha1": "d64ffd56d9a8377f26d9ea9cf496f00be1d67931",
+    "integrity": "sha512-goZogZ5yNJ1KcOTn4lF2822MpRpXnUVrOH2CajUC5WAqtRKGzRyFj/wwkopF5FHOUkW+SOhPBjcTPkEwVAlIug==",
+    "size": 10771,
+    "entryCount": 10
+  },
+  "release": {
+    "sourceCommit": "ff0755231cceb28b3828efc3bd5d1b4b7538661d",
+    "publicationWorkflow": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998975917",
+    "publicationWorkflowCommit": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+    "metadataMatchesCiArtifact": true,
+    "downloadMatchesCiArtifact": true,
+    "installLockMatchesCiArtifact": true
+  },
+  "nativeCandidateIdentity": {
+    "frozenNpmSha1": "847cc81741678e0956cb9aa6ad22b570947a820e",
+    "frozenNpmIntegrity": "sha512-SYhc3DRtcAcFWWErxMa7SIl1eLF3PLcxxZpyEle8gWAmHS8F0QxTeR2sTzv/UL/9OIO967Cym5Z994hEhFmsWw==",
+    "frozenNpmSize": 10688,
+    "completeTarSha256": "75df380dbf0096c9264e5d68b83afd7e33ae1be2e4b050db82e21ff3fa6cd64a",
+    "completeTarBytes": 41472,
+    "completeTarByteIdentical": true,
+    "installedFilesByteIdentical": true,
+    "installedFileCount": 10,
+    "installedFileHashes": {
+      "LICENSE-APACHE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "LICENSE": "cdae86e7e730abef3b88e57d52048c8cf699c7617bd6fc3de87572f850f42940",
+      "README.md": "34d27af87fa27c5f37be11fcbececc0046c5b84282433bdbb33f743cba1c00c0",
+      "package.json": "b1d15704e708378f375c557093a7509636cc562daa4f20459c170fede4d97de4",
+      "README.ko.md": "6eac6066d2f0e5216d9131e62fcfa8d708c30e9d0a3feffb8aa55d9d19b37732",
+      "LICENSE-MIT": "a008887e13a30b94e9ca14eaacf8290a2403a3fe8f0d4a5255d19cf760dc0a6d",
+      "dist-js/types.js": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+      "dist-js/types.d.ts": "9805e1b4e649baebd46c7ac60ccfa739606b9bca39c4a2383acd61721855e290",
+      "dist-js/index.js": "472297d3526d03e84f2975bcf2fff49051ab4de97699e232c8af808ed8c1d8e0",
+      "dist-js/index.d.ts": "ee66f317cda7da7d15d1bb9642919ae8674a608b1c5bfeb49077b799afb16c71"
+    },
+    "candidateReports": [
+      "tests/android/results/packaged-alpha3-candidate.json",
+      "tests/ios/results/packaged-alpha3-consumer.json"
+    ],
+    "note": "Official Node uses zlib-motley while the original Nix Node used zlib1.3.2. Only gzip compression differs; the entire decompressed tar, including headers, and all installed files are identical. Native runtime tests were not rerun by this npm check."
+  },
+  "consumer": {
+    "freshDirectory": true,
+    "freshNpmCache": true,
+    "installedAsSymlink": false,
+    "installation": "npm install --ignore-scripts --save-exact tauri-plugin-live-activity@0.1.0-alpha.3 typescript@7.0.2 --registry=https://registry.npmjs.org",
+    "node": "v26.12.1",
+    "typescript": "7.0.2",
+    "tauriApi": "2.12.4"
+  },
+  "checks": {
+    "strictNodeNextTypes": "passed",
+    "mockIPCTests": {
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0
+    },
+    "publishedPackageIdentity": "passed",
+    "esmAndDeclarations": "passed"
+  },
+  "scope": "Public npm identity, exact fresh registry installation, TypeScript API and mock IPC behavior. Full-tar and installed-file parity bind this package to the previously tested native candidate reports; this check does not itself assert native visibility."
+}

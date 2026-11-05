@@ -1,0 +1,40 @@
+{
+  "status": "passed",
+  "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998975917",
+  "workflow": ".github/workflows/publish.yml",
+  "workflowCommit": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+  "releaseSourceCommit": "ff0755231cceb28b3828efc3bd5d1b4b7538661d",
+  "trigger": "workflow_dispatch",
+  "jobs": [
+    {
+      "name": "package",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998975917/job/127149135965"
+    },
+    {
+      "name": "npm",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998975917/job/127150049585"
+    },
+    {
+      "name": "cargo",
+      "conclusion": "success",
+      "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998975917/job/127150049682"
+    }
+  ],
+  "npm": {
+    "version": "0.1.0-alpha.3",
+    "sha1": "d64ffd56d9a8377f26d9ea9cf496f00be1d67931",
+    "integrity": "sha512-goZogZ5yNJ1KcOTn4lF2822MpRpXnUVrOH2CajUC5WAqtRKGzRyFj/wwkopF5FHOUkW+SOhPBjcTPkEwVAlIug==",
+    "distTag": "next",
+    "completeTarSha256": "75df380dbf0096c9264e5d68b83afd7e33ae1be2e4b050db82e21ff3fa6cd64a"
+  },
+  "cargo": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.3",
+    "filename": "tauri-plugin-live-activity-0.1.0-alpha.3.crate",
+    "checksum": "57804af6be71bce0b19b9a90943addb625b4793798137007615e93d092175866"
+  },
+  "historicalTagProvenance": false,
+  "note": "Publish workflow checked the existing Cargo version and published missing npm alpha.3 through trusted publishing. Historical-tag npm provenance was disabled because workflow and release source commits differ."
+}

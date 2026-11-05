@@ -105,6 +105,7 @@ async function inspect(registry, wait) {
       output('missing', String(state === 'missing'));
       output('file', expected.filename);
       output('tag', release.distTag);
+      output('version', release.version);
       output('source', release.sourceCommit);
       // npm provenance uses workflow GITHUB_SHA, so historical dispatch must disable it.
       output('provenance', String(release.sourceCommit === process.env.GITHUB_SHA));

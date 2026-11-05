@@ -18,6 +18,12 @@ To validate or retry an existing tag, run **Publish** from the Actions page on
 to publish missing packages. This supports tags created before the workflow was
 added; do not move a release tag or overwrite an existing version.
 
+To make an already-published version the default npm install, enable
+`promote_latest` on a manual run. This also updates the version from which npm
+selects its package-page and search metadata. It verifies the existing release
+before changing the tag. Keep this unchecked when preserving a stable default
+while publishing a prerelease to `next`.
+
 ## One-time registry setup
 
 In each registry's Trusted Publishing settings, authorize GitHub Actions with:
@@ -30,7 +36,8 @@ In each registry's Trusted Publishing settings, authorize GitHub Actions with:
 | Environment | Leave empty |
 
 For npm, allow direct **npm publish**. Staging permission alone will not publish
-the package. The initial trust configuration requires account authentication;
+the package. Also enable **Allow npm dist-tag** to use `promote_latest`; npm treats
+tag management as a separate permission. The initial trust configuration requires account authentication;
 subsequent releases use short-lived OIDC credentials. No npm or Cargo publishing
 token is stored as a GitHub secret.
 

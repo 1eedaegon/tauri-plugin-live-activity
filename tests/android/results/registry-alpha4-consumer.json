@@ -1,0 +1,208 @@
+{
+  "verifiedAt": "2026-11-05T09:29:47.962836+00:00",
+  "scope": "Actual isolated Tauri consumer using exact public npm and crates.io alpha.4 dependencies",
+  "version": "0.1.0-alpha.4",
+  "sourceCommit": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+  "publishRun": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42001553056",
+  "npm": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.4",
+    "source": "https://registry.npmjs.org",
+    "resolved": "https://registry.npmjs.org/tauri-plugin-live-activity/-/tauri-plugin-live-activity-0.1.0-alpha.4.tgz",
+    "shasum": "889f6fc90915b31c2d86d9ad1c80741dee87835f",
+    "integrity": "sha512-biLvBVI9n2cmR1w/P+phZvekLEom4f/Xdqe4I1WDJdX2f6XTk4N8E7cHtr7roPZ24H6Lz1fC1zYgmvKocrgFag==",
+    "installation": "exact public registry version; --ignore-scripts",
+    "installedFileHashes": {
+      "LICENSE": "cdae86e7e730abef3b88e57d52048c8cf699c7617bd6fc3de87572f850f42940",
+      "LICENSE-APACHE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "LICENSE-MIT": "a008887e13a30b94e9ca14eaacf8290a2403a3fe8f0d4a5255d19cf760dc0a6d",
+      "dist-js/index.js": "472297d3526d03e84f2975bcf2fff49051ab4de97699e232c8af808ed8c1d8e0",
+      "dist-js/types.js": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+      "package.json": "e7bbac5740af9620ff7b6edf0564d182df24767a9582817870f1cec84fa6c2b4",
+      "README.ko.md": "751317a9c31528434d3478e1e694dfd75efd458789f79a973b06419ff378703c",
+      "README.md": "38f90bddeeffe50406205e8b073618a38949fc2fdf4d4fbbaf8dffa3889b7b44",
+      "dist-js/index.d.ts": "ee66f317cda7da7d15d1bb9642919ae8674a608b1c5bfeb49077b799afb16c71",
+      "dist-js/types.d.ts": "9805e1b4e649baebd46c7ac60ccfa739606b9bca39c4a2383acd61721855e290"
+    },
+    "alpha3RuntimeAndTypesParity": {
+      "dist-js/index.js": true,
+      "dist-js/types.js": true,
+      "dist-js/index.d.ts": true,
+      "dist-js/types.d.ts": true
+    }
+  },
+  "cargo": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.4",
+    "source": "registry+https://github.com/rust-lang/crates.io-index",
+    "archiveSha256": "88b33b13abe653b0224cfeb3cdd37ed89e82bf0b9e1baf1ba102a15a88cf2aba",
+    "sourceCommit": "3086e47546c8bbfd589d7b26ad5744b437135a73",
+    "archiveFilesMatchExtracted": 56,
+    "productionSourceHashes": {
+      "android/build.gradle.kts": "26388f8d857faf7acda2762fcdb0524c999730ab0b06df3b18958d55c3d10778",
+      "android/src/main/AndroidManifest.xml": "f6059e2635728f394506d9cc4891355e3e782976186e8456fa5ac27ef2fc0371",
+      "android/src/main/java/io/github/eedaegon/liveactivity/Input.kt": "27f6d8ea2e4b16406c41e01b2f8425e6f31b3b7fb60238b377dee9aa32af2090",
+      "android/src/main/java/io/github/eedaegon/liveactivity/PreferencesStore.kt": "5e6db698e0f4fd71b810bdff8fd57ea55ce29f39ca5fb032b870b87addbde585",
+      "android/src/main/java/io/github/eedaegon/liveactivity/DismissReceiver.kt": "3c6e6211080815da13b8ede9b89f48ab6a65e46da1ba7360efc87585c4bf4076",
+      "android/src/main/java/io/github/eedaegon/liveactivity/AndroidNotifications.kt": "6b9f63fb7fc88ad35971e909ff165aac8de8d652fd4b9f1baaafcc5978946f23",
+      "android/src/main/java/io/github/eedaegon/liveactivity/DismissalMemory.kt": "8b55065e34c4f866e7a82cf8214bfb97bc5f494ea147fc40f4db3e6ceed014d4",
+      "android/src/main/java/io/github/eedaegon/liveactivity/Models.kt": "0ab29bc81e3b9aa0e1842b2c4754ed9c88e33b97617b1a3902ef1783651e562d",
+      "android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt": "a889f186c3d4e03d51952a1e0f0f34f21f6709ed0405b12e2f248a2622895b26",
+      "android/src/main/java/io/github/eedaegon/liveactivity/ActivityEngine.kt": "c72fbfa8e9496377a05a6786938c8133b7c0f2d976b2f0297b244dac984586b9",
+      "android/src/main/java/io/github/eedaegon/liveactivity/PermissionPolicy.kt": "094e8fad5e8241458017a72d3e208791d06cc5311f5af48445469dae3daf7244",
+      "android/src/main/res/drawable/live_activity_status.xml": "592a662299d92338347ac345d53dc3a4277b6ef954b44a8c56152cbe516d1409"
+    },
+    "alpha3AndroidProductionSourceParity": true,
+    "minimumAndroidSdk": 26,
+    "alpha3ProductionParity": {
+      "matchedFiles": 42,
+      "paths": [
+        "android/build.gradle.kts",
+        "android/consumer-rules.pro",
+        "android/src/main/AndroidManifest.xml",
+        "android/src/main/java/io/github/eedaegon/liveactivity/ActivityEngine.kt",
+        "android/src/main/java/io/github/eedaegon/liveactivity/AndroidNotifications.kt",
+        "android/src/main/java/io/github/eedaegon/liveactivity/DismissReceiver.kt",
+        "android/src/main/java/io/github/eedaegon/liveactivity/DismissalMemory.kt",
+        "android/src/main/java/io/github/eedaegon/liveactivity/Input.kt",
+        "android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt",
+        "android/src/main/java/io/github/eedaegon/liveactivity/Models.kt",
+        "android/src/main/java/io/github/eedaegon/liveactivity/PermissionPolicy.kt",
+        "android/src/main/java/io/github/eedaegon/liveactivity/PreferencesStore.kt",
+        "android/src/main/res/drawable/live_activity_status.xml",
+        "build.rs",
+        "ios/Package.swift",
+        "ios/Sources/LiveActivityCore/Lifecycle.swift",
+        "ios/Sources/LiveActivityCore/PlatformSupport.swift",
+        "ios/Sources/LiveActivityCore/ReceiptStore.swift",
+        "ios/Sources/LiveActivityPlugin/ActivityKitBackend.swift",
+        "ios/Sources/LiveActivityPlugin/LiveActivityPlugin.swift",
+        "ios/Sources/LiveActivityShared/Models.swift",
+        "ios/Sources/LiveActivityShared/Validation.swift",
+        "permissions/autogenerated/commands/check_permissions.toml",
+        "permissions/autogenerated/commands/end.toml",
+        "permissions/autogenerated/commands/get_capabilities.toml",
+        "permissions/autogenerated/commands/list.toml",
+        "permissions/autogenerated/commands/request_permissions.toml",
+        "permissions/autogenerated/commands/start.toml",
+        "permissions/autogenerated/commands/update.toml",
+        "permissions/autogenerated/reference.md",
+        "permissions/default.toml",
+        "permissions/schemas/schema.json",
+        "src/bridge.rs",
+        "src/command_tests.rs",
+        "src/commands.rs",
+        "src/desktop.rs",
+        "src/desktop_ipc_tests.rs",
+        "src/error.rs",
+        "src/lib.rs",
+        "src/mobile.rs",
+        "src/models.rs",
+        "src/validation.rs"
+      ],
+      "status": "passed"
+    }
+  },
+  "androidPluginGradleSource": "crates.io extracted tauri-plugin-live-activity-0.1.0-alpha.4/android",
+  "build": {
+    "command": "npm exec tauri android build -- --debug --target aarch64 --apk",
+    "status": "passed",
+    "tauriVersion": "2.12.5",
+    "target": "aarch64-linux-android"
+  },
+  "apkSha256": "068f0783e03e27c3e270aefc3527998875533fb44033af40df878d9e401e5b80",
+  "minSdk": 26,
+  "api24InstallRejection": {
+    "status": "passed",
+    "error": "INSTALL_FAILED_OLDER_SDK",
+    "requiredSdk": 26,
+    "deviceSdk": 24
+  },
+  "device": {
+    "api": 37,
+    "release": "17",
+    "fingerprint": "google/sdk_gphone64_arm64/emu64a:17/CE2A.260420.051.A2/16418371:user/release-keys",
+    "abi": "arm64-v8a",
+    "appId": "io.github.eedaegon.liveactivityregistry",
+    "cleanAppData": true,
+    "postNotificationsGranted": true
+  },
+  "frontendSourceHashes": {
+    "src/index.html": "36ed0f6ee08cb4d4e23e3d409d3be6bc9268a9a2b0c85a3fef972c081c1c2dca",
+    "src/main.ts": "4129fadd953ba1873ce84eaf06f834736a1100f637e259f9474137747f745a90",
+    "src/mochi.ts": "a3c427ed518cf3c7148577a7e6c55a2ac040bd404e8f79c3aa03a8a5dd6fcc87",
+    "src/self-test.ts": "e8da4ca6de2fa5c4fbcd9e9070e2be8ce4df232cc371d0c56a9fcd591bdd3f15",
+    "src/styles.css": "090652a3d9bfd4677269921c955d994a121e7d0023f91cd8a5be44c5e1f5e69e",
+    "src/ui-state.ts": "c06529c099b147286fffe8f66a91cb2afa3ace8560a47e4a359741bcf4439070"
+  },
+  "frontendBuiltHashes": {
+    "dist/index.html": "36ed0f6ee08cb4d4e23e3d409d3be6bc9268a9a2b0c85a3fef972c081c1c2dca",
+    "dist/main.js": "f57a335715b79b0eae341c7535685980c19663c8cd8f61f432f11564d44b7cfb",
+    "dist/main.js.map": "370c8a52c9a29194a891ae84c26f8999d899a189b186c7ac935cf793a40bb85b",
+    "dist/styles.css": "090652a3d9bfd4677269921c955d994a121e7d0023f91cd8a5be44c5e1f5e69e"
+  },
+  "automationSourceHashes": {
+    "tests/android/webview.mjs": "7c5c9b04ad38207bad45a8786fe645e78d50672d939f565c75387fc1991ed60a",
+    "tests/android/verify-min-sdk.mjs": "dc4582fdb1a1293448dd04ac176c2db5833e29289ee3d0e9e8dd7376bc626e84"
+  },
+  "api37Lifecycle": {
+    "checks": [
+      {
+        "name": "start returns an opaque nonterminal handle",
+        "passed": true
+      },
+      {
+        "name": "duplicate start keeps its handle",
+        "passed": true
+      },
+      {
+        "name": "newer revision replaces the full snapshot",
+        "passed": true
+      },
+      {
+        "name": "identical update is idempotent",
+        "passed": true
+      },
+      {
+        "name": "stale revision is rejected",
+        "passed": true
+      },
+      {
+        "name": "conflicting revision is rejected",
+        "passed": true
+      },
+      {
+        "name": "list reconciles the current generation",
+        "passed": true
+      },
+      {
+        "name": "immediate end ends the generation",
+        "passed": true
+      },
+      {
+        "name": "repeated end is idempotent",
+        "passed": true
+      },
+      {
+        "name": "late update cannot revive an ended handle",
+        "passed": true
+      },
+      {
+        "name": "a new start receives a new generation",
+        "passed": true
+      },
+      {
+        "name": "old handles cannot modify the new generation",
+        "passed": true
+      },
+      {
+        "name": "the final generation is cleaned up",
+        "passed": true
+      }
+    ],
+    "platform": "android",
+    "status": "passed",
+    "visibility": "unknown"
+  },
+  "status": "passed"
+}
