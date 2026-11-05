@@ -58,14 +58,14 @@ function archive(source) {
   const crate = resolve(source, 'target/package', filename);
   const cargo = { name: packageName, version: release.version, filename, checksum: hash(crate, 'sha256') };
   const packed = { ...release, npm: { name: npm.name, version: npm.version, filename: npm.filename, shasum: npm.shasum, integrity: npm.integrity }, cargo };
+  copyFileSync(crate, resolve(directory, filename));
+  writeFileSync(resolve(directory, 'release.json'), `${JSON.stringify(packed, null, 2)}\n`);
   if (release.version === '0.1.0-alpha.3') {
     const frozen = json(new URL('../tests/release/alpha3-artifacts.json', import.meta.url));
     if (release.sourceCommit !== frozen.sourceCommit || npm.shasum !== frozen.npm.shasum || npm.integrity !== frozen.npm.integrity || cargo.checksum !== frozen.cargo.sha256) {
-      throw new Error('alpha.3 archives differ from the native-tested release artifacts');
+      throw new Error(`alpha.3 archives differ from native-tested artifacts: ${JSON.stringify(packed)}`);
     }
   }
-  copyFileSync(crate, resolve(directory, filename));
-  writeFileSync(resolve(directory, 'release.json'), `${JSON.stringify(packed, null, 2)}\n`);
 }
 
 async function registryState(release, registry) {
