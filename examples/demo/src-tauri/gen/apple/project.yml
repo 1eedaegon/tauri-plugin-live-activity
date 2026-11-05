@@ -61,7 +61,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 0.1.0
-        CFBundleVersion: "0.1.0.1"
+        CFBundleVersion: "0.1.0.4"
     entitlements:
       path: live-activity-demo_iOS/live-activity-demo_iOS.entitlements
     scheme:
@@ -111,7 +111,7 @@ targets:
       path: LiveActivityWidget/Info.plist
       properties:
         CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "0.1.0.1"
+        CFBundleVersion: "0.1.0.4"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

@@ -1,7 +1,7 @@
 {
   "name": "tauri-plugin-live-activity",
-  "version": "0.1.0-alpha.3",
-  "description": "Typed Tauri v2 API for iOS Live Activities and Android ongoing activity notifications",
+  "version": "0.1.0-alpha.4",
+  "description": "Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates with ongoing notification fallback",
   "author": "1eedaegon",
   "type": "module",
   "license": "Apache-2.0 OR MIT",
@@ -11,7 +11,7 @@
   },
   "homepage": "https://github.com/1eedaegon/tauri-plugin-live-activity#readme",
   "bugs": "https://github.com/1eedaegon/tauri-plugin-live-activity/issues",
-  "keywords": ["tauri", "plugin", "live-activity", "activitykit", "android"],
+  "keywords": ["tauri", "tauri-plugin", "tauri-v2", "ios", "ipados", "android", "live-activity", "live-activities", "activitykit", "dynamic-island", "live-updates", "notifications"],
   "sideEffects": false,
   "types": "./dist-js/index.d.ts",
   "main": "./dist-js/index.js",

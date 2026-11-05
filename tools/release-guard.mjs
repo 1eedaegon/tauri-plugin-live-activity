@@ -63,6 +63,27 @@ function validIntegrity(integrity) {
   return Buffer.from(encoded, 'base64').toString('base64') === encoded;
 }
 
+/** Compression may differ; every byte of the decompressed tar must remain identical. */
+export function requireFrozenArtifacts({ release, frozen, npmTarSha256 }) {
+  requireCondition(validVersion(release?.version) && validVersion(frozen?.version)
+    && release.version === frozen.version, 'Invalid or different frozen release version');
+  requireCondition(fullMatch(/^[0-9a-f]{40}$/, release.sourceCommit)
+    && fullMatch(/^[0-9a-f]{40}$/, frozen.sourceCommit)
+    && release.sourceCommit === frozen.sourceCommit, 'Invalid or different frozen source commit');
+  requireCondition(expectedIdentity(release.npm) && expectedIdentity(frozen.npm)
+    && release.npm.version === release.version && frozen.npm.version === frozen.version,
+  'Invalid or different frozen npm package identity');
+  requireCondition(fullMatch(/^[0-9a-f]{64}$/, npmTarSha256)
+    && fullMatch(/^[0-9a-f]{64}$/, frozen.npm.tarSha256)
+    && npmTarSha256 === frozen.npm.tarSha256, 'Invalid or different frozen npm tar SHA256');
+  requireCondition(expectedIdentity(release.cargo) && release.cargo.version === release.version
+    && frozen.cargo?.name === PACKAGE_NAME, 'Invalid or different frozen Cargo package identity');
+  requireCondition(fullMatch(/^[0-9a-f]{64}$/, release.cargo.checksum)
+    && fullMatch(/^[0-9a-f]{64}$/, frozen.cargo.sha256)
+    && release.cargo.checksum === frozen.cargo.sha256, 'Invalid or different frozen Cargo archive checksum');
+  return release;
+}
+
 /** body is JSON from the npm package's exact version endpoint. */
 export function checkNpmRegistry({ status, body, expected }) {
   requireCondition(expectedIdentity(expected)

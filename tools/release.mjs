@@ -2,7 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { checkCargoRegistry, checkNpmRegistry, requireSuccessfulCiRun, validateReleaseMetadata } from './release-guard.mjs';
+import { gunzipSync } from 'node:zlib';
+import { checkCargoRegistry, checkNpmRegistry, requireFrozenArtifacts, requireSuccessfulCiRun, validateReleaseMetadata } from './release-guard.mjs';
 
 const repository = '1eedaegon/tauri-plugin-live-activity';
 const packageName = 'tauri-plugin-live-activity';
@@ -62,9 +63,10 @@ function archive(source) {
   writeFileSync(resolve(directory, 'release.json'), `${JSON.stringify(packed, null, 2)}\n`);
   if (release.version === '0.1.0-alpha.3') {
     const frozen = json(new URL('../tests/release/alpha3-artifacts.json', import.meta.url));
-    if (release.sourceCommit !== frozen.sourceCommit || npm.shasum !== frozen.npm.shasum || npm.integrity !== frozen.npm.integrity || cargo.checksum !== frozen.cargo.sha256) {
-      throw new Error(`alpha.3 archives differ from native-tested artifacts: ${JSON.stringify(packed)}`);
-    }
+    const tar = gunzipSync(readFileSync(resolve(directory, npm.filename)), { maxOutputLength: 64 * 1024 * 1024 });
+    const npmTarSha256 = createHash('sha256').update(tar).digest('hex');
+    requireFrozenArtifacts({ release: packed, frozen, npmTarSha256 });
+    writeFileSync(resolve(directory, 'release.json'), `${JSON.stringify({ ...packed, npmTarSha256 }, null, 2)}\n`);
   }
 }
 

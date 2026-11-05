@@ -5,7 +5,7 @@
 [![CI](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/workflows/ci.yml/badge.svg)](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](LICENSE)
 
-Live Activities on iPhone and iPad, and ongoing notifications on Android, for Tauri 2.
+A Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates, with an ongoing notification fallback.
 Community plugin. **Early alpha.** [한국어](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/README.ko.md)
 
 | Platform | Backend |
@@ -43,7 +43,7 @@ npm install tauri-plugin-live-activity@next
 
 ```toml
 [dependencies]
-tauri-plugin-live-activity = "=0.1.0-alpha.3"
+tauri-plugin-live-activity = "=0.1.0-alpha.4"
 ```
 
 Register the plugin in `src-tauri/src/lib.rs`:

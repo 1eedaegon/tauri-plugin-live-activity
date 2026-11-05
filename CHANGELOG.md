@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-alpha.4
+
+- Add npm search keywords and crates.io keywords/categories for Tauri, Live Activities, ActivityKit and Android notifications.
+- Add a guarded GitHub Actions release workflow for npm and crates.io.
+- Native behavior and the public API are unchanged from alpha.3.
+
 ## 0.1.0-alpha.3
 
 - Require Android 8.0 / API 26 in the plugin and demo manifests. The previous API 24 minimum allowed installation on a version where Tauri's Jackson dependency crashes during startup.

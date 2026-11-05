@@ -41,6 +41,7 @@ checked archives and use npm/crates.io OIDC trusted publishing.
 
 An existing registry version is skipped only when its checksum matches. Registry
 authentication and transport failures never mean that a version is absent. The
-alpha.3 frozen hashes provide a migration check for the already-tested artifacts.
+alpha.3 frozen Cargo archive and complete decompressed npm tar hashes provide a
+migration check for the already-tested contents across different gzip compressors.
 Registry trust is configured once for this repository and workflow; no persistent
 registry tokens are stored as GitHub secrets.

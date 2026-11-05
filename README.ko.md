@@ -4,7 +4,8 @@
 [![crates.io](https://img.shields.io/crates/v/tauri-plugin-live-activity)](https://crates.io/crates/tauri-plugin-live-activity)
 [![CI](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/workflows/ci.yml/badge.svg)](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/workflows/ci.yml)
 
-Tauri 2에서 iOS Live Activity와 Android 진행 알림을 표시하는 커뮤니티 플러그인입니다.
+Tauri 2에서 iOS Live Activities(ActivityKit·Dynamic Island)와 Android Live Updates를 표시하는 커뮤니티 플러그인입니다.
+Android에서는 지원 조건에 따라 일반 진행 알림으로 표시합니다.
 **초기 알파 버전입니다.** [English](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/README.md)
 
 | 플랫폼 | 표시 방식 |
@@ -41,7 +42,7 @@ npm install tauri-plugin-live-activity@next
 
 ```toml
 [dependencies]
-tauri-plugin-live-activity = "=0.1.0-alpha.3"
+tauri-plugin-live-activity = "=0.1.0-alpha.4"
 ```
 
 Tauri 빌더에 등록합니다.

@@ -5,6 +5,7 @@ import {
   requireSuccessfulCiRun,
   checkNpmRegistry,
   checkCargoRegistry,
+  requireFrozenArtifacts,
 } from '../../tools/release-guard.mjs';
 
 const name = 'tauri-plugin-live-activity';
@@ -39,6 +40,16 @@ const npmBody = (overrides = {}) => ({
 const cargoExpected = { name, version, checksum: 'c'.repeat(64) };
 const cargoRecord = (overrides = {}) => ({
   name, vers: version, cksum: cargoExpected.checksum, yanked: false, ...overrides,
+});
+const frozenArtifacts = () => ({
+  version, sourceCommit: headSha,
+  npm: { ...npmExpected, tarSha256: 'd'.repeat(64) },
+  cargo: { name, sha256: cargoExpected.checksum },
+});
+const rebuiltRelease = () => ({
+  version, sourceCommit: headSha,
+  npm: { ...npmExpected, shasum: 'e'.repeat(40), integrity: `sha512-${Buffer.alloc(64, 2).toString('base64')}` },
+  cargo: { ...cargoExpected },
 });
 
 test('release metadata preserves SemVer and chooses the explicit npm channel', () => {
@@ -152,4 +163,61 @@ test('guards leave frozen caller inputs unchanged', () => {
   checkNpmRegistry({ status: 200, body: Object.freeze(inputs[2]), expected: Object.freeze(npmExpected) });
   checkCargoRegistry({ status: 200, records: Object.freeze(inputs[3]), expected: Object.freeze(cargoExpected) });
   assert.equal(JSON.stringify(inputs), before);
+});
+
+test('frozen release accepts compression-only differences after full tar and Cargo identity checks', () => {
+  const release = rebuiltRelease();
+  const frozen = frozenArtifacts();
+  const before = JSON.stringify({ release, frozen });
+  assert.notEqual(release.npm.shasum, frozen.npm.shasum);
+  assert.notEqual(release.npm.integrity, frozen.npm.integrity);
+  assert.equal(requireFrozenArtifacts({ release: Object.freeze(release), frozen: Object.freeze(frozen), npmTarSha256: frozen.npm.tarSha256 }), release);
+  assert.equal(JSON.stringify({ release, frozen }), before);
+});
+
+test('frozen release rejects missing or malformed source commits and release versions', () => {
+  const check = (release, frozen) => requireFrozenArtifacts({ release, frozen, npmTarSha256: 'd'.repeat(64) });
+  for (const invalid of [undefined, null, {}]) {
+    assert.throws(() => check(invalid, frozenArtifacts()), /frozen/i);
+    assert.throws(() => check(rebuiltRelease(), invalid), /frozen/i);
+  }
+  for (const field of ['sourceCommit', 'version']) {
+    const invalidValues = field === 'sourceCommit'
+      ? [undefined, null, '', 'g'.repeat(40), 'a'.repeat(39), `${headSha}\n`, 'f'.repeat(40)]
+      : [undefined, null, '', 'v0.1.0-alpha.3', '0.1.0-alpha.03', `${version}\n`, '0.1.0-alpha.4'];
+    for (const invalid of invalidValues) {
+      assert.throws(() => check({ ...rebuiltRelease(), [field]: invalid }, frozenArtifacts()), /frozen/i);
+      assert.throws(() => check(rebuiltRelease(), { ...frozenArtifacts(), [field]: invalid }), /frozen/i);
+    }
+  }
+});
+
+test('frozen release rejects different npm names or versions even with an identical tar digest', () => {
+  for (const npm of [undefined, null, {}, { ...npmExpected, name: 'other' },
+    { ...npmExpected, version: '0.1.0-alpha.2' }, { ...npmExpected, version: `${version}\n` }]) {
+    assert.throws(() => requireFrozenArtifacts({ release: { ...rebuiltRelease(), npm }, frozen: frozenArtifacts(), npmTarSha256: 'd'.repeat(64) }), /frozen/i);
+    assert.throws(() => requireFrozenArtifacts({ release: rebuiltRelease(), frozen: { ...frozenArtifacts(), npm }, npmTarSha256: 'd'.repeat(64) }), /frozen/i);
+  }
+});
+
+test('frozen release requires an exact SHA256 of the entire decompressed npm tar', () => {
+  for (const digest of [undefined, null, '', 'd'.repeat(63), 'z'.repeat(64), `${'d'.repeat(64)}\n`, 'e'.repeat(64)]) {
+    assert.throws(() => requireFrozenArtifacts({ release: rebuiltRelease(), frozen: frozenArtifacts(), npmTarSha256: digest }), /frozen/i);
+    const frozen = { ...frozenArtifacts(), npm: { ...frozenArtifacts().npm, tarSha256: digest } };
+    assert.throws(() => requireFrozenArtifacts({ release: rebuiltRelease(), frozen, npmTarSha256: 'd'.repeat(64) }), /frozen/i);
+  }
+});
+
+test('frozen release rejects missing, malformed or different Cargo archive identity', () => {
+  for (const cargo of [undefined, null, {}, { ...cargoExpected, name: 'other' }, { ...cargoExpected, version: '0.1.0-alpha.2' }]) {
+    assert.throws(() => requireFrozenArtifacts({ release: { ...rebuiltRelease(), cargo }, frozen: frozenArtifacts(), npmTarSha256: 'd'.repeat(64) }), /frozen/i);
+  }
+  assert.throws(() => requireFrozenArtifacts({ release: rebuiltRelease(), frozen: { ...frozenArtifacts(), cargo: { name: 'other', sha256: cargoExpected.checksum } }, npmTarSha256: 'd'.repeat(64) }), /frozen/i);
+  for (const cargo of [undefined, null, {}]) {
+    assert.throws(() => requireFrozenArtifacts({ release: rebuiltRelease(), frozen: { ...frozenArtifacts(), cargo }, npmTarSha256: 'd'.repeat(64) }), /frozen/i);
+  }
+  for (const checksum of [undefined, null, '', 'c'.repeat(63), 'z'.repeat(64), `${cargoExpected.checksum}\n`, 'e'.repeat(64)]) {
+    assert.throws(() => requireFrozenArtifacts({ release: { ...rebuiltRelease(), cargo: { ...cargoExpected, checksum } }, frozen: frozenArtifacts(), npmTarSha256: 'd'.repeat(64) }), /frozen/i);
+    assert.throws(() => requireFrozenArtifacts({ release: rebuiltRelease(), frozen: { ...frozenArtifacts(), cargo: { name, sha256: checksum } }, npmTarSha256: 'd'.repeat(64) }), /frozen/i);
+  }
 });

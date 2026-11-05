@@ -41,8 +41,12 @@ token is stored as a GitHub secret.
 
 The frozen [alpha.3 manifest](../tests/release/alpha3-artifacts.json) records the
 source commit and artifacts already tested in native Tauri apps. The workflow
-requires byte-identical archives when finishing this release. Cargo alpha.3 is
-already public and is skipped after checksum verification.
+requires an identical Cargo archive and identical complete npm tar contents,
+including headers, when finishing this release. Nix Node and official Node use
+different zlib builds, so gzip bytes differ even though the decompressed tar is
+identical. Its frozen SHA-256 anchors that comparison; the published gzip archive
+has its own SHA-1/SHA-512 checks. Cargo alpha.3 is already public and is skipped
+after checksum verification.
 
 For a historical-tag dispatch, the workflow commit can differ from the package
 source. npm provenance uses the workflow commit, so the workflow disables it for

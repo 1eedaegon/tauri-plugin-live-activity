@@ -8,7 +8,8 @@
     "shasum": "847cc81741678e0956cb9aa6ad22b570947a820e",
     "integrity": "sha512-SYhc3DRtcAcFWWErxMa7SIl1eLF3PLcxxZpyEle8gWAmHS8F0QxTeR2sTzv/UL/9OIO967Cym5Z994hEhFmsWw==",
     "size": 10688,
-    "entryCount": 10
+    "entryCount": 10,
+    "tarSha256": "75df380dbf0096c9264e5d68b83afd7e33ae1be2e4b050db82e21ff3fa6cd64a"
   },
   "cargo": {
     "name": "tauri-plugin-live-activity",
