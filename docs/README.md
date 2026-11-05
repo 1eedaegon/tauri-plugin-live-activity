@@ -25,6 +25,7 @@
 | [참고 자료](references.md) | 공식 문서와 조사한 저장소, 라이선스 관례 |
 | [조사 검토](review.md) | 발견한 설계 문제, 반영 내용, 후속 구현과 남은 조건 |
 | [요청 계약](request-contract.md) | 실행 가능한 입력 schema·fixture와 검증 책임 |
+| [레이아웃 DSL RFC](rfc-layout-dsl.md) | 요청 계약 v2 제안: Tauri에서 위젯 UI 작성(해석기 위젯, 스타일 토큰, 아이콘 채널, 액션) |
 
 초기 테스트 대상은 iPhone XS·iPhone 16·Galaxy Note10·Galaxy S23입니다.
 실물 보유 여부, 현재 OS/One UI 버전, 개발자 계정은 아직 확인하지 못했습니다.
