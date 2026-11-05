@@ -22,6 +22,16 @@ does not verify that both published artifacts contain the files a Tauri app need
   identity. It links the subsequently completed paired iOS consumer. The separate
   npm report above records successful npm publication.
   Neither individual package report by itself proves the paired native runtime.
+- [alpha3-ci.json](alpha3-ci.json): all four final CI jobs passed at the alpha.3
+  source commit, including the merged Android minimum-SDK regression.
+- [crates-io-alpha3-consumer.json](crates-io-alpha3-consumer.json): the published
+  alpha.3 crate, exact registry resolution, archive/index/lockfile identity and
+  iOS simulator compilation.
+- Alpha.3 native consumers used the frozen npm release tarball with the public
+  Cargo crate: [iPhone](../ios/results/packaged-alpha3-consumer.json) passed 24
+  checks, and [Android](../android/results/packaged-alpha3-candidate.json) passed
+  13 lifecycle checks plus API 24 installation rejection. These reports retain
+  artifact hashes and do not claim an npm registry installation.
 
 The initial release's native bridge reports are under `tests/ios/results` and
 `tests/android/results`. Combined registry consumer reports are recorded separately

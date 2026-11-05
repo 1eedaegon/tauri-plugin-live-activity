@@ -1,0 +1,164 @@
+name: Publish
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (for example v0.1.0-alpha.3)
+        required: true
+        type: string
+      publish:
+        description: Publish missing versions after validation
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: github.repository == '1eedaegon/tauri-plugin-live-activity'
+    runs-on: macos-15-intel
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      source: ${{ steps.prepare.outputs.source }}
+    steps:
+      - run: echo "RELEASE_DIR=$RUNNER_TEMP/release" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: automation
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm install --global npm@11.20.0 --ignore-scripts
+      - name: Test release controller guards
+        working-directory: automation
+        run: node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.mjs --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/release/release-guard.test.mjs
+      - run: rustup toolchain install 1.99.1 --profile minimal && rustup default 1.99.1
+      - name: Validate tag, package versions and completed CI
+        id: prepare
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RELEASE_DIR"
+          node automation/tools/release.mjs prepare source
+      - run: npm ci --ignore-scripts && npm test && npm run typecheck
+        working-directory: source
+      - name: Package the tested source
+        working-directory: source
+        run: |
+          npm pack --json --pack-destination "$RELEASE_DIR" > "$RELEASE_DIR/npm-pack.json"
+          cargo package --locked --no-verify
+          node ../automation/tools/release.mjs archive .
+      - name: Check registry versions before publication
+        run: |
+          node automation/tools/release.mjs inspect npm
+          node automation/tools/release.mjs inspect cargo
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release
+          path: ${{ runner.temp }}/release/
+          retention-days: 14
+          if-no-files-found: error
+
+  npm:
+    needs: package
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - run: echo "RELEASE_DIR=$RUNNER_TEMP/release" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm install --global npm@11.20.0 --ignore-scripts
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+      - id: registry
+        run: node tools/release.mjs inspect npm
+      - name: Publish with npm trusted publishing
+        if: steps.registry.outputs.missing == 'true'
+        env:
+          RELEASE_FILE: ${{ steps.registry.outputs.file }}
+          RELEASE_TAG: ${{ steps.registry.outputs.tag }}
+          npm_config_provenance: ${{ steps.registry.outputs.provenance }}
+        run: npm publish "$RELEASE_DIR/$RELEASE_FILE" --ignore-scripts --access public --tag "$RELEASE_TAG"
+      - run: node tools/release.mjs verify npm
+
+  cargo:
+    needs: package
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - run: echo "RELEASE_DIR=$RUNNER_TEMP/release" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: automation
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+      - id: registry
+        run: node automation/tools/release.mjs inspect cargo
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.registry.outputs.missing == 'true'
+        with:
+          ref: ${{ needs.package.outputs.source }}
+          path: source
+          persist-credentials: false
+      - if: steps.registry.outputs.missing == 'true'
+        run: rustup toolchain install 1.99.1 --profile minimal && rustup default 1.99.1
+      - name: Verify Cargo archive before requesting credentials
+        if: steps.registry.outputs.missing == 'true'
+        working-directory: source
+        env:
+          RELEASE_FILE: ${{ steps.registry.outputs.file }}
+        run: |
+          cargo package --locked --no-verify
+          cmp "target/package/$RELEASE_FILE" "$RELEASE_DIR/$RELEASE_FILE"
+      - uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+        if: steps.registry.outputs.missing == 'true'
+        id: auth
+      - name: Publish with crates.io trusted publishing
+        if: steps.registry.outputs.missing == 'true'
+        working-directory: source
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --locked --no-verify
+      - run: node automation/tools/release.mjs verify cargo

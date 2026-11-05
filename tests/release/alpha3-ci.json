@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "sourceCommit": "ff0755231cceb28b3828efc3bd5d1b4b7538661d",
+  "url": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41992055275",
+  "jobs": [
+    {
+      "name": "Android unit tests and lint",
+      "conclusion": "success"
+    },
+    {
+      "name": "Rust, TypeScript and Swift",
+      "conclusion": "success"
+    },
+    {
+      "name": "Desktop contract (ubuntu-latest)",
+      "conclusion": "success"
+    },
+    {
+      "name": "Desktop contract (windows-latest)",
+      "conclusion": "success"
+    }
+  ]
+}

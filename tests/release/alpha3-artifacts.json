@@ -1,0 +1,18 @@
+{
+  "version": "0.1.0-alpha.3",
+  "sourceCommit": "ff0755231cceb28b3828efc3bd5d1b4b7538661d",
+  "ciRun": "https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41992055275",
+  "npm": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.3",
+    "shasum": "847cc81741678e0956cb9aa6ad22b570947a820e",
+    "integrity": "sha512-SYhc3DRtcAcFWWErxMa7SIl1eLF3PLcxxZpyEle8gWAmHS8F0QxTeR2sTzv/UL/9OIO967Cym5Z994hEhFmsWw==",
+    "size": 10688,
+    "entryCount": 10
+  },
+  "cargo": {
+    "name": "tauri-plugin-live-activity",
+    "sha256": "57804af6be71bce0b19b9a90943addb625b4793798137007615e93d092175866",
+    "minimumAndroidSdk": 26
+  }
+}

@@ -29,3 +29,18 @@ API references. Exercise Android notification/channel/permission/promotion bound
 where emulator images exist. Check Apple deployment-target compilation separately
 from simulator runtime availability. Reports identify registry artifacts versus
 workspace changes and never count an unavailable runtime as a passing test.
+
+## Registry automation
+
+`publish.yml` accepts a version tag on push or manual dispatch. Its controller
+comes from the workflow revision; package sources come from the resolved release
+tag, including tags created before the workflow existed. The tag must belong to
+main, match both package versions, and have a successful CI run at that exact
+commit. Packaging runs without publishing credentials. Separate jobs receive the
+checked archives and use npm/crates.io OIDC trusted publishing.
+
+An existing registry version is skipped only when its checksum matches. Registry
+authentication and transport failures never mean that a version is absent. The
+alpha.3 frozen hashes provide a migration check for the already-tested artifacts.
+Registry trust is configured once for this repository and workflow; no persistent
+registry tokens are stored as GitHub secrets.

@@ -1,0 +1,133 @@
+{
+  "verifiedAt": "2026-11-05T08:26:53.005319+00:00",
+  "scope": "Actual isolated Tauri consumer using frozen npm alpha.3 release tarball plus published crates.io alpha.3; npm registry publication is NOT claimed",
+  "version": "0.1.0-alpha.3",
+  "sourceCommit": "ff0755231cceb28b3828efc3bd5d1b4b7538661d",
+  "npm": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.3",
+    "shasum": "847cc81741678e0956cb9aa6ad22b570947a820e",
+    "integrity": "sha512-SYhc3DRtcAcFWWErxMa7SIl1eLF3PLcxxZpyEle8gWAmHS8F0QxTeR2sTzv/UL/9OIO967Cym5Z994hEhFmsWw==",
+    "size": 10688,
+    "entryCount": 10,
+    "installation": "exact frozen release tarball; --ignore-scripts",
+    "installedFileHashes": {
+      "LICENSE": "cdae86e7e730abef3b88e57d52048c8cf699c7617bd6fc3de87572f850f42940",
+      "LICENSE-APACHE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "LICENSE-MIT": "a008887e13a30b94e9ca14eaacf8290a2403a3fe8f0d4a5255d19cf760dc0a6d",
+      "dist-js/index.js": "472297d3526d03e84f2975bcf2fff49051ab4de97699e232c8af808ed8c1d8e0",
+      "dist-js/types.js": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+      "package.json": "b1d15704e708378f375c557093a7509636cc562daa4f20459c170fede4d97de4",
+      "README.ko.md": "6eac6066d2f0e5216d9131e62fcfa8d708c30e9d0a3feffb8aa55d9d19b37732",
+      "README.md": "34d27af87fa27c5f37be11fcbececc0046c5b84282433bdbb33f743cba1c00c0",
+      "dist-js/index.d.ts": "ee66f317cda7da7d15d1bb9642919ae8674a608b1c5bfeb49077b799afb16c71",
+      "dist-js/types.d.ts": "9805e1b4e649baebd46c7ac60ccfa739606b9bca39c4a2383acd61721855e290"
+    }
+  },
+  "cargo": {
+    "verifiedAt": "2026-11-05T08:22:22.839872+00:00",
+    "version": "0.1.0-alpha.3",
+    "source": "registry+https://github.com/rust-lang/crates.io-index",
+    "archiveSha256": "57804af6be71bce0b19b9a90943addb625b4793798137007615e93d092175866",
+    "minimumAndroidSdk": 26,
+    "productionSourceHashes": {
+      "android/build.gradle.kts": "26388f8d857faf7acda2762fcdb0524c999730ab0b06df3b18958d55c3d10778",
+      "android/src/main/AndroidManifest.xml": "f6059e2635728f394506d9cc4891355e3e782976186e8456fa5ac27ef2fc0371",
+      "android/src/main/java/io/github/eedaegon/liveactivity/Input.kt": "27f6d8ea2e4b16406c41e01b2f8425e6f31b3b7fb60238b377dee9aa32af2090",
+      "android/src/main/java/io/github/eedaegon/liveactivity/PreferencesStore.kt": "5e6db698e0f4fd71b810bdff8fd57ea55ce29f39ca5fb032b870b87addbde585",
+      "android/src/main/java/io/github/eedaegon/liveactivity/DismissReceiver.kt": "3c6e6211080815da13b8ede9b89f48ab6a65e46da1ba7360efc87585c4bf4076",
+      "android/src/main/java/io/github/eedaegon/liveactivity/AndroidNotifications.kt": "6b9f63fb7fc88ad35971e909ff165aac8de8d652fd4b9f1baaafcc5978946f23",
+      "android/src/main/java/io/github/eedaegon/liveactivity/DismissalMemory.kt": "8b55065e34c4f866e7a82cf8214bfb97bc5f494ea147fc40f4db3e6ceed014d4",
+      "android/src/main/java/io/github/eedaegon/liveactivity/Models.kt": "0ab29bc81e3b9aa0e1842b2c4754ed9c88e33b97617b1a3902ef1783651e562d",
+      "android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt": "a889f186c3d4e03d51952a1e0f0f34f21f6709ed0405b12e2f248a2622895b26",
+      "android/src/main/java/io/github/eedaegon/liveactivity/ActivityEngine.kt": "c72fbfa8e9496377a05a6786938c8133b7c0f2d976b2f0297b244dac984586b9",
+      "android/src/main/java/io/github/eedaegon/liveactivity/PermissionPolicy.kt": "094e8fad5e8241458017a72d3e208791d06cc5311f5af48445469dae3daf7244",
+      "android/src/main/res/drawable/live_activity_status.xml": "592a662299d92338347ac345d53dc3a4277b6ef954b44a8c56152cbe516d1409"
+    },
+    "matchesSourceCommit": "ff0755231cceb28b3828efc3bd5d1b4b7538661d",
+    "status": "passed",
+    "scope": "Cargo registry preparation only; paired npm alpha3 runtime proof awaits public npm version"
+  },
+  "apkSha256": "f5f96b91ef5178170e24bb41b32ca6ad761c6acd3e6299745f00fe8c053a1c00",
+  "frontendSourceHashes": {
+    "src/self-test.ts": "e8da4ca6de2fa5c4fbcd9e9070e2be8ce4df232cc371d0c56a9fcd591bdd3f15",
+    "src/index.html": "36ed0f6ee08cb4d4e23e3d409d3be6bc9268a9a2b0c85a3fef972c081c1c2dca",
+    "src/main.ts": "4129fadd953ba1873ce84eaf06f834736a1100f637e259f9474137747f745a90",
+    "src/styles.css": "090652a3d9bfd4677269921c955d994a121e7d0023f91cd8a5be44c5e1f5e69e",
+    "src/ui-state.ts": "c06529c099b147286fffe8f66a91cb2afa3ace8560a47e4a359741bcf4439070",
+    "src/mochi.ts": "a3c427ed518cf3c7148577a7e6c55a2ac040bd404e8f79c3aa03a8a5dd6fcc87"
+  },
+  "frontendBuiltHashes": {
+    "dist/index.html": "36ed0f6ee08cb4d4e23e3d409d3be6bc9268a9a2b0c85a3fef972c081c1c2dca",
+    "dist/styles.css": "090652a3d9bfd4677269921c955d994a121e7d0023f91cd8a5be44c5e1f5e69e",
+    "dist/main.js.map": "370c8a52c9a29194a891ae84c26f8999d899a189b186c7ac935cf793a40bb85b",
+    "dist/main.js": "f57a335715b79b0eae341c7535685980c19663c8cd8f61f432f11564d44b7cfb"
+  },
+  "minSdk": 26,
+  "api37Lifecycle": {
+    "checks": [
+      {
+        "name": "start returns an opaque nonterminal handle",
+        "passed": true
+      },
+      {
+        "name": "duplicate start keeps its handle",
+        "passed": true
+      },
+      {
+        "name": "newer revision replaces the full snapshot",
+        "passed": true
+      },
+      {
+        "name": "identical update is idempotent",
+        "passed": true
+      },
+      {
+        "name": "stale revision is rejected",
+        "passed": true
+      },
+      {
+        "name": "conflicting revision is rejected",
+        "passed": true
+      },
+      {
+        "name": "list reconciles the current generation",
+        "passed": true
+      },
+      {
+        "name": "immediate end ends the generation",
+        "passed": true
+      },
+      {
+        "name": "repeated end is idempotent",
+        "passed": true
+      },
+      {
+        "name": "late update cannot revive an ended handle",
+        "passed": true
+      },
+      {
+        "name": "a new start receives a new generation",
+        "passed": true
+      },
+      {
+        "name": "old handles cannot modify the new generation",
+        "passed": true
+      },
+      {
+        "name": "the final generation is cleaned up",
+        "passed": true
+      }
+    ],
+    "platform": "android",
+    "status": "passed",
+    "visibility": "unknown"
+  },
+  "api24InstallRejection": {
+    "status": "passed",
+    "error": "INSTALL_FAILED_OLDER_SDK",
+    "requiredSdk": 26,
+    "deviceSdk": 24
+  },
+  "status": "passed"
+}

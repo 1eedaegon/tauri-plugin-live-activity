@@ -1,0 +1,146 @@
+{
+  "status": "passed",
+  "version": "0.1.0-alpha.3",
+  "sourceCommit": "ff0755231cceb28b3828efc3bd5d1b4b7538661d",
+  "validationDate": "2026-11-05",
+  "scope": "Frozen npm candidate tarball paired with exact published Cargo; public npm registry install is not covered by this run",
+  "npm": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.3",
+    "shasum": "847cc81741678e0956cb9aa6ad22b570947a820e",
+    "integrity": "sha512-SYhc3DRtcAcFWWErxMa7SIl1eLF3PLcxxZpyEle8gWAmHS8F0QxTeR2sTzv/UL/9OIO967Cym5Z994hEhFmsWw==",
+    "size": 10688,
+    "entryCount": 10,
+    "source": "frozen release tarball",
+    "frozenManifestMatches": true,
+    "installedAsSymlink": false,
+    "registryInstallVerified": false
+  },
+  "cargo": {
+    "name": "tauri-plugin-live-activity",
+    "version": "0.1.0-alpha.3",
+    "source": "registry+https://github.com/rust-lang/crates.io-index",
+    "checksum": "57804af6be71bce0b19b9a90943addb625b4793798137007615e93d092175866",
+    "archiveChecksumMatches": true,
+    "lockfileChecksumMatches": true,
+    "sparseIndexChecksumMatches": true,
+    "yanked": false,
+    "sourceCommit": "ff0755231cceb28b3828efc3bd5d1b4b7538661d",
+    "target": "aarch64-apple-ios-sim",
+    "cargoCheck": "passed",
+    "pluginPathOverride": false,
+    "tauriAPIProvidedByCargo": true,
+    "platformSupportPresent": true,
+    "archiveFileCount": 56,
+    "validationDate": "2026-11-05",
+    "status": "passed",
+    "scope": "Exact crates.io dependency resolution, iOS simulator compilation, and released artifact identity",
+    "dependency": "tauri-plugin-live-activity = \"=0.1.0-alpha.3\"",
+    "command": "cargo check --manifest-path src-tauri/Cargo.toml --target aarch64-apple-ios-sim",
+    "elapsedSeconds": 27.65
+  },
+  "build": {
+    "command": "npm run tauri -- ios build --target aarch64-sim --debug",
+    "status": "passed",
+    "hostMinimumOSVersion": "16.1",
+    "widgetMinimumOSVersion": "16.1",
+    "bundleVersion": "0.1.0.3",
+    "pluginPathOverrides": false
+  },
+  "artifacts": {
+    "capturedAt": "2026-11-05T08:26:20.333988+00:00",
+    "appBundleTreeSha256": "e03f230d99aa5ade2c18d9bd08f6b699da0fd6d2c856a25768aa09bd8ff5c27a",
+    "appBundleFileCount": 13,
+    "appExecutableSha256": "d81353dd040f4789fce22fd0894e7ac6f9d25615cae440512c74c7c32d4edefa",
+    "widgetExecutableSha256": "0ca15ad15b8352900123244912d67ea3fb36dafa0473630111a3b5541523905f",
+    "frontendTreeSha256": "ee639be1b0028472dce03842461e8ae4f38991c6434041e45a46f4cc4150110a",
+    "frontendFiles": {
+      "index.html": "03b1816901a24586de07677cb991cc399be1d3d5b7e3a13c3bda58dfba356e0c",
+      "main.js": "4fd7eb318be7a8f7d87eaed03589e6b7e33a796d7b1e1320511b75de940edfb2",
+      "main.js.map": "ae321cb68a14206a446f0f83e65bebb8eb395c6d09cea48f7c56659d70f3650f",
+      "styles.css": "090652a3d9bfd4677269921c955d994a121e7d0023f91cd8a5be44c5e1f5e69e"
+    },
+    "installedNpmTreeSha256": "4f66a658f3d3f6d31bcca248c6c1785a2965a9b77bf8d817e8061e28b736c828",
+    "installedNpmFiles": {
+      "LICENSE": "cdae86e7e730abef3b88e57d52048c8cf699c7617bd6fc3de87572f850f42940",
+      "LICENSE-APACHE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "LICENSE-MIT": "a008887e13a30b94e9ca14eaacf8290a2403a3fe8f0d4a5255d19cf760dc0a6d",
+      "README.ko.md": "6eac6066d2f0e5216d9131e62fcfa8d708c30e9d0a3feffb8aa55d9d19b37732",
+      "README.md": "34d27af87fa27c5f37be11fcbececc0046c5b84282433bdbb33f743cba1c00c0",
+      "dist-js/index.d.ts": "ee66f317cda7da7d15d1bb9642919ae8674a608b1c5bfeb49077b799afb16c71",
+      "dist-js/index.js": "472297d3526d03e84f2975bcf2fff49051ab4de97699e232c8af808ed8c1d8e0",
+      "dist-js/types.d.ts": "9805e1b4e649baebd46c7ac60ccfa739606b9bca39c4a2383acd61721855e290",
+      "dist-js/types.js": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+      "package.json": "b1d15704e708378f375c557093a7509636cc562daa4f20459c170fede4d97de4"
+    },
+    "treeHashAlgorithm": "SHA256 of sorted relativePath + NUL + fileSHA256 + newline for regular non-symlink files",
+    "hostMinimumOSVersion": "16.1",
+    "widgetMinimumOSVersion": "16.1",
+    "bundleVersion": "0.1.0.3",
+    "appBundleFiles": {
+      "AppIcon60x60@2x.png": "74af92c6437a607d4145b3350427e0718bc2990eecf43496fe783b9e4630a969",
+      "AppIcon76x76@2x~ipad.png": "f57261cf6b864619b1fb007d93f9fdbb43d31cddd5a452826ff2aa194f823037",
+      "Assets.car": "87e7999f79a4af5048356c7f42de8ab699812d4a339fdaa3e843c3f61a2c04f7",
+      "Info.plist": "58e08a51382e28cd63f486eaf0c50080b50e9a0157dab398b5e6479f266e9201",
+      "LaunchScreen.storyboardc/Info.plist": "4f8503b465178448f39d1fa679cfebe28005ece6876edd41a05db5bd6b7c6141",
+      "LaunchScreen.storyboardc/UIViewController-Y6W-OH-hqX.nib": "1d3b9ef8a36248c2d8b18b08126447019b5604897562297c11c28e8002b15839",
+      "LaunchScreen.storyboardc/Y6W-OH-hqX-view-5EZ-qb-Rvc.nib": "107980c54274d72fb604e1e82ef4f0820de45b9dd36cd5899c20f972f8ceb582",
+      "PkgInfo": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0",
+      "PlugIns/LiveActivityWidget.appex/Info.plist": "f9ed035d69b3e4cb5b519de18392fa877543f290ca32078c14eed342fa6df737",
+      "PlugIns/LiveActivityWidget.appex/LiveActivityWidget": "0ca15ad15b8352900123244912d67ea3fb36dafa0473630111a3b5541523905f",
+      "PlugIns/LiveActivityWidget.appex/_CodeSignature/CodeResources": "48addbf869d92ebbebaf93d7cb6dc32cdb5a2aa8722b6838d8a4439964f42e9a",
+      "_CodeSignature/CodeResources": "d25081ed936076521cb4e1dc75e4ce477f266d266a46e4fb71a93ad2132d8dec",
+      "mochi-registry-demo": "d81353dd040f4789fce22fd0894e7ac6f9d25615cae440512c74c7c32d4edefa"
+    }
+  },
+  "iosSourceParityWithAlpha2": {
+    "fromVersion": "0.1.0-alpha.2",
+    "toVersion": "0.1.0-alpha.3",
+    "allEqual": true,
+    "files": [
+      {
+        "path": "ios/Sources/LiveActivityShared/Validation.swift",
+        "sha256": "40146d61441281d2df49d28b4f944ba0b4298c46be52d0fa768dfa5c41f02594"
+      },
+      {
+        "path": "ios/Sources/LiveActivityShared/Models.swift",
+        "sha256": "27ee79b4d6259b844a141a626b3339f4cdb118c01b3f7b7d5bfd3dc7a5be98c4"
+      },
+      {
+        "path": "ios/Sources/LiveActivityPlugin/ActivityKitBackend.swift",
+        "sha256": "fa9a9a4dfed1c6e557851c422d00d7482ca6d7da64e9edee584d6d57b0dabd26"
+      },
+      {
+        "path": "ios/Sources/LiveActivityPlugin/LiveActivityPlugin.swift",
+        "sha256": "35f1969c63ee316c79f3494f4982981d80712413ee403440774d9c44b49cedcc"
+      },
+      {
+        "path": "ios/Sources/LiveActivityCore/PlatformSupport.swift",
+        "sha256": "10788fdada831ee78a78aaf5fde9cadb11bf9f496272320e98076a995d24215d"
+      },
+      {
+        "path": "ios/Sources/LiveActivityCore/ReceiptStore.swift",
+        "sha256": "df0276bbe0f87f71ce12b52ea02a52d0728370d5281e9415437e1c7083dfb955"
+      },
+      {
+        "path": "ios/Sources/LiveActivityCore/Lifecycle.swift",
+        "sha256": "4de0950852532bf2113a1f70a2dbd426d7dce66a6435c1a0e3650d80ff725be2"
+      },
+      {
+        "path": "templates/ios/LiveActivityWidget.swift",
+        "sha256": "123dd41c5178624944b1af526410c863dd0740ccd347cf3e9ec9118777fd46a4"
+      }
+    ]
+  },
+  "runtime": {
+    "iPhone18Pro_iOS27.2": {
+      "lifecycle": 13,
+      "features": 10,
+      "unicodeRegression": 1,
+      "status": "passed"
+    }
+  },
+  "visibility": "Acceptance does not imply visibility; demo screenshot provenance is tracked separately",
+  "staleTransition": "Strict stale-date OS observation remains an explicit simulator limitation and is not included in these passing feature counts",
+  "publicNpmFollowup": "Verify exact registry metadata, download checksum and lockfile origin; compare installed package and rebuilt frontend bytes against these artifacts before reusing native runtime evidence"
+}

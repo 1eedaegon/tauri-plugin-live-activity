@@ -1,7 +1,9 @@
 # 0.1.0-alpha.3 validation
 
 Alpha.3 corrects the Android minimum to API 26 and refines the demo illustration.
-Publication and final registry checks are pending. The preceding alpha.2 was
+Cargo alpha.3 is published and its registry checks passed. npm alpha.3 publication
+is moving to GitHub Actions trusted publishing; its exact frozen tarball passed the native
+consumer checks below. The preceding alpha.2 was
 published on both registries and verified in paired Tauri consumers on iPhone,
 iPad and Android. [Alpha.2 evidence](validation-alpha.2.md).
 
@@ -41,9 +43,10 @@ builds; browser QA screenshots use injected IPC and are labeled separately.
 | API 37 Back cancellation regression | Five real permission-dialog checks passed with published alpha.2 |
 | Revised custom iOS widget | iOS 16.1, 16.2 and 17.0 compile-time availability passed |
 
-The release CI checks Rust, TypeScript, Swift, Android unit/lint/manifest behavior,
-and desktop unsupported contracts on Windows and Linux. Its final run and
-published alpha.3 consumer reports will be recorded after completion.
+The [final CI run](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41992055275)
+passed all four jobs at source commit `ff075523`: Rust/TypeScript/Swift, Android
+unit/lint/merged-manifest checks, and Windows/Linux desktop contracts.
+[CI evidence](../tests/release/alpha3-ci.json).
 
 [API 26 tests](../tests/android/results/native-api26-boundary.json),
 [API 33 lifecycle](../tests/android/results/registry-alpha2-api33-lifecycle.json),
@@ -56,6 +59,31 @@ The [Android coverage report](../tests/android/results/coverage-alpha3.json) was
 recomputed from existing execution data against unchanged production Kotlin
 sources; it is not presented as newly collected API 26/37 coverage. The separate
 native runs verify those runtime boundaries.
+
+## Release artifacts and actual Tauri consumers
+
+The published Cargo archive, sparse index and consumer lock agree on SHA-256
+`57804af6be71bce0b19b9a90943addb625b4793798137007615e93d092175866`.
+Its recorded source is `ff075523`; exact registry iOS compilation passed.
+[Cargo registry consumer](../tests/release/crates-io-alpha3-consumer.json).
+
+The frozen npm tarball has SHA-1 `847cc81741678e0956cb9aa6ad22b570947a820e`.
+It contains ten files; JavaScript and declaration files are byte-identical to the
+public alpha.2 package. The README, version and native minimum are updated for
+alpha.3. Local publication was stopped while migrating to the
+[release workflow](releasing.md). This report does not yet claim public npm alpha.3
+availability or a registry-origin npm installation.
+
+Actual isolated Tauri consumers installed that exact npm tarball alongside the
+public Cargo alpha.3 crate. The iPhone passed 13 lifecycle, 10 feature and one
+Unicode conflict check. Android API 37 passed 13 lifecycle checks, and the same
+merged APK was rejected by API 24 because it requires API 26. Installed package,
+frontend and application hashes are retained for later registry byte comparison.
+[iPhone consumer](../tests/ios/results/packaged-alpha3-consumer.json),
+[iPhone lifecycle](../tests/ios/results/packaged-alpha3-iphone-lifecycle.json),
+[iPhone features](../tests/ios/results/packaged-alpha3-iphone-features.json),
+[iPhone Unicode regression](../tests/ios/results/packaged-alpha3-iphone-unicode.json),
+[Android consumer](../tests/android/results/packaged-alpha3-candidate.json).
 
 ## Support policy and remaining runtime checks
 
