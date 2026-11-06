@@ -1,32 +1,36 @@
-# 멀티플랫폼 설계 제안
+# Multiplatform design proposal
 
-상태: 초기 조사에서 정리한 설계안입니다. 첫 알파는 iOS·Android를 구현하며,
-실제 구현 범위와 검증 결과는 [릴리스 검증](validation.md)을 기준으로 확인합니다.
+Status: the design drawn up during the first research, on 2026-11-04. The first alpha
+implements iOS and Android. What was actually built and tested is in the
+[validation record](validation.md).
 
-## 제품 요구사항
+## Product requirements
 
-사용자는 앱을 열지 않고 진행 중인 작업의 제목·상태·진행률·남은 시간을 확인하고,
-눌러 앱의 해당 화면으로 돌아갈 수 있어야 합니다. 개발자는 OS마다 다른 UI 코드를
-JS에서 직접 다루지 않고 시작·갱신·종료와 지원 기능 조회를 수행합니다.
+Without opening the app, the user sees the title, status, progress and remaining time of a
+running task, and can tap it to get back to the matching screen in the app. The developer
+starts, updates and ends activities and queries supported features without handling each
+OS's UI code from JS.
 
-초기 범위는 로컬 시작/갱신/종료, 권한·지원 기능 조회, 일반 진행률/타이머 템플릿,
-상태 재조회, 네 모바일 기기와 데스크톱 대체 경로입니다. APNs/FCM, arbitrary custom UI,
-이미지 다운로드, 작업 스케줄러, 위치 추적, 무제한 background 실행은 초기 범위 밖입니다.
-초기 범위 밖 기능도 API 확장을 막지 않되 지금 사용하지 않는 구현은 만들지 않습니다.
+The initial scope covers local start, update and end; permission and feature queries;
+standard progress and timer templates; reading state back; the four mobile devices; and a
+desktop fallback. APNs/FCM, arbitrary custom UI, image downloads, a task scheduler, location
+tracking and unlimited background execution are outside it. The API should leave room for
+those features, but nothing is built for them now.
 
-## 비교 결과
+## Alternatives compared
 
-| 대안 | 장점 | 비용·호환성 문제 | 판단 |
+| Alternative | Strengths | Cost and compatibility problems | Decision |
 | --- | --- | --- | --- |
-| Flutter 플러그인 직접 포팅 | 네이티브 구현 참고와 빠른 출발 | Flutter channel 의존, App Group 데이터 전달, RemoteViews와 최신 Live Updates 조건 충돌 | 구조와 사례만 참고 |
-| 공식 notification 플러그인만 감싸기 | 기존 권한/OS 구현 재사용 | ActivityKit·위젯 타깃·정밀한 갱신/종료 의미를 그대로 제공하지 않음 | 알림 backend의 재사용 후보 |
-| 모든 OS에 자체 overlay/window | 동일한 UI를 만들기 쉬움 | 잠금 화면 통합 불가, 추가 권한, 접근성·전력·background 제약 | 기본 backend로 제외 |
-| 공통 상태 모델 + 네이티브 어댑터 | OS 특성 유지, 구형 OS에서 명시적 대체, 독립 테스트 | 기능 조회·상태 매핑 설계 필요 | 권장 |
+| Port the Flutter plugin directly | Native code to learn from, a fast start | Depends on Flutter channels, passes data through an App Group, RemoteViews conflicts with the conditions of the latest Live Updates | Use only its structure and examples as reference |
+| Wrap only the official notification plugin | Reuses its permission and OS code | Does not offer ActivityKit, the widget target or precise update and end semantics | A candidate to reuse for the notification backend |
+| An overlay or window of our own on every OS | The same UI is easy to build | No lock screen integration, extra permissions, accessibility, power and background limits | Ruled out as the default backend |
+| Shared state model + native adapters | Keeps what is specific to each OS, explicit fallback on older OSes, each backend tested on its own | Needs a design for capability queries and state mapping | Recommended |
 
-이 선택은 요구 기기와 멀티플랫폼 범위에 대한 설계 판단입니다. 성능 우위를 실측한
-결과가 아닙니다. [조사 소스](references.md)를 기준으로 플랫폼별 spike를 먼저 합니다.
+This choice is a design judgment about the required devices and the multiplatform scope,
+not a measured performance advantage. Per-platform spikes based on the
+[references](references.md) come first.
 
-## 구조와 책임
+## Structure and responsibilities
 
 ```mermaid
 flowchart TD
@@ -43,13 +47,14 @@ flowchart TD
     I --> L[Linux D-Bus or portal]
 ```
 
-JS는 타입과 호출 진입점만 제공합니다. Rust에서 입력 검증·오류 형식·공통 정책을 정의하고,
-Swift/Kotlin 또는 desktop adapter가 OS 상태를 관리합니다. OS 고유 코드를 Rust에서
-억지로 통합하지 않고 각 backend에 같은 계약 테스트를 적용합니다. 관측 가능한 상태는
-OS를 기준으로 합니다. portal 등 조회할 수 없는 backend의 로컬 기록은 실제 표시 상태의
-증거가 아니므로 요청 이력과 관측 상태를 분리하고 후자는 unknown으로 유지합니다.
+JS provides only the types and the call entry points. Rust defines input validation, the
+error format and shared policy, and the Swift, Kotlin or desktop adapters manage OS state.
+OS-specific code is not forced into one Rust layer; every backend runs the same contract
+tests instead. Observable state is what the OS reports. On a backend that cannot be
+queried, such as a portal, a local record is no proof of what is on screen, so the request
+history is kept apart from the observed state, and the observed state stays unknown.
 
-향후 디렉터리 구조 제안입니다. 아직 존재하지 않는 파일을 포함합니다.
+A proposed directory layout. It includes files that do not exist yet.
 
 ```text
 guest-js/                 # TypeScript API and public types
@@ -69,135 +74,165 @@ tests/                   # Contract and cross-backend fixtures
 docs/
 ```
 
-## iOS 설계
+## iOS design
 
-`ActivityAttributes`의 정적 식별자와 `ContentState`의 동적 텍스트·진행률·시각을
-작은 Codable 모델로 정의합니다. 동일 Swift 모듈을 플러그인과 호스트 위젯이 참조하게
-하여 서로 다른 타입/직렬화 정의가 생기는 것을 막습니다. 위젯은 호스트 앱에 embed하고
-서명해야 하므로 Rust crate나 npm 설치만으로 모든 설정이 끝난다고 안내하지 않습니다.
+The static identifiers in `ActivityAttributes` and the dynamic text, progress and times in
+`ContentState` are small Codable models. The plugin and the host widget reference the same
+Swift module, so they never end up with different type or serialization definitions. The
+widget has to be embedded in the host app and signed, so the docs do not claim that
+installing the Rust crate or the npm package completes the setup.
 
-Flutter 참고 구현은 App Group UserDefaults에 실제 데이터를 두고 상태 변화 표식을
-ActivityKit으로 전달합니다. 여기서는 동적 상태 자체를 ContentState로 전달하는
-Apple 기본 모델을 채택합니다. 기본 텍스트/진행률에는 공유 저장소가 필요하지 않습니다.
-이미지 공유가 필요해질 때만 App Group과 크기 제한·파일 정리 정책을 추가합니다.
+The Flutter reference implementation keeps the real data in App Group UserDefaults and
+sends ActivityKit only a marker that the state changed. This design takes Apple's default
+model instead: the dynamic state itself travels in ContentState. Standard text and
+progress need no shared storage. An App Group, with size limits and a file cleanup
+policy, is added only once images have to be shared.
 
-위젯 UI는 SwiftUI로 작성합니다. WebView HTML이나 Flutter widget을 삽입하지 않습니다.
-표준 progress/timer 템플릿을 먼저 제공하고, 커스텀 템플릿은 호스트의 컴파일된 Swift
-뷰로 확장합니다. 임의 JS 객체나 문자열로 Swift 타입을 런타임 생성하지 않습니다.
-공통 모델의 schema version을 앱·확장이 함께 검증합니다.
+The widget UI is written in SwiftUI. No WebView HTML or Flutter widget goes inside it. The
+standard progress and timer templates come first; custom templates extend them with
+compiled Swift views in the host. Swift types are never created at runtime from arbitrary
+JS objects or strings. The app and the extension both check the schema version of the
+shared model.
 
-iOS 16.1 초기 API와 16.2+ API를 availability gate로 나눕니다. ActivityKit 호출과
-상태/token 관찰 task의 생성·취소를 actor 또는 지정 executor로 직렬화합니다.
-사용자 dismiss, OS 종료, stale 상태는 별도 상태로 유지합니다.
-앱 재실행 시 해당 attributes 타입의 OS 활동을 조회하여 다시 연결합니다.
+Availability gates separate the original iOS 16.1 API from the 16.2+ API. ActivityKit
+calls, and the creation and cancellation of the tasks that observe state and tokens, run
+one at a time on an actor or a designated executor. A dismissal by the user, an end by the
+OS and the stale state are kept as separate states. When the app launches again, it asks
+the OS for the activities of its attributes type and reconnects to them.
 
-## Android 설계
+## Android design
 
-Kotlin에서 NotificationCompat와 채널을 사용합니다. 일반 알림과 Live Updates가
-동일한 표준 텍스트/진행률 모델을 쓰도록 하고 RemoteViews는 초기 구현에 넣지 않습니다.
-API 36+ 메서드는 compile SDK와 런타임 버전 검사를 모두 통과할 때만 호출합니다.
+The Kotlin side uses NotificationCompat and channels. Ordinary notifications and Live
+Updates use the same standard text and progress model, and RemoteViews stays out of the
+first implementation. API 36+ methods are called only when both the compile SDK and the
+runtime version check allow them.
 
-승격 요청, 승격 가능 여부, 실제 승격 결과를 분리합니다. 사용자나 OEM이 승격을
-거부하면 요청자가 허용한 일반 알림으로 낮추고 그 사유를 반환합니다. 지속 알림이
-항상 dismiss 불가능하다고 가정하지 않습니다. 변경 시 반복 sound/vibration을 억제합니다.
+The promotion request, whether promotion is possible and the actual promotion result are
+kept apart. When the user or the OEM refuses promotion, the plugin falls back to an
+ordinary notification, if the caller allowed one, and returns the reason. An ongoing
+notification is not assumed to be impossible to dismiss. Updates do not repeat the sound
+or vibration.
 
-앱별 전용 tag namespace와 notification ID를 사용해 다른 알림을 덮어쓰지 않습니다.
-해시 충돌에만 의존하지 않는 ID 매핑을 사용하며 종료·조회는 플러그인 소유 활동만
-대상으로 합니다. 사용자 제거를 감지하는 native 수신 경로가 필요합니다.
-background 실행은 호스트 서비스의 책임이며 기본 플러그인은 FGS를 자동 생성하지 않습니다.
+The plugin uses its own tag namespace and notification IDs in each app, so it does not
+overwrite other notifications. The ID mapping does not rely on hashes never colliding, and
+end and list touch only activities the plugin owns. A native receiver is needed to detect
+removal by the user. Background execution is the host service's job; the plugin does not
+create a foreground service (FGS) by itself.
 
-## 데스크톱 설계
+## Desktop design
 
-- macOS: UserNotifications의 식별자 기반 표시/삭제를 검증합니다. 같은 식별자의
-  재게시가 silent update를 보장한다고 가정하지 않습니다. 검증 전에는 조용한 갱신
-  capability를 unknown으로 반환하고 기본 갱신 빈도를 낮춥니다. iPhone 미러링은 독립 경로입니다.
-- Windows: tag/group과 데이터 binding을 통한 진행률 갱신을 우선 검토합니다.
-  기존 Rust native binding 재사용과 Windows App SDK 도입 비용을 spike에서 비교합니다.
-  설치 앱의 ID/activation을 먼저 검증하고 미등록 dev 실행의 성공을 배포 성공으로 보지 않습니다.
-- Linux: 기존 알림 라이브러리가 제공하는 replace/close/capability 기능부터 확인합니다.
-  일반 환경은 freedesktop D-Bus, sandbox는 portal을 우선 사용합니다. 서버가 제공하지
-  않는 persistence/actions/progress는 지원하지 않는 것으로 보고합니다.
+- macOS: verify showing and removing notifications by identifier in UserNotifications.
+  Posting again with the same identifier is not assumed to give a silent update. Until
+  that is verified, the silent update capability is reported as unknown and the default
+  update rate is kept low. iPhone Mirroring is a separate path.
+- Windows: look first at progress updates through tag/group and data binding. A spike
+  compares reusing existing Rust native bindings with the cost of adopting the Windows
+  App SDK. The identity and activation of an installed app are verified first; success in
+  an unregistered dev run does not count as success in a shipped app.
+- Linux: start with the replace, close and capability features that existing notification
+  libraries provide. Prefer freedesktop D-Bus in an ordinary session and the portal in a
+  sandbox. Persistence, actions or progress that the server does not provide are
+  reported as unsupported.
 
-공식 notification 플러그인 또는 그 기반 라이브러리는 ID·업데이트·종료·상태 조회
-계약을 충족하는 범위에서 재사용합니다. 단순 send API만으로 안정적인 lifecycle을
-만들 수 없다면 해당 플랫폼에 작은 전용 어댑터를 둡니다. 새 dependency를 정하기 전에
-MSRV, 최소 OS, 바이너리 크기, 라이선스, 유지보수 상태를 확인합니다.
+The official notification plugin, or the library under it, is reused as far as it meets
+the contract for IDs, updates, ends and state queries. Where a plain send API cannot give
+a reliable lifecycle, that platform gets a small adapter of its own. Before a new
+dependency is chosen, its MSRV, minimum OS, binary size, license and maintenance state are
+checked.
 
-## 제안 API 계약
+## Proposed API contract
 
-아래 이름은 확정된 public API가 아닙니다. 현재 실행할 수 없습니다.
+The names below are not a settled public API. None of them can be called yet.
 
-| API | 계약 |
+| API | Contract |
 | --- | --- |
-| getCapabilities() | 사용 가능한 backend, 기능, 제약, 현재 설정을 조회; OS 버전 문자열만으로 판정하지 않음 |
-| checkPermissions() | Tauri 외부의 OS 알림·활동·승격 권한을 분리하여 반환 |
-| requestPermissions(kind) | 해당 OS에서 요청 가능한 권한만 명시적으로 요청; 불가능하면 settingsRequired 등 반환 |
-| start(input) | 앱이 제공한 안정적 activity key로 시작; native ID, backend, degradation 사유 반환 |
-| update(id, snapshot) | 전체 상태와 증가 revision으로 갱신; 오래된 갱신 거부 |
-| end(id, policy) | 플랫폼별 지원 종료 정책 적용; 이미 종료된 동일 ID는 멱등 처리 |
-| list() | OS 조회와 로컬 매핑을 대조; 확인 불가능한 상태는 unknown |
-| onStateChange(handler) | 지원되는 상태 변화 전달, 구독 해제 제공; 이벤트 유실 시 list로 복구 |
+| getCapabilities() | Queries the available backends, features, limits and current settings; does not decide from the OS version string alone |
+| checkPermissions() | Returns the OS permissions outside Tauri (notifications, activities, promotion) separately |
+| requestPermissions(kind) | Explicitly requests only the permissions that the OS lets an app request; otherwise returns a state such as settingsRequired |
+| start(input) | Starts with a stable activity key from the app; returns the native ID, the backend and the reasons for any degradation |
+| update(id, snapshot) | Updates with the full state and an increasing revision; rejects stale updates |
+| end(id, policy) | Applies an end policy that the platform supports; an ID that already ended is handled idempotently |
+| list() | Reconciles the OS query with the local mappings; a state that cannot be confirmed is unknown |
+| onStateChange(handler) | Delivers the supported state changes and offers an unsubscribe; after lost events, list recovers |
 
-`default` Tauri permission에는 상태 조회만 포함하는 것을 제안합니다. 시작·갱신·종료와
-권한 요청은 각각 명시적 allow 명령으로 구성합니다. 원격 웹 콘텐츠에는 기본 노출하지 않습니다.
-플러그인 capability와 OS 권한은 서로 대체하지 않습니다.
+The proposal is for the `default` Tauri permission to include only state queries. Start,
+update, end and permission requests each need an explicit allow command. Remote web
+content does not get them by default. A plugin capability and an OS permission never
+stand in for each other.
 
-### 데이터 모델
+### Data model
 
-- 정적 값: `activityKey`, `schemaVersion`, `template`.
-- 상태 snapshot: `revision`, `title`, `status`, 선택적 정규화 progress(0..1),
-  시작/종료 시각, `staleAt`. 유한 숫자·문자열 길이·시간 순서·인코딩 크기를 검사합니다.
-- 표시 정책: `fallback: "none" | "notification"`, 종료 시 즉시 제거/지원되는 잔존 정책.
-  지원하지 않는 정책을 조용히 무시하지 않고 사유 또는 오류를 반환합니다.
-- 결과: `id`, `backend`, `state`, `degradedFeatures`, `promotionRequested`, `promotionState`.
-  승격 요청 여부는 boolean, 관측 결과는 promoted/notPromoted/unknown/notApplicable로
-  구분합니다. 승격을 요청했다는 사실이 실제 승격을 뜻하지 않습니다.
-- capability: start/update/end, progress, timer, actions, stateObservation,
-  silentUpdate, nativeLiveActivity, maxPayloadBytes 등을 독립 표현합니다.
-  기능 상태는 supported/unsupported/unknown으로 구분하며 unknown을 지원으로 취급하지 않습니다.
-  권한은 granted/denied/prompt/settingsRequired/notApplicable/unknown으로 구분합니다.
+- Static values: `activityKey`, `schemaVersion`, `template`.
+- State snapshot: `revision`, `title`, `status`, an optional normalized progress (0..1),
+  start and end times, `staleAt`. The checks cover finite numbers, string lengths, time
+  order and encoded size.
+- Display policy: `fallback: "none" | "notification"`, and at the end either immediate
+  removal or a supported policy for staying on screen. An unsupported policy is never
+  silently ignored; the plugin returns a reason or an error.
+- Result: `id`, `backend`, `state`, `degradedFeatures`, `promotionRequested`,
+  `promotionState`. Whether promotion was requested is a boolean; the observed result is
+  promoted/notPromoted/unknown/notApplicable. A promotion request does not mean the
+  notification was promoted.
+- Capabilities: start/update/end, progress, timer, actions, stateObservation,
+  silentUpdate, nativeLiveActivity, maxPayloadBytes and others, each reported on its own.
+  A feature is supported/unsupported/unknown, and unknown never counts as supported. A
+  permission is granted/denied/prompt/settingsRequired/notApplicable/unknown.
 
-한 개의 거대한 플랫폼 옵션 객체를 만들지 않습니다. 공통 필드는 작게 유지하고
-추후 필요한 OS별 옵션은 namespaced extension으로 추가합니다. 타입 정의를 공유하거나
-공통 fixture를 통해 Rust·TypeScript·Swift·Kotlin 직렬화가 동일한지 검증합니다.
+There is no single large object of platform options. The shared fields stay few, and
+OS-specific options are added later, when needed, as namespaced extensions. Shared type
+definitions or shared fixtures check that Rust, TypeScript, Swift and Kotlin serialize the
+same way.
 
-### 동시성과 복구
+### Concurrency and recovery
 
-활동별 native 명령을 순서대로 처리합니다. 같은 activityKey의 중복 start는 중복 표시를
-만들지 않으며 같은 revision의 같은 데이터는 멱등 처리, 충돌 데이터는 오류로 처리합니다.
-낮은 revision은 거부하고 end 뒤의 늦은 update는 활동을 되살리지 않습니다.
-중간 상태를 합쳐 갱신량을 줄일 수 있지만 종료 요청은 유실시키지 않습니다.
-활동을 새로 생성할 때마다 새 불투명 handle을 부여합니다. 종료 후 같은 activityKey로
-다시 시작해도 이전 handle의 update가 새 활동에 적용되지 않도록 합니다. 멱등 end는
-알려진 종료 건에만 적용하고 알 수 없는 handle은 NOT_FOUND로 구분합니다.
+Native commands for one activity run in order. A repeated start with the same activityKey
+does not show a second activity. The same data with the same revision is idempotent, and
+conflicting data is an error. A lower revision is rejected, and a late update after end
+does not bring the activity back. Intermediate states may be merged to send fewer
+updates, but an end request is never lost. Every new activity gets a new opaque handle.
+When an activity ends and starts again with the same activityKey, an update with the old
+handle does not reach the new activity. An end is idempotent only for a known ended
+activity; an unknown handle gets NOT_FOUND.
 
-로컬 저장은 ID 매핑과 revision 등 최소 메타데이터로 제한합니다. OS 조회와 불일치하면
-재연결/종료/unknown으로 처리합니다. native 알림 API 호출과 디스크 기록은 원자적이지
-않으므로 crash 후 중복/유실 복구 케이스를 테스트합니다. backend가 dismiss나 조회를
-지원하지 않으면 화면에 아직 보인다고 단정하지 않습니다.
+Local storage holds only minimal metadata such as the ID mapping and the revision. Where it
+disagrees with the OS query, the activity is reconnected, ended or marked unknown. A
+native notification call and a write to disk are not one atomic step, so tests cover
+recovery from duplicates and losses after a crash. When a backend cannot report
+dismissals or cannot be queried, the plugin does not assume that the activity is still on
+screen.
 
-### 오류와 보안
+### Errors and security
 
-오류 코드는 `UNSUPPORTED_PLATFORM`, `UNSUPPORTED_FEATURE`, `PERMISSION_DENIED`,
-`CONFIGURATION_REQUIRED`, `INVALID_INPUT`, `PAYLOAD_TOO_LARGE`, `NOT_FOUND`,
-`STALE_REVISION`, `SYSTEM_LIMIT`, `NATIVE_ERROR` 같은 안정된 분류를 사용합니다.
-재시도 가능 여부와 사용자 조치 필요 여부를 구분하고 native 내부 정보를 무조건 노출하지 않습니다.
+Error codes come from a stable set such as `UNSUPPORTED_PLATFORM`, `UNSUPPORTED_FEATURE`,
+`PERMISSION_DENIED`, `CONFIGURATION_REQUIRED`, `INVALID_INPUT`, `PAYLOAD_TOO_LARGE`,
+`NOT_FOUND`, `STALE_REVISION`, `SYSTEM_LIMIT` and `NATIVE_ERROR`. An error says whether a
+retry can help and whether the user has to act, and native internals are not passed
+through unfiltered.
 
-공개 키/ID와 인증 토큰은 분리하고 APNs private key는 클라이언트에 넣지 않습니다.
-초기 UI는 문자열/asset ID만 받으며 임의 HTML·파일 경로·URL 실행을 허용하지 않습니다.
-딥링크는 호스트가 등록한 scheme/route를 검증합니다. `endAll`을 추가하더라도 다른
-플러그인의 알림을 지우지 않습니다. 플랫폼 권한 거부는 재요청 루프로 우회하지 않습니다.
+Public keys and IDs are kept apart from authentication tokens, and the APNs private key
+never goes into the client. The first UI takes only strings and asset IDs; it does not
+allow arbitrary HTML, file paths or opening URLs. Deep links are checked against the
+schemes and routes that the host registered. If `endAll` is added, it does not remove
+other plugins' notifications. A denied platform permission is not worked around with a
+loop of new requests.
 
-## 확정 전 기술 검증
+## Technical checks before the design is settled
 
-1. 공유 Swift 모델을 Tauri 앱과 Widget Extension에 연결하고 재생성 후 유지되는지 검증.
-2. iOS 16.1/16.2 API 분기와 최소 deployment target 빌드 검증.
-3. S23 실제 펌웨어에서 승격 요청/결과, Note10에서 동일 데이터의 일반 알림 검증.
-4. 각 desktop backend의 동일 ID 갱신·종료·권한·앱 재시작 검증.
-5. Rust/JS/native 계약·메모리 측정 후 지원 버전과 초기 릴리스 범위 확정.
+1. Link the shared Swift model to the Tauri app and the Widget Extension, and check that
+   the link survives regenerating the project.
+2. Check the iOS 16.1/16.2 API branches and a build at the minimum deployment target.
+3. Check the promotion request and its result on real S23 firmware, and the same data as an
+   ordinary notification on the Note10.
+4. Check update and end by the same ID, permissions and app restarts on each desktop
+   backend.
+5. After contract checks and memory measurements across Rust, JS and native code, settle
+   the supported versions and the scope of the first release.
 
-설계 범위는 5개 OS지만 최초 구현은 iOS·Android부터 진행합니다. 데스크톱 backend가
-검증되기 전까지는 런타임에서 명시적으로 미지원으로 보고하고 릴리스 표도 동일하게 유지합니다.
+The design covers five OSes, but the first implementation starts with iOS and Android.
+Until a desktop backend is verified, the runtime explicitly reports it as unsupported, and
+the release table says the same.
 
-조사 후 보완 사항은 [검토 기록](review.md), 실행 가능한 입력 형식의 초안과 네이티브
-검증 책임은 [요청 계약](request-contract.md)에 정리했습니다. 계약 도구는 플러그인 구현이 아닙니다.
+What was added after the research is in the [research review](review.md). A draft of the
+executable input format, and what the native code must check, are in the
+[request contract](request-contract.md). The contract tooling is not the plugin
+implementation.
