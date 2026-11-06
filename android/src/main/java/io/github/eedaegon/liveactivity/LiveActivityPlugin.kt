@@ -6,9 +6,11 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import app.tauri.annotation.Command
+import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.Permission
 import app.tauri.annotation.PermissionCallback
 import app.tauri.annotation.TauriPlugin
+import app.tauri.plugin.Channel
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
@@ -16,20 +18,32 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
+/** The argument of `registerActions`: the channel that carries button taps to Rust. */
+@InvokeArg
+class ActionRegistration {
+    lateinit var channel: Channel
+}
+
 @TauriPlugin(permissions = [Permission(strings = [Manifest.permission.POST_NOTIFICATIONS], alias = "notifications")])
 class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
     private val notifications = AndroidNotifications(activity)
     private val engine = ActivityEngine(PreferencesStore(activity), notifications)
     private val preferences = activity.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    // The configuration arrives with the plugin handle, after construction.
+    private val samsungNowBar by lazy { PluginSettings.samsungNowBar(handle?.config) }
+    private val layouts = LayoutEngine(
+        LayoutPreferencesStore(activity.applicationContext),
+        LayoutNotifications(activity.applicationContext, { samsungNowBar }),
+    )
 
     @Command
     fun getCapabilities(invoke: Invoke) = respond(invoke) {
         JSONObject().put("platform", "android").put("backend", "androidNotification")
             .put("start", "supported").put("update", "supported").put("end", "supported")
-            .put("progress", "supported").put("timer", "supported").put("actions", "unsupported")
+            .put("progress", "supported").put("timer", "supported").put("actions", "supported")
             .put("stateObservation", "supported").put("silentUpdate", "supported")
             .put("nativeLiveActivity", if (notifications.promotionAllowed()) "supported" else "unsupported")
-            .put("maxPayloadBytes", 4096)
+            .put("maxPayloadBytes", 4096).put("layout", "supported")
     }
 
     @Command
@@ -80,6 +94,40 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun list(invoke: Invoke) = respond(invoke) { JSONArray(engine.list().map { it.json() }) }
+
+    @Command
+    fun startLayout(invoke: Invoke) = respond(invoke) { layouts.start(LayoutInput.start(invoke.getArgs())).json() }
+
+    @Command
+    fun updateLayout(invoke: Invoke) = respond(invoke) {
+        val (id, snapshot) = LayoutInput.update(invoke.getArgs())
+        layouts.update(id, snapshot).json()
+    }
+
+    @Command
+    fun endLayout(invoke: Invoke) = respond(invoke) {
+        val (id, policy) = LayoutInput.end(invoke.getArgs())
+        layouts.end(id, policy).json()
+    }
+
+    @Command
+    fun listLayout(invoke: Invoke) = respond(invoke) { JSONArray(layouts.list().map { it.json() }) }
+
+    /**
+     * Takes the channel of button taps. Rust sends it once, from plugin setup, and waits for this
+     * reply; taps are sent on the relay's thread, never here on the main thread.
+     */
+    @Command
+    fun registerActions(invoke: Invoke) = respond(invoke) {
+        Input.keys(invoke.getArgs(), setOf("channel"))
+        val channel = try { invoke.parseArgs(ActionRegistration::class.java).channel } catch (_: Exception) {
+            throw ActivityFailure("INVALID_INPUT", "Invalid action channel.")
+        }
+        registerActionSink { tap -> channel.send(JSObject(tap.json().toString())) }
+        JSONObject()
+    }
+
+    internal fun registerActionSink(sink: (ActionTap) -> Unit) = ActionHub.register(sink)
 
     private fun permissions(): JSONObject = JSONObject().put("notifications", notificationPermission())
         .put("liveActivities", "notApplicable")
