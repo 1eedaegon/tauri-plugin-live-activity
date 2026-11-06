@@ -70,6 +70,11 @@ These ran separately from the local run above.
   Simulator. Its acceptance test passed 20 of 20 checks, and its Lock Screen UI test
   passed. That app keeps these results in its own repository. They were not reproduced
   here, and this record does not link them.
+- iOS: the same app on an iPhone 16 with iOS 27.0.1 (2026-11-06). Its acceptance test
+  passed 18 of 18 checks (two run only in a simulator); the app's journals show the
+  layout started, updated with each new sentence and ended through the plugin. Its Lock
+  Screen UI test has not passed on the phone yet, so how SpringBoard draws a layout on a
+  physical lock screen and a tap while locked are not shown by a test.
 - Android: the instrumented tests ran on API 26 and API 36 emulators and on a Galaxy S23
   with Android 17. See [Android instrumented tests](#android-instrumented-tests).
 
@@ -118,8 +123,8 @@ setting; it was back to 0 afterwards. The test package was removed after the run
 
 ## Not verified
 
-- 0.2.0 on a physical iPhone. A run on an iPhone 16 was in progress when this record
-  was written; its result is not included.
+- On a physical iPhone: the Lock Screen drawing of a layout and a button tap while the
+  phone is locked (see Native runs).
 - On the Galaxy S23: the four instrumented tests that open a test activity (see above).
 - Android 16 QPR1 (36.1). The test's branch for 36.1 and later ran only on the S23
   (API 37), and it assumes Android's `uiRichOngoing` feature flag is on.
