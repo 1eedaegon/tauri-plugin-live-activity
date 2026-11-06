@@ -1,5 +1,7 @@
 use serde_json::{Value, json};
-use tauri_plugin_live_activity::validate_request;
+use tauri_plugin_live_activity::{
+    Error, LayoutStartInput, LayoutUpdateInput, Validate, validate_request, weight,
+};
 
 fn progress() -> Value {
     json!({"activityKey":"job:1","schemaVersion":1,"template":"progress",
@@ -107,5 +109,171 @@ fn validates_timer_order_and_end_policy() {
         json!({"id":"x","policy":{"kind":"after","at":-1}}),
     ] {
         assert!(validate_request("end", input).is_err());
+    }
+}
+
+fn layout_cases(verdict: &str) -> Vec<Value> {
+    let fixtures: Value =
+        serde_json::from_str(include_str!("fixtures/layout-requests.json")).unwrap();
+    fixtures[verdict].as_array().unwrap().clone()
+}
+
+/// Weight of a start (layout, styles, values) or an update (values) as the fixtures state it.
+fn layout_weight(input: &Value) -> usize {
+    let part = |pointer| input.pointer(pointer).map(weight);
+    part("/snapshot/values").unwrap()
+        + part("/layout").map_or(0, |layout| layout + part("/styles").unwrap_or(2))
+}
+
+#[test]
+fn layout_fixtures_match_reference_validator() {
+    let (valid, invalid) = (layout_cases("valid"), layout_cases("invalid"));
+    assert!(valid.len() >= 100 && invalid.len() >= 100);
+    for case in &valid {
+        let (name, command) = (&case["name"], case["command"].as_str().unwrap());
+        assert_eq!(
+            validate_request(command, case["input"].clone()),
+            Ok(()),
+            "{name}"
+        );
+        match command {
+            "end_layout" => assert!(case.get("weight").is_none(), "{name}"),
+            _ => assert_eq!(
+                case["weight"],
+                json!(layout_weight(&case["input"])),
+                "{name}"
+            ),
+        }
+    }
+    for case in &invalid {
+        let (name, command) = (&case["name"], case["command"].as_str().unwrap());
+        let error =
+            validate_request(command, case["input"].clone()).expect_err(name.as_str().unwrap());
+        assert_eq!(case["code"], error.code.as_str(), "{name}");
+        assert!(
+            [Error::invalid(), Error::payload_too_large()].contains(&error),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn layout_fixtures_keep_their_verdict_and_weight_through_the_typed_models() {
+    for case in layout_cases("valid") {
+        let (name, input) = (&case["name"], case["input"].clone());
+        let encoded = match case["command"].as_str().unwrap() {
+            "start_layout" => {
+                let typed: LayoutStartInput = serde_json::from_value(input).unwrap();
+                assert_eq!(typed.validate(), Ok(()), "{name}");
+                serde_json::to_value(&typed).unwrap()
+            }
+            "update_layout" => {
+                let typed: LayoutUpdateInput = serde_json::from_value(input).unwrap();
+                assert_eq!(typed.validate(), Ok(()), "{name}");
+                serde_json::to_value(&typed).unwrap()
+            }
+            _ => continue,
+        };
+        assert_eq!(case["weight"], json!(layout_weight(&encoded)), "{name}");
+    }
+}
+
+#[test]
+fn layout_weight_limit_is_a_payload_error_only_for_an_otherwise_valid_request() {
+    let start = |values: Value| {
+        json!({"activityKey":"job:1","schemaVersion":2,"fallback":"none",
+            "layout":{"lockScreen":{"type":"text","bind":"a"}},"snapshot":{"revision":0,"values":values}})
+    };
+    let heavy =
+        json!({"a":"x".repeat(1000),"b":"x".repeat(1000),"c":"x".repeat(1000),"d":"x".repeat(600)});
+    let error = validate_request("start_layout", start(heavy.clone())).unwrap_err();
+    assert_eq!(error, Error::payload_too_large());
+    assert_eq!(error.code, "PAYLOAD_TOO_LARGE");
+    assert!(!error.message.contains("xx"));
+    let update = json!({"id":"id","snapshot":{"revision":1,"values":heavy}});
+    assert_eq!(
+        validate_request("update_layout", update),
+        Err(Error::payload_too_large())
+    );
+    let mut broken = start(
+        json!({"b":"x".repeat(1000),"c":"x".repeat(1000),"d":"x".repeat(1000),"e":"x".repeat(1000)}),
+    );
+    assert_eq!(
+        validate_request("start_layout", broken.clone()),
+        Err(Error::invalid())
+    );
+    broken["layout"]["lockScreen"] = json!({"type":"text","value":"a"});
+    assert_eq!(
+        validate_request("start_layout", broken),
+        Err(Error::payload_too_large())
+    );
+}
+
+#[test]
+fn layout_commands_do_not_mix_with_contract_v1() {
+    let v2 = json!({"activityKey":"job:1","schemaVersion":2,"fallback":"none",
+        "layout":{"lockScreen":{"type":"text","value":"a"}},"snapshot":{"revision":0,"values":{}}});
+    assert_eq!(validate_request("start_layout", v2.clone()), Ok(()));
+    assert_eq!(validate_request("start", v2), Err(Error::invalid()));
+    assert_eq!(
+        validate_request("start_layout", progress()),
+        Err(Error::invalid())
+    );
+    let end = json!({"id":"id","policy":{"kind":"after","at":1}});
+    assert_eq!(validate_request("end_layout", end), Ok(()));
+    for command in ["list_layout", "startLayout", "start_layout ", ""] {
+        assert_eq!(
+            validate_request(command, json!({})),
+            Err(Error::invalid()),
+            "{command}"
+        );
+    }
+}
+
+/// Tauri reads a request from JSON text with this crate's serde_json, so every number must
+/// arrive as the double that JavaScript wrote.
+#[test]
+fn layout_numbers_keep_their_value_when_read_from_json_text() {
+    for text in [
+        "977.9461044818163",
+        "0.0018531278500143397",
+        "96.00000000000001",
+        "0.09999999999999999",
+        "3875413157790899.5",
+        "8640000000000000.6",
+    ] {
+        let read: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(read.as_f64(), text.parse().ok(), "{text}");
+    }
+    let start = |style: &str, values: &str| {
+        let text = format!(
+            r#"{{"activityKey":"job:1","schemaVersion":2,"fallback":"none","layout":{{"lockScreen":
+            {{"type":"vstack","children":[{{"type":"text","value":"a","style":"s"}},
+            {{"type":"timerText","start":"from","end":"to"}}]}}}},"styles":{{"s":{style}}},
+            "snapshot":{{"revision":0,"values":{values}}}}}"#
+        );
+        validate_request("start_layout", serde_json::from_str(&text).unwrap())
+    };
+    let times = r#"{"from":1,"to":2}"#;
+    assert_eq!(
+        start(r#"{"size":96,"minimumScaleFactor":0.1}"#, times),
+        Ok(())
+    );
+    // Each number is just outside its range; a rounded read would bring it back inside.
+    for (style, values) in [
+        (r#"{"size":96.00000000000001}"#, times),
+        (r#"{"minimumScaleFactor":0.09999999999999999}"#, times),
+        (r#"{"size":12}"#, r#"{"from":0.9999999999999999,"to":2}"#),
+        (
+            r#"{"size":12}"#,
+            r#"{"from":3875413157790899.5,"to":3875413157790901}"#,
+        ),
+        (r#"{"size":12}"#, r#"{"from":1,"to":8640000000000000.6}"#),
+    ] {
+        assert_eq!(
+            start(style, values),
+            Err(Error::invalid()),
+            "{style} {values}"
+        );
     }
 }

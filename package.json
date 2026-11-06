@@ -28,7 +28,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p examples/demo/tsconfig.json",
     "test": "npm run build && npm run test:contracts && npm run test:api && npm run test:demo",
-    "test:contracts": "node --test --experimental-test-coverage \"--test-coverage-include=tools/validate-request.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/requests.test.mjs",
+    "test:contracts": "node --test --experimental-test-coverage \"--test-coverage-include=tools/validate-request.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/requests.test.mjs tests/layout-requests.test.mjs",
     "test:api": "node --test --experimental-test-coverage \"--test-coverage-include=dist-js/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/api.test.mjs",
     "test:demo": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=examples/demo/src/*.ts\" \"--test-coverage-exclude=examples/demo/tests/**\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 examples/demo/tests/self-test.test.mjs examples/demo/tests/ui-state.test.mjs",
     "build:demo": "npm run build && node examples/demo/build.mjs",

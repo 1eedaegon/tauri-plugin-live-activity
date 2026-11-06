@@ -124,6 +124,13 @@ pub struct Capabilities {
     pub silent_update: FeatureSupport,
     pub native_live_activity: FeatureSupport,
     pub max_payload_bytes: u64,
+    /// Layout activities of request contract v2; a native side that predates them omits it.
+    #[serde(default = "unsupported")]
+    pub layout: FeatureSupport,
+}
+
+fn unsupported() -> FeatureSupport {
+    FeatureSupport::Unsupported
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

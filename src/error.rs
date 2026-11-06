@@ -18,6 +18,13 @@ impl Error {
         )
     }
 
+    pub fn payload_too_large() -> Self {
+        Self::new(
+            "PAYLOAD_TOO_LARGE",
+            "Layout, styles and values exceed the live activity payload limit",
+        )
+    }
+
     pub fn unsupported() -> Self {
         Self::new(
             "UNSUPPORTED_PLATFORM",

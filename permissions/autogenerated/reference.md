@@ -7,6 +7,7 @@ Read capabilities, permissions and activities. Mutations require explicit grants
 - `allow-get-capabilities`
 - `allow-check-permissions`
 - `allow-list`
+- `allow-list-layout`
 
 ## Permission Table
 
@@ -72,6 +73,32 @@ Denies the end command without any pre-configured scope.
 <tr>
 <td>
 
+`live-activity:allow-end-layout`
+
+</td>
+<td>
+
+Enables the end_layout command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:deny-end-layout`
+
+</td>
+<td>
+
+Denies the end_layout command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `live-activity:allow-get-capabilities`
 
 </td>
@@ -117,6 +144,32 @@ Enables the list command without any pre-configured scope.
 <td>
 
 Denies the list command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:allow-list-layout`
+
+</td>
+<td>
+
+Enables the list_layout command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:deny-list-layout`
+
+</td>
+<td>
+
+Denies the list_layout command without any pre-configured scope.
 
 </td>
 </tr>
@@ -176,6 +229,32 @@ Denies the start command without any pre-configured scope.
 <tr>
 <td>
 
+`live-activity:allow-start-layout`
+
+</td>
+<td>
+
+Enables the start_layout command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:deny-start-layout`
+
+</td>
+<td>
+
+Denies the start_layout command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `live-activity:allow-update`
 
 </td>
@@ -195,6 +274,32 @@ Enables the update command without any pre-configured scope.
 <td>
 
 Denies the update command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:allow-update-layout`
+
+</td>
+<td>
+
+Enables the update_layout command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:deny-update-layout`
+
+</td>
+<td>
+
+Denies the update_layout command without any pre-configured scope.
 
 </td>
 </tr>
