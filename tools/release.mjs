@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { appendFileSync, copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { checkCargoRegistry, checkNpmRegistry, requireFrozenArtifacts, requireSuccessfulCiRun, validateReleaseMetadata } from './release-guard.mjs';
+import { checkCargoRegistry, checkNpmRegistry, nextTagNeedsUpdate, requireFrozenArtifacts, requireSuccessfulCiRun, validateReleaseMetadata } from './release-guard.mjs';
 
 const repository = '1eedaegon/tauri-plugin-live-activity';
 const packageName = 'tauri-plugin-live-activity';
@@ -81,15 +81,27 @@ async function registryState(release, registry) {
   return checkCargoRegistry({ status: result.status, records, expected: release.cargo });
 }
 
-async function npmTagMatches(release) {
+async function npmDistTags() {
   const result = await response(`https://registry.npmjs.org/-/package/${packageName}/dist-tags`);
   if (!result.ok) throw new Error(`npm dist-tag lookup failed: HTTP ${result.status}`);
-  return (await result.json())[release.distTag] === release.version;
+  return result.json();
 }
 
-async function inspect(registry, wait, useDefaultTag = false) {
+async function npmTagMatches(release) {
+  return (await npmDistTags())[release.distTag] === release.version;
+}
+
+async function inspectNext() {
+  const release = json(resolve(process.env.RELEASE_DIR, 'release.json'));
+  const update = nextTagNeedsUpdate({ version: release.version, distTags: await npmDistTags() });
+  output('update', String(update));
+  output('version', release.version);
+}
+
+/** distTag replaces the release's own npm tag when verifying a tag the workflow moved. */
+async function inspect(registry, wait, distTag) {
   const stored = json(resolve(process.env.RELEASE_DIR, 'release.json'));
-  const release = useDefaultTag ? { ...stored, distTag: 'latest' } : stored;
+  const release = distTag ? { ...stored, distTag } : stored;
   const expected = release[registry];
   const algorithm = registry === 'npm' ? 'sha1' : 'sha256';
   if (hash(resolve(process.env.RELEASE_DIR, expected.filename), algorithm) !== (expected.shasum ?? expected.checksum)) {
@@ -120,8 +132,10 @@ async function inspect(registry, wait, useDefaultTag = false) {
 const [mode, argument] = process.argv.slice(2);
 if (mode === 'prepare') await prepare(resolve(argument));
 else if (mode === 'archive') archive(resolve(argument));
-else if (mode === 'verify-default') await inspect('npm', true, true);
+else if (mode === 'verify-default') await inspect('npm', true, 'latest');
+else if (mode === 'inspect-next') await inspectNext();
+else if (mode === 'verify-next') await inspect('npm', true, 'next');
 else if (mode === 'inspect' || mode === 'verify') {
   if (!['npm', 'cargo'].includes(argument)) throw new Error('Unknown registry');
   await inspect(argument, mode === 'verify');
-} else throw new Error('Expected prepare, archive, inspect, verify or verify-default');
+} else throw new Error('Expected prepare, archive, inspect, verify, verify-default, inspect-next or verify-next');

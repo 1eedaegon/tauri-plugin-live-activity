@@ -47,12 +47,12 @@ their public registries before starting the app.
 For a combined consumer, configure the package names and exact same release version:
 
 ```sh
-npm install --save-exact tauri-plugin-live-activity@0.1.0-alpha.4
+npm install --save-exact tauri-plugin-live-activity@0.2.0
 ```
 
 ```toml
 [dependencies]
-tauri-plugin-live-activity = "=0.1.0-alpha.4"
+tauri-plugin-live-activity = "=0.2.0"
 ```
 
 Register the plugin and capabilities as shown in the root README. On iOS, include
