@@ -1,9 +1,13 @@
-use crate::{Error, Result, models::*};
+use crate::{
+    Error, Result,
+    layout::{self, LayoutStartInput, LayoutUpdateInput},
+    models::*,
+};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
-const MAX_REVISION: u64 = 9_007_199_254_740_991;
-const MAX_TIMESTAMP: u64 = 8_640_000_000_000_000;
+pub(crate) const MAX_REVISION: u64 = 9_007_199_254_740_991;
+pub(crate) const MAX_TIMESTAMP: u64 = 8_640_000_000_000_000;
 
 pub trait Validate {
     fn validate(&self) -> Result<()>;
@@ -21,17 +25,20 @@ pub fn validate_request(command: &str, input: Value) -> Result<()> {
         "start" => parse::<StartInput>(input).map(|_| ()),
         "update" => parse::<UpdateInput>(input).map(|_| ()),
         "end" => parse::<EndInput>(input).map(|_| ()),
+        "start_layout" => layout::parse::<LayoutStartInput>(input).map(|_| ()),
+        "update_layout" => layout::parse::<LayoutUpdateInput>(input).map(|_| ()),
+        "end_layout" => layout::parse::<EndInput>(input).map(|_| ()),
         _ => Err(Error::invalid()),
     }
 }
 
-fn text(value: &str, max: usize) -> bool {
+pub(crate) fn text(value: &str, max: usize) -> bool {
     // Match JSON Schema's ECMAScript \S, including BOM, excluding NEL.
     let blank = |c: char| matches!(c, '\u{0009}'..='\u{000d}' | ' ' | '\u{00a0}' | '\u{1680}' | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}' | '\u{feff}');
     value.chars().count() <= max && value.chars().any(|c| !blank(c))
 }
 
-fn require(valid: bool) -> Result<()> {
+pub(crate) fn require(valid: bool) -> Result<()> {
     if valid { Ok(()) } else { Err(Error::invalid()) }
 }
 

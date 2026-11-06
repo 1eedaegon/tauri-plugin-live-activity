@@ -1,4 +1,9 @@
-use crate::{Error, Result, models::*, validation::Validate};
+use crate::{
+    Error, Result,
+    layout::{ActionEvent, LayoutActivityRecord, LayoutStartInput, LayoutUpdateInput},
+    models::*,
+    validation::Validate,
+};
 use std::marker::PhantomData;
 use tauri::Runtime;
 
@@ -27,6 +32,7 @@ impl<R: Runtime> LiveActivity<R> {
             silent_update: Unsupported,
             native_live_activity: Unsupported,
             max_payload_bytes: 0,
+            layout: Unsupported,
         })
     }
 
@@ -61,4 +67,29 @@ impl<R: Runtime> LiveActivity<R> {
     pub fn list(&self) -> Result<Vec<ActivityRecord>> {
         Err(Error::unsupported())
     }
+
+    pub fn start_layout(&self, input: LayoutStartInput) -> Result<LayoutActivityRecord> {
+        input.validate()?;
+        Err(Error::unsupported())
+    }
+
+    pub fn update_layout(&self, input: LayoutUpdateInput) -> Result<LayoutActivityRecord> {
+        input.validate()?;
+        Err(Error::unsupported())
+    }
+
+    pub fn end_layout(&self, input: EndInput) -> Result<LayoutActivityRecord> {
+        input.validate()?;
+        Err(Error::unsupported())
+    }
+
+    pub fn list_layout(&self) -> Result<Vec<LayoutActivityRecord>> {
+        Err(Error::unsupported())
+    }
+
+    /// Desktop shows no activity, so no button is ever tapped and the handler is dropped. On
+    /// mobile, register handlers on the built `App` before `App::run` or in the setup of a
+    /// plugin, not in `Builder::setup`, which may never run when the system launches the app
+    /// for a tap.
+    pub fn on_action(&self, _handler: impl Fn(ActionEvent) + Send + Sync + 'static) {}
 }

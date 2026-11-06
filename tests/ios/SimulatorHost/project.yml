@@ -18,11 +18,23 @@ targets:
     platform: iOS
     sources:
       - App.swift
+      - LayoutScenario.swift
+      - LayoutFixtures.swift
       - ../../../ios/Sources/LiveActivityCore
+      - ../../../ios/Sources/LiveActivityPlugin/ActivityKitAdapter.swift
       - ../../../ios/Sources/LiveActivityPlugin/ActivityKitBackend.swift
+      - ../../../ios/Sources/LiveActivityPlugin/LayoutActivityKitBackend.swift
+      - ../../../ios/Sources/LiveActivityPlugin/ActionHub.swift
+      - ../../../ios/Sources/LiveActivityPlugin/Reply.swift
+      - ../../../templates/ios/LiveActivityActionIntent.swift
+      - path: ../../fixtures/layout-requests.json
+        buildPhase: resources
     dependencies:
       - package: LiveActivity
         product: LiveActivityShared
+      # Only for the fixture renderer; a Tauri app links no package product.
+      - package: LiveActivity
+        product: LiveActivityUI
       - target: LiveActivityTestWidget
     info:
       path: Info.plist
@@ -39,14 +51,18 @@ targets:
     platform: iOS
     sources:
       - ../../../templates/ios/LiveActivityWidget.swift
+      - ../../../templates/ios/LiveActivityActionIntent.swift
     dependencies:
       - package: LiveActivity
         product: LiveActivityShared
+      - package: LiveActivity
+        product: LiveActivityUI
     info:
       path: WidgetInfo.plist
       properties:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        TauriLiveActivityLayout: 2
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.eedaegon.LiveActivityNativeTests.widget

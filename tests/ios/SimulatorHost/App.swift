@@ -1,11 +1,15 @@
 import SwiftUI
 import LiveActivityShared
 
+/// Runs one scenario per launch: the v1 template lifecycle by default, `-scenario layout` for a layout
+/// activity with a button, `-scenario fixtures` for every layout fixture through the plugin path and the interpreter.
 @main
 struct ActivityTestApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var started = false
-    @State private var status = "Waiting for foreground"
+    @State var status = "Waiting for foreground"
+    /// Observes button taps from launch, as the plugin does from its initializer.
+    let actions = ActionProbe()
     var body: some Scene {
         WindowGroup {
             VStack(spacing: 20) {
@@ -21,13 +25,29 @@ struct ActivityTestApp: App {
             }
         }
     }
-    @MainActor private func write(_ values: [String: String]) {
+    @MainActor func write(_ values: [String: String]) {
         do {
             let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("result.json")
             try JSONSerialization.data(withJSONObject: values, options: [.sortedKeys]).write(to: url, options: .atomic)
         } catch { status = "Could not write test result" }
     }
+    @MainActor func report(_ error: Error) {
+        if let error = error as? ActivityFailure {
+            status = error.code + ": " + error.message
+            write(["stage": "failed", "code": error.code, "message": error.message])
+        } else {
+            status = "Unexpected native failure"
+            write(["stage": "failed", "code": "UNEXPECTED"])
+        }
+    }
     @MainActor private func run() async {
+        switch UserDefaults.standard.string(forKey: "scenario") {
+        case "layout": await runLayout()
+        case "fixtures": await runFixtures()
+        default: await runTemplate()
+        }
+    }
+    @MainActor private func runTemplate() async {
         do {
             try await Task.sleep(nanoseconds: 1_000_000_000)
             let controller = LiveActivityController(backend: ActivityKitBackend(), store: try FileReceiptStore.applicationStore())
@@ -57,12 +77,6 @@ struct ActivityTestApp: App {
             } catch let error as ActivityFailure where error.code == "NOT_FOUND" {}
             status = "PASS: start, duplicate, update, OS recovery, end, no resurrection"
             write(["stage": "passed", "checks": "6"])
-        } catch let error as ActivityFailure {
-            status = error.code + ": " + error.message
-            write(["stage": "failed", "code": error.code, "message": error.message])
-        } catch {
-            status = "Unexpected native failure"
-            write(["stage": "failed", "code": "UNEXPECTED"])
-        }
+        } catch { report(error) }
     }
 }

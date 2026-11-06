@@ -96,6 +96,36 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## Layout activities (contract v2), unreleased
+
+The v2 work adds 37 JVM tests (59 in all) and six instrumented tests (14 in all), one of
+which is a check for a person at the phone that is skipped unless asked for. The JVM tests run every case of `tests/fixtures/layout-requests.json`
+(178 valid, 716 invalid at the time of writing) through the Kotlin parser and compare
+the verdict, the error code and, for a start or an update, the weight. A run with a
+broken rule (one more allowed byte of weight, `spacing` allowed on a `zstack`) fails
+that test for exactly the fixtures of those rules. Other JVM tests cover the lifecycle
+of layout records (idempotent start, `CONFLICT`, `STALE_REVISION`, `NOT_FOUND`,
+tombstones, the update rules and weight, isolation from v1, storage round trip, a minus
+zero retried through stored JSON), the layout store over an in-memory preferences file
+(small tombstones, its own writes read back without parsing, two writes per update,
+corrupt tombstones), the projection onto a notification, the action relay (16 waiting
+taps, delivery off the calling thread), the action receiver called without a
+`PendingResult`, and the Samsung extras and configuration. The v1 tests are unchanged
+and pass.
+
+A JaCoCo report from the JVM tests alone (`coverageReport` with
+`connectedDebugAndroidTest` excluded) covers 729 of 739 lines of the classes that do not
+need Android. Of the 270 lines that do (the plugin class, the notification ports, the
+receivers and the preferences stores) it covers 30: the layout store and the action
+receiver run in the JVM over an in-memory preferences file. That is 759 of 1009 lines
+(75.2%) in all. The 80% gate combines JVM and instrumented data and needs a device run.
+The new instrumented tests compile (`assembleDebugAndroidTest`) and have not been run
+yet.
+
+Not verified on a device: how One UI shows a projected layout, promoted or not; a tap on
+a locked phone; delivery after the process was killed; the Samsung extras in the Now
+Bar.
+
 `tests/android/results/registry-alpha1.json` records an isolated Tauri application
 with both `tauri-plugin-live-activity-api@0.1.0-alpha.1` from npm and
 `tauri-plugin-live-activity = "=0.1.0-alpha.1"` from crates.io. Its Cargo metadata

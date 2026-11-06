@@ -17,13 +17,14 @@ include = [
     "/android/build.gradle.kts", "/android/consumer-rules.pro", "/android/src/main/**",
     "/templates/ios/**", "/Cargo.toml", "/Cargo.lock", "/LICENSE*", "/README.md",
     "/docs/ios-integration.md", "/docs/android-integration.md",
-    "/tests/contract.rs", "/tests/fixtures/requests.json",
+    "/tests/contract.rs", "/tests/fixtures/requests.json", "/tests/fixtures/layout-requests.json",
 ]
 
 [dependencies]
 tauri = { version = "2.12.5", default-features = false }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# Correctly rounded number parsing, so that a value arrives as JavaScript sent it.
+serde_json = { version = "1", features = ["float_roundtrip"] }
 thiserror = "2"
 
 [target.'cfg(target_os = "ios")'.dependencies]

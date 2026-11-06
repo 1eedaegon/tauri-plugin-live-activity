@@ -6,6 +6,10 @@ const COMMANDS: &[&str] = &[
     "update",
     "end",
     "list",
+    "start_layout",
+    "update_layout",
+    "end_layout",
+    "list_layout",
 ];
 
 fn main() {

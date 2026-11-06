@@ -37,16 +37,18 @@ internal data class StartRequest(
 }
 
 internal data class ActivityRecord(
-    val id: String,
+    override val id: String,
     val origin: StartRequest,
-    val snapshot: Snapshot = origin.snapshot,
-    val state: String = "unknown",
-    val promotionRequested: Boolean = false,
-    val promotionState: String = "notApplicable",
-    val awaitingObservation: Boolean = false,
-    val postFailed: Boolean = false,
-) {
-    val terminal: Boolean get() = state == "ended" || state == "dismissed"
+    override val snapshot: Snapshot = origin.snapshot,
+    override val state: String = "unknown",
+    override val promotionRequested: Boolean = false,
+    override val promotionState: String = "notApplicable",
+    override val awaitingObservation: Boolean = false,
+    override val postFailed: Boolean = false,
+) : Entry<ActivityRecord, Snapshot> {
+    override val activityKey: String get() = origin.activityKey
+    override fun with(snapshot: Snapshot, state: String, promotionRequested: Boolean, promotionState: String, awaitingObservation: Boolean, postFailed: Boolean) =
+        copy(snapshot = snapshot, state = state, promotionRequested = promotionRequested, promotionState = promotionState, awaitingObservation = awaitingObservation, postFailed = postFailed)
     fun json(internal: Boolean = false): JSONObject = JSONObject()
         .put("id", id).put("activityKey", origin.activityKey).put("schemaVersion", 1)
         .put("template", origin.template).put("snapshot", snapshot.json())

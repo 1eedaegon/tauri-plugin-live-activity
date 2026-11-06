@@ -10,23 +10,29 @@ use tauri::{
 };
 
 #[cfg(any(mobile, test))]
+mod actions;
+#[cfg(any(mobile, test))]
 mod bridge;
 #[cfg(all(test, desktop))]
 mod command_tests;
 mod commands;
+mod config;
 #[cfg(desktop)]
 mod desktop;
 #[cfg(all(test, desktop))]
 mod desktop_ipc_tests;
 mod error;
+mod layout;
 #[cfg(mobile)]
 mod mobile;
 mod models;
 mod validation;
 
+pub use config::{AndroidConfig, Config, Receipts};
 #[cfg(desktop)]
 pub use desktop::LiveActivity;
 pub use error::{Error, Result};
+pub use layout::*;
 #[cfg(mobile)]
 pub use mobile::LiveActivity;
 pub use models::*;
@@ -43,9 +49,10 @@ impl<R: Runtime, T: Manager<R>> LiveActivityExt<R> for T {
     }
 }
 
-/// Register commands and the platform backend.
-pub fn init<R: Runtime>() -> TauriPlugin<R> {
-    Builder::new("live-activity")
+/// Register commands and the platform backend. `plugins.live-activity` in the Tauri
+/// configuration is optional; see [`Config`].
+pub fn init<R: Runtime>() -> TauriPlugin<R, Option<Config>> {
+    Builder::<R, Option<Config>>::new("live-activity")
         .invoke_handler(tauri::generate_handler![
             commands::get_capabilities,
             commands::check_permissions,
@@ -53,7 +60,11 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::start,
             commands::update,
             commands::end,
-            commands::list
+            commands::list,
+            commands::start_layout,
+            commands::update_layout,
+            commands::end_layout,
+            commands::list_layout
         ])
         .setup(|app, _api| {
             #[cfg(mobile)]

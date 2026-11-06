@@ -319,6 +319,18 @@
           "markdownDescription": "Denies the end command without any pre-configured scope."
         },
         {
+          "description": "Enables the end_layout command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-end-layout",
+          "markdownDescription": "Enables the end_layout command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the end_layout command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-end-layout",
+          "markdownDescription": "Denies the end_layout command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_capabilities command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-capabilities",
@@ -341,6 +353,18 @@
           "type": "string",
           "const": "deny-list",
           "markdownDescription": "Denies the list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_layout command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-layout",
+          "markdownDescription": "Enables the list_layout command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_layout command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-layout",
+          "markdownDescription": "Denies the list_layout command without any pre-configured scope."
         },
         {
           "description": "Enables the request_permissions command without any pre-configured scope.",
@@ -367,6 +391,18 @@
           "markdownDescription": "Denies the start command without any pre-configured scope."
         },
         {
+          "description": "Enables the start_layout command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-layout",
+          "markdownDescription": "Enables the start_layout command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_layout command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-layout",
+          "markdownDescription": "Denies the start_layout command without any pre-configured scope."
+        },
+        {
           "description": "Enables the update command without any pre-configured scope.",
           "type": "string",
           "const": "allow-update",
@@ -379,10 +415,22 @@
           "markdownDescription": "Denies the update command without any pre-configured scope."
         },
         {
-          "description": "Read capabilities, permissions and activities. Mutations require explicit grants.\n#### This default permission set includes:\n\n- `allow-get-capabilities`\n- `allow-check-permissions`\n- `allow-list`",
+          "description": "Enables the update_layout command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-layout",
+          "markdownDescription": "Enables the update_layout command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_layout command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-layout",
+          "markdownDescription": "Denies the update_layout command without any pre-configured scope."
+        },
+        {
+          "description": "Read capabilities, permissions and activities. Mutations require explicit grants.\n#### This default permission set includes:\n\n- `allow-get-capabilities`\n- `allow-check-permissions`\n- `allow-list`\n- `allow-list-layout`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Read capabilities, permissions and activities. Mutations require explicit grants.\n#### This default permission set includes:\n\n- `allow-get-capabilities`\n- `allow-check-permissions`\n- `allow-list`"
+          "markdownDescription": "Read capabilities, permissions and activities. Mutations require explicit grants.\n#### This default permission set includes:\n\n- `allow-get-capabilities`\n- `allow-check-permissions`\n- `allow-list`\n- `allow-list-layout`"
         }
       ]
     }
