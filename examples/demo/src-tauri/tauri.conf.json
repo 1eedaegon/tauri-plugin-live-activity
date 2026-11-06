@@ -1,7 +1,7 @@
 {
   "$schema": "../../../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "live-activity-demo",
-  "version": "0.1.0-alpha.4",
+  "version": "0.2.0",
   "identifier": "io.github.eedaegon.liveactivitydemo",
   "build": {
     "frontendDist": "../dist",
@@ -20,6 +20,13 @@
     ],
     "security": {
       "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; style-src 'self'; script-src 'self'; img-src 'self' data:"
+    }
+  },
+  "plugins": {
+    "live-activity": {
+      "android": {
+        "samsungNowBar": true
+      }
     }
   },
   "bundle": {

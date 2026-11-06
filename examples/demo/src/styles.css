@@ -20,7 +20,7 @@ p, h1, h2, h3 { margin: 0; }
 .eyebrow { color: var(--coral); margin-bottom: 10px; }
 h1 { font-size: clamp(34px, 4.8vw, 48px); line-height: 1.09; font-weight: 750; letter-spacing: -1.9px; }
 .intro > p:last-child { color: var(--muted); margin-top: 13px; font-size: 14px; }
-.mode-switch { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 15px; max-width: 368px; margin-bottom: 20px; background: #f0eee5; }
+.mode-switch { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 15px; max-width: 440px; margin-bottom: 20px; background: #f0eee5; }
 .mode-switch button { flex: 1; font-size: 13px; padding: 10px 8px; color: #62665a; background: transparent; min-height: 44px; border-radius: 11px; }
 .mode-switch button span { margin-right: 6px; font-size: 18px; line-height: 1; }
 .mode-switch button[aria-pressed="true"] { color: var(--ink); background: #fffdf7; border-color: #dedcd0; box-shadow: 0 2px 3px #393d3210; }
@@ -32,6 +32,7 @@ h1 { font-size: clamp(34px, 4.8vw, 48px); line-height: 1.09; font-weight: 750; l
 .scene[data-mode="nap"] .awake-eyes, .scene[data-mode="nap"] .snack-prop { display: none; }
 .scene[data-mode="nap"] .sleep-eyes, .scene[data-mode="nap"] .nap-prop { display: block; }
 .scene[data-mode="nap"] { background: #e9ece5; }
+.scene[data-mode="layout"] .snack-prop { display: none; }
 .scene-caption { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #65705c; }
 .small-paw { color: #8e6948; font-size: 16px; }
 .activity-content { padding: 30px 29px 23px; min-width: 0; }
@@ -60,6 +61,15 @@ progress::-moz-progress-bar { background: #4c8570; border-radius: 8px; }
 .live-note { display: flex; align-items: flex-start; gap: 7px; margin-top: 15px; font-size: 10px; line-height: 1.5; color: #707667; }
 .live-dot { width: 5px; height: 5px; flex: 0 0 5px; background: #4c8570; border-radius: 50%; margin-top: 5px; }
 .nap-tracker { margin: 15px 0 20px; }
+.layout-tracker { margin: 18px 0 4px; }
+.example-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.example-picker button { min-height: 44px; padding: 8px 13px; border: 1px solid var(--line); border-radius: 22px; font-size: 12px; font-weight: 600; color: #585c50; background: #f4f2ea; }
+.example-picker button[aria-pressed="true"] { color: #fffaf3; background: var(--teal); border-color: var(--teal); }
+.layout-note { font-size: 11px; line-height: 1.6; color: var(--muted); margin-bottom: 12px; }
+#layout-degraded { color: #6f5a2c; }
+.request { margin-top: 10px; font-size: 11px; }
+.request summary { min-height: 44px; padding: 12px 2px; color: var(--teal); font-weight: 650; }
+.request pre { margin: 0; }
 .nap-clock { font-size: 45px; line-height: 1.2; font-weight: 600; color: var(--teal); letter-spacing: -1px; font-variant-numeric: tabular-nums; }
 #nap-caption { font-size: 11px; color: var(--muted); margin: 3px 0 12px; }
 .nap-duration { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
@@ -96,6 +106,8 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflo
   .intro h1 { font-size: 34px; }
   .intro > p:last-child { font-size: 12px; }
   .mode-switch { margin-bottom: 12px; max-width: none; }
+  .mode-switch button { flex: 1 1 auto; white-space: nowrap; font-size: 12px; padding: 10px 6px; }
+  .mode-switch button span { margin-right: 4px; }
   .activity { grid-template-columns: 1fr; border-radius: 19px; }
   .scene { padding: 10px 14px 8px; border-right: none; border-bottom: 1px solid #d8d9c9; }
   .scene-note { font-size: 8px; }
@@ -113,5 +125,5 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflo
   .footer { padding-top: 10px; }
   summary span { display: none; }
 }
-@media (max-width: 350px) { body { padding-left: 15px; padding-right: 15px; } .edition { letter-spacing: 0; font-size: 7px; } .activity-content { padding: 18px; } .mode-switch button { font-size: 12px; } }
+@media (max-width: 350px) { body { padding-left: 15px; padding-right: 15px; } .edition { letter-spacing: 0; font-size: 7px; } .activity-content { padding: 18px; } .mode-switch button span { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

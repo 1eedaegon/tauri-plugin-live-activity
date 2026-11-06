@@ -19,6 +19,7 @@
       <div class="mode-switch" role="group" aria-label="Choose an activity">
         <button id="mode-snack" aria-pressed="true"><span aria-hidden="true">♧</span> Snack delivery</button>
         <button id="mode-nap" aria-pressed="false"><span aria-hidden="true">☾</span> Nap timer</button>
+        <button id="mode-layout" aria-pressed="false"><span aria-hidden="true">✦</span> Layouts</button>
       </div>
       <section id="activity" class="activity" aria-labelledby="activity-heading">
         <div class="scene" id="scene" data-mode="snack">
@@ -57,7 +58,14 @@
             <div id="nap-clock" class="nap-clock" aria-label="Time remaining">05:00</div><p id="nap-caption">A small pause for a softer day.</p>
             <label id="nap-duration-label" class="nap-duration" for="nap-duration">Nap length <select id="nap-duration"><option value="1">1 minute</option><option value="5" selected>5 minutes</option><option value="15">15 minutes</option></select></label>
           </div>
-          <div class="actions"><button class="primary" id="start" disabled>Start snack delivery <span aria-hidden="true">↗</span></button><button class="primary" id="update" hidden>Send it on its way <span aria-hidden="true">→</span></button><button class="secondary" id="end" hidden>Finish delivery</button></div>
+          <div id="layout-tracker" class="layout-tracker" hidden>
+            <div id="example-picker" class="example-picker" role="group" aria-label="Choose a layout example"></div>
+            <p id="layout-android" class="layout-note"></p>
+            <p id="layout-degraded" class="layout-note" hidden></p>
+            <div class="actions"><button class="primary" id="layout-start" disabled>Start this example <span aria-hidden="true">↗</span></button><button class="primary" id="layout-update" hidden>Send new values <span aria-hidden="true">→</span></button><button class="secondary" id="layout-end" hidden>End this example</button></div>
+            <details class="request"><summary>The request</summary><pre id="layout-request" aria-label="The start request of this example"></pre></details>
+          </div>
+          <div id="v1-actions" class="actions"><button class="primary" id="start" disabled>Start snack delivery <span aria-hidden="true">↗</span></button><button class="primary" id="update" hidden>Send it on its way <span aria-hidden="true">→</span></button><button class="secondary" id="end" hidden>Finish delivery</button></div>
           <div class="live-note"><span class="live-dot" aria-hidden="true"></span><p id="native-note">Keep this little moment close on your phone.</p></div>
         </div>
       </section>
@@ -66,7 +74,7 @@
       <footer class="footer"><p>Little moments, live.<span>Made with Tauri Live Activity</span></p><span class="footer-flower" aria-hidden="true">✿</span></footer>
       <details class="developer-tools"><summary>Developer tools <span>Capabilities, records &amp; lifecycle test</span></summary><div class="developer-content">
         <h3>Capabilities and permissions</h3><pre id="capabilities" aria-label="Backend capabilities"></pre><pre id="permissions" aria-label="OS permission states"></pre>
-        <h3>Plugin-owned activities</h3><pre id="records" aria-label="Native activity records">[]</pre>
+        <h3>Plugin-owned activities</h3><pre id="records" aria-label="Native activity records">[]</pre><pre id="layout-records" aria-label="Native layout activity records">[]</pre><p id="tap-status">Button taps arrive here once the app listens.</p>
         <h3>Lifecycle integration test</h3><p>Runs 13 checks through JS → Rust → native, including revision conflicts and ended-handle isolation. Test activities are cleaned up.</p><button id="run-self-test" class="secondary">Run lifecycle test</button><pre id="self-test-report" data-status="idle" aria-label="Integration test result">Not run</pre><p id="report-path"></p>
       </div></details>
     </main>

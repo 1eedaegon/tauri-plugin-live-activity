@@ -17,6 +17,11 @@ ordinary sentence case, and generous touch targets. Avoid gradients and nested
 cards. Snack and nap tabs change the scene and can restore their own native
 record without modifying another activity.
 
+A third tab, Layouts, picks one layout example at a time from a row of chips. It
+shows the example's name, one sentence on the feature, one on what Android shows,
+and its start request in a collapsed section. Starting an example ends the other
+layout examples, so each native surface shows one feature for a screenshot.
+
 Target viewports: 390x844 and 1440x900. The activity panel stays narrow enough to
 read on desktop, while the illustration and controls share the wide layout.
 No horizontal scrolling at 320px. Touch controls are at least 44px, focus remains

@@ -7,13 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0750377636FA2259E32E3305 /* LiveActivityLayoutWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58764C10758B6236D852D998 /* LiveActivityLayoutWidget.swift */; };
 		15EE62CF59D382137338745E /* LiveActivityWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8A6A418A1A9E4E382ECA40AF /* LiveActivityWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		2013C7BD267F8395DC539BE7 /* LiveActivityUI in Frameworks */ = {isa = PBXBuildFile; productRef = 3459E995626F8A35E89F16F5 /* LiveActivityUI */; };
 		21D3399A04D08830FAFDD094 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E0E3E2C30DC8749F1DE30AEE /* CoreGraphics.framework */; };
 		2DC6D5D68E8991584EA3381C /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = A87ECA35226073F1F5081CAE /* main.mm */; };
 		4816A13DA5C74A9ED5F729D0 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9330F808C26E308207942009 /* QuartzCore.framework */; };
+		4840B7E871F4D2C70CAEB9D7 /* LiveActivityActionIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BE90AF9F129EDDBC31F86C0 /* LiveActivityActionIntent.swift */; };
 		4C6D8396C7F4CCE7C5286F63 /* LiveActivityShared in Frameworks */ = {isa = PBXBuildFile; productRef = C886E284683F71ADEB250D4F /* LiveActivityShared */; };
 		51A0AF1EF571968F37853D37 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1A7E2A8B74B24833EEB48FA /* Assets.xcassets */; };
 		57D1487D0A28960A8A48A8FB /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7D314CA54309C36DF5B76FB /* Security.framework */; };
+		5A3EA72F1D8B8DD6E881F11E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D044131875580C81E48A4B42 /* Assets.xcassets */; };
 		5CCA5BC9E7CB981B346E1789 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DB84EDEC7D435F01516C62A2 /* WebKit.framework */; };
 		9B7C3FC723498AA4ADFDF0A3 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EC3D5F34CBE9A562F0792FBE /* UIKit.framework */; };
 		AE41AF1729DA5FE65CC318B4 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 712B829A02022B487DDFB5FD /* assets */; };
@@ -21,6 +25,7 @@
 		B1C8C8B4F5AA25F4673B3214 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1993A4014201B10B83405A8E /* MetalKit.framework */; };
 		B2670022379CE79443BE9E56 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 96DBFFBEF8D877ED44FFC9D0 /* libapp.a */; };
 		BA968F0C96A6F70EF3592CE2 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 55FA5591411097F6C1CEF7B7 /* LaunchScreen.storyboard */; };
+		BEDAEC1D677C7ABF54946D53 /* LiveActivityActionIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BE90AF9F129EDDBC31F86C0 /* LiveActivityActionIntent.swift */; };
 		E75356D6531815D2C599B6BE /* MochiWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6BC6D389954FB9EC38EC1D /* MochiWidget.swift */; };
 /* End PBXBuildFile section */
 
@@ -54,14 +59,17 @@
 		1993A4014201B10B83405A8E /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		3D0F5ADE9B9F10771AE23FD9 /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = ../../../../../ios; sourceTree = SOURCE_ROOT; };
 		55FA5591411097F6C1CEF7B7 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		58764C10758B6236D852D998 /* LiveActivityLayoutWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityLayoutWidget.swift; sourceTree = "<group>"; };
 		712B829A02022B487DDFB5FD /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		8A6A418A1A9E4E382ECA40AF /* LiveActivityWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = LiveActivityWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8BE90AF9F129EDDBC31F86C0 /* LiveActivityActionIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityActionIntent.swift; sourceTree = "<group>"; };
 		92D81DCC18FCCCE5DFF01CA1 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		9330F808C26E308207942009 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		96DBFFBEF8D877ED44FFC9D0 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		A87ECA35226073F1F5081CAE /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
 		B1A7E2A8B74B24833EEB48FA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BD2E6A6030821A162EAEAC24 /* live-activity-demo_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "live-activity-demo_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D044131875580C81E48A4B42 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D073AD4DF3688F612E3B1940 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		D502F734A85E962C94ACADBA /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
 		D7D314CA54309C36DF5B76FB /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -94,6 +102,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4C6D8396C7F4CCE7C5286F63 /* LiveActivityShared in Frameworks */,
+				2013C7BD267F8395DC539BE7 /* LiveActivityUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -114,6 +123,7 @@
 				B1A7E2A8B74B24833EEB48FA /* Assets.xcassets */,
 				55FA5591411097F6C1CEF7B7 /* LaunchScreen.storyboard */,
 				2F18968F9A50B09D3237D774 /* Externals */,
+				CC5FB9E3FB1B1608C34A4484 /* ios */,
 				3E7610CF2FF1189994466376 /* live-activity-demo_iOS */,
 				BF122A36F41F06FCDB5178D6 /* Packages */,
 				49B1C3D45E772A92399378B0 /* Sources */,
@@ -204,20 +214,31 @@
 		C84B107A667B99E8A9529CDC /* widget */ = {
 			isa = PBXGroup;
 			children = (
+				D044131875580C81E48A4B42 /* Assets.xcassets */,
+				58764C10758B6236D852D998 /* LiveActivityLayoutWidget.swift */,
 				ED6BC6D389954FB9EC38EC1D /* MochiWidget.swift */,
 			);
 			name = widget;
 			path = ../../../widget;
 			sourceTree = "<group>";
 		};
-		"TEMP_55AA9F71-8C04-46E6-8D3B-6A7D0151D08B" /* x86_64 */ = {
+		CC5FB9E3FB1B1608C34A4484 /* ios */ = {
+			isa = PBXGroup;
+			children = (
+				8BE90AF9F129EDDBC31F86C0 /* LiveActivityActionIntent.swift */,
+			);
+			name = ios;
+			path = ../../../../../templates/ios;
+			sourceTree = "<group>";
+		};
+		"TEMP_40944C6B-7F6F-4D8A-943F-8459B9D2E238" /* x86_64 */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = x86_64;
 			sourceTree = "<group>";
 		};
-		"TEMP_E2E2037D-2112-46F1-B5AD-0B238322C061" /* arm64 */ = {
+		"TEMP_466E511F-6C2B-4D01-A4F9-2F480613E94C" /* arm64 */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -254,6 +275,7 @@
 			buildConfigurationList = 79F3D9F7C5E6EA4DBEDD7927 /* Build configuration list for PBXNativeTarget "LiveActivityWidget" */;
 			buildPhases = (
 				F80C36F4D401EC8EBE1EA021 /* Sources */,
+				90BADCCDDC0CC9F39140A86C /* Resources */,
 				B20BADC1D1E3ED9773118255 /* Frameworks */,
 			);
 			buildRules = (
@@ -263,6 +285,7 @@
 			name = LiveActivityWidget;
 			packageProductDependencies = (
 				C886E284683F71ADEB250D4F /* LiveActivityShared */,
+				3459E995626F8A35E89F16F5 /* LiveActivityUI */,
 			);
 			productName = LiveActivityWidget;
 			productReference = 8A6A418A1A9E4E382ECA40AF /* LiveActivityWidget.appex */;
@@ -276,10 +299,9 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = 6D43F304CC5A89B1B6CACF22 /* Build configuration list for PBXProject "live-activity-demo" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -292,12 +314,11 @@
 				B2792DEAF1B12ED7D2E7A74B /* XCLocalSwiftPackageReference "../../../../../ios" */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 4260A3A4B99280CF4F540F9E /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				41DE3827FB4BE1AD28D94A6A /* live-activity-demo_iOS */,
 				59A2E16253AED470F8FFE481 /* LiveActivityWidget */,
+				41DE3827FB4BE1AD28D94A6A /* live-activity-demo_iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -310,6 +331,14 @@
 				51A0AF1EF571968F37853D37 /* Assets.xcassets in Resources */,
 				BA968F0C96A6F70EF3592CE2 /* LaunchScreen.storyboard in Resources */,
 				AE41AF1729DA5FE65CC318B4 /* assets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		90BADCCDDC0CC9F39140A86C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5A3EA72F1D8B8DD6E881F11E /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -344,6 +373,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4840B7E871F4D2C70CAEB9D7 /* LiveActivityActionIntent.swift in Sources */,
 				2DC6D5D68E8991584EA3381C /* main.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -352,6 +382,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BEDAEC1D677C7ABF54946D53 /* LiveActivityActionIntent.swift in Sources */,
+				0750377636FA2259E32E3305 /* LiveActivityLayoutWidget.swift in Sources */,
 				E75356D6531815D2C599B6BE /* MochiWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -431,6 +463,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.eedaegon.liveactivitydemo;
 				PRODUCT_NAME = "live-activity-demo";
 				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
 			};
@@ -581,6 +614,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.eedaegon.liveactivitydemo;
 				PRODUCT_NAME = "live-activity-demo";
 				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
 			};
@@ -626,6 +660,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		3459E995626F8A35E89F16F5 /* LiveActivityUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LiveActivityUI;
+		};
 		C886E284683F71ADEB250D4F /* LiveActivityShared */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LiveActivityShared;
