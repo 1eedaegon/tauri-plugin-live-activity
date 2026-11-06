@@ -6,6 +6,8 @@ import {
   checkNpmRegistry,
   checkCargoRegistry,
   requireFrozenArtifacts,
+  compareVersions,
+  nextTagNeedsUpdate,
 } from '../../tools/release-guard.mjs';
 
 const name = 'tauri-plugin-live-activity';
@@ -156,13 +158,65 @@ test('bad expected metadata fails even when the registry returns 404', () => {
 });
 
 test('guards leave frozen caller inputs unchanged', () => {
-  const inputs = [metadata(), [ciRun()], npmBody(), [cargoRecord()]];
+  const inputs = [metadata(), [ciRun()], npmBody(), [cargoRecord()], { latest: '0.2.0', next: '0.1.0-alpha.4' }];
   const before = JSON.stringify(inputs);
   validateReleaseMetadata(Object.freeze(inputs[0]));
   requireSuccessfulCiRun(Object.freeze(inputs[1]), { repository, headSha });
   checkNpmRegistry({ status: 200, body: Object.freeze(inputs[2]), expected: Object.freeze(npmExpected) });
   checkCargoRegistry({ status: 200, records: Object.freeze(inputs[3]), expected: Object.freeze(cargoExpected) });
+  nextTagNeedsUpdate({ version: '0.2.0', distTags: Object.freeze(inputs[4]) });
   assert.equal(JSON.stringify(inputs), before);
+});
+
+test('version comparison follows SemVer precedence, beyond safe integers and ignoring build metadata', () => {
+  const ordered = ['0.1.0-alpha.3', '0.1.0-alpha.4', '0.1.0', '0.2.0-rc.1', '0.2.0', '0.10.0',
+    '1.0.0-0', '1.0.0-2', '1.0.0-11', '1.0.0-alpha', '1.0.0-alpha.1', '1.0.0-alpha.beta',
+    '1.0.0-beta', '1.0.0-beta.2', '1.0.0-beta.11', '1.0.0-rc.1', '1.0.0', '1.9.9', '1.10.0',
+    '1.10.1', '9.0.0', '10.0.0', '9007199254740992.0.0', '9007199254740993.0.0'];
+  for (const [low, left] of ordered.entries()) {
+    assert.equal(compareVersions(left, left), 0, left);
+    for (const right of ordered.slice(low + 1)) {
+      assert.equal(compareVersions(left, right), -1, `${left} < ${right}`);
+      assert.equal(compareVersions(right, left), 1, `${right} > ${left}`);
+    }
+  }
+  assert.equal(compareVersions('1.0.0+build.1', '1.0.0+build.2'), 0);
+  assert.equal(compareVersions('1.0.0-rc.1+build', '1.0.0-rc.1'), 0);
+  for (const [left, right] of [['1.0.0', 'v1.0.0'], ['1.0', '1.0.0'], ['1.0.0-01', '1.0.0'],
+    [undefined, '1.0.0'], ['1.0.0', null], ['1.0.0\n', '1.0.0']]) {
+    assert.throws(() => compareVersions(left, right), /SemVer/);
+  }
+});
+
+test('a stable release moves next forward only when next is missing or lower', () => {
+  for (const distTags of [{ latest: '0.2.0' }, {}, { latest: '0.2.0', next: '0.1.0-alpha.4' },
+    { next: '0.1.0' }, { next: '0.2.0-rc.1' }, { next: '0.1.99' }]) {
+    assert.equal(nextTagNeedsUpdate({ version: '0.2.0', distTags }), true, JSON.stringify(distTags));
+  }
+  for (const next of ['0.2.0', '0.2.0+build.1', '0.2.1-alpha.1', '0.3.0-alpha.1', '0.3.0', '1.0.0']) {
+    assert.equal(nextTagNeedsUpdate({ version: '0.2.0', distTags: { latest: '0.2.0', next } }), false, next);
+  }
+  // An inherited property is not a dist-tag.
+  assert.equal(nextTagNeedsUpdate({ version: '0.2.0', distTags: Object.create({ next: '0.3.0' }) }), true);
+});
+
+test('a prerelease never moves next beyond its own publication', () => {
+  for (const version of ['0.2.0-rc.1', '0.3.0-alpha.1', '1.0.0-0']) {
+    for (const distTags of [{}, { next: '0.1.0-alpha.4' }, { next: '0.2.0' }]) {
+      assert.equal(nextTagNeedsUpdate({ version, distTags }), false, `${version} ${JSON.stringify(distTags)}`);
+    }
+  }
+});
+
+test('next tag check rejects malformed versions and dist-tags responses', () => {
+  for (const version of [undefined, null, '', 'v0.2.0', '0.2', '0.2.00', '0.2.0\n']) {
+    assert.throws(() => nextTagNeedsUpdate({ version, distTags: {} }), /version/, String(version));
+  }
+  for (const distTags of [undefined, null, 'next', 1, [], ['0.2.0'], { next: undefined },
+    { next: null }, { next: '' }, { next: 1 }, { next: 'v0.1.0' }, { next: '0.1.0\n' },
+    { next: '0.1.0-alpha.04' }]) {
+    assert.throws(() => nextTagNeedsUpdate({ version: '0.2.0', distTags }), /dist-tags/, JSON.stringify(distTags));
+  }
 });
 
 test('frozen release accepts compression-only differences after full tar and Cargo identity checks', () => {

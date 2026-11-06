@@ -1,64 +1,89 @@
-# OS별 지원과 검증 범위
+# Platform coverage
 
-조사 기준: 2026-11-04. OS가 제공하는 기능, 플러그인이 구현한 기능,
-실제로 실행한 테스트는 각각 구분합니다. 세부 결과는 [검증 기록](validation.md)에 남깁니다.
-최소 지원 버전은 [호환성 정책](compatibility.md), 데스크톱 후보는
-[별도 조사](desktop-coverage.md)에 정리했습니다.
+Researched on 2026-11-04; the layout section was added for 0.2.0. This page keeps three
+things apart: what the OS offers, what the plugin implements and which tests actually
+ran. Detailed results are in the [validation record](validation.md). Minimum versions are
+in [OS compatibility](compatibility.md), and desktop options in
+[desktop coverage](desktop-coverage.md).
 
-| 실행 플랫폼 | 현재 구현 | 검증 범위와 남은 확인 |
+## Templates (contract v1)
+
+| Platform | Implemented | Tested, and what remains |
 | --- | --- | --- |
-| iPhone / iOS 16.1+ | ActivityKit 진행률·타이머, 시작·갱신·종료·재조회 | iOS 27.2 시뮬레이터 실행. 16.1/16.2는 availability 분기와 빌드 검사이며 구형 OS 실기기 실행은 미검증 |
-| iPadOS 17+ | ActivityKit 진행률·타이머; iPadOS 16.x는 미지원 | iPadOS 27.2 시뮬레이터에서 lifecycle 13개와 추가 기능 10개 통과. 구형 OS는 정책 단위 테스트 |
-| Android API 24–25 | 미지원; 최소 버전을 API 26으로 수정 | API 24에서 게시된 alpha.2 앱의 Tauri/Jackson 초기화 충돌 재현. API 25 별도 실행은 미검증 |
-| Android API 26–32 | 진행률·타이머 지속 알림 | API 26 실제 Tauri Invoke와 네이티브 알림 8개 통과. 기본 WebView 58은 Tauri JS 해석 실패. API 31은 전체 앱 생명주기 13개 통과 |
-| Android API 33–35 | 위 기능 + 알림 런타임 권한 | API 33 전체 앱 생명주기 13개·실제 권한 창 5개 통과. API 34/35 별도 실행은 미검증 |
-| Android API 36+ | 적격 알림의 Live Update 승격 요청, 불가하면 명시적 대체 | API 37 승격 플래그 관찰. API 36 에뮬레이터는 승격 불허 상태에서 일반 알림 대체 확인. 두 버전의 실제 권한 창 검사 통과 |
-| macOS | 명시적 미지원 | 호스트 Tauri IPC가 미지원 기능을 광고하지 않고 안정적인 오류를 반환하는지 검사 |
-| Windows / Linux | 명시적 미지원 | 각 OS의 CI에서 동일한 Tauri IPC 계약 통과. 네이티브 알림 UI 구현·검증은 포함하지 않음 |
+| iPhone / iOS 16.1+ | ActivityKit progress and timer: start, update, end, list | Ran on the iOS 27.2 simulator. 16.1 and 16.2 have availability branches and build checks only; no run on a device with those versions |
+| iPadOS 17+ | ActivityKit progress and timer; iPadOS 16.x is unsupported | 13 lifecycle checks and 10 further checks passed on the iPadOS 27.2 simulator. Older versions have policy unit tests |
+| Android API 24–25 | Unsupported; the minimum was raised to API 26 | On API 24 the published alpha.2 app crashed in Tauri's Jackson initialization. API 25 was not run on its own |
+| Android API 26–32 | Ongoing progress and timer notifications | API 26: real Tauri `Invoke` and 8 native notification tests passed; its stock WebView 58 cannot parse Tauri's JavaScript. API 31: 13 full app lifecycle checks passed |
+| Android API 33–35 | The above, plus the runtime notification permission | API 33: 13 full app lifecycle checks and 5 real permission dialog checks passed. API 34 and 35 were not run on their own |
+| Android API 36+ | Live Update promotion request for eligible notifications; an explicit fallback when it is refused | API 37: promotion flag observed. API 36 emulator: ordinary notification fallback while promotion was refused. Real permission dialog checks passed on both |
+| macOS | Explicitly unsupported | Checks that the host's Tauri IPC does not advertise unsupported features and returns a stable error |
+| Windows / Linux | Explicitly unsupported | The same Tauri IPC contract passes in CI on each OS. No native notification UI is implemented or tested |
 
-## Apple의 보조 화면
+## Layouts and buttons (contract v2), 0.2.0
 
-ActivityKit은 iPhone에서 만든 활동을 Apple Watch, Mac, CarPlay 등의 화면에도
-표시할 수 있습니다. 이것이 해당 OS에서 이 Tauri 플러그인을 직접 실행하는 기능은
-아닙니다. Mac의 iPhone 활동 표시는 iPhone Mirroring 연결과 사용자 설정에 의존합니다.
-현재 시뮬레이터 결과만으로 이 화면들의 전달·상호작용을 보장하지 않습니다.
+Layouts and their buttons are new in 0.2.0 and have been tested less than templates.
+
+- iOS: the native harness ran every layout fixture on an iPhone 17 Pro simulator with
+  iOS 26.3. The Lock Screen showed the layout, and a tap on a button reached the plugin's
+  action hub. Buttons need iOS 17.
+- Android: JVM tests cover the parser, the layout lifecycle, the projection onto a
+  notification, the action relay and the Samsung extras. The instrumented tests passed on
+  API 26 and API 36 emulators and on a Galaxy S23 with Android 17 (One UI 9), apart from
+  one test that runs only when asked for. On the S23 four tests that open a test activity
+  were left out. With the JVM data, line coverage was 88.70% to 95.14% per runtime, above
+  the 80% gate. Nobody looked at how One UI shows a layout.
+- No physical iPhone run of 0.2.0 is recorded here. The
+  [validation record](validation.md#not-verified) lists what remains.
+
+## Apple's secondary surfaces
+
+ActivityKit can show an activity that an iPhone started on other screens too, such as
+Apple Watch, a Mac or CarPlay. That is not this Tauri plugin running on those OSes. A Mac
+shows iPhone activities only through iPhone Mirroring and the user's settings. The
+simulator results here do not prove delivery or interaction on those surfaces.
 [ActivityKit](https://developer.apple.com/documentation/activitykit),
-[Apple의 Mac 표시 안내](https://support.apple.com/en-ie/120684).
+[Apple's guide to Live Activities on a Mac](https://support.apple.com/en-ie/120684).
 
-## Android에서 구분할 것
+## What to keep apart on Android
 
-OS 버전이 높아도 승격을 보장하지 않습니다. 알림 권한, 채널 중요도, 알림의 형식,
-사용자의 승격 설정과 실제 OS 관찰 결과를 함께 확인해야 합니다. 일반 지속 알림을
-Live Update 성공으로 기록하지 않습니다. 에뮬레이터의 승격 결과는 Samsung One UI의
-Now Bar 검증이 아닙니다.
+A newer Android version does not guarantee promotion. Check the notification permission,
+the channel importance, the notification's form, the user's promotion setting and what
+the OS actually did. An ordinary ongoing notification is not recorded as a Live Update. A
+promotion on an emulator is not a check of Samsung One UI's Now Bar.
 [Android Live Updates](https://developer.android.com/develop/ui/views/notifications/live-update).
 
-## 데스크톱의 다른 API
+## Other desktop APIs
 
-Windows는 데이터 바인딩으로 갱신하는 진행률 알림 API가 있지만 이 플러그인의
-현재 backend에는 구현하지 않았습니다.
-[Windows 진행률 알림](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-progress-bar).
+Windows has a progress notification API that updates through data binding. The plugin's
+current backend does not use it.
+[Windows progress notifications](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-progress-bar).
 
-Linux의 freedesktop 알림과 XDG Notification portal은 같은 ID로 알림을 교체할 수
-있습니다. 표시 방식과 기능은 알림 서버에 달려 있고, portal은 사용자에게 실제로
-표시됐는지 알려주지 않습니다. 이 역시 현재 구현된 backend가 아닙니다.
-[freedesktop 명세](https://specifications.freedesktop.org/notification/latest-single/),
+On Linux, freedesktop notifications and the XDG Notification portal can replace a
+notification that has the same ID. How it looks and what it can do depend on the
+notification server, and the portal does not report whether the user saw it. This is not
+an implemented backend either.
+[freedesktop specification](https://specifications.freedesktop.org/notification/latest-single/),
 [XDG Notification portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Notification.html).
 
-## 이번 보강의 검증 범위
+## Scope of the alpha.2 checks
 
-- npm·Cargo의 alpha.2 패키지 두 개를 실제 Tauri 앱에 연결해 iPhone·iPad·Android에서 실행; alpha.1 결과는 이전 기준으로 별도 보존
-- 진행률 외에 타이머·stale 시점·종료 정책·재시작과 동시 요청 검사
-- Android 권한 창 취소, 채널 중요도 변경과 승격 허용/불허 상태 검사
-- macOS·Windows·Linux의 기능 조회 및 허가된 IPC 호출에 대한 미지원 오류 검사
-- Mochi 간식 배달·낮잠 데모를 앱과 실제 OS 표면에서 촬영
+- The two alpha.2 packages from npm and crates.io, linked into a real Tauri app and run on
+  iPhone and iPad simulators and on Android emulators. The alpha.1 results are kept
+  separately as the earlier baseline.
+- Timers, stale dates, end policies, restarts and concurrent requests, besides progress.
+- Android permission dialog cancellation, channel importance changes, and promotion both
+  allowed and refused.
+- Capability queries on macOS, Windows and Linux, and the unsupported error for permitted
+  IPC calls.
+- Captures of Mochi's snack delivery and nap demo, in the app and on the real OS surfaces.
 
-iOS 16.1/16.2/17.0 대상으로 게시된 공유 모듈과 일반 위젯의 availability 컴파일
-검사를 추가했습니다. Xcode 27.2의 실행 범위와 Apple 런타임 다운로드 제한 때문에
-구형 OS 실행을 대신하는 검사는 아닙니다. [구형 런타임 조사](../tests/ios/results/old-runtime-feasibility.json).
+Availability compile checks of the published shared module and the plain widget were
+added for iOS 16.1, 16.2 and 17.0. Xcode 27.2 cannot run those versions and Apple limits
+runtime downloads, so these checks do not replace runs on an old OS.
+[Old runtime research](../tests/ios/results/old-runtime-feasibility.json).
 
-실제 테스트 결과가 없는 기기·OS·표면은 지원 완료로 표시하지 않습니다.
+A device, OS or surface without a real test result is not listed as supported.
 
-Windows와 Linux의 계약 테스트는
-[최종 소스 CI 실행](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41894264762)의
-각 Desktop contract 작업에서 통과했습니다. macOS는 같은 테스트를 로컬에서 실행했습니다.
+The Windows and Linux contract tests passed in the Desktop contract jobs of the
+[alpha.2 release CI run](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41894264762).
+macOS ran the same tests locally. For 0.2.0, see the [validation record](validation.md#ci).

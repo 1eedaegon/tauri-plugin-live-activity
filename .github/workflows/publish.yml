@@ -89,7 +89,9 @@ jobs:
     needs: package
     if: github.event_name == 'push' || inputs.publish || inputs.promote_latest
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Each registry wait in tools/release.mjs gives up after 90 checks 10 s apart (over
+    # 15 minutes), and one run can wait three times: verify, verify-default, verify-next.
+    timeout-minutes: 55
     permissions:
       contents: read
       id-token: write
@@ -102,6 +104,7 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
+      # The dist-tag steps sign in with OIDC, which `npm dist-tag` has in 11.21.2 but not 11.20.0.
       - run: npm install --global npm@11.21.2 --ignore-scripts
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -125,6 +128,20 @@ jobs:
       - name: Verify the default npm version
         if: inputs.promote_latest
         run: node tools/release.mjs verify-default
+      # A stable version also becomes `next` when `next` is missing or lower; this never moves
+      # `next` back. A prerelease run skips these steps, because prereleases publish to `next`.
+      - name: Check whether next is behind this version
+        id: next_tag
+        if: steps.registry.outputs.tag == 'latest'
+        run: node tools/release.mjs inspect-next
+      - name: Point next at this stable version
+        if: steps.next_tag.outputs.update == 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.next_tag.outputs.version }}
+        run: npm dist-tag add "tauri-plugin-live-activity@$RELEASE_VERSION" next
+      - name: Verify the next npm tag
+        if: steps.next_tag.outputs.update == 'true'
+        run: node tools/release.mjs verify-next
 
   cargo:
     needs: package

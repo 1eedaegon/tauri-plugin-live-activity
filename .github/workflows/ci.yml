@@ -9,9 +9,11 @@ on:
 permissions:
   contents: read
 
+# Each commit on main gets a run of its own that nothing cancels: the Publish workflow
+# needs a successful main run for the exact commit of a release tag.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   contracts:

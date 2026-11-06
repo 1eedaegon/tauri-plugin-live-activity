@@ -1,6 +1,6 @@
 [package]
 name = "live-activity-demo"
-version = "0.1.0-alpha.4"
+version = "0.2.0"
 description = "Local integration harness for tauri-plugin-live-activity"
 authors = ["1eedaegon"]
 license = "Apache-2.0 OR MIT"

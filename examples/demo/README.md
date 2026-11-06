@@ -10,6 +10,27 @@ records and the opt-in lifecycle test. Desktop builds explicitly report an
 unsupported backend. The [iOS widget](widget/MochiWidget.swift) uses the same shared
 attributes as the plugin, with a cat design for the Lock Screen and Dynamic Island.
 
+## Layouts
+
+The **Layouts** tab shows the layout nodes of request contract v2 one at a time: text
+and values, SF Symbols, an image, paths, a gauge, progress, a timer, stacks, buttons,
+the Dynamic Island, the Android notification and the Samsung Now Bar. Each example is
+one complete `startLayout` request in [src/layouts.ts](src/layouts.ts); the tab shows
+it under **The request**. Starting an example ends the other examples first.
+
+- The widget bundle adds the plugin's layout widget to Mochi's v1 widget.
+  [LiveActivityLayoutWidget.swift](widget/LiveActivityLayoutWidget.swift) is the
+  template's `LiveActivityLayoutWidget`, unchanged. The extension links
+  `LiveActivityShared` and `LiveActivityUI`, sets `TauriLiveActivityLayout` to `2`,
+  and holds the image `mochi` in its own [asset catalog](widget/Assets.xcassets),
+  drawn from [mochi-portrait.svg](widget/mochi-portrait.svg).
+- `templates/ios/LiveActivityActionIntent.swift` is compiled into the app and the
+  extension, as `src-tauri/gen/apple/project.yml` shows.
+- Button taps are handled in Rust ([src-tauri/src/actions.rs](src-tauri/src/actions.rs)),
+  so they also work while the page is not running: `pet` counts a pet, `done` and
+  `wake` end the activity. The page only reports the tap.
+- `tauri.conf.json` turns on `android.samsungNowBar`.
+
 From the repository root:
 
 ```sh
@@ -37,7 +58,9 @@ once at startup without requesting permissions. The default build only runs test
 button is pressed. To inspect notification/Lock Screen visuals, start a separate manual
 activity after the test and inspect the actual native surface.
 
-Self-test runner unit tests use a scripted API and are separate from native integration results:
+Unit tests of the self-test runner and the layout examples use no native API. The layout
+tests check every example with the reference validator, and the demo's iOS setup against
+the template:
 
 ```sh
 npm run test:demo

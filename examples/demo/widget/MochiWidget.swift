@@ -183,8 +183,12 @@ private extension ActivityTimer {
     }
 }
 
+/// Mochi's design for template (v1) activities, and the plugin's layout widget for contract v2.
 @main
 @available(iOS 16.1, *)
 struct MochiWidgetBundle: WidgetBundle {
-    var body: some Widget { MochiWidget() }
+    var body: some Widget {
+        MochiWidget()
+        LiveActivityLayoutWidget()
+    }
 }

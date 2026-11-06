@@ -1,7 +1,7 @@
 //! Local ongoing activity presentation for Tauri 2.
 //!
 //! Initialize with `.plugin(tauri_plugin_live_activity::init())` and explicitly
-//! grant mutation permissions in the host capability file. The first alpha
+//! grant mutation permissions in the host capability file. The plugin
 //! implements iOS and Android; desktop mutations return `UNSUPPORTED_PLATFORM`.
 
 use tauri::{

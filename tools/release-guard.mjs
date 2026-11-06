@@ -96,6 +96,62 @@ export function checkNpmRegistry({ status, body, expected }) {
   return 'matching';
 }
 
+function compareText(left, right) {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+// Validated numeric identifiers have no leading zeros, so a longer one is larger.
+function compareNumeric(left, right) {
+  return Math.sign(left.length - right.length) || compareText(left, right);
+}
+
+function compareIdentifier(left, right) {
+  const leftNumeric = /^[0-9]+$/.test(left);
+  const rightNumeric = /^[0-9]+$/.test(right);
+  if (leftNumeric && rightNumeric) return compareNumeric(left, right);
+  if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+  return compareText(left, right);
+}
+
+function comparePrerelease(left, right) {
+  if (left === undefined || right === undefined) {
+    if (left === right) return 0;
+    return left === undefined ? 1 : -1;
+  }
+  const leftParts = left.split('.');
+  const rightParts = right.split('.');
+  for (let index = 0; index < Math.min(leftParts.length, rightParts.length); index += 1) {
+    const order = compareIdentifier(leftParts[index], rightParts[index]);
+    if (order !== 0) return order;
+  }
+  return Math.sign(leftParts.length - rightParts.length);
+}
+
+/** SemVer 2.0.0 precedence: -1, 0 or 1. Build metadata does not count. */
+export function compareVersions(left, right) {
+  requireCondition(validVersion(left) && validVersion(right), 'Version comparison requires two SemVer versions');
+  const [, ...leftParts] = SEMVER.exec(left);
+  const [, ...rightParts] = SEMVER.exec(right);
+  for (let index = 0; index < 3; index += 1) {
+    const order = compareNumeric(leftParts[index], rightParts[index]);
+    if (order !== 0) return order;
+  }
+  return comparePrerelease(leftParts[3], rightParts[3]);
+}
+
+/**
+ * distTags is JSON from npm's dist-tags endpoint. True when a stable version should
+ * also become `next`: `next` is missing or lower. A prerelease is published to `next`.
+ */
+export function nextTagNeedsUpdate({ version, distTags }) {
+  requireCondition(validVersion(version), 'Invalid npm release version');
+  requireCondition(typeof distTags === 'object' && distTags !== null && !Array.isArray(distTags)
+    && (!Object.hasOwn(distTags, 'next') || validVersion(distTags.next)), 'Malformed npm dist-tags response');
+  if (SEMVER.exec(version)[4]) return false;
+  return !Object.hasOwn(distTags, 'next') || compareVersions(distTags.next, version) < 0;
+}
+
 /** records is parsed JSONL from this package's Cargo sparse-index entry. */
 export function checkCargoRegistry({ status, records, expected }) {
   requireCondition(expectedIdentity(expected)

@@ -1706,7 +1706,7 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "live-activity-demo"
-version = "0.1.0-alpha.4"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3158,7 +3158,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-live-activity"
-version = "0.1.0-alpha.4"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",

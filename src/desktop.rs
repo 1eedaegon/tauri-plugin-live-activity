@@ -7,7 +7,8 @@ use crate::{
 use std::marker::PhantomData;
 use tauri::Runtime;
 
-/// The first alpha deliberately provides no desktop notification backend.
+/// This version provides no desktop backend: `get_capabilities` and `check_permissions`
+/// answer, the other methods return `UNSUPPORTED_PLATFORM`, and `on_action` drops its handler.
 pub struct LiveActivity<R: Runtime>(PhantomData<fn() -> R>);
 
 impl<R: Runtime> Default for LiveActivity<R> {

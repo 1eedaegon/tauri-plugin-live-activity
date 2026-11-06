@@ -47,8 +47,10 @@ its `ios/` directory is the package location. The Rust crate includes both the t
 native Swift package under `ios/`. The npm package supplies the JavaScript API.
 
 The sample app's generated `project.yml` includes `LiveActivityWidget` and links
-`LiveActivityShared`. It uses `examples/demo/widget/MochiWidget.swift` for its cat
-design; the generic template remains available for other apps.
+`LiveActivityShared` and `LiveActivityUI`. Its bundle holds
+`examples/demo/widget/MochiWidget.swift`, a cat design for v1 activities, and an
+unchanged copy of the template's `LiveActivityLayoutWidget`. The intent template is a
+member of the app and the extension; the generic template remains available for other apps.
 Regenerating the entire Tauri iOS project can replace manual
 Xcode changes. Keep the widget target, package reference, intent file membership
 and Info.plist properties in the source XcodeGen specification used for your app.
@@ -180,7 +182,7 @@ as active when ActivityKit no longer reports them. Repeating `end` is idempotent
 while the terminal receipt is retained or the OS still reports that terminal
 activity. Evicted or unknown IDs return `NOT_FOUND`. A new start after completion
 receives a new handle. Remote pushes and lifecycle event subscriptions are outside
-this alpha release; call `list()` when returning to the app.
+this release; call `list()` when returning to the app.
 
 ## Reproduce local tests
 

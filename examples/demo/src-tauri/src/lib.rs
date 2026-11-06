@@ -1,3 +1,4 @@
+mod actions;
 mod report;
 
 use tauri::Manager;
@@ -18,9 +19,11 @@ fn save_self_test_report(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_live_activity::init())
         .invoke_handler(tauri::generate_handler![save_self_test_report])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("error while building tauri application");
+    actions::register(&app);
+    app.run(|_, _| {});
 }

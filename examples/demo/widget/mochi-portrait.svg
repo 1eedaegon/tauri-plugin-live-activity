@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- Source of Assets.xcassets/mochi.imageset; the head matches the demo's illustration. -->
+  <circle cx="60" cy="60" r="60" fill="#EDF0DF"/>
+  <g transform="translate(10 14)">
+    <path d="M14 40C12 32 11 22 14 14Q15 11 18 13L35 27Q50 23 65 27L82 13Q85 11 86 14C89 22 88 32 86 40C93 48 94 61 87 71C79 81 66 85 50 85C34 85 21 81 13 71C6 61 7 48 14 40Z" fill="#F6E9CD" stroke="#3F4438" stroke-width="2" stroke-linejoin="round"/>
+    <ellipse cx="24" cy="65" rx="5" ry="3" fill="#F2C9B8"/>
+    <ellipse cx="76" cy="65" rx="5" ry="3" fill="#F2C9B8"/>
+    <ellipse cx="33" cy="55" rx="2.6" ry="3.8" fill="#3F4438"/>
+    <ellipse cx="67" cy="55" rx="2.6" ry="3.8" fill="#3F4438"/>
+    <ellipse cx="50" cy="64" rx="2.2" ry="1.5" fill="#C9654D"/>
+    <path d="M45 69Q50 72 55 69" fill="none" stroke="#3F4438" stroke-width="1.4" stroke-linecap="round"/>
+  </g>
+  <path d="M32 101Q60 114 88 101" fill="none" stroke="#C9654D" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="60" cy="109" r="5" fill="#D7A653" stroke="#5C5949" stroke-width="1.5"/>
+</svg>

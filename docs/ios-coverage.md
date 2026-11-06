@@ -21,7 +21,7 @@ Apple documents [Live Activity authorization](https://developer.apple.com/docume
 
 ## Behavior and limits
 
-Apple's [Live Activity integration guide](https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities) specifies a combined 4 KiB limit for static attributes and dynamic content. The plugin checks the encoded combined payload before native calls. Local starts require a foreground app. Updating and ending from the background is possible while the app is executing; this is not a guarantee that suspended Tauri JavaScript continues running. Push starts/updates, interactive actions, and event subscriptions remain outside this alpha.
+Apple's [Live Activity integration guide](https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities) specifies a combined 4 KiB limit for static attributes and dynamic content. The plugin checks the encoded combined payload before native calls. Local starts require a foreground app. Updating and ending from the background is possible while the app is executing; this is not a guarantee that suspended Tauri JavaScript continues running. Push starts/updates and lifecycle event subscriptions remain outside this release. Since 0.2.0, layout buttons are the one interactive action (iOS 17+).
 
 The guide specifies up to eight active hours and up to four further Lock Screen hours. [Dismissal policies](https://developer.apple.com/documentation/activitykit/activityuidismissalpolicy) determine removal after ending. Acceptance and content lifecycle do not prove a visible presentation: returned `visibility` remains `unknown`.
 

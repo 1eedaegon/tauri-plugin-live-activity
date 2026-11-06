@@ -1,101 +1,118 @@
-# OS 호환성 정책
+# OS compatibility
 
-아래 최소 버전 수정은 `0.1.0-alpha.3`에 반영됐고, npm과 Cargo에 게시됐습니다.
-검색 메타데이터를 보강한 `0.1.0-alpha.4`도 두 레지스트리에 게시하고 실제 Tauri 앱에서 검증했습니다. 네이티브 지원 범위는 같습니다. 두 레지스트리에서 같은 이름
-`tauri-plugin-live-activity`를 사용합니다. 이 문서는 지원 기준을 정하고,
-[OS별 검증 범위](platform-coverage.md)는 실제로 실행한 테스트를 기록합니다.
+The minimum versions below took effect in `0.1.0-alpha.3`, which is published on npm and
+crates.io. `0.1.0-alpha.4` added search metadata; it is published on both registries and
+was checked in a real Tauri app. `0.2.0` is a regular release. It adds layouts (request
+contract v2) and buttons. The OS minimums stay the same, and the table below gives the OS
+requirements of the new features. Both registries use the name
+`tauri-plugin-live-activity`. This page sets what is supported;
+[platform coverage](platform-coverage.md) records the tests that actually ran.
 
-## 지원 버전
+## Supported versions
 
-| 플랫폼 | 지원 기준 | 제공 기능 |
+| Platform | Supported from | What it provides |
 | --- | --- | --- |
-| iPhone | iOS 16.1+ | ActivityKit 시작·갱신·종료·재조회, 진행률·타이머 |
-| iPhone의 `staleAt` | iOS 16.2+ | ActivityContent에 만료 시각 전달. stale 전환은 관측된 OS 상태를 반환 |
-| iPad | iPadOS 17+ | 같은 ActivityKit API; iPadOS 16.x는 명시적 미지원 |
-| Android | Android 8.0 / API 26+ | 일반 진행률·타이머 알림 대체. API 24는 Tauri 초기화 충돌을 재현해 지원 대상에서 제외 |
-| Android 알림 채널 | Android 8.0 / API 26+ | 채널 생성·차단·중요도 검사 |
-| Android 알림 권한 | Android 13 / API 33+ | 런타임 요청·취소·거부·설정 필요 상태 처리 |
-| Android Live Updates | Android 16 / API 36+ | 적격성·사용자 설정 검사 후 승격 요청; 실제 OS 플래그로 결과 확인 |
-| macOS·Windows·Linux | 활동 backend 미지원 | 기능 조회와 안정적인 미지원 오류; 데스크톱 알림 대체는 구현 전 |
-| watchOS·CarPlay·Mac의 iPhone 활동 표시 | 독립 실행 대상 아님 | 호스트 위젯과 OS가 전달하는 보조 화면; 별도 실기기 검증 필요 |
-| visionOS | 미지원 | 호환 iPhone/iPad 앱의 ActivityKit 시작도 거부됨; 플러그인의 호환모드 탐지·런타임 미검증 |
-| 브라우저·기타 OS | 미지원 | 네이티브 활동 표시를 지원한다고 광고하지 않음 |
+| iPhone | iOS 16.1+ | ActivityKit start, update, end and list; progress and timer |
+| iPhone `staleAt` | iOS 16.2+ | Passes the stale date in `ActivityContent`. The stale state returned is the one the OS reports |
+| iPad | iPadOS 17+ | The same ActivityKit API; iPadOS 16.x is explicitly unsupported |
+| Android | Android 8.0 / API 26+ | Ongoing progress and timer notifications as the fallback. API 24 is excluded: a Tauri startup crash was reproduced there |
+| Android notification channels | Android 8.0 / API 26+ | Channel creation, blocked channels and importance checks |
+| Android notification permission | Android 13 / API 33+ | Runtime request, cancellation, denial and the settings-required state |
+| Android Live Updates | Android 16 / API 36+ | Promotion request after eligibility and user-setting checks; the result is read from the OS flag |
+| iPhone layouts (v2) | iOS 16.1+ | The plugin's widget template draws the layout tree; on iPad the iPadOS 17+ rule above applies |
+| iPhone layout buttons | iOS 17+ | `LiveActivityActionIntent` brings the tap to the app process |
+| Android layouts (v2) | Android 8.0 / API 26+ | Shown in part as a notification (title, body, progress bar, chronometer, up to three buttons); the rest is listed in `degradedFeatures` |
+| Samsung Now Bar extras | Android 17 / API 37+ | With `android.samsungNowBar` on, adds One UI's text extras. Does not put the app on Samsung's allow list |
+| macOS, Windows, Linux | No activity backend | Capability queries and a stable unsupported error; no desktop notification fallback yet |
+| watchOS, CarPlay, iPhone activities on a Mac | Not a target of their own | Secondary surfaces that the host widget and the OS forward to; they need their own device checks |
+| visionOS | Unsupported | ActivityKit refuses starts from compatible iPhone and iPad apps. The plugin's detection of that mode has not run there |
+| Browsers and other OSes | Unsupported | The plugin does not claim native activity support |
 
-ActivityKit의 iPad 지원은 iPadOS 17부터입니다.
-[Apple의 ActivityKit 소개](https://developer.apple.com/videos/play/wwdc2023/10184/).
-visionOS에서 호환 iPhone/iPad 앱의 활동 시작도 실패합니다.
-[ActivityKit 플랫폼 안내](https://developer.apple.com/documentation/activitykit).
+ActivityKit supports iPad from iPadOS 17
+([Apple's ActivityKit session](https://developer.apple.com/videos/play/wwdc2023/10184/)).
+On visionOS, compatible iPhone and iPad apps cannot start activities either
+([ActivityKit](https://developer.apple.com/documentation/activitykit)).
 
-Android API 36의 API 존재와 화면 승격 보장은 다릅니다. API 36.1 이상 휴대용 기기의
-호환성 규정에는 승격된 알림의 잠금 화면 표시 요구가 추가되지만, 이 규정이 모든
-앱의 알림을 자동 승격한다는 뜻은 아닙니다. API 36 에뮬레이터의 승격 불허 상태와
-API 37의 승격 성공을 각각 검사했습니다. 채널 중요도, 사용자 설정, 알림 형식,
-OEM 조건이 충족되지 않으면 명시적인 일반 알림 대체를 사용합니다.
+That API 36 has the promotion APIs does not mean a notification will be promoted. The
+compatibility rules for handheld devices on API 36.1 and later require promoted
+notifications to show on the lock screen. They do not promote every app's notifications.
+Both cases were tested: promotion refused on an API 36 emulator, and promotion granted on
+API 37. When channel importance, user settings, the notification's form or OEM rules do
+not allow promotion, the plugin falls back to an ordinary notification and says so.
 [Android Live Updates](https://developer.android.com/develop/ui/views/notifications/live-update),
-[Android 16 호환성 규정](https://source.android.com/docs/compatibility/16/android-16-cdd).
+[Android 16 compatibility definition](https://source.android.com/docs/compatibility/16/android-16-cdd).
 
-## 빌드 기준과 실행 검증
+## Build requirements and runtime checks
 
-API가 처음 생긴 버전, 이 패키지를 빌드할 수 있는 환경, 실제 실행한 버전은
-서로 다릅니다. 테스트가 없는 버전을 테스트 완료로 표시하지 않습니다.
+The version that introduced an API, the setup that can build this package and the
+versions that actually ran are three different things. A version without a test is not
+listed as tested.
 
-| 항목 | 현재 기준 |
+| Item | Requirement |
 | --- | --- |
-| Rust | MSRV 1.90, edition 2024; 릴리스 검사 Rust 1.99.1 |
-| Tauri | Tauri 2 범위: Rust `^2.12.5`, JS API `^2.12.4` |
-| Apple 플러그인 패키지 | Swift tools 5.9, iOS 배포 대상 15+; 활동 기능은 위 표의 OS 조건 필요 |
-| 데모·Widget Extension | iOS 배포 대상 16.1; iPad에서는 17+ 정책 적용 |
-| Apple 검증 도구 | Xcode 27.2 / iOS SDK 27.2 |
-| Android 패키지 | alpha.3부터 `minSdk = 26`; `compileSdk = 37` |
-| Android 검증 도구 | JDK 21, Android SDK 37, NDK 30 |
+| Rust | MSRV 1.90, edition 2024; release checks use Rust 1.99.1 |
+| Tauri | Tauri 2: Rust `^2.12.5`, JS API `^2.12.4` |
+| Apple plugin package | Swift tools 5.9, iOS deployment target 15+; activity features need the OS versions in the table above |
+| Demo and Widget Extension | iOS deployment target 16.1; the 17+ rule applies on iPad |
+| Apple toolchain for checks | Xcode 27.2 / iOS SDK 27.2 for the alpha releases; Xcode 26.3 for the 0.2.0 checks |
+| Android package | `minSdk = 26` since alpha.3; `compileSdk = 37` |
+| Android toolchain for checks | JDK 21, Android SDK 37, NDK 30 |
 
-Xcode 27.2는 iOS 15 이상 배포 대상을 빌드할 수 있지만, 지원하는 기기·시뮬레이터
-실행 범위는 iOS 17 이상입니다. iOS 16.1/16.2 분기의 컴파일·단위 테스트를 구형 OS
-실행 결과로 바꾸어 표현하지 않습니다. 이 두 버전의 실행 검증에는 호환되는 별도
-Xcode·호스트가 필요합니다.
-[Apple Xcode 지원표](https://developer.apple.com/xcode/system-requirements/).
+Xcode 27.2 builds for deployment targets from iOS 15, but it runs apps on devices and
+simulators from iOS 17 only. Compile checks and unit tests of the iOS 16.1 and 16.2
+branches are not reported as runs on those versions. Running them needs a compatible
+Xcode and host of their own.
+[Apple's Xcode support table](https://developer.apple.com/xcode/system-requirements/).
 
-Android 호스트 앱은 지원되는 WebView와 자체 프런트엔드의 브라우저 요구사항도
-충족해야 합니다. 오래된 에뮬레이터에 설치된 WebView가 현재 번들을 실행하는지는
-네이티브 알림 API 테스트와 별도로 확인합니다.
+An Android host app also needs a supported WebView that meets its own front end's
+browser requirements. Whether an old emulator's WebView runs the current bundle is
+checked apart from the native notification tests.
 
-alpha.2의 manifest는 API 24를 허용했으나, 실제 레지스트리 앱은 API 24에서
-Tauri의 Jackson 초기화 중 `BootstrapMethodError` 누락으로 충돌했습니다.
-Tauri도 현재 Android 8 이상을 명시합니다. 낮은 manifest 값만으로 Android 7
-호환성을 주장할 수 없습니다. API 26에서 실제 Tauri Invoke/Jackson 경로와 네이티브
-알림 검사 8개를 통과했고, 최소 설정을 26으로 바로잡았습니다. 이 에뮬레이터의
-기본 WebView 58은 Tauri JavaScript를 해석하지 못하므로 전체 WebView 경로의
-성공으로 세지 않습니다. 전체 앱 경로는 API 31·33·36·37에서 검증했습니다.
-[Tauri 재현 이슈](https://github.com/tauri-apps/tauri/issues/8788).
+The alpha.2 manifest allowed API 24, but an app built from the registry packages crashed
+on API 24 while Tauri initialized Jackson, because `BootstrapMethodError` does not exist
+there. Tauri also gives Android 8 as its minimum. A lower manifest value alone does not
+make an app work on Android 7. On API 26 the real Tauri `Invoke` and Jackson path and
+eight native notification tests passed, and the minimum was corrected to 26. That
+emulator's stock WebView 58 cannot parse Tauri's JavaScript, so it does not count as a
+pass of the full WebView path. The full app path was checked on APIs 31, 33, 36 and 37.
+[Tauri issue](https://github.com/tauri-apps/tauri/issues/8788).
 
-## 데스크톱 기준
+## Desktop requirements
 
-현재 Tauri 2.12.5의 기준은 Windows 10+, macOS 10.15+, Linux WebKitGTK 4.1입니다.
-이는 이 플러그인이 데스크톱 활동을 구현했다는 뜻이 아닙니다. Linux 배포 가능
-버전은 빌드 환경의 glibc와 패키징 방식에 따라 정해야 합니다.
-[버전 고정 Tauri 플랫폼 표](https://github.com/tauri-apps/tauri/blob/tauri-v2.12.5/README.md#platforms).
+Tauri 2.12.5 requires Windows 10+, macOS 10.15+ and WebKitGTK 4.1 on Linux. That does not
+mean this plugin implements desktop activities. Which Linux versions an app can ship to
+depends on the glibc of the build machine and on the packaging format.
+[Tauri's platform table, pinned version](https://github.com/tauri-apps/tauri/blob/tauri-v2.12.5/README.md#platforms).
 
-데스크톱 대체 backend를 추가하려면 시작뿐 아니라 같은 활동의 갱신·제거,
-오류 전달, 권한, 재실행 후 상태 조정까지 확인해야 합니다. 일반 알림 라이브러리의
-일부 OS에서 제거가 무동작인 구현은 이 계약을 충족하지 못합니다. 네이티브
-ActivityKit과 동일한 기능을 제공한다고 표시하지 않습니다.
+A desktop fallback backend has to do more than start: update and remove the same
+activity, report errors, handle permissions and reconcile state after a restart. A
+general notification library whose removal does nothing on some OSes does not meet this
+contract. A desktop backend will not be described as equal to ActivityKit.
 
-## 릴리스 기준
+## Release rules
 
-모바일 지원 기준을 alpha.3에 반영합니다. 검증 결과와 문서만 보강하면
-패키지 버전을 바꾸지 않습니다. 네이티브 동작·지원 범위·필수 빌드 설정을 바꾸면
-다음 alpha에 반영하고, 두 레지스트리의 버전을 맞춥니다. 기존 게시물을 덮어쓰지
-않습니다. 데스크톱 대체는 별도 backend와 기능 계약을 검증한 뒤 지원 표에 올립니다.
+The mobile minimums took effect in alpha.3. New test results or docs alone do not change
+the package version. A change to native behavior, the supported range or a required build
+setting ships as a new version, with the same version on both registries. A published
+version is never overwritten. A desktop fallback enters the table above only after its
+backend and contract are tested.
 
-정식 `0.1.0` 전에는 남은 구형 Apple 런타임, 실제 iPhone/iPad, Samsung One UI의
-표시·권한·사용자 해제 동작을 확인하고 공개 API와 패키징을 확정합니다. 이 기기
-검증을 현재 시뮬레이터의 성공으로 대신하지 않습니다.
+`0.2.0` is a regular release, but it comes before 1.0, so a minor version may change the
+public API. The [0.2.0 validation record](validation.md) separates what was checked from
+what was not, including old Apple runtimes, physical iPhones and iPads, and how Samsung
+One UI shows, permits and dismisses activities. A simulator pass does not stand in for a
+device check.
 
-## 표시와 실행 수명
+## Display and lifetime
 
-- 성공 응답은 사용자가 보았다는 증거가 아닙니다. `visibility`는 `unknown`입니다.
-- 앱이 중단되거나 종료되어도 WebView JavaScript가 계속 실행된다고 보장하지 않습니다.
-- 사용자 해제·권한 철회를 재게시로 우회하지 않습니다. 재시작 시 저장된 ID와 OS 상태를 조정합니다.
-- APNs·FCM·백그라운드 작업·상호작용 버튼은 현재 릴리스에 포함하지 않습니다.
-- `fallback: "notification"`일 때만 알림 대체를 선택합니다. `none`은 OS의 표시 억제나 이후 강등을 막는 옵션이 아닙니다.
-- iOS의 `staleAt`은 ActivityKit에 전달합니다. 현재 시뮬레이터에서 관찰되지 않은 자동 stale 전환은 통과한 테스트로 세지 않습니다.
+- A success response does not prove that the user saw anything. `visibility` is `unknown`.
+- JavaScript in the WebView is not guaranteed to keep running while the app is suspended
+  or after it is killed.
+- The plugin does not get around a dismissal by the user or a revoked permission by
+  posting again. After a restart it reconciles stored IDs with the OS state.
+- APNs, FCM and background work are not in this release. Since 0.2.0, buttons work in
+  layout activities only.
+- The plugin picks the notification fallback only with `fallback: "notification"`.
+  `none` does not stop the OS from hiding the activity or demoting it later.
+- iOS `staleAt` is passed to ActivityKit. An automatic stale transition that the current
+  simulator did not show is not counted as a passed test.

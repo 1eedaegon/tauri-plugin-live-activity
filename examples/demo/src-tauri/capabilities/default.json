@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Local demo access to Live Activity reads and explicit user-triggered changes",
+  "description": "Local demo access to Live Activity reads, explicit user-triggered changes and layout button taps",
   "windows": [
     "main"
   ],
@@ -11,6 +11,9 @@
     "live-activity:allow-request-permissions",
     "live-activity:allow-start",
     "live-activity:allow-update",
-    "live-activity:allow-end"
+    "live-activity:allow-end",
+    "live-activity:allow-start-layout",
+    "live-activity:allow-update-layout",
+    "live-activity:allow-end-layout"
   ]
 }
