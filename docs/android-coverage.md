@@ -80,7 +80,7 @@ with an already granted runtime permission requires settings.
 
 ## Regression and package evidence
 
-The current suite has 22 JVM tests and eight native instrumented tests. Five
+Before 0.2.0 the suite had 22 JVM tests and eight native instrumented tests. Five
 additional real permission-dialog checks run through an installed Tauri WebView
 on APIs 33, 36 and 37. API 26 runs the same eight native tests with an API 31-only
 test getter guarded and distinct MIN/NONE channels, because API 26 ignores the
@@ -96,7 +96,7 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
-## Layout activities (contract v2), unreleased
+## Layout activities (contract v2), 0.2.0
 
 The v2 work adds 37 JVM tests (59 in all) and six instrumented tests (14 in all), one of
 which is a check for a person at the phone that is skipped unless asked for. The JVM tests run every case of `tests/fixtures/layout-requests.json`
@@ -118,13 +118,29 @@ A JaCoCo report from the JVM tests alone (`coverageReport` with
 need Android. Of the 270 lines that do (the plugin class, the notification ports, the
 receivers and the preferences stores) it covers 30: the layout store and the action
 receiver run in the JVM over an in-memory preferences file. That is 759 of 1009 lines
-(75.2%) in all. The 80% gate combines JVM and instrumented data and needs a device run.
-The new instrumented tests compile (`assembleDebugAndroidTest`) and have not been run
-yet.
+(75.2%) in all. The 80% gate combines JVM and instrumented data.
+
+The instrumented tests ran on 2026-11-06. Each runtime passed the gate with the JVM data:
+
+| Runtime | Instrumented tests | Lines, JVM + this runtime | Branches |
+| --- | --- | --- | --- |
+| API 26 emulator (Android 8.0) | 13 passed, 1 skipped | 958/1009 (94.95%) | 81.12% |
+| API 36 emulator (Android 16, SDK 36.0) | 13 passed, 1 skipped | 960/1009 (95.14%) | 82.01% |
+| Galaxy S23, API 37 (Android 17, One UI 9) | 9 passed, 1 skipped, 4 left out | 895/1009 (88.70%) | 81.42% |
+| All three together | | 971/1009 (96.23%) | 84.66% |
+
+The skipped test is `NativeLayoutHoldTest`, which runs only when asked for. On the S23 the
+four tests that open a test activity were left out, because an emergency alert was in
+front of the locked phone, so `LiveActivityPlugin.kt` has no coverage from it. The first
+API 36 run failed one test, which expected the promotion rules of 36.1 on 36.0; the test
+was fixed and the plugin did not change. The
+[validation record](validation.md#android-instrumented-tests) has the details.
 
 Not verified on a device: how One UI shows a projected layout, promoted or not; a tap on
-a locked phone; delivery after the process was killed; the Samsung extras in the Now
-Bar.
+a locked phone; delivery after the process was killed. The Samsung extras in the Now Bar
+were seen on a Galaxy S23 with One UI 9, as the
+[Now Bar notes](android-integration.md#samsung-now-bar) describe, but no test recorded
+them on screen. The S23 run checks only that the notification carries them.
 
 `tests/android/results/registry-alpha1.json` records an isolated Tauri application
 with both `tauri-plugin-live-activity-api@0.1.0-alpha.1` from npm and

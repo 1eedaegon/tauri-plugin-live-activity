@@ -1,82 +1,164 @@
-# 0.1.0-alpha.4 validation
+# 0.2.0 validation
 
-Alpha.4 adds registry discovery metadata and GitHub Actions publishing. Native
-behavior and the JavaScript API are unchanged from alpha.3. Both packages are
-published as `tauri-plugin-live-activity@0.1.0-alpha.4`.
+0.2.0 adds request contract v2: layouts, values, styles and buttons. It also adds the
+optional plugin configuration and moves iOS receipts to `receipts-v2.json`. Contract v1
+is unchanged. 0.2.0 is a regular release, and npm publishes it under `latest`. The
+previous record is the [alpha.4 validation](validation-alpha.4.md).
 
-## Release and package checks
+This record was written before the `v0.2.0` tag was pushed. It does not cover the
+published packages yet.
 
-- [CI](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/41998681808)
-  passed all four jobs at `3086e475`: Rust/TypeScript/Swift, Android, Windows and
-  Linux. Android was rerun after two upstream download failures; tests were not
-  changed or bypassed. [CI evidence](../tests/release/alpha4-ci.json).
-- [Tag-triggered publishing](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42001553056)
-  published npm and Cargo through trusted publishing and verified public hashes.
-  [Release evidence](../tests/release/alpha4-publish-ci.json),
-  [artifact manifest](../tests/release/alpha4-artifacts.json).
-- A fresh npm installation with an empty cache passed strict NodeNext TypeScript
-  and 14 API tests. Registry, downloaded archive and install lock agree. npm
-  signatures and provenance passed verification and identify the release commit.
-  [npm consumer](../tests/release/npm-alpha4-registry.json).
-- Release guards passed 15 tests with 100% line, branch and function coverage.
-  The existing 83 JavaScript request/API/demo tests also passed.
+## CI
 
-## Actual Tauri consumers
+- [PR #1 CI](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42149775242)
+  passed all four jobs at `be06bc5`: Rust/TypeScript/Swift on macOS, Android unit tests
+  and lint, and the desktop contract on Windows and Linux.
+- [CI on `main`](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/runs/42152656891)
+  passed the same four jobs at the merge commit `cacfd08`.
+- The commit that sets version 0.2.0 needs its own successful CI run on `main`. The
+  publish workflow rejects the tag without one.
 
-| Platform | Public-package verification |
+## Local run of the CI steps
+
+Run on 2026-11-06 on an Intel Mac with macOS 15.7.7 and Xcode 26.3, and run again with
+the same results after the release review's fixes. The source was `cacfd08` with the
+0.2.0 version, documentation and CI changes, not yet committed. The toolchain differs
+from CI: Rust 1.95.0 instead of 1.99.1, Node 22.23.4 with npm 10.9.9
+instead of Node 24, cargo-llvm-cov 0.8.7 instead of 0.9.1, and Zulu JDK 21.0.11 instead
+of Temurin 21.
+
+| CI step | Result |
 | --- | --- |
-| iPhone, iOS 27.2 | 13 lifecycle, 10 feature and one Unicode conflict test passed |
-| Android API 37 | 13 WebView → Rust → Kotlin lifecycle checks passed |
-| Android API 24 | Installing the final APK was rejected with `INSTALL_FAILED_OLDER_SDK`; merged minimum is API 26 |
+| `npm test` | Request contracts: 1008 tests, validator coverage 100% (lines, branches, functions). API: 65 tests, 100%. Demo: 17 tests, lines and functions 100%, branches 96.51% |
+| `npm run typecheck`, `npm run build:demo` | Passed |
+| Release guards | 15 tests, 100% lines, branches and functions |
+| `cargo fmt --check`, plugin and demo | Passed |
+| `cargo clippy --locked --all-targets -- -D warnings` | Passed |
+| `cargo llvm-cov --locked --fail-under-lines 80` | 43 unit and 10 contract tests passed. Lines 98.64%, functions 93.78%, regions 98.47% |
+| Demo `cargo test --locked` | 3 tests passed |
+| `tests/ios/run-core.sh` | 1934 assertions passed. Lines 98.99%, functions 97.61%, regions 98.73% |
+| `npm pack --dry-run` | 12 files, 20.3 kB |
+| `cargo package --locked --allow-dirty` | 100 files; the packaged crate builds |
+| `cargo test --locked` (the desktop job's command, run on macOS) | 43 unit and 10 contract tests passed |
+| Gradle `testDebugUnitTest`, `lintDebug`, `assembleDebugAndroidTest`, all tasks rerun | 59 JVM tests passed. Lint: 0 errors, 6 warnings (`ObsoleteSdkInt`, `InlinedApi`, `NewerVersionAvailable`). The instrumented test APK builds |
+| `verify-min-sdk.mjs` | Merged minimum SDK is 26 |
 
-Both hosts installed exact npm and crates.io alpha.4 dependencies without local
-plugin overrides. The iOS app and widget target iOS 16.1; registry Swift sources
-and generated Tauri API were checked. Android's generated Gradle project resolves
-the published crate's Android sources. App/archive/frontend hashes and dependency
-origins are recorded in the reports.
+`--allow-dirty` was needed only because the changes were not committed. CI runs
+`cargo package --locked` on a clean checkout. `actionlint` 1.7.12 found nothing in
+`ci.yml` and `publish.yml`; CI does not run it.
 
-[iPhone consumer](../tests/ios/results/published-alpha4-consumer.json),
-[iPhone lifecycle](../tests/ios/results/published-alpha4-iphone-lifecycle.json),
-[iPhone features](../tests/ios/results/published-alpha4-iphone-features.json),
-[iPhone Unicode regression](../tests/ios/results/published-alpha4-iphone-unicode.json),
-[Android consumer](../tests/android/results/registry-alpha4-consumer.json),
-[Android lifecycle](../tests/android/results/registry-alpha4-api37-lifecycle.json).
+The publish workflow's checks were run without publishing. For tag `v0.2.0` and both
+manifests at 0.2.0, the release guard returns npm dist-tag `latest`. It rejects
+`v0.1.0-alpha.4`, `v0.2.0-rc.1`, `v0.2`, `0.2.0`, `v0.2.00`, `V0.2.0` and `v0.2.0` with
+a trailing newline. The CI check accepts the `main`
+run for `cacfd08` and rejects the pull request run for `be06bc5`. Packaging,
+`release.mjs archive` and `release.mjs inspect` ran against a scratch directory, and
+the registries reported 0.2.0 as missing on npm and crates.io. `release.mjs prepare`
+itself was not run, because it checks out the tagged commit and needs the tag and a
+GitHub token.
 
-The full Cargo archive was compared with public alpha.3: 51 of 56 files are
-identical; the five differences are package metadata, README and VCS provenance.
-All four JavaScript/runtime declaration files are identical. Earlier OS-boundary,
-iPad, permission, coverage and screenshot evidence remains in the
-[alpha.3 validation](validation-alpha.3.md) and
-[alpha.2 validation](validation-alpha.2.md).
-[Source parity](../tests/ios/results/published-alpha4-source-parity.json).
+## Native runs
 
-## Support limits
+These ran separately from the local run above.
 
-The policy remains iPhone iOS 16.1+, iPadOS 17+, and Android API 26+ with a
-compatible WebView. Live Update promotion is conditional on eligible API 36+
-systems. macOS, Windows and Linux return explicit unsupported results.
+- iOS: the native harness in `tests/ios/SimulatorHost` ran on an iPhone 17 Pro
+  simulator with iOS 26.3. Every layout fixture took the plugin path, every region of
+  every valid start rendered, the Lock Screen showed the layout, and a tap on Stop
+  reached the action hub. See the
+  [iOS validation record](ios-integration.md#validation-record).
+- iOS: a separate Tauri app that uses the plugin ran the layout path in the iOS
+  Simulator. Its acceptance test passed 20 of 20 checks, and its Lock Screen UI test
+  passed. That app keeps these results in its own repository. They were not reproduced
+  here, and this record does not link them.
+- Android: the instrumented tests ran on API 26 and API 36 emulators and on a Galaxy S23
+  with Android 17. See [Android instrumented tests](#android-instrumented-tests).
 
-API 26 native calls passed earlier, but its stock WebView cannot run the current
-Tauri JavaScript. Old Apple runtime execution, physical devices, Samsung One UI,
-and forwarded Watch/Mac/CarPlay surfaces remain unverified. Strict automatic
-stale-transition probes remain excluded from passing counts. No new iPad or
-visibility guarantees are claimed for this metadata release.
+## Android instrumented tests
 
-[Version policy](compatibility.md), [OS coverage](platform-coverage.md),
-[Android coverage](android-coverage.md), [iOS coverage](ios-coverage.md),
-[release instructions](releasing.md).
+Run on 2026-11-06 with Zulu JDK 21.0.11, the Gradle harness in `tests/android` and
+`-PliveActivityCoverage=true`: `connectedDebugAndroidTest`, then `testDebugUnitTest` and
+`coverageVerification`. There are 14 instrumented tests: the eight from contract v1 and six
+for layouts. One of the six, `NativeLayoutHoldTest`, is for a person at the phone and is
+skipped unless `-e liveActivityHold` is passed, so every run skipped it.
 
-## Repository metadata and local cleanup
+| Runtime | Instrumented tests | Lines, JVM + this runtime | Branches |
+| --- | --- | --- | --- |
+| Emulator, API 26 (Android 8.0, `google_apis` x86_64) | 13 passed, 1 skipped | 958/1009 (94.95%) | 825/1017 (81.12%) |
+| Emulator, API 36 (Android 16, SDK 36.0, build `BE2A.250530.026.F3`) | 13 passed, 1 skipped, after a test fix | 960/1009 (95.14%) | 834/1017 (82.01%) |
+| Galaxy S23 SM-S911N, API 37 (Android 17, One UI 9) | 9 passed, 1 skipped, 4 left out | 895/1009 (88.70%) | 828/1017 (81.42%) |
+| All three runtimes together | | 971/1009 (96.23%) | 861/1017 (84.66%) |
+| JVM tests only (59 passed) | | 759/1009 (75.22%) | 722/1017 (70.99%) |
 
-GitHub description, homepage and 13 topics are set. npm alpha.4 includes 12 search
-keywords; crates.io has five keywords and three categories. Both npm `latest` and
-`next` point to alpha.4. Public metadata readback is recorded separately from
-search-engine indexing in [discovery evidence](../tests/release/discovery-alpha4.json).
-[Default-tag CI verification](../tests/release/npm-default-tag-ci.json) passed after
-adding bounded registry-propagation checks.
+The 80% line gate counts JVM and device data together. It passed for each runtime and
+for all three together.
 
-After the native checks and evidence push, task-created Android AVDs/images,
-iOS test apps/temporary hosts and workspace build artifacts were removed. Free
-space increased from 16.62 to 72.96 GiB (56.34 GiB reclaimed). Tracked source,
-screenshots, release archives and shared preexisting tools remain available.
-[Cleanup evidence](../tests/release/cleanup-alpha4.json).
+The first API 36 run failed one test,
+`NativeLayoutTest.theLockScreenTreeBecomesAPromotableNotification`, with an
+`AssertionError` at `NativeLayoutTest.kt:70`. The test expected Android's own check,
+`hasPromotableCharacteristics()`, to accept the layout notification. On Android 16 36.0
+that check follows earlier rules, which want a colorized notification. From 36.1 Android
+follows the published Live Update rules, which forbid a colorized one, and so does the
+plugin. The test was wrong for 36.0; the plugin's code did not change. The test now
+checks on every API level that the notification is not colorized. On 36.1 and later it
+still expects the check to pass. On 36.0 it expects the check to fail, and to pass once
+only `EXTRA_COLORIZED` is added, so nothing else in the notification stands in the way.
+The second run passed. After the fix, the JVM tests, lint and the test APK build ran
+again with the same results as in the local run: 59 tests passed, and lint reports 0
+errors and the same 6 warnings.
+
+On the Galaxy S23 the tests ran while the phone was locked and had not been used for
+about 28 minutes. An emergency alert, a system dialog, was showing over the lock screen.
+Four tests open a test activity, which would have pushed that alert into the background,
+so they were left out with the runner's `notClass` argument: the three in
+`NativeBridgeTest` and `NativeLayoutTest.theBridgeAnswersTheLayoutCommands`. They passed
+on both emulators. Because of that, `LiveActivityPlugin.kt` has no coverage from the S23
+(0 of 93 lines). The phone was not unlocked. The tests ran no settings command, but while
+they used UiAutomation, Android briefly turned on the phone's `accessibility_enabled`
+setting; it was back to 0 afterwards. The test package was removed after the run.
+
+## Not verified
+
+- 0.2.0 on a physical iPhone. A run on an iPhone 16 was in progress when this record
+  was written; its result is not included.
+- On the Galaxy S23: the four instrumented tests that open a test activity (see above).
+- Android 16 QPR1 (36.1). The test's branch for 36.1 and later ran only on the S23
+  (API 37), and it assumes Android's `uiRichOngoing` feature flag is on.
+- On Android: how One UI shows a projected layout, a tap on a locked phone, and a tap
+  that starts a killed process. The instrumented tests send a button's intent
+  themselves; nobody tapped. The [Now Bar notes](android-integration.md#samsung-now-bar)
+  come from reading a Galaxy S23's system files and looking at that phone. They are
+  not a test result.
+- On iOS: a button tap on a locked device, iOS 16.1 and 16.2 runtimes, iPad, and
+  forwarded Watch, Mac and CarPlay surfaces. The strict stale-transition probe stays a
+  failed observation, as in earlier releases.
+- A fresh install of the published npm and crates.io packages in a Tauri app.
+
+Desktop backends remain unsupported. Windows and Linux CI check the unsupported
+answers.
+
+## Reproduce
+
+```sh
+npm ci
+npm test && npm run typecheck && npm run build:demo
+node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.mjs \
+  --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 \
+  tests/release/release-guard.test.mjs
+cargo fmt --all -- --check
+cargo fmt --manifest-path examples/demo/src-tauri/Cargo.toml -- --check
+cargo clippy --locked --all-targets -- -D warnings
+cargo llvm-cov --locked --summary-only --fail-under-lines 80
+cargo test --locked --manifest-path examples/demo/src-tauri/Cargo.toml
+bash tests/ios/run-core.sh
+npm pack --dry-run
+cargo package --locked
+cd tests/android
+./gradlew :live-activity:testDebugUnitTest :live-activity:lintDebug \
+  :live-activity:assembleDebugAndroidTest --no-daemon
+# One emulator or device attached, named by ANDROID_SERIAL:
+./gradlew -PliveActivityCoverage=true :live-activity:connectedDebugAndroidTest \
+  :live-activity:testDebugUnitTest --rerun :live-activity:coverageVerification
+cd ../..
+node tests/android/verify-min-sdk.mjs "$ANDROID_HOME/build-tools/37.0.0/aapt" \
+  android/build/outputs/apk/androidTest/debug/live-activity-debug-androidTest.apk
+```
