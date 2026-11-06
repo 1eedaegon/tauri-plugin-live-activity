@@ -67,7 +67,16 @@ class NativeLayoutTest {
         if (Build.VERSION.SDK_INT >= 36) assertEquals("40%", native.shortCriticalText)
         // Promotion requested or not, nothing in the notification keeps it from being promoted.
         val promotable = port.build(record.copy(promotionRequested = true))
-        if (Build.VERSION.SDK_INT >= 36) assertTrue(promotable.hasPromotableCharacteristics())
+        assertFalse("Live Updates must not be colorized", promotable.extras.getBoolean(Notification.EXTRA_COLORIZED))
+        if (Build.VERSION.SDK_INT >= 36 && Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
+            assertTrue(promotable.hasPromotableCharacteristics())
+        } else if (Build.VERSION.SDK_INT >= 36) {
+            // API 36.0 checks the earlier rules, which want EXTRA_COLORIZED; the published rules of
+            // 36.1 forbid it. With only that extra added, 36.0's own check passes too.
+            assertFalse(promotable.hasPromotableCharacteristics())
+            val colorized = promotable.clone().apply { extras.putBoolean(Notification.EXTRA_COLORIZED, true) }
+            assertTrue(colorized.hasPromotableCharacteristics())
+        }
         assertFalse(native.extras.containsKey("android.ongoingActivityNoti.style"))
         val listed = engine.list().single { it.id == record.id }.json()
         assertEquals(2, listed.getInt("schemaVersion"))
