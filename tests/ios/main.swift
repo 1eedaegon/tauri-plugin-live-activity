@@ -138,6 +138,11 @@ struct LifecycleTests {
         await expectError("INVALID_INPUT") { try ActivitySnapshot(revision: 0, title: "\u{feff}", status: "ok", progress: 0, timer: nil, staleAt: nil).validate(template: "progress") }
         testPlatformSupport()
         try await testPlatformCoverageGaps()
+        try testLayoutFixtures()
+        try await testLayoutModels()
+        try testLayoutRender()
+        try await testLayoutLifecycle()
+        try await testReceipts()
         print("iOS lifecycle tests: \(assertions) assertions passed")
     }
 }
