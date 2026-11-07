@@ -7,6 +7,10 @@ not add that Xcode target automatically.
 
 ## Add the widget
 
+`npx tauri-plugin-live-activity setup` does these steps for the Xcode project that Tauri
+generates; [Usage](usage.md#what-setup-does) says how. The steps below are for a project
+that `setup` leaves alone, such as one that already has a widget extension.
+
 1. Enable `NSSupportsLiveActivities` (`Boolean`, `YES`) in the host application's
    Info.plist.
 2. Add a Widget Extension target, with a minimum deployment target of iOS 16.1.
