@@ -6,6 +6,8 @@ Installation and a short example are in the [README](../README.md)
 
 | Guide | Contents |
 | --- | --- |
+| [Usage](usage.md) | What `setup` does and the same steps by hand, every layout node with captures, buttons in Rust, the Dynamic Island, Android and the Samsung Now Bar, the progress and timer templates, the plugin configuration |
+| [Request contract](request-contract.md) | Every field and limit of a request, and who checks what |
 | [iOS setup](ios-integration.md) | Shared models, the Widget Extension, permissions and end policies |
 | [Android setup](android-integration.md) | Notification permission, promotion, state recovery and limits |
 | [Validation](validation.md) | Test, emulator and packaging results |
@@ -27,7 +29,6 @@ when they are pinned and native builds run.
 | [Implementation and release plan](testing-and-release.md) | The original plan: stages, compatibility tests, release conditions |
 | [References](references.md) | Official docs, repositories studied, license conventions |
 | [Research review](review.md) | Design problems found, what changed, follow-up work and open conditions |
-| [Request contract](request-contract.md) | Executable input schema and fixtures, and who checks what |
 | [Layout DSL RFC](rfc-layout-dsl.md) | The proposal for request contract v2: widget UI written from Tauri (interpreter widget, style tokens, icon channels, actions) |
 
 The first test devices planned were an iPhone XS, an iPhone 16, a Galaxy Note10 and a

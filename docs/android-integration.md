@@ -2,14 +2,16 @@
 
 The Android adapter requires API 26 (Android 8) or newer and compile SDK 37. The host app sets
 its own target SDK and supplies its usual Tauri Android project. Register the Rust
-plugin and grant the Tauri command permissions shown in the repository README.
+plugin and grant the Tauri command permissions, as the [usage guide](usage.md#install) shows.
 The plugin manifest merges `POST_NOTIFICATIONS` and `POST_PROMOTED_NOTIFICATIONS` and
 two receivers that are not exported: one for dismissals and one for button taps.
 No foreground service, network client, custom `RemoteViews`, or background task
 scheduler is installed.
 
-Set `bundle.android.minSdkVersion` to `26` or higher in `tauri.conf.json`. Tauri's
-Jackson dependency fails before plugin initialization below API 26. The host also
+Set `bundle.android.minSdkVersion` to `26` or higher in `tauri.conf.json`;
+`npx tauri-plugin-live-activity setup` does this, and sets `minSdk` in an existing
+`gen/android` project. Tauri's Jackson dependency fails before plugin initialization
+below API 26. The host also
 needs a WebView compatible with its Tauri/frontend JavaScript; the API 26 emulator's
 stock WebView 58 is too old. See the [boundary evidence](android-coverage.md).
 
