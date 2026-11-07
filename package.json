@@ -19,7 +19,8 @@
     ".": { "types": "./dist-js/index.d.ts", "import": "./dist-js/index.js" },
     "./package.json": "./package.json"
   },
-  "files": ["dist-js", "README.md", "README.ko.md", "LICENSE", "LICENSE-APACHE", "LICENSE-MIT"],
+  "bin": { "tauri-plugin-live-activity": "cli/bin.mjs" },
+  "files": ["dist-js", "cli", "README.md", "README.ko.md", "LICENSE", "LICENSE-APACHE", "LICENSE-MIT"],
   "publishConfig": { "access": "public", "tag": "next" },
   "engines": {
     "node": ">=22.12.0"
@@ -27,10 +28,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p examples/demo/tsconfig.json",
-    "test": "npm run build && npm run test:contracts && npm run test:api && npm run test:demo",
+    "test": "npm run build && npm run test:contracts && npm run test:api && npm run test:demo && npm run test:setup",
     "test:contracts": "node --test --experimental-test-coverage \"--test-coverage-include=tools/validate-request.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/requests.test.mjs tests/layout-requests.test.mjs",
     "test:api": "node --test --experimental-test-coverage \"--test-coverage-include=dist-js/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/api.test.mjs",
     "test:demo": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=examples/demo/src/*.ts\" \"--test-coverage-exclude=examples/demo/tests/**\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 examples/demo/tests/self-test.test.mjs examples/demo/tests/ui-state.test.mjs examples/demo/tests/layouts.test.mjs examples/demo/tests/setup.test.mjs",
+    "test:setup": "node --test --experimental-test-coverage \"--test-coverage-include=cli/*.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/setup.test.mjs",
     "build:demo": "npm run build && node examples/demo/build.mjs",
     "prepack": "npm run build",
     "pack:check": "npm pack --dry-run"
