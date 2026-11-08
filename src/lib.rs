@@ -11,6 +11,8 @@ use tauri::{
 
 #[cfg(any(mobile, test))]
 mod actions;
+#[cfg(any(target_os = "android", test))]
+mod android_liveupdate;
 #[cfg(any(mobile, test))]
 mod bridge;
 #[cfg(all(test, desktop))]

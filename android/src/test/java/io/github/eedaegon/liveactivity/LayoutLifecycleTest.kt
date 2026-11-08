@@ -84,27 +84,6 @@ class LayoutLifecycleTest {
         assertEquals(1, port.posted.size)
     }
 
-    @Test fun v1AndV2ActivitiesDoNotSeeEachOther() {
-        val v1 = ActivityEngine(object : RecordStore {
-            var records: List<ActivityRecord> = emptyList()
-            override fun read() = records
-            override fun write(records: List<ActivityRecord>) { this.records = records }
-        }, object : NotificationPort {
-            override fun notificationsAllowed() = true
-            override fun promotionAllowed() = false
-            override fun observed() = emptyMap<String, ActivityRecord>()
-            override fun post(record: ActivityRecord) {}
-            override fun cancel(id: String) {}
-        })
-        val v2 = LayoutEngine(MemoryLayoutStore(), FakeLayoutPort())
-        val template = v1.start(StartRequest("fremen:session", 1, "progress", "notification", Snapshot(0, "Title", "Status", 0.5, null, null)))
-        val layout = v2.start(request)
-        assertEquals("NOT_FOUND", code { v1.end(layout.id, "immediate") })
-        assertEquals("NOT_FOUND", code { v2.end(template.id, "immediate") })
-        assertEquals(listOf(template.id), v1.list().map { it.id })
-        assertEquals(listOf(layout.id), v2.list().map { it.id })
-    }
-
     @Test fun aMinusZeroIsReadAsZeroSoARetryThroughStorageIsIdempotent() {
         // serde_json writes a Rust f64 minus zero as -0.0, where JSON.stringify writes 0.
         val text = """{"activityKey":"rust:zero","schemaVersion":2,"fallback":"notification",

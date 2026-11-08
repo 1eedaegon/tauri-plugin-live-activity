@@ -2,6 +2,7 @@
 
 ## 0.3.0
 
+- Route Android progress/timer activities through `1eedaegon/liveupdate-rs`. Rust now owns validation, fallback policy, idempotency, revisions, limits, retry, lifecycle and notification reconciliation; Kotlin exposes only six bounded framework and persistence operations. End running template activities before upgrading because the former Kotlin receipt store is not migrated. Contract v2 layouts keep their Kotlin renderer and lifecycle engine.
 - Add bound style members to request contract v2. `{ "bind": "<value key>" }` can stand for a literal `color`, `background`, `tint`, `opacity`, `size`, `weight` or `cornerRadius` in a style, and for the layout's `background` and `keyline`. The member reads that value on every render, so `updateLayout` and `update_layout` change it while the activity runs. A bound color is a color name or a hex color, never a light and dark pair. The tree and the other members stay fixed at start.
 - Rust, the reference validator, Swift and Kotlin check the value at start, and the native layers check it again on every update, with `INVALID_INPUT` when it does not fit. The fixture file adds start cases and an `updates` list of start and update pairs that all four run.
 - TypeScript: `layout.bind(key)` and the types `LayoutBound` and `LayoutBindable<T>`. The reference validator adds `validateLayoutUpdate`.

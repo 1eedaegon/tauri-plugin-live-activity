@@ -9,7 +9,7 @@ import org.json.JSONArray
  * small form ([LayoutRecord.retired]).
  */
 internal class LayoutPreferencesStore(context: Context) : Store<LayoutRecord> {
-    private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    private val preferences = context.getSharedPreferences(PLUGIN_PREFERENCES, Context.MODE_PRIVATE)
 
     override fun read(): List<LayoutRecord> {
         val raw = preferences.getString(LAYOUT_RECORDS, null) ?: return emptyList()

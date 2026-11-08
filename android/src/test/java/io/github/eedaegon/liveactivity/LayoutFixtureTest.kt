@@ -22,18 +22,9 @@ class LayoutFixtureTest {
             "start_layout" -> Outcome.Accepted(LayoutInput.start(input).weight)
             "update_layout" -> Outcome.Accepted(LayoutInput.update(input).second.weight)
             "end_layout" -> { LayoutInput.end(input); Outcome.Accepted(null) }
-            "start", "update" -> v1(command, input)
             else -> Outcome.Rejected("INVALID_INPUT")
         }
     } catch (failure: ActivityFailure) { Outcome.Rejected(failure.code) }
-
-    /** The v1 validator, as the v1 fixture test runs it: any failure is INVALID_INPUT. */
-    private fun v1(command: String, input: Any?): Outcome = try {
-        val body = input as JSONObject
-        if (command == "start") Input.start(body)
-        else { Input.keys(body, setOf("id", "snapshot")); Input.id(body.get("id")); Input.snapshot(body.getJSONObject("snapshot")) }
-        Outcome.Accepted(null)
-    } catch (_: Exception) { Outcome.Rejected("INVALID_INPUT") }
 
     private fun cases(kind: String): List<JSONObject> = fixtures.getJSONArray(kind).let { array -> (0 until array.length()).map(array::getJSONObject) }
 

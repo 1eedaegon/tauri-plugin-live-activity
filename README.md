@@ -25,6 +25,9 @@ an ongoing notification on Android. You describe the layout in TypeScript; the p
 All four come from the [demo app](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo),
 which follows a cat named Mochi. The plugin runs on iOS 16.1+ and Android 8+; on desktop, its
 activity commands return `UNSUPPORTED_PLATFORM`. Before 1.0, a minor version may change the API.
+On Android, fixed progress/timer lifecycle and policy run in Rust through
+[`1eedaegon/liveupdate-rs`](https://github.com/1eedaegon/liveupdate-rs); Kotlin is limited to
+notification framework calls and app-private receipt storage.
 
 ## Install
 

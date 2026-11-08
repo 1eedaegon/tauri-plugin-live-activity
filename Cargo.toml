@@ -26,6 +26,7 @@ serde = { version = "1", features = ["derive"] }
 # Correctly rounded number parsing, so that a value arrives as JavaScript sent it.
 serde_json = { version = "1", features = ["float_roundtrip"] }
 thiserror = "2"
+liveupdate = { version = "0.1.0-alpha.1", git = "https://github.com/1eedaegon/liveupdate-rs", rev = "3b797bbfeb7aef29253ff0cb017bb7b07ee0bd46" }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 tauri = { version = "2.12.5", default-features = false, features = ["wry"] }

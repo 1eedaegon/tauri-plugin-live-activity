@@ -25,6 +25,9 @@ Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과 Dynamic Island에, A
 네 장 모두 고양이 Mochi를 따라가는 [데모 앱](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo)에서
 캡처했습니다. 플러그인은 iOS 16.1 이상과 Android 8 이상에서 동작하고, 데스크톱에서는 활동 명령이
 `UNSUPPORTED_PLATFORM`을 돌려줍니다. 1.0 전까지는 마이너 버전이 바뀔 때 API도 바뀔 수 있습니다.
+Android의 고정 진행률/타이머 수명 주기와 정책은
+[`1eedaegon/liveupdate-rs`](https://github.com/1eedaegon/liveupdate-rs)를 통해 Rust에서 처리합니다.
+Kotlin은 알림 프레임워크 호출과 앱 전용 영수증 저장만 담당합니다.
 
 ## 설치
 
