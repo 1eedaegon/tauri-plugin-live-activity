@@ -247,10 +247,9 @@ Group을 Apple 계정에 한 번 등록해야 하는데, 자동 서명이 대신
 
 - iOS: iOS 16.2 이상의 iPhone 또는 iPadOS 17 이상의 iPad가 필요하고, 버튼은 iOS 17부터 동작합니다. 활동은 앱이
   포그라운드에 있을 때만 시작되고(아니면 `NOT_FOREGROUND`), 시스템이 8시간 뒤에 끝냅니다.
-- iOS는 활동마다 마지막 값을 앱의 Application Support에 평문으로 남깁니다. iOS에서는 아직
-  `receipts: "redacted"`를 쓸 수 없고, 설정하면 시작, 갱신, 종료가 `CONFIGURATION_REQUIRED`로 실패합니다.
-- iOS에서는 activitykit이 리비전 번호를 매깁니다. 기록보다 높은 리비전으로 갱신하면 기록의 리비전에 1을 더한
-  번호로 보냅니다.
+- iOS는 활동마다 마지막 값을 앱의 Application Support에 평문으로 남깁니다. 플러그인 설정에
+  `"receipts": "redacted"`를 주면 값 대신 다이제스트만 남깁니다.
+- 버튼을 누르면 Rust의 `on_action` 핸들러가 끝날 때까지 최대 4초 기다립니다. JavaScript 리스너는 기다리지 않습니다.
 - 푸시 갱신은 없습니다. Android는 진행 중 알림으로 보여 주고, 시스템이 허용하면 Live Update로 올립니다.
 
 ## Samsung Now Bar

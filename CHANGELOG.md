@@ -2,37 +2,35 @@
 
 ## Unreleased
 
-iOS moves onto the [activitykit](https://github.com/1eedaegon/activitykit-rs) crate, which was split out of this
-plugin's iOS code. The plugin has no Swift of its own any more: its Rust commands call activitykit, whose build script
-builds its Swift bridge into the app's Rust library, and the widget extension links activitykit's Swift products.
-Android and desktop work as before. Until activitykit is on crates.io the crate depends on it by git.
+iOS moves onto the [activitykit](https://crates.io/crates/activitykit) crate, which was split out of this plugin's iOS
+code. The plugin has no Swift of its own any more: its Rust commands call activitykit, whose build script builds its
+Swift bridge into the app's Rust library, and the widget extension links activitykit's Swift products. Requests,
+records, revisions and taps keep the behaviour of 0.3. Android and desktop work as before.
 
-- iOS: the commands call activitykit directly. The Tauri Swift plugin and the copied Swift packages (`ios/`,
+- iOS: the commands call activitykit 0.1 directly. The Tauri Swift plugin and the copied Swift packages (`ios/`,
   `LiveActivityShared`, `LiveActivityCore`, `LiveActivityUI`, `LiveActivityPlugin`) and the templates under
   `templates/ios` are gone. activitykit also fixes what 0.3's Swift got wrong: ActivityKit's `unsupported`,
   `unsupportedTarget` and `visibility` refusals keep their codes, the start's preflight no longer depends on the app's
   state, `pending` is a state, `End::after` takes any time, an end can carry final content, and every content has a
   timestamp.
+- Revisions, repeated starts and receipts work as in 0.3: each start, update and end goes out at the request's
+  revision, the same keyed start returns the running activity (also after a relaunch), and `receipts: "redacted"`
+  keeps a digest instead of the values. After a relaunch, a redacted activity's record has the values that ActivityKit
+  shows, where 0.3 reported none.
+- A tap's intent, and so an app that the system launched for the tap, waits until the `on_action` handlers have run
+  and the tap has gone to JavaScript, at most 4 seconds, on iOS as on Android. JavaScript listeners are not awaited.
 - Breaking: iOS needs 16.2 on an iPhone (iPadOS 17 on an iPad). Below it every command but the reads answers
   `UNSUPPORTED_PLATFORM`, and `getCapabilities()` reports the features as unsupported.
 - Breaking: an end can carry final content. `end_layout` takes `LayoutEndInput { id, policy, snapshot }` in Rust, and
   `endLayout` takes `LayoutEndInput`, which is `EndInput` with an optional `snapshot`, in TypeScript. On iOS an end
   without a snapshot ends with the last accepted values at the next revision, so its record has one revision more.
 - Breaking: `LayoutSnapshot` has an optional `timestamp`, the time the content was made, which ActivityKit uses on
-  iOS 17.2 to drop older content. A struct literal needs `timestamp: None`. A start's content is timed when it is sent.
+  iOS 17.2 to drop older content, and which iOS records carry. A struct literal needs `timestamp: None`.
 - Breaking: `ActivityState` has `Pending`, and the Rust enum is `#[non_exhaustive]`: a match needs a `_` arm.
   TypeScript's `ActivityState` adds `'pending'`.
 - Breaking: the error code `NOT_FOREGROUND`, for a start that ActivityKit refuses while the app is not in the
   foreground (it was `NATIVE_ERROR` or `PERMISSION_DENIED`). `UNSUPPORTED_FEATURE` and `SYSTEM_LIMIT` messages name
   the feature and the limit.
-- Breaking: on iOS activitykit numbers the revisions. A start is revision 0 whatever its snapshot says, and an update
-  with a revision above the accepted one goes out as the accepted one plus one, which the record reports. A lower
-  revision is still `STALE_REVISION`, the same revision with the same values still answers the record, and with other
-  values `CONFLICT`. An app that counts revisions from the record, as the demo does, sees no difference.
-- Breaking: on iOS the same start under a running key answers the running activity while the app runs; after a
-  relaunch it answers `CONFLICT`, because activitykit compares the content's timestamp too.
-- Breaking: `receipts: "redacted"` is not available on iOS yet: activitykit keeps the last values in plain text and
-  has no redacted receipts. With it, starts, updates and ends answer `CONFIGURATION_REQUIRED`; lists still answer.
 - Breaking: the extension's Info.plist keys are activitykit's, `ActivityKitLayout` and `ActivityKitAppGroup`, and
   activitykit keeps receipts in `activitykit/receipts-v2.json` and drawn images in `activitykit/images` of the App
   Group. Activities that 0.3 started are not listed by 0.4: end them before the update, or the system ends them
@@ -41,7 +39,10 @@ Android and desktop work as before. Until activitykit is on crates.io the crate 
   0.3's template widget, so `ActivityKitLayoutWidget` draws them and a widget of the app's own for them no longer
   applies. `start`, `update`, `end` and `list` keep their requests and records. A v1 and a v2 activity can no longer
   share an activity key.
-- Breaking: on iOS a button's intent returns once the plugin has taken the tap, not after the `on_action` handlers ran.
+- Breaking: the plugin's setup fails when the process already runs activitykit with other receipts than the plugin
+  configuration names.
+- Breaking: after a relaunch, ending again an activity that ended at once in an earlier launch, and that the system no
+  longer lists, is `NOT_FOUND`; 0.3 answered the record. Within a launch, ending again answers the record as before.
 - `npx tauri-plugin-live-activity setup` finds activitykit's folder with `cargo metadata` and writes
   `live-activity.yml` on its Swift package: the widget extension (iOS 16.2) links `ActivityKitWidget` and
   `ActivityKitViews`, and the app target links `ActivityKitIntent` and `ActivityKitViews` and compiles the custom
@@ -60,10 +61,16 @@ Android and desktop work as before. Until activitykit is on crates.io the crate 
   `validateLayoutEnd`.
 - Android takes a snapshot's `timestamp` and keeps it in the record, and ends a layout activity with the final
   content of `end_layout`, checked as an update. Everything else on Android is unchanged.
+- The demo's widget is activitykit's template, its own Mochi widget for the templates is gone, and its Rust handler
+  takes a second to count a pet, which the tap waits for. Launched with `--start-buttons`, it starts the Buttons
+  example from Rust. The debug build of `tauri ios dev` on a simulator works as the build of `tauri ios build`: the
+  page starts layouts, the widget draws them and their buttons reach Rust and the page.
 - `docs/spec.md` lists every requirement with its tests, checked by `tools/spec-coverage.sh` in CI. The demo runs on
-  an iOS Simulator of its own with `tests/ios/run.sh`: a bound style on the Lock Screen, a button that reaches Rust and
-  JavaScript, the list after a relaunch, the lifecycle test and the templates.
-- The demo's widget is activitykit's template; its own Mochi widget for the templates is gone.
+  an iOS Simulator of its own with `tests/ios/run.sh` (`MODE=dev` for `tauri ios dev`, with connected iPhones hidden
+  from Tauri).
+- CI caches the Rust builds and installs cargo-llvm-cov as a binary. A new macOS job runs the simulator suite, with
+  the built demo and UI tests cached under a key of their inputs and the Xcode version, and skips the suite when the
+  same inputs already passed on the same runner image and Xcode.
 
 ## 0.3.0
 

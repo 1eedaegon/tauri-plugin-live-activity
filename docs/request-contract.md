@@ -184,7 +184,7 @@ hold `liveActivityTemplate` with `progress` or `timer` is taken for a template.
 ```jsonc
 // start_layout
 {
-  "activityKey": "fremen:session",           // same rule as v1
+  "activityKey": "app:session",           // same rule as v1
   "schemaVersion": 2,                         // exactly 2
   "fallback": "none",                         // "none" or "notification"; required, as in v1
   "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "title" } },   // required
@@ -217,13 +217,12 @@ comes first, and a time in the past removes it at once. Android answers `after` 
 `UNSUPPORTED_FEATURE` and removes the notification on every end; the final content is in the
 record.
 
-On iOS activitykit numbers the revisions. A start is revision 0, whatever its snapshot says. An
-update or the final content of an end below the accepted revision is `STALE_REVISION`; at the
-accepted revision it answers the record when the values are the same and is `CONFLICT` otherwise;
-above it, it goes out as the accepted revision plus one, which the record reports. An end without
-final content goes out at the next revision as well. The same start under a running key answers the
-running activity while the app runs, and `CONFLICT` after a relaunch, because activitykit compares
-the content's time too. Android keeps the revisions as sent.
+Revisions go out as sent, on iOS as on Android. An update or the final content of an end below the
+accepted revision is `STALE_REVISION`; at the accepted revision it answers the record when the
+values are the same and is `CONFLICT` otherwise; above it, it is taken. On iOS an end without final
+content goes out at the next revision with the last values. The same start under a running key
+answers the running activity, also after a relaunch: activitykit compares the content without its
+timestamp.
 
 An `id` is 1 to 256 code points and holds at least one character that is not whitespace.
 Whitespace here is the ECMAScript set: U+0009 to U+000D, U+0020, U+00A0, U+1680, U+2000 to
@@ -278,8 +277,7 @@ A failed request answers `{ "code", "message" }`; the message never repeats the 
 refused a start because the app was not in the foreground (0.3 answered `NATIVE_ERROR` or
 `PERMISSION_DENIED`). On iOS the codes are activitykit's, and the message of `UNSUPPORTED_FEATURE`
 names the feature and the iOS version it needs, that of `SYSTEM_LIMIT` whether the app's or the
-device's limit was reached. With `receipts: "redacted"` in the plugin configuration, starts, updates
-and ends on iOS answer `CONFIGURATION_REQUIRED`: activitykit has no redacted receipts yet.
+device's limit was reached.
 
 ### Values
 

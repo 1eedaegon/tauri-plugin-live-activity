@@ -282,7 +282,7 @@ const stacksExample: LayoutExample = {
 const buttonsExample: LayoutExample = {
   id: 'buttons',
   name: 'Buttons',
-  feature: 'A button reports its action ID to the app. Here Rust counts each pet, and “All done” ends the activity.',
+  feature: 'A button reports its action ID to the app. Here Rust takes a second to count each pet, and the tap waits for it; “All done” ends the activity.',
   android: 'Up to three buttons become notification actions, labelled with their text.',
   start: () => ({
     activityKey: 'mochi:buttons', schemaVersion, fallback,

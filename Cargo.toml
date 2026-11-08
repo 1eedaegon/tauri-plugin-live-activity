@@ -20,8 +20,8 @@ include = [
 ]
 
 [dependencies]
-# iOS Live Activities, and the request contract that every platform checks. Switch this line to the crates.io release.
-activitykit = { git = "https://github.com/1eedaegon/activitykit-rs", rev = "ff22261" }
+# iOS Live Activities, and the request contract that every platform checks.
+activitykit = "0.1"
 tauri = { version = "2.12.5", default-features = false }
 serde = { version = "1", features = ["derive"] }
 # Correctly rounded number parsing, so that a value arrives as JavaScript sent it.

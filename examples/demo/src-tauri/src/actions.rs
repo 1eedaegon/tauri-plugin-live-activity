@@ -1,11 +1,16 @@
 //! Button taps of the demo's layout examples. They are handled in Rust, where they also arrive
 //! while the web view is suspended or was never created.
 
+use std::{thread, time::Duration};
 use tauri::{App, AppHandle, Runtime};
 use tauri_plugin_live_activity::{
     ActionEvent, ActivityState, EndPolicy, LayoutActivityRecord, LayoutEndInput, LayoutSnapshot,
-    LayoutUpdateInput, LiveActivityExt, Value,
+    LayoutStartInput, LayoutUpdateInput, LiveActivityExt, Value,
 };
+
+/// How long the demo takes to count a pet. A tap's intent, and so an app that the system launched for the tap, waits
+/// until the handler has run, so the update still reaches the Lock Screen after a pause like this one.
+pub const COUNTING: Duration = Duration::from_secs(1);
 
 /// What a tap asks of the activity that showed the button.
 #[derive(Debug, PartialEq)]
@@ -29,7 +34,10 @@ fn handle_tap<R: Runtime>(app: &AppHandle<R>, event: &ActionEvent) {
             return Ok(());
         };
         match reply(&event.action_id, record) {
-            Some(Reply::Update(input)) => plugin.update_layout(input).map(drop),
+            Some(Reply::Update(input)) => {
+                thread::sleep(COUNTING);
+                plugin.update_layout(input).map(drop)
+            }
             Some(Reply::End(input)) => plugin.end_layout(input).map(drop),
             None => Ok(()),
         }
@@ -37,6 +45,48 @@ fn handle_tap<R: Runtime>(app: &AppHandle<R>, event: &ActionEvent) {
     if let Err(error) = result {
         eprintln!("Mochi demo: the tap {:?} failed: {error}", event.action_id);
     }
+}
+
+/// The launch argument that starts the Buttons example from Rust: the UI tests use it in a build of `tauri ios dev`,
+/// whose page comes from a server that the test may not reach.
+pub const START_BUTTONS: &str = "--start-buttons";
+
+/// The Buttons example of the Layouts tab, as Rust starts it.
+pub fn buttons_start() -> LayoutStartInput {
+    let request = serde_json::json!({
+        "activityKey": "mochi:buttons", "schemaVersion": 2, "fallback": "notification",
+        "layout": { "lockScreen": { "type": "vstack", "alignment": "leading", "spacing": 8, "style": "card", "children": [
+            { "type": "hstack", "spacing": 8, "children": [
+                { "type": "symbol", "name": "cat.fill", "style": "icon" },
+                { "type": "text", "bind": "title", "style": "title" }] },
+            { "type": "text", "bind": "status" },
+            { "type": "hstack", "spacing": 8, "children": [
+                { "type": "button", "actionId": "pet", "child": { "type": "text", "value": "Pet Mochi" }, "style": "action" },
+                { "type": "button", "actionId": "done", "child": { "type": "text", "value": "All done" }, "style": "quiet" }] }] } },
+        "styles": {
+            "card": { "padding": 16 },
+            "title": { "font": "headline" },
+            "icon": { "size": 20, "color": "orange" },
+            "action": { "buttonStyle": "borderedProminent", "tint": "orange" },
+            "quiet": { "buttonStyle": "bordered", "tint": "teal" }
+        },
+        "snapshot": { "revision": 0, "values": { "title": "Mochi wants attention", "status": "No pets yet", "pets": 0 } }
+    });
+    serde_json::from_value(request).expect("the Buttons example reads as a start")
+}
+
+/// Starts the Buttons example from Rust when `args` hold [`START_BUTTONS`], on a thread of its own: the plugin's calls
+/// block until iOS answers from the main thread.
+pub fn start_from_rust_if_asked<R: Runtime>(app: &App<R>, mut args: impl Iterator<Item = String>) {
+    if !args.any(|arg| arg == START_BUTTONS) {
+        return;
+    }
+    let handle = app.handle().clone();
+    thread::spawn(move || {
+        if let Err(error) = handle.live_activity().start_layout(buttons_start()) {
+            eprintln!("Mochi demo: the Buttons example did not start: {error}");
+        }
+    });
 }
 
 /// The reply to `action_id` on `record`, or `None` for a tap the demo does not handle.
@@ -193,5 +243,23 @@ mod tests {
                 None
             );
         }
+    }
+
+    #[test]
+    fn the_buttons_example_that_rust_starts_is_valid_and_answers_a_pet() {
+        use tauri_plugin_live_activity::Validate;
+        let start = buttons_start();
+        assert_eq!(start.validate(), Ok(()));
+        let record = record(
+            "mochi:buttons",
+            "active",
+            serde_json::to_value(&start.snapshot.values).unwrap(),
+        );
+        let first = updated(reply("pet", &record));
+        assert_eq!(
+            first.values["status"],
+            Value::Text("Purring. 1 pet so far".into())
+        );
+        assert_eq!(START_BUTTONS, "--start-buttons");
     }
 }

@@ -5,6 +5,8 @@ import XCTest
 final class DemoTests: XCTestCase {
     private let app = XCUIApplication(bundleIdentifier: "io.github.eedaegon.liveactivitydemo")
     private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    /// How long the page may take: the first launch on a fresh simulator starts WebKit, which took over 20 s.
+    private let pageLoad: TimeInterval = 90
 
     override func setUp() {
         continueAfterFailure = false
@@ -43,10 +45,21 @@ final class DemoTests: XCTestCase {
         add(shot)
     }
 
+    /// Launches the app anew and waits for its page.
+    private func launch() {
+        app.launch()
+        XCTAssertTrue(web("Layouts").waitForExistence(timeout: pageLoad), "no page")
+    }
+
     private func openLayouts(_ example: String) {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
-        tap("Layouts")
+        // A page that has just loaded can take a tap before its script listens: tap the tab until it opens.
+        let opened = web(example)
+        for _ in 0..<3 where !opened.exists {
+            tap("Layouts")
+            _ = opened.waitForExistence(timeout: 10)
+        }
         tap(example)
     }
 
@@ -63,9 +76,9 @@ final class DemoTests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
     }
 
-    // TP-E2E-1, TP-IOS-1, TP-IOS-3
+    // TP-E2E-1, TP-E2E-6, TP-IOS-1, TP-IOS-3
     func test1BoundStyleShowsOnTheLockScreen() {
-        app.launch()
+        launch()
         openLayouts("Changing styles")
         tap("Start this example")
         allow()
@@ -82,9 +95,9 @@ final class DemoTests: XCTestCase {
         XCTAssertTrue(webText("has ended").waitForExistence(timeout: 20))
     }
 
-    // TP-E2E-2, TP-ACTION-1
+    // TP-E2E-2, TP-E2E-6, TP-ACTION-1
     func test2LockScreenButtonReachesRustAndJavaScript() {
-        app.launch()
+        launch()
         openLayouts("Buttons")
         tap("Start this example")
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: 20))
@@ -95,6 +108,8 @@ final class DemoTests: XCTestCase {
         pet.tap()
         // Rust's on_action handler (examples/demo/src-tauri/src/actions.rs) counts the pet with an update.
         XCTAssertTrue(springboard.staticTexts["Purring. 1 pet so far"].waitForExistence(timeout: 20))
+        // The Lock Screen draws the new content a moment after it reports it.
+        XCTAssertTrue(springboard.staticTexts["No pets yet"].waitForNonExistence(timeout: 10))
         capture("e2e-2-buttons-after-rust")
         leaveLockScreen()
         // The page's onAction listener shows the tap, in its message and under Developer tools.
@@ -104,10 +119,10 @@ final class DemoTests: XCTestCase {
         capture("e2e-2-tap-in-javascript")
     }
 
-    // TP-E2E-3, TP-IOS-6
+    // TP-E2E-3, TP-E2E-6, TP-IOS-6
     func test3ListAfterARelaunchFindsTheActivity() {
         app.terminate()
-        app.launch()
+        launch()
         openLayouts("Buttons")
         // listLayout at launch found the running activity: the page offers to end it, at the revision Rust sent.
         XCTAssertTrue(web("End this example").waitForExistence(timeout: 20))
@@ -121,7 +136,7 @@ final class DemoTests: XCTestCase {
 
     // TP-E2E-4, TP-IOS-2, TP-IOS-3, TP-IOS-5, TP-V1-2
     func test4LifecycleChecksPassThroughTauri() {
-        app.launch()
+        launch()
         tap("Developer tools")
         tap("Run lifecycle test")
         XCTAssertTrue(webText("Integration test: passed.").waitForExistence(timeout: 60), app.debugDescription)
@@ -130,7 +145,7 @@ final class DemoTests: XCTestCase {
 
     // TP-V1-1
     func test5TemplatesShowOnTheLockScreenAsLayouts() {
-        app.launch()
+        launch()
         tap("Snack delivery")
         tap("Start snack delivery")
         pullLockScreen()
@@ -148,5 +163,54 @@ final class DemoTests: XCTestCase {
         leaveLockScreen()
         tap("Wake up, sleepyhead")
         XCTAssertTrue(webText("Nap finished").waitForExistence(timeout: 20))
+    }
+
+    // TP-E2E-5, TP-ACTION-3
+    func test6TapLaunchesTheAppForASlowRustHandler() {
+        launch()
+        openLayouts("Buttons")
+        tap("Start this example")
+        XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: 20))
+        app.terminate()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+        // The Lock Screen over the Home Screen: the system launches the app in the background for the tap.
+        let top = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01))
+        top.press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)))
+        let pet = springboard.buttons["Pet Mochi"].firstMatch
+        XCTAssertTrue(pet.waitForExistence(timeout: 15))
+        XCTAssertTrue(springboard.staticTexts["No pets yet"].exists)
+        pet.tap()
+        // The handler takes a second (COUNTING in examples/demo/src-tauri/src/actions.rs), then updates the activity.
+        XCTAssertTrue(springboard.staticTexts["Purring. 1 pet so far"].waitForExistence(timeout: 20))
+        XCTAssertTrue(springboard.staticTexts["No pets yet"].waitForNonExistence(timeout: 10))
+        capture("e2e-6-background-tap-after-slow-handler")
+        XCTAssertNotEqual(app.state, .runningForeground)
+        XCUIDevice.shared.press(.home)
+        launch()
+        openLayouts("Buttons")
+        tap("End this example")
+        XCTAssertTrue(webText("has ended").waitForExistence(timeout: 20))
+    }
+
+    // TP-E2E-6
+    /// Rust starts the Buttons example (`--start-buttons`), so the test needs no page: in the build of `tauri ios dev`
+    /// the page comes from Tauri's server. The widget draws the layout and a tap reaches the Rust handler.
+    func test7RustStartsALayoutWhoseButtonReachesRust() {
+        app.terminate()
+        app.launchArguments = ["--start-buttons"]
+        app.launch()
+        XCUIDevice.shared.press(.home)
+        let top = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01))
+        top.press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)))
+        let pet = springboard.buttons["Pet Mochi"].firstMatch
+        XCTAssertTrue(pet.waitForExistence(timeout: 20))
+        XCTAssertTrue(springboard.staticTexts["No pets yet"].exists)
+        allow()
+        pet.tap()
+        XCTAssertTrue(springboard.staticTexts["Purring. 1 pet so far"].waitForExistence(timeout: 20))
+        XCTAssertTrue(springboard.staticTexts["No pets yet"].waitForNonExistence(timeout: 10))
+        capture("e2e-7-rust-start-and-button")
+        springboard.buttons["All done"].firstMatch.tap()
+        XCTAssertTrue(springboard.buttons["Pet Mochi"].waitForNonExistence(timeout: 20))
     }
 }

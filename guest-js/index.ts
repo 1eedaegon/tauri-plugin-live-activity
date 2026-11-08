@@ -79,7 +79,10 @@ export function writeImage(name: string, png: Uint8Array | ArrayBuffer): Promise
 
 /**
  * Receive button taps while this webview is alive; resolves to the function that stops listening.
- * Listening uses Tauri's event permissions (`core:event:default`).
+ * Listening uses Tauri's event permissions (`core:event:default`). The tap reaches the page after the Rust
+ * `on_action` handlers have run; the tap's intent does not wait for this handler, which runs in the webview whenever it
+ * gets the event, and not at all while the webview is suspended or was never created. Act on taps in Rust when they
+ * must not be lost.
  */
 export function onAction(handler: (event: ActionEvent) => void): Promise<UnlistenFn> {
   return listen<ActionEvent>('live-activity://action', event => handler(event.payload));

@@ -47,8 +47,9 @@ jobs:
           area() { grep -qE "$2" <<< "$files" && echo "$1=true" >> "$GITHUB_OUTPUT" || echo "$1=false" >> "$GITHUB_OUTPUT"; }
           area rust '^(src/|build\.rs$|Cargo\.(toml|lock)$|permissions/|tests/[^/]+\.rs$|examples/demo/src-tauri/)'
           area js '^(guest-js/|cli/|tools/|tests/[^/]+\.mjs$|tests/release/|package(-lock)?\.json$|tsconfig\.json$|examples/demo/)'
-          # iOS is the activitykit crate and the plugin's Rust on it: Cargo.lock holds activitykit's version.
-          area ios '^(src/|build\.rs$|Cargo\.(toml|lock)$|cli/|tests/ios/|examples/demo/(widget|app)/|examples/demo/src-tauri/)'
+          # iOS is the activitykit crate and the plugin's Rust on it (Cargo.lock holds activitykit's version), setup, and
+          # what the demo on the simulator is built from.
+          area ios '^(src/|build\.rs$|Cargo\.(toml|lock)$|cli/|guest-js/|package(-lock)?\.json$|tests/ios/|examples/demo/)'
           area android '^(android/|tests/android/|Cargo\.(toml|lock)$)'
           cat "$GITHUB_OUTPUT"
   # The specification against the tests, for every change: docs/spec.md may change alone.
@@ -86,6 +87,12 @@ jobs:
         run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt,clippy,llvm-tools-preview --target x86_64-apple-ios,aarch64-apple-ios
       - if: env.RUST == 'true' || env.IOS == 'true'
         run: rustup default 1.99.1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: env.RUST == 'true' || env.IOS == 'true'
+        with:
+          workspaces: |
+            . -> target
+            examples/demo/src-tauri -> target
       - if: env.JS == 'true'
         run: npm ci
       - if: env.JS == 'true'
@@ -99,8 +106,10 @@ jobs:
         run: cargo fmt --manifest-path examples/demo/src-tauri/Cargo.toml -- --check
       - if: env.RUST == 'true'
         run: cargo clippy --locked --all-targets -- -D warnings
-      - if: env.RUST == 'true'
-        run: cargo install cargo-llvm-cov --version 0.9.1 --locked
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        if: env.RUST == 'true'
+        with:
+          tool: cargo-llvm-cov@0.9.1
       - if: env.RUST == 'true'
         run: cargo llvm-cov --locked --summary-only --fail-under-lines 80
       - if: env.RUST == 'true'
@@ -115,6 +124,87 @@ jobs:
         run: npm pack --dry-run
       - if: env.RUST == 'true'
         run: cargo package --locked
+  # The demo app on an iOS Simulator (tests/ios/run.sh). The built demo and UI tests are cached under a key of what they
+  # are built from and the Xcode version, and an exact hit runs them with test-without-building. A pass is remembered
+  # under its inputs, the runner image and the Xcode version, so the merge commit of a tested pull request skips the
+  # suite; the job stays green either way.
+  e2e:
+    name: Demo on the iOS Simulator
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    runs-on: macos-15-intel
+    env:
+      BUILD_DIR: ${{ github.workspace }}/.ios-build
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The newest Xcode of the image, as activitykit's CI selects it.
+      - name: Select Xcode
+        id: xcode
+        run: |
+          xcode=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          echo "version=$(xcodebuild -version | tr -s ' \n' '-' | sed 's/-$//')" >> "$GITHUB_OUTPUT"
+      - name: Inputs of the demo and the UI tests
+        id: inputs
+        run: echo "hash=${{ hashFiles('Cargo.toml', 'Cargo.lock', 'build.rs', 'src/**', 'guest-js/**', 'package-lock.json', 'tsconfig.json', 'examples/demo/**', 'tests/ios/**', '!examples/demo/src-tauri/target/**') }}" >> "$GITHUB_OUTPUT"
+      - name: Earlier pass
+        id: passed
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .e2e-passed
+          key: e2e-passed-${{ env.ImageOS }}-${{ env.ImageVersion }}-${{ steps.xcode.outputs.version }}-${{ steps.inputs.outputs.hash }}
+          lookup-only: true
+      - if: steps.passed.outputs.cache-hit == 'true'
+        run: echo "The suite passed for these inputs on $ImageOS $ImageVersion with ${{ steps.xcode.outputs.version }}; skipped."
+      - name: Built demo and UI tests
+        id: built
+        if: steps.passed.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ios-build
+          key: ios-build-${{ env.ImageOS }}-${{ steps.xcode.outputs.version }}-${{ steps.inputs.outputs.hash }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.passed.outputs.cache-hit != 'true' && steps.built.outputs.cache-hit != 'true'
+        with:
+          node-version: '24'
+          cache: npm
+      - if: steps.passed.outputs.cache-hit != 'true' && steps.built.outputs.cache-hit != 'true'
+        run: |
+          npm ci
+          rustup toolchain install 1.99.1 --profile minimal --target x86_64-apple-ios
+          rustup default 1.99.1
+          brew install xcodegen
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: steps.passed.outputs.cache-hit != 'true' && steps.built.outputs.cache-hit != 'true'
+        with:
+          workspaces: examples/demo/src-tauri -> target
+          key: ios-simulator
+      - name: End to end on the simulator
+        if: steps.passed.outputs.cache-hit != 'true'
+        env:
+          REUSE: ${{ steps.built.outputs.cache-hit == 'true' && '1' || '' }}
+          OUTPUT: ${{ github.workspace }}/tests/ios/output
+        run: sh tests/ios/run.sh
+      - if: always() && steps.passed.outputs.cache-hit != 'true' && steps.built.outputs.cache-hit != 'true' && hashFiles('.ios-build/demo/live-activity-demo.app/Info.plist') != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ios-build
+          key: ios-build-${{ env.ImageOS }}-${{ steps.xcode.outputs.version }}-${{ steps.inputs.outputs.hash }}
+      - if: steps.passed.outputs.cache-hit != 'true'
+        run: mkdir -p .e2e-passed && date -u > .e2e-passed/passed
+      - if: steps.passed.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .e2e-passed
+          key: e2e-passed-${{ env.ImageOS }}-${{ env.ImageVersion }}-${{ steps.xcode.outputs.version }}-${{ steps.inputs.outputs.hash }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always() && steps.passed.outputs.cache-hit != 'true'
+        with:
+          name: ios-simulator
+          path: tests/ios/output
+          if-no-files-found: ignore
   android:
     name: Android unit tests and lint
     needs: changes
@@ -158,4 +248,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - run: rustup toolchain install 1.99.1 --profile minimal
       - run: rustup default 1.99.1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo test --locked

@@ -5,14 +5,14 @@ use serde_json::{Value as Json, json};
 
 fn apple() -> (Apple<FakeKit>, FakeKit) {
     let kit = FakeKit::default();
-    (Apple::new(kit.clone(), false), kit)
+    (Apple::new(kit.clone()), kit)
 }
 
 fn start_json(key: &str, tone: &str) -> Json {
     json!({"activityKey":key,"schemaVersion":2,"fallback":"notification",
         "layout":{"lockScreen":{"type":"text","bind":"status","style":"s"}},
         "styles":{"s":{"color":{"bind":"tone"}}},
-        "snapshot":{"revision":5,"values":{"status":"On time","tone":tone},"staleAt":1000},
+        "snapshot":{"revision":5,"values":{"status":"On time","tone":tone},"staleAt":1000,"timestamp":1_790_000_000_000u64},
         "android":{"visibility":"public"}})
 }
 
@@ -57,7 +57,7 @@ fn code<T: std::fmt::Debug>(result: Result<T>) -> String {
     result.unwrap_err().code
 }
 
-// TP-IOS-1, TP-IOS-8
+// TP-IOS-1, TP-IOS-7, TP-IOS-8
 #[test]
 fn a_layout_start_goes_to_activitykit_and_answers_a_v2_record() {
     let (apple, kit) = apple();
@@ -65,7 +65,7 @@ fn a_layout_start_goes_to_activitykit_and_answers_a_v2_record() {
     assert_eq!(
         serde_json::to_value(&record).unwrap(),
         json!({"id":"la-ios-layout-1","activityKey":"demo:1","schemaVersion":2,
-            "snapshot":{"revision":0,"values":{"status":"On time","tone":"green"},"staleAt":1000},
+            "snapshot":{"revision":5,"values":{"status":"On time","tone":"green"},"staleAt":1000,"timestamp":1_790_000_000_000u64},
             "backend":"activityKit","state":"active","visibility":"unknown","degradedFeatures":[],
             "promotionRequested":false,"promotionState":"notApplicable"})
     );
@@ -73,7 +73,15 @@ fn a_layout_start_goes_to_activitykit_and_answers_a_v2_record() {
     let [sent] = book.starts.as_slice() else {
         panic!("one start")
     };
-    assert_eq!((sent.key.as_str(), sent.stale_at), ("demo:1", Some(1000)));
+    assert_eq!(
+        (
+            sent.key.as_str(),
+            sent.revision,
+            sent.stale_at,
+            sent.timestamp
+        ),
+        ("demo:1", 5, Some(1000), Some(1_790_000_000_000))
+    );
     assert_eq!(sent.values.get("tone"), Some(&Value::Text("green".into())));
     let layout = serde_json::to_value(&sent.layout.lock_screen).unwrap();
     assert_eq!(layout, json!({"type":"text","bind":"status","style":"s"}));
@@ -94,12 +102,21 @@ fn a_layout_start_goes_to_activitykit_and_answers_a_v2_record() {
 
 // TP-IOS-2
 #[test]
-fn the_same_start_returns_the_running_activity_and_another_start_conflicts() {
+fn the_same_start_returns_the_running_activity_also_after_a_relaunch() {
     let (apple, kit) = apple();
     let first = block_on(apple.start_layout(start("demo:1", "green"))).unwrap();
-    let again = block_on(apple.start_layout(start("demo:1", "green"))).unwrap();
-    assert_eq!(again, first);
-    assert_eq!(kit.calls(), ["start demo:1"]);
+    // The same start made later carries another timestamp, which activitykit does not compare.
+    let mut later = start("demo:1", "green");
+    later.snapshot.timestamp = Some(1_790_000_000_500);
+    assert_eq!(
+        block_on(apple.start_layout(later.clone())).unwrap().id,
+        first.id
+    );
+    let relaunched = Apple::new(kit.relaunched());
+    assert_eq!(
+        block_on(relaunched.start_layout(later)).unwrap().id,
+        first.id
+    );
     assert_eq!(
         code(block_on(apple.start_layout(start("demo:1", "red")))),
         "CONFLICT"
@@ -107,72 +124,61 @@ fn the_same_start_returns_the_running_activity_and_another_start_conflicts() {
     block_on(apple.end_layout(end(&first.id, EndPolicy::Immediate {}, None))).unwrap();
     let fresh = block_on(apple.start_layout(start("demo:1", "green"))).unwrap();
     assert_ne!(fresh.id, first.id);
-    // After a relaunch the plugin does not know the start, and activitykit's fingerprint differs.
-    let later = Apple::new(kit.relaunched(), false);
-    assert_eq!(
-        code(block_on(later.start_layout(start("demo:1", "green")))),
-        "CONFLICT"
-    );
+    assert_eq!(kit.book().starts.len(), 2);
 }
 
 // TP-IOS-3, TP-IOS-7
 #[test]
-fn an_update_follows_the_revision_rules_and_activitykit_numbers_the_revision() {
+fn an_update_goes_out_at_the_requests_revision_under_activitykits_rules() {
     let (apple, kit) = apple();
     let id = block_on(apple.start_layout(start("demo:1", "green")))
         .unwrap()
         .id;
     let mut timed = update(&id, 7, "red");
-    timed.snapshot.timestamp = Some(1_790_000_000_000);
+    timed.snapshot.timestamp = Some(1_790_000_000_900);
     timed.snapshot.stale_at = Some(2000);
-    let record = block_on(apple.update_layout(timed)).unwrap();
-    assert_eq!(record.snapshot.revision, 1);
+    let record = block_on(apple.update_layout(timed.clone())).unwrap();
+    assert_eq!(
+        (record.snapshot.revision, record.snapshot.timestamp),
+        (7, Some(1_790_000_000_900))
+    );
     assert_eq!(record.snapshot.values["tone"], Value::Text("red".into()));
     assert_eq!(record.snapshot.stale_at, Some(2000));
-    {
-        let book = kit.book();
-        assert_eq!(
-            (book.updates[0].timestamp, book.updates[0].stale_at),
-            (Some(1_790_000_000_000), Some(2000))
-        );
-    }
-    let mut same = update(&id, 1, "red");
-    same.snapshot.stale_at = Some(2000);
     assert_eq!(
-        block_on(apple.update_layout(same))
+        kit.book().updates[0],
+        UpdateSpec {
+            values: timed.snapshot.values.clone().into(),
+            revision: 7,
+            stale_at: Some(2000),
+            timestamp: Some(1_790_000_000_900),
+        }
+    );
+    assert_eq!(
+        block_on(apple.update_layout(timed))
             .unwrap()
             .snapshot
             .revision,
-        1
+        7
     );
     assert_eq!(
-        kit.calls()
-            .iter()
-            .filter(|call| call.starts_with("update"))
-            .count(),
-        1
-    );
-    assert_eq!(
-        code(block_on(apple.update_layout(update(&id, 1, "green")))),
+        code(block_on(apple.update_layout(update(&id, 7, "green")))),
         "CONFLICT"
     );
     assert_eq!(
-        code(block_on(apple.update_layout(update(&id, 0, "green")))),
+        code(block_on(apple.update_layout(update(&id, 6, "green")))),
         "STALE_REVISION"
     );
+    let next = block_on(apple.update_layout(update(&id, 8, "green"))).unwrap();
     assert_eq!(
-        block_on(apple.update_layout(update(&id, 2, "green")))
-            .unwrap()
-            .snapshot
-            .revision,
-        2
+        (next.snapshot.revision, next.snapshot.timestamp),
+        (8, Some(2_000))
     );
-    assert_eq!(kit.book().updates[1].timestamp, None);
+    assert_eq!(kit.book().updates[2].timestamp, None);
 }
 
 // TP-IOS-4, TP-IOS-6
 #[test]
-fn an_unknown_or_ended_activity_is_not_found_and_a_relaunch_finds_it_in_the_list() {
+fn an_unknown_or_ended_activity_is_not_found_and_a_relaunch_finds_it_by_its_id() {
     let (apple, kit) = apple();
     assert_eq!(
         code(block_on(apple.update_layout(update(
@@ -182,52 +188,44 @@ fn an_unknown_or_ended_activity_is_not_found_and_a_relaunch_finds_it_in_the_list
         )))),
         "NOT_FOUND"
     );
+    assert_eq!(
+        code(block_on(apple.end_layout(end(
+            "missing",
+            EndPolicy::Default {},
+            None
+        )))),
+        "NOT_FOUND"
+    );
     let id = block_on(apple.start_layout(start("demo:1", "green")))
         .unwrap()
         .id;
-    block_on(apple.update_layout(update(&id, 1, "red"))).unwrap();
-    let later = Apple::new(kit.relaunched(), false);
+    block_on(apple.update_layout(update(&id, 6, "red"))).unwrap();
+    let later = Apple::new(kit.relaunched());
     let listed = block_on(later.list_layout()).unwrap();
-    assert_eq!((listed.len(), listed[0].snapshot.revision), (1, 1));
-    let fresh = Apple::new(kit.relaunched(), false);
+    assert_eq!((listed.len(), listed[0].snapshot.revision), (1, 6));
     assert_eq!(
-        block_on(fresh.update_layout(update(&id, 2, "green")))
+        block_on(later.update_layout(update(&id, 7, "green")))
             .unwrap()
             .snapshot
             .revision,
-        2
+        7
     );
     kit.set_state(&id, State::Ended);
     assert_eq!(
-        code(block_on(apple.update_layout(update(&id, 3, "red")))),
+        code(block_on(apple.update_layout(update(&id, 8, "red")))),
         "NOT_FOUND"
     );
-    // A handle that only an event named is looked up in the list first.
-    let (other, other_kit) = super::tests::apple();
-    let started = block_on(other.start_layout(start("demo:2", "green"))).unwrap();
-    let blind = Apple::new(other_kit.clone(), false);
-    blind.remember(&other_kit.handle(&started.id, "demo:2"));
-    assert_eq!(
-        block_on(blind.update_layout(update(&started.id, 1, "red")))
-            .unwrap()
-            .snapshot
-            .revision,
-        1
-    );
-    assert_eq!(
-        other_kit.calls().last().unwrap(),
-        &format!("update {}", started.id)
-    );
+    assert!(kit.calls().contains(&format!("activity {id}")));
 }
 
 // TP-IOS-5
 #[test]
-fn an_end_sends_its_policy_and_its_final_content_and_ending_again_answers() {
+fn an_end_sends_its_policy_and_its_final_content_at_its_revision_and_ending_again_answers() {
     let (apple, kit) = apple();
     let id = block_on(apple.start_layout(start("demo:1", "green")))
         .unwrap()
         .id;
-    let mut last = snapshot(1, "gray");
+    let mut last = snapshot(9, "gray");
     last.timestamp = Some(5);
     let record = block_on(apple.end_layout(end(
         &id,
@@ -237,7 +235,10 @@ fn an_end_sends_its_policy_and_its_final_content_and_ending_again_answers() {
         Some(last),
     )))
     .unwrap();
-    assert_eq!(record.state, ActivityState::Ended);
+    assert_eq!(
+        (record.state, record.snapshot.revision),
+        (ActivityState::Ended, 9)
+    );
     assert_eq!(record.snapshot.values["tone"], Value::Text("gray".into()));
     let again = block_on(apple.end_layout(end(&id, EndPolicy::Immediate {}, None))).unwrap();
     assert_eq!(again.state, ActivityState::Ended);
@@ -249,22 +250,25 @@ fn an_end_sends_its_policy_and_its_final_content_and_ending_again_answers() {
         }
     );
     assert_eq!(
-        (
-            book.ends[0].timestamp,
-            book.ends[0].values.as_ref().map(|values| values.len())
-        ),
-        (Some(5), Some(2))
+        (book.ends[0].timestamp, book.ends[0].revision),
+        (Some(5), Some(9))
     );
     assert_eq!(
-        (book.ends[1].policy.clone(), book.ends[1].values.clone()),
-        (EndPolicy::Immediate {}, None)
+        book.ends[1],
+        EndSpec {
+            policy: EndPolicy::Immediate {},
+            values: None,
+            revision: None,
+            stale_at: None,
+            timestamp: None
+        }
     );
     drop(book);
     let id = block_on(apple.start_layout(start("demo:2", "green")))
         .unwrap()
         .id;
-    block_on(apple.update_layout(update(&id, 1, "red"))).unwrap();
-    let stale = Some(snapshot(0, "gray"));
+    block_on(apple.update_layout(update(&id, 6, "red"))).unwrap();
+    let stale = Some(snapshot(5, "gray"));
     assert_eq!(
         code(block_on(apple.end_layout(end(
             &id,
@@ -273,7 +277,7 @@ fn an_end_sends_its_policy_and_its_final_content_and_ending_again_answers() {
         )))),
         "STALE_REVISION"
     );
-    let other = Some(snapshot(1, "gray"));
+    let other = Some(snapshot(6, "gray"));
     assert_eq!(
         code(block_on(apple.end_layout(end(
             &id,
@@ -285,16 +289,44 @@ fn an_end_sends_its_policy_and_its_final_content_and_ending_again_answers() {
     let kept = block_on(apple.end_layout(end(&id, EndPolicy::Default {}, None))).unwrap();
     assert_eq!(
         (kept.snapshot.revision, kept.snapshot.values["tone"].clone()),
-        (2, Value::Text("red".into()))
+        (7, Value::Text("red".into()))
+    );
+}
+
+// TP-IOS-5
+#[test]
+fn an_activity_that_ended_at_once_answers_a_second_end_after_the_system_drops_it() {
+    let (apple, kit) = apple();
+    let ended = |id: &str| end(id, EndPolicy::Immediate {}, None);
+    let id = block_on(apple.start_layout(start("demo:1", "green")))
+        .unwrap()
+        .id;
+    block_on(apple.end_layout(ended(&id))).unwrap();
+    assert!(!kit.listed(&id));
+    let again = block_on(apple.end_layout(ended(&id))).unwrap();
+    assert_eq!(
+        (again.id.as_str(), again.state, again.snapshot.revision),
+        (id.as_str(), ActivityState::Ended, 6)
     );
     assert_eq!(
-        code(block_on(apple.end_layout(end(
-            "missing",
-            EndPolicy::Default {},
-            None
-        )))),
+        code(block_on(apple.update_layout(update(&id, 5, "red")))),
         "NOT_FOUND"
     );
+    // A later launch keeps no handle of it, and activitykit 0.1 finds an id only through one or the system's list.
+    let relaunched = Apple::new(kit.relaunched());
+    assert_eq!(
+        code(block_on(relaunched.end_layout(ended(&id)))),
+        "NOT_FOUND"
+    );
+    // The plugin keeps the handles of the last ENDED_KEPT ends.
+    for n in 0..ENDED_KEPT {
+        let other = block_on(apple.start_layout(start(&format!("demo:n{n}"), "green")))
+            .unwrap()
+            .id;
+        block_on(apple.end_layout(ended(&other))).unwrap();
+        block_on(apple.end_layout(ended(&other))).unwrap();
+    }
+    assert_eq!(code(block_on(apple.end_layout(ended(&id)))), "NOT_FOUND");
 }
 
 // TP-IOS-11, TP-IOS-12
@@ -314,9 +346,10 @@ fn a_broken_request_never_reaches_activitykit_and_activitykit_errors_keep_their_
         block_on(apple.start_layout(heavy)),
         Err(Error::payload_too_large())
     );
-    let crimson = update("la-ios-layout-1", 1, "crimson");
-    assert_eq!(code(block_on(apple.update_layout(crimson))), "NOT_FOUND");
-    assert_eq!(kit.calls(), ["list"]);
+    let mut late = update("la-ios-layout-1", 1, "red");
+    late.snapshot.timestamp = Some(8_640_000_000_000_001);
+    assert_eq!(block_on(apple.update_layout(late)), Err(Error::invalid()));
+    assert!(kit.calls().is_empty());
     for error in [
         Kit::NotForeground("ActivityKit refused the start: visibility".into()),
         Kit::PermissionDenied("Live Activities are turned off".into()),
@@ -334,48 +367,39 @@ fn a_broken_request_never_reaches_activitykit_and_activitykit_errors_keep_their_
             Err(Error::from(error))
         );
     }
+    kit.fail_next(Kit::Native("ActivityKit failed".into()));
+    assert_eq!(
+        code(block_on(apple.update_layout(update(
+            "la-ios-layout-1",
+            1,
+            "red"
+        )))),
+        "NATIVE_ERROR"
+    );
 }
 
 // TP-IOS-13
 #[test]
-fn redacted_receipts_stop_every_write_and_leave_the_lists() {
-    let kit = FakeKit::default();
-    let apple = Apple::new(kit.clone(), true);
+fn redacted_receipts_in_the_configuration_build_the_kit_with_redacted_receipts() {
+    let config = |value: Json| serde_json::from_value::<Option<Config>>(value).unwrap();
     assert_eq!(
-        code(block_on(apple.start_layout(start("demo:1", "green")))),
-        "CONFIGURATION_REQUIRED"
+        receipts(config(json!({"receipts":"redacted"})).as_ref()),
+        activitykit::Receipts::Redacted
     );
     assert_eq!(
-        code(block_on(apple.update_layout(update("a", 1, "red")))),
-        "CONFIGURATION_REQUIRED"
+        receipts(config(json!({"receipts":"full"})).as_ref()),
+        activitykit::Receipts::Full
     );
     assert_eq!(
-        code(block_on(apple.end_layout(end(
-            "a",
-            EndPolicy::Default {},
-            None
-        )))),
-        "CONFIGURATION_REQUIRED"
+        receipts(config(json!({"android":{}})).as_ref()),
+        activitykit::Receipts::Full
     );
-    assert_eq!(
-        code(block_on(apple.start_template(progress("job:1", 0, 0.1)))),
-        "CONFIGURATION_REQUIRED"
-    );
-    assert_eq!(
-        code(block_on(
-            apple.update_template(template_update("a", 1, 0.2))
-        )),
-        "CONFIGURATION_REQUIRED"
-    );
-    let ended = serde_json::from_value(json!({"id":"a","policy":{"kind":"immediate"}})).unwrap();
-    assert_eq!(
-        code(block_on(apple.end_template(ended))),
-        "CONFIGURATION_REQUIRED"
-    );
-    assert_eq!(block_on(apple.list_layout()), Ok(vec![]));
-    assert_eq!(block_on(apple.list_templates()), Ok(vec![]));
-    assert_eq!(kit.calls(), ["list", "list"]);
-    assert!(redacted().message.contains("receipts"));
+    assert_eq!(receipts(None), activitykit::Receipts::Full);
+    // Off iOS activitykit takes the settings, and every call answers Unsupported.
+    let kit = activitykit::ActivityKit::builder()
+        .receipts(receipts(config(json!({"receipts":"redacted"})).as_ref()))
+        .build();
+    assert!(kit.is_ok());
 }
 
 // TP-IOS-9, TP-IOS-10, TP-IOS-15
@@ -500,18 +524,18 @@ fn a_template_activity_starts_updates_ends_and_lists_as_contract_v1() {
         record
     );
     let id = record.id;
-    let updated = block_on(apple.update_template(template_update(&id, 1, 0.5))).unwrap();
+    let updated = block_on(apple.update_template(template_update(&id, 3, 0.5))).unwrap();
     assert_eq!(
         (updated.snapshot.revision, updated.snapshot.progress),
-        (1, Some(0.5))
+        (3, Some(0.5))
     );
     assert_eq!(
-        block_on(apple.update_template(template_update(&id, 1, 0.5))).unwrap(),
+        block_on(apple.update_template(template_update(&id, 3, 0.5))).unwrap(),
         updated
     );
     assert_eq!(
         code(block_on(
-            apple.update_template(template_update(&id, 1, 0.9))
+            apple.update_template(template_update(&id, 3, 0.9))
         )),
         "CONFLICT"
     );
@@ -521,18 +545,25 @@ fn a_template_activity_starts_updates_ends_and_lists_as_contract_v1() {
         )),
         "STALE_REVISION"
     );
-    let timer = serde_json::from_value(json!({"id":id,"snapshot":{"revision":2,"title":"Job","status":"Running","timer":{"startedAt":1,"endsAt":2}}})).unwrap();
+    let timer = serde_json::from_value(json!({"id":id,"snapshot":{"revision":4,"title":"Job","status":"Running","timer":{"startedAt":1,"endsAt":2}}})).unwrap();
     assert_eq!(
         block_on(apple.update_template(timer)),
         Err(Error::invalid())
     );
-    assert_eq!(block_on(apple.list_templates()).unwrap(), [updated]);
+    assert_eq!(
+        block_on(apple.list_templates()).unwrap(),
+        std::slice::from_ref(&updated)
+    );
     let ending =
         serde_json::from_value::<EndInput>(json!({"id":id,"policy":{"kind":"immediate"}})).unwrap();
     let ended = block_on(apple.end_template(ending.clone())).unwrap();
     assert_eq!(
-        (ended.state, ended.snapshot.progress),
-        (ActivityState::Ended, Some(0.5))
+        (
+            ended.state,
+            ended.snapshot.progress,
+            ended.snapshot.revision
+        ),
+        (ActivityState::Ended, Some(0.5), 4)
     );
     assert_eq!(
         block_on(apple.end_template(ending)).unwrap().state,
@@ -540,7 +571,7 @@ fn a_template_activity_starts_updates_ends_and_lists_as_contract_v1() {
     );
     assert_eq!(
         code(block_on(
-            apple.update_template(template_update(&id, 3, 0.5))
+            apple.update_template(template_update(&id, 5, 0.5))
         )),
         "NOT_FOUND"
     );
@@ -566,7 +597,7 @@ fn the_two_contract_versions_do_not_see_each_others_activities() {
     );
     assert_eq!(
         code(block_on(
-            apple.update_template(template_update(&layout.id, 1, 0.5))
+            apple.update_template(template_update(&layout.id, 6, 0.5))
         )),
         "NOT_FOUND"
     );
@@ -591,7 +622,7 @@ fn the_two_contract_versions_do_not_see_each_others_activities() {
     );
 }
 
-// TP-ACTION-1, TP-ACTION-3
+// TP-ACTION-1
 #[test]
 fn a_tap_names_the_action_the_activity_and_its_key() {
     let kit = FakeKit::default();

@@ -1,9 +1,10 @@
 //! The iOS backend: the plugin's commands on activitykit.
 //!
 //! It is generic over [`Kit`], which `activitykit::ActivityKit` implements on iOS (`crate::ios`) and a fake implements
-//! in the tests, so that what the plugin adds to activitykit runs on the host too: the revision rules of contract v2,
-//! the lookup of a handle by its id, the repeated start, the records, and the progress and timer templates of
-//! contract v1, which become layout activities ([`template`]).
+//! in the tests, so that what the plugin adds to activitykit runs on the host too: the records, the separation of the
+//! two contract versions, and the progress and timer templates of contract v1, which become layout activities
+//! ([`template`]). Revisions, repeated starts and lookups by id are activitykit's; the plugin keeps the handles of the
+//! activities it ended, so that ending one again still reaches activitykit after the system stops listing it.
 
 pub(crate) mod template;
 
@@ -13,7 +14,7 @@ mod fake;
 mod tests;
 
 use crate::{
-    Error, Result,
+    Config, Error, Receipts, Result,
     layout::{
         ActionEvent, LayoutActivityRecord, LayoutEndInput, LayoutSnapshot, LayoutStartInput,
         LayoutUpdateInput,
@@ -23,10 +24,10 @@ use crate::{
 };
 use activitykit::{State, Values};
 use std::{
-    collections::HashMap,
+    collections::VecDeque,
     future::Future,
     pin::pin,
-    sync::{Arc, Mutex, MutexGuard, PoisonError},
+    sync::{Arc, Mutex, PoisonError},
     task::{Context, Poll, Wake, Waker},
     thread,
 };
@@ -39,6 +40,11 @@ pub(crate) trait Kit: Send + Sync + 'static {
         &self,
         start: StartSpec,
     ) -> impl Future<Output = activitykit::Result<Self::Handle>> + Send;
+    /// The activity `id`, or `None` when ActivityKit does not know it.
+    fn activity(
+        &self,
+        id: &str,
+    ) -> impl Future<Output = activitykit::Result<Option<Self::Handle>>> + Send;
     fn activities(&self) -> impl Future<Output = activitykit::Result<Vec<Self::Handle>>> + Send;
     fn write_image(&self, name: &str, png: &[u8]) -> activitykit::Result<()>;
 }
@@ -51,6 +57,7 @@ pub(crate) trait Handle: Clone + Send + Sync + 'static {
     fn values(&self) -> Values;
     fn revision(&self) -> Option<u64>;
     fn stale_at(&self) -> Option<u64>;
+    fn timestamp(&self) -> Option<u64>;
     fn degraded_features(&self) -> Vec<String>;
     fn update(&self, update: UpdateSpec) -> impl Future<Output = activitykit::Result<()>> + Send;
     fn end(&self, end: EndSpec) -> impl Future<Output = activitykit::Result<()>> + Send;
@@ -64,28 +71,32 @@ pub(crate) struct Authorization {
     pub(crate) buttons: bool,
 }
 
-/// A start: activitykit's `Start` with a key and a stale date.
+/// A start: activitykit's `Start` with a key, a revision, a stale date and a timestamp.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct StartSpec {
     pub(crate) key: String,
     pub(crate) layout: activitykit::Layout,
     pub(crate) values: Values,
-    pub(crate) stale_at: Option<u64>,
-}
-
-/// An update: activitykit's `Update` with a stale date and a timestamp.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct UpdateSpec {
-    pub(crate) values: Values,
+    pub(crate) revision: u64,
     pub(crate) stale_at: Option<u64>,
     pub(crate) timestamp: Option<u64>,
 }
 
-/// An end: activitykit's `End` with its policy and the final content, when given.
+/// An update: activitykit's `Update` at the caller's revision, with a stale date and a timestamp.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct UpdateSpec {
+    pub(crate) values: Values,
+    pub(crate) revision: u64,
+    pub(crate) stale_at: Option<u64>,
+    pub(crate) timestamp: Option<u64>,
+}
+
+/// An end: activitykit's `End` with its policy and, when given, the final content and its revision.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct EndSpec {
     pub(crate) policy: EndPolicy,
     pub(crate) values: Option<Values>,
+    pub(crate) revision: Option<u64>,
     pub(crate) stale_at: Option<u64>,
     pub(crate) timestamp: Option<u64>,
 }
@@ -107,66 +118,27 @@ impl Kind {
     }
 }
 
-/// What a snapshot's revision asks for, against the accepted one.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Revision {
-    Send,
-    Same,
-    Stale,
-    Conflict,
-}
-
-/// The repeated start: the request of a start of this launch, by its key, and the activity it started.
-struct Started {
-    request: LayoutStartInput,
-    id: String,
-}
+/// How many ended activities the plugin keeps a handle of.
+const ENDED_KEPT: usize = 64;
 
 pub(crate) struct Apple<K: Kit> {
     kit: K,
-    /// Every handle this launch has seen, by id: started, listed, or named by an event.
-    handles: Mutex<HashMap<String, K::Handle>>,
-    starts: Mutex<HashMap<String, Started>>,
-    /// `receipts: "redacted"` in the plugin configuration.
-    redacted: bool,
-}
-
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+    /// The handles of the last [`ENDED_KEPT`] activities that this launch ended, oldest first. activitykit finds an
+    /// id through a handle alive in the process, else through the system's list, which an activity that ended at once
+    /// soon leaves: a kept handle lets a repeated end reach activitykit's record of it, and a late update its refusal.
+    ended: Mutex<VecDeque<K::Handle>>,
 }
 
 fn not_found() -> Error {
     Error::new("NOT_FOUND", "No active activity has this handle.")
 }
 
-fn stale() -> Error {
-    Error::new(
-        "STALE_REVISION",
-        "The revision is older than the current activity state.",
-    )
-}
-
-fn conflict() -> Error {
-    Error::new(
-        "CONFLICT",
-        "This revision already contains different state.",
-    )
-}
-
-fn redacted() -> Error {
-    Error::new(
-        "CONFIGURATION_REQUIRED",
-        "Redacted receipts are not available on iOS with this version: remove receipts from the plugin configuration",
-    )
-}
-
-/// An activity that is or may still become visible.
-fn live(state: State) -> bool {
-    matches!(state, State::Pending | State::Active | State::Stale)
-}
-
-fn ended(state: State) -> bool {
-    matches!(state, State::Ended | State::Dismissed)
+/// What activitykit keeps of each accepted content, from `receipts` of the plugin configuration.
+pub(crate) fn receipts(config: Option<&Config>) -> activitykit::Receipts {
+    match config.and_then(|config| config.receipts) {
+        Some(Receipts::Redacted) => activitykit::Receipts::Redacted,
+        _ => activitykit::Receipts::Full,
+    }
 }
 
 fn state(state: State) -> ActivityState {
@@ -177,16 +149,6 @@ fn state(state: State) -> ActivityState {
         State::Ended => ActivityState::Ended,
         State::Dismissed => ActivityState::Dismissed,
         _ => ActivityState::Unknown,
-    }
-}
-
-/// The revision rules of contract v2 for a snapshot at `sent`, against the `accepted` revision and its content.
-fn revision(sent: u64, accepted: Option<u64>, same: bool) -> Revision {
-    match accepted {
-        Some(accepted) if sent < accepted => Revision::Stale,
-        Some(accepted) if sent == accepted && same => Revision::Same,
-        Some(accepted) if sent == accepted => Revision::Conflict,
-        _ => Revision::Send,
     }
 }
 
@@ -213,7 +175,7 @@ fn layout_record<H: Handle>(handle: &H) -> LayoutActivityRecord {
             revision: handle.revision().unwrap_or(0),
             values: handle.values().into_inner(),
             stale_at: handle.stale_at(),
-            timestamp: None,
+            timestamp: handle.timestamp(),
         },
         backend: Backend::ActivityKit,
         state: state(handle.state()),
@@ -242,13 +204,39 @@ fn template_record<H: Handle>(handle: &H) -> Option<ActivityRecord> {
     })
 }
 
+fn update_spec(snapshot: LayoutSnapshot) -> UpdateSpec {
+    UpdateSpec {
+        values: snapshot.values.into(),
+        revision: snapshot.revision,
+        stale_at: snapshot.stale_at,
+        timestamp: snapshot.timestamp,
+    }
+}
+
+fn end_spec(policy: EndPolicy, snapshot: Option<LayoutSnapshot>) -> EndSpec {
+    match snapshot {
+        Some(snapshot) => EndSpec {
+            policy,
+            values: Some(snapshot.values.into()),
+            revision: Some(snapshot.revision),
+            stale_at: snapshot.stale_at,
+            timestamp: snapshot.timestamp,
+        },
+        None => EndSpec {
+            policy,
+            values: None,
+            revision: None,
+            stale_at: None,
+            timestamp: None,
+        },
+    }
+}
+
 impl<K: Kit> Apple<K> {
-    pub(crate) fn new(kit: K, redacted: bool) -> Self {
+    pub(crate) fn new(kit: K) -> Self {
         Self {
             kit,
-            handles: Mutex::default(),
-            starts: Mutex::default(),
-            redacted,
+            ended: Mutex::default(),
         }
     }
 
@@ -314,11 +302,6 @@ impl<K: Kit> Apple<K> {
         Ok(self.kit.write_image(name, png)?)
     }
 
-    /// Keeps a handle that an event named, so that a later command finds it without a list.
-    pub(crate) fn remember(&self, handle: &K::Handle) {
-        lock(&self.handles).insert(handle.id().to_owned(), handle.clone());
-    }
-
     pub(crate) async fn start_layout(
         &self,
         input: LayoutStartInput,
@@ -332,25 +315,24 @@ impl<K: Kit> Apple<K> {
         input: LayoutUpdateInput,
     ) -> Result<LayoutActivityRecord> {
         input.validate()?;
-        self.writable()?;
-        let handle = self.find(&input.id, Kind::is_layout, false).await?;
-        self.update(&handle, input.snapshot).await?;
+        let handle = self.find(&input.id, Kind::is_layout).await?;
+        handle.update(update_spec(input.snapshot)).await?;
         Ok(layout_record(&handle))
     }
 
     pub(crate) async fn end_layout(&self, input: LayoutEndInput) -> Result<LayoutActivityRecord> {
         input.validate()?;
-        self.writable()?;
-        let handle = self.find(&input.id, Kind::is_layout, true).await?;
-        self.end(&handle, input.policy, input.snapshot).await?;
+        let handle = self.find(&input.id, Kind::is_layout).await?;
+        handle.end(end_spec(input.policy, input.snapshot)).await?;
+        self.keep_ended(&handle);
         Ok(layout_record(&handle))
     }
 
     pub(crate) async fn list_layout(&self) -> Result<Vec<LayoutActivityRecord>> {
-        let handles = self.refresh().await?;
+        let handles = self.kit.activities().await?;
         Ok(handles
             .iter()
-            .filter(|handle| kind(*handle) == Kind::Layout)
+            .filter(|handle| kind(*handle).is_layout())
             .map(layout_record)
             .collect())
     }
@@ -365,155 +347,65 @@ impl<K: Kit> Apple<K> {
 
     pub(crate) async fn update_template(&self, input: UpdateInput) -> Result<ActivityRecord> {
         input.validate()?;
-        self.writable()?;
         let (template, snapshot) = template::layout_snapshot(&input.snapshot);
-        let handle = self.find(&input.id, Kind::is_template, false).await?;
+        let handle = self.find(&input.id, Kind::is_template).await?;
         // The other template's fields would change the keys of the start.
         if kind(&handle) != Kind::Template(template) {
             return Err(Error::invalid());
         }
-        self.update(&handle, snapshot).await?;
+        handle.update(update_spec(snapshot)).await?;
         template_record(&handle).ok_or_else(Error::native)
     }
 
     pub(crate) async fn end_template(&self, input: EndInput) -> Result<ActivityRecord> {
         input.validate()?;
-        self.writable()?;
-        let handle = self.find(&input.id, Kind::is_template, true).await?;
-        self.end(&handle, input.policy, None).await?;
+        let handle = self.find(&input.id, Kind::is_template).await?;
+        handle.end(end_spec(input.policy, None)).await?;
+        self.keep_ended(&handle);
         template_record(&handle).ok_or_else(Error::native)
     }
 
     pub(crate) async fn list_templates(&self) -> Result<Vec<ActivityRecord>> {
-        let handles = self.refresh().await?;
+        let handles = self.kit.activities().await?;
         Ok(handles.iter().filter_map(template_record).collect())
     }
 
-    fn writable(&self) -> Result<()> {
-        if self.redacted {
-            Err(redacted())
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Starts `request`, or returns the activity that the same request started in this launch while it runs.
-    /// activitykit's own check of a repeated start covers the content's timestamp, which differs on every start.
     async fn start(&self, request: LayoutStartInput) -> Result<K::Handle> {
-        self.writable()?;
-        if let Some(handle) = self.running(&request) {
-            return Ok(handle);
-        }
         let layout = activitykit::Layout {
-            lock_screen: request.layout.lock_screen.clone(),
-            island: request.layout.island.clone(),
-            background: request.layout.background.clone(),
-            keyline: request.layout.keyline.clone(),
-            styles: request.styles.clone().unwrap_or_default(),
+            lock_screen: request.layout.lock_screen,
+            island: request.layout.island,
+            background: request.layout.background,
+            keyline: request.layout.keyline,
+            styles: request.styles.unwrap_or_default(),
         };
         let start = StartSpec {
-            key: request.activity_key.clone(),
+            key: request.activity_key,
             layout,
-            values: request.snapshot.values.clone().into(),
+            values: request.snapshot.values.into(),
+            revision: request.snapshot.revision,
             stale_at: request.snapshot.stale_at,
+            timestamp: request.snapshot.timestamp,
         };
-        let handle = self.kit.start(start).await?;
-        self.remember(&handle);
-        let started = Started {
-            request,
-            id: handle.id().to_owned(),
-        };
-        lock(&self.starts).insert(started.request.activity_key.clone(), started);
-        Ok(handle)
+        Ok(self.kit.start(start).await?)
     }
 
-    fn running(&self, request: &LayoutStartInput) -> Option<K::Handle> {
-        let starts = lock(&self.starts);
-        let started = starts
-            .get(&request.activity_key)
-            .filter(|started| started.request == *request)?;
-        let handle = lock(&self.handles).get(&started.id).cloned()?;
-        live(handle.state()).then_some(handle)
-    }
-
-    /// The handle `id` of the version `wanted` takes: one this launch knows, or else one that activitykit lists. An
-    /// ended activity is not found, unless `ended_too`: ending it again answers its record, as activitykit does.
-    async fn find(&self, id: &str, wanted: fn(Kind) -> bool, ended_too: bool) -> Result<K::Handle> {
-        let known = lock(&self.handles).get(id).cloned();
-        let handle = match known {
-            // A handle that only an event named has no values yet, so its version is unknown.
-            Some(handle) if handle.revision().is_some() => handle,
-            _ => {
-                self.refresh().await?;
-                lock(&self.handles).get(id).cloned().ok_or_else(not_found)?
-            }
-        };
-        if !wanted(kind(&handle)) || (ended(handle.state()) && !ended_too) {
-            return Err(not_found());
+    fn keep_ended(&self, handle: &K::Handle) {
+        let mut ended = self.ended.lock().unwrap_or_else(PoisonError::into_inner);
+        if ended.iter().any(|kept| kept.id() == handle.id()) {
+            return;
         }
-        Ok(handle)
-    }
-
-    async fn refresh(&self) -> Result<Vec<K::Handle>> {
-        let handles = self.kit.activities().await?;
-        let mut known = lock(&self.handles);
-        for handle in &handles {
-            known.insert(handle.id().to_owned(), handle.clone());
+        if ended.len() == ENDED_KEPT {
+            ended.pop_front();
         }
-        Ok(handles)
+        ended.push_back(handle.clone());
     }
 
-    fn same(handle: &K::Handle, snapshot: &LayoutSnapshot) -> bool {
-        *handle.values() == snapshot.values && handle.stale_at() == snapshot.stale_at
-    }
-
-    async fn update(&self, handle: &K::Handle, snapshot: LayoutSnapshot) -> Result<()> {
-        match revision(
-            snapshot.revision,
-            handle.revision(),
-            Self::same(handle, &snapshot),
-        ) {
-            Revision::Stale => Err(stale()),
-            Revision::Conflict => Err(conflict()),
-            Revision::Same => Ok(()),
-            Revision::Send => {
-                let update = UpdateSpec {
-                    values: snapshot.values.into(),
-                    stale_at: snapshot.stale_at,
-                    timestamp: snapshot.timestamp,
-                };
-                Ok(handle.update(update).await?)
-            }
+    /// The activity `id`, when activitykit knows it and it belongs to the contract version that `wanted` takes.
+    async fn find(&self, id: &str, wanted: fn(Kind) -> bool) -> Result<K::Handle> {
+        match self.kit.activity(id).await? {
+            Some(handle) if wanted(kind(&handle)) => Ok(handle),
+            _ => Err(not_found()),
         }
-    }
-
-    async fn end(
-        &self,
-        handle: &K::Handle,
-        policy: EndPolicy,
-        snapshot: Option<LayoutSnapshot>,
-    ) -> Result<()> {
-        let mut end = EndSpec {
-            policy,
-            values: None,
-            stale_at: None,
-            timestamp: None,
-        };
-        if let Some(snapshot) = snapshot {
-            match revision(
-                snapshot.revision,
-                handle.revision(),
-                Self::same(handle, &snapshot),
-            ) {
-                Revision::Stale => return Err(stale()),
-                Revision::Conflict => return Err(conflict()),
-                Revision::Same | Revision::Send => {}
-            }
-            end.values = Some(snapshot.values.into());
-            end.stale_at = snapshot.stale_at;
-            end.timestamp = snapshot.timestamp;
-        }
-        Ok(handle.end(end).await?)
     }
 }
 

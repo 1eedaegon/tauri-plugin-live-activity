@@ -1,26 +1,36 @@
-//! A kit that answers as activitykit does, in memory: activitykit numbers the revisions (the next write sends the
-//! accepted one plus one), an update of an ended activity is `NOT_FOUND`, an end without values ends with the last
-//! ones, ending again answers the activity, and a second start under a running key is `CONFLICT` even with the same
-//! content, because activitykit's fingerprint of a start covers the content's timestamp.
+//! A kit that answers as activitykit 0.1 does, in memory. A write at a revision is taken when the revision is higher
+//! than the accepted one, answered as done when it equals it with the same content, and refused when lower
+//! (`STALE_REVISION`) or equal with other content (`CONFLICT`); an end without a revision ends at the next one with the
+//! last values. A repeated keyed start with the same content, whatever its timestamp, returns the running activity,
+//! and one with other content is `CONFLICT`. An update of an ended activity is `NOT_FOUND`; ending again is fine.
+//!
+//! As on iOS, an activity that ends at once leaves the system's list (here at once, the losing side of the race), and
+//! `activity(id)` finds an id through a handle that is alive in the process, else through the list.
 
 use super::{Authorization, EndSpec, Handle, Kit, StartSpec, UpdateSpec};
 use activitykit::{Error, State, Values};
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, MutexGuard, Weak},
+};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Entry {
     pub(crate) id: String,
-    pub(crate) key: String,
+    pub(crate) start: StartSpec,
     pub(crate) state: State,
     pub(crate) values: Values,
     pub(crate) revision: u64,
     pub(crate) stale_at: Option<u64>,
+    pub(crate) timestamp: Option<u64>,
+    /// Whether the system lists it.
+    pub(crate) listed: bool,
 }
 
 #[derive(Default)]
 pub(crate) struct Book {
     pub(crate) entries: Vec<Entry>,
-    /// Every call, as `start key`, `update id`, `end id`, `list`, `image name`.
+    /// Every call that reached the kit: `start key`, `activity id`, `update id`, `end id`, `list`, `image name`.
     pub(crate) calls: Vec<String>,
     pub(crate) starts: Vec<StartSpec>,
     pub(crate) updates: Vec<UpdateSpec>,
@@ -28,6 +38,16 @@ pub(crate) struct Book {
     /// The answer of the next call instead of its result.
     pub(crate) fail: Option<Error>,
     pub(crate) authorization: Option<Authorization>,
+    /// The handles alive in this process, by id; they share one token, as activitykit's share their state.
+    alive: HashMap<String, Weak<()>>,
+}
+
+impl Book {
+    fn alive(&self, id: &str) -> bool {
+        self.alive
+            .get(id)
+            .is_some_and(|token| token.strong_count() > 0)
+    }
 }
 
 #[derive(Clone, Default)]
@@ -38,10 +58,29 @@ pub(crate) struct FakeHandle {
     id: String,
     key: String,
     book: Arc<Mutex<Book>>,
+    _alive: Arc<()>,
+}
+
+/// The handle of `id`, which shares the token of a handle alive in the process.
+fn adopt(book: &Arc<Mutex<Book>>, guard: &mut Book, id: &str, key: &str) -> FakeHandle {
+    let token = match guard.alive.get(id).and_then(Weak::upgrade) {
+        Some(token) => token,
+        None => {
+            let token = Arc::new(());
+            guard.alive.insert(id.to_owned(), Arc::downgrade(&token));
+            token
+        }
+    };
+    FakeHandle {
+        id: id.to_owned(),
+        key: key.to_owned(),
+        book: book.clone(),
+        _alive: token,
+    }
 }
 
 impl FakeKit {
-    pub(crate) fn book(&self) -> std::sync::MutexGuard<'_, Book> {
+    pub(crate) fn book(&self) -> MutexGuard<'_, Book> {
         self.0.lock().unwrap()
     }
 
@@ -62,28 +101,68 @@ impl FakeKit {
             .for_each(|entry| entry.state = state);
     }
 
+    /// Whether the system lists the activity `id`.
+    pub(crate) fn listed(&self, id: &str) -> bool {
+        self.book()
+            .entries
+            .iter()
+            .any(|entry| entry.id == id && entry.listed)
+    }
+
     /// A kit of a later launch: the same activities, no handles of this launch.
     pub(crate) fn relaunched(&self) -> Self {
-        let book = self.book();
+        let entries = self.book().entries.clone();
         Self(Arc::new(Mutex::new(Book {
-            entries: book.entries.clone(),
+            entries,
             ..Book::default()
         })))
     }
 
     /// The handle that an event would give: activitykit's tap names the activity's key.
     pub(crate) fn handle(&self, id: &str, key: &str) -> FakeHandle {
-        FakeHandle {
-            id: id.to_owned(),
-            key: key.to_owned(),
-            book: self.0.clone(),
-        }
+        adopt(&self.0, &mut self.book(), id, key)
     }
 }
 
 fn take(book: &mut Book, call: String) -> Result<(), Error> {
     book.calls.push(call);
     book.fail.take().map_or(Ok(()), Err)
+}
+
+fn live(state: State) -> bool {
+    matches!(state, State::Active | State::Stale | State::Pending)
+}
+
+/// A start's content, as a repeated keyed start compares it: everything but the timestamp.
+fn content(start: &StartSpec) -> StartSpec {
+    StartSpec {
+        timestamp: None,
+        ..start.clone()
+    }
+}
+
+/// Swift's rules for content at `revision` against `entry`: `Ok(true)` to take it, `Ok(false)` when it is done.
+fn takes(
+    entry: &Entry,
+    revision: u64,
+    values: &Values,
+    stale_at: Option<u64>,
+) -> Result<bool, Error> {
+    if revision < entry.revision {
+        return Err(Error::StaleRevision(
+            "The revision is older than the current activity state.".into(),
+        ));
+    }
+    if revision > entry.revision {
+        return Ok(true);
+    }
+    if *values == entry.values && stale_at == entry.stale_at {
+        Ok(false)
+    } else {
+        Err(Error::Conflict(
+            "This revision already contains different state.".into(),
+        ))
+    }
 }
 
 impl Kit for FakeKit {
@@ -105,28 +184,51 @@ impl Kit for FakeKit {
         async move {
             let mut guard = book.lock().unwrap();
             take(&mut guard, format!("start {}", start.key))?;
-            let running = guard.entries.iter().any(|entry| {
-                entry.key == start.key
-                    && matches!(entry.state, State::Active | State::Stale | State::Pending)
-            });
-            if running {
-                return Err(Error::Conflict(
-                    "An activity with this key already exists with different input.".into(),
-                ));
+            let key = start.key.clone();
+            let running = guard
+                .entries
+                .iter()
+                .find(|entry| entry.start.key == key && live(entry.state));
+            if let Some(running) = running {
+                if content(&running.start) != content(&start) {
+                    return Err(Error::Conflict(
+                        "An activity with this key already exists with different input.".into(),
+                    ));
+                }
+                let id = running.id.clone();
+                return Ok(adopt(&book, &mut guard, &id, &key));
             }
             let id = format!("la-ios-layout-{}", guard.entries.len() + 1);
             guard.entries.push(Entry {
                 id: id.clone(),
-                key: start.key.clone(),
+                start: start.clone(),
                 state: State::Active,
                 values: start.values.clone(),
-                revision: 0,
+                revision: start.revision,
                 stale_at: start.stale_at,
+                timestamp: Some(start.timestamp.unwrap_or(1_000)),
+                listed: true,
             });
-            let key = start.key.clone();
             guard.starts.push(start);
-            drop(guard);
-            Ok(FakeHandle { id, key, book })
+            Ok(adopt(&book, &mut guard, &id, &key))
+        }
+    }
+
+    fn activity(
+        &self,
+        id: &str,
+    ) -> impl Future<Output = activitykit::Result<Option<FakeHandle>>> + Send {
+        let (book, id) = (self.0.clone(), id.to_owned());
+        async move {
+            let mut guard = book.lock().unwrap();
+            take(&mut guard, format!("activity {id}"))?;
+            let alive = guard.alive(&id);
+            let key = guard
+                .entries
+                .iter()
+                .find(|entry| entry.id == id && (alive || entry.listed))
+                .map(|entry| entry.start.key.clone());
+            Ok(key.map(|key| adopt(&book, &mut guard, &id, &key)))
         }
     }
 
@@ -138,16 +240,12 @@ impl Kit for FakeKit {
             let named: Vec<(String, String)> = guard
                 .entries
                 .iter()
-                .map(|entry| (entry.id.clone(), entry.key.clone()))
+                .filter(|entry| entry.listed)
+                .map(|entry| (entry.id.clone(), entry.start.key.clone()))
                 .collect();
-            drop(guard);
             Ok(named
-                .into_iter()
-                .map(|(id, key)| FakeHandle {
-                    id,
-                    key,
-                    book: book.clone(),
-                })
+                .iter()
+                .map(|(id, key)| adopt(&book, &mut guard, id, key))
                 .collect())
         }
     }
@@ -194,6 +292,10 @@ impl Handle for FakeHandle {
         self.entry().and_then(|entry| entry.stale_at)
     }
 
+    fn timestamp(&self) -> Option<u64> {
+        self.entry().and_then(|entry| entry.timestamp)
+    }
+
     fn degraded_features(&self) -> Vec<String> {
         Vec::new()
     }
@@ -211,9 +313,12 @@ impl Handle for FakeHandle {
                     "The activity is no longer available.".into(),
                 ));
             };
-            entry.revision += 1;
-            entry.values = update.values.clone();
-            entry.stale_at = update.stale_at;
+            if takes(entry, update.revision, &update.values, update.stale_at)? {
+                entry.revision = update.revision;
+                entry.values = update.values.clone();
+                entry.stale_at = update.stale_at;
+                entry.timestamp = Some(update.timestamp.unwrap_or(2_000));
+            }
             guard.updates.push(update);
             Ok(())
         }
@@ -230,10 +335,15 @@ impl Handle for FakeHandle {
                 ));
             };
             if !matches!(entry.state, State::Ended | State::Dismissed) {
-                entry.revision += 1;
-                entry.values = end.values.clone().unwrap_or_else(|| entry.values.clone());
+                let values = end.values.clone().unwrap_or_else(|| entry.values.clone());
+                let revision = end.revision.unwrap_or(entry.revision + 1);
+                takes(entry, revision, &values, end.stale_at).map(|_| ())?;
+                entry.revision = revision;
+                entry.values = values;
                 entry.stale_at = end.stale_at;
+                entry.timestamp = Some(end.timestamp.unwrap_or(3_000));
                 entry.state = State::Ended;
+                entry.listed = !matches!(end.policy, crate::models::EndPolicy::Immediate {});
             }
             guard.ends.push(end);
             Ok(())

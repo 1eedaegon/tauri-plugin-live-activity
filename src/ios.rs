@@ -2,7 +2,7 @@
 //! plugin has no Swift of its own; the logic it adds is `crate::apple`, generic over the [`Kit`] implemented here.
 
 use crate::{
-    Config, Error, Receipts, Result,
+    Config, Error, Result,
     actions::{self, ACTION_EVENT, Actions},
     apple::{self, Apple, Authorization, EndSpec, Handle, Kit, StartSpec, UpdateSpec},
     layout::{
@@ -10,7 +10,9 @@ use crate::{
     },
     models::*,
 };
-use activitykit::{Activity, ActivityKit, End, Event, Start, State, Update, Values};
+use activitykit::{
+    Acknowledgement, Activity, ActivityKit, End, Event, Start, State, Update, Values,
+};
 use std::{
     future::Future,
     marker::PhantomData,
@@ -41,11 +43,23 @@ impl Kit for ActivityKit {
     }
 
     fn start(&self, spec: StartSpec) -> impl Future<Output = activitykit::Result<Activity>> + Send {
-        let mut start = Start::new(spec.layout, spec.values).key(spec.key);
+        let mut start = Start::new(spec.layout, spec.values)
+            .key(spec.key)
+            .revision(spec.revision);
         if let Some(at) = spec.stale_at {
             start = start.stale_at(time(at));
         }
+        if let Some(at) = spec.timestamp {
+            start = start.timestamp(time(at));
+        }
         self.start_with(start)
+    }
+
+    fn activity(
+        &self,
+        id: &str,
+    ) -> impl Future<Output = activitykit::Result<Option<Activity>>> + Send {
+        ActivityKit::activity(self, id)
     }
 
     fn activities(&self) -> impl Future<Output = activitykit::Result<Vec<Activity>>> + Send {
@@ -82,12 +96,16 @@ impl Handle for Activity {
         Activity::stale_at(self).and_then(millis)
     }
 
+    fn timestamp(&self) -> Option<u64> {
+        Activity::timestamp(self).and_then(millis)
+    }
+
     fn degraded_features(&self) -> Vec<String> {
         Activity::degraded_features(self)
     }
 
     fn update(&self, spec: UpdateSpec) -> impl Future<Output = activitykit::Result<()>> + Send {
-        let mut update = Update::new(spec.values);
+        let mut update = Update::new(spec.values).revision(spec.revision);
         if let Some(at) = spec.stale_at {
             update = update.stale_at(time(at));
         }
@@ -106,6 +124,9 @@ impl Handle for Activity {
         if let Some(values) = spec.values {
             end = end.values(values);
         }
+        if let Some(revision) = spec.revision {
+            end = end.revision(revision);
+        }
         if let Some(at) = spec.stale_at {
             end = end.stale_at(time(at));
         }
@@ -116,37 +137,48 @@ impl Handle for Activity {
     }
 }
 
-/// Creates activitykit's kit early, at plugin setup: a tap that launched the app waits for it. One thread reads its
-/// events from then on and hands every tap to the handlers of `on_action` and then to JavaScript.
+/// Lets a tap's intent go when dropped: the dispatcher drops it once the `on_action` handlers have run and the tap went
+/// to JavaScript.
+struct Release(Acknowledgement);
+
+impl Drop for Release {
+    fn drop(&mut self) {
+        self.0.acknowledge();
+    }
+}
+
+/// Creates activitykit's kit early, at plugin setup, with the receipts of the plugin configuration: a tap that launched
+/// the app waits for it. One thread reads its events from then on and hands every tap, with its acknowledgement, to the
+/// handlers of `on_action` and then to JavaScript.
 pub(crate) fn init<R: Runtime>(
     app: &AppHandle<R>,
     api: PluginApi<R, Option<Config>>,
 ) -> Result<LiveActivity<R>> {
-    let redacted =
-        api.config().as_ref().and_then(|config| config.receipts) == Some(Receipts::Redacted);
-    let kit = ActivityKit::new();
-    let apple = Arc::new(Apple::new(kit.clone(), redacted));
+    let kit = ActivityKit::builder()
+        .receipts(apple::receipts(api.config().as_ref()))
+        .build()?;
+    let apple = Arc::new(Apple::new(kit.clone()));
     let app = app.clone();
     let actions = actions::spawn(move |event| {
         let _ = app.emit(ACTION_EVENT, event);
     })?;
     let events = kit.events();
-    let (listener, taps) = (apple.clone(), actions.clone());
+    let taps = actions.clone();
     thread::Builder::new()
         .name("live-activity-events".into())
         .spawn(move || {
             while let Ok(event) = events.recv_blocking() {
-                match event {
-                    Event::Action {
-                        activity, action, ..
-                    } => {
-                        listener.remember(&activity);
-                        taps.tap(apple::action_event(&activity, action));
-                    }
-                    Event::Started { activity, .. } | Event::State { activity, .. } => {
-                        listener.remember(&activity)
-                    }
-                    _ => {}
+                if let Event::Action {
+                    activity,
+                    action,
+                    acknowledgement,
+                    ..
+                } = event
+                {
+                    taps.tap(
+                        apple::action_event(&activity, action),
+                        Release(acknowledgement),
+                    );
                 }
             }
         })
@@ -215,7 +247,9 @@ impl<R: Runtime> LiveActivity<R> {
     ///
     /// Register handlers on the built `App`, before `App::run`, or in the setup of a plugin, and not in
     /// `Builder::setup`: when the system launches the app in the background for a tap, `Builder::setup` may never
-    /// run. activitykit lets the tap's intent return once the plugin has taken the tap, at most 4 seconds after it.
+    /// run. The tap's intent, and so an app that the system launched for it, waits until the handlers registered at
+    /// the time of the tap have run and the tap has gone to JavaScript, for at most 4 seconds. JavaScript listeners are
+    /// not awaited.
     pub fn on_action(&self, handler: impl Fn(ActionEvent) + Send + Sync + 'static) {
         self.actions.subscribe(handler);
     }

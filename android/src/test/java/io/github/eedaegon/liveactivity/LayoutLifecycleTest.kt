@@ -10,7 +10,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class LayoutLifecycleTest {
-    private val request = LayoutInput.start(JSONObject("""{"activityKey":"fremen:session","schemaVersion":2,"fallback":"notification",
+    private val request = LayoutInput.start(JSONObject("""{"activityKey":"app:session","schemaVersion":2,"fallback":"notification",
         "layout":{"lockScreen":{"type":"vstack","children":[{"type":"text","bind":"title"},{"type":"symbol","name":"mic"},
         {"type":"button","actionId":"stop","child":{"type":"text","value":"Stop"}}]}},"snapshot":{"revision":0,"values":{"title":"Listening","n":1}}}"""))
     private fun snapshot(revision: Long, title: String = "Listening", n: Double = 1.0) = LayoutSnapshot(revision, mapOf("title" to title, "n" to n), null)
@@ -98,7 +98,7 @@ class LayoutLifecycleTest {
             override fun cancel(id: String) {}
         })
         val v2 = LayoutEngine(MemoryLayoutStore(), FakeLayoutPort())
-        val template = v1.start(StartRequest("fremen:session", 1, "progress", "notification", Snapshot(0, "Title", "Status", 0.5, null, null)))
+        val template = v1.start(StartRequest("app:session", 1, "progress", "notification", Snapshot(0, "Title", "Status", 0.5, null, null)))
         val layout = v2.start(request)
         assertEquals("NOT_FOUND", code { v1.end(layout.id, "immediate") })
         assertEquals("NOT_FOUND", code { v2.end(template.id, "immediate") })

@@ -248,10 +248,9 @@ notification's large icon. Layout, styles and values still share 3584.
 
 - iOS: an iPhone with iOS 16.2 or an iPad with iPadOS 17; buttons need iOS 17. An activity starts only while the
   app is in the foreground (`NOT_FOREGROUND` otherwise), and the system ends it after 8 hours.
-- iOS keeps each activity's last values in plain text in the app's Application Support. `receipts: "redacted"` is
-  not available on iOS yet: with it, starts, updates and ends fail with `CONFIGURATION_REQUIRED`.
-- On iOS activitykit numbers the revisions: an update with a higher revision than the record's is sent as the
-  record's plus one.
+- iOS keeps each activity's last values in plain text in the app's Application Support, unless the plugin
+  configuration sets `"receipts": "redacted"`.
+- A button's tap waits for your Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.
 - No push updates. Android shows an ongoing notification, promoted to a Live Update where the system allows it.
 
 ## Samsung Now Bar

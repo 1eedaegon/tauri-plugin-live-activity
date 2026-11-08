@@ -39,8 +39,9 @@ it under **The request**. Starting an example ends the other examples first.
 - The project was written by hand, the way the [iOS integration guide](../../docs/ios-integration.md)
   describes; `setup` leaves a project that already has a widget extension alone.
 - Button taps are handled in Rust ([src-tauri/src/actions.rs](src-tauri/src/actions.rs)),
-  so they also work while the page is not running: `pet` counts a pet, `done` and
-  `wake` end the activity. The page only reports the tap.
+  so they also work while the page is not running: `pet` counts a pet, after a pause of a
+  second that the tap's intent waits for, and `done` and `wake` end the activity. The page only
+  reports the tap.
 - `tauri.conf.json` turns on `android.samsungNowBar`.
 
 From the repository root:
@@ -83,10 +84,17 @@ The script creates an iPhone 17 Pro simulator of its own, builds the demo for it
 `tauri ios build --debug`, installs it and runs the UI tests of
 [tests/ios/DemoUITests](../../tests/ios/DemoUITests): a bound style on the Lock Screen, a
 Lock Screen button that reaches Rust and the page, `listLayout` after a relaunch, the lifecycle
-test, and the snack and nap templates on the Lock Screen. It copies the screenshots to
-`tests/ios/output` and deletes the simulator and the build afterwards. It needs Xcode, XcodeGen
-and cargo with the iOS simulator target of your Mac.
-`ONLY=DemoTests/test2LockScreenButtonReachesRustAndJavaScript tests/ios/run.sh` runs one test.
+test, the snack and nap templates on the Lock Screen, and a tap that launches the app in the
+background for the slow `pet` handler. It copies the screenshots to `tests/ios/output` and deletes
+the simulator and the build afterwards. It needs Xcode, XcodeGen and cargo with the iOS simulator
+target of your Mac.
+
+- `ONLY=DemoTests/test2LockScreenButtonReachesRustAndJavaScript tests/ios/run.sh` runs one test.
+- `MODE=dev tests/ios/run.sh` lets `tauri ios dev` build, install and serve the demo instead, and
+  runs the layout, button and relaunch tests on it, and the one where the demo, launched with
+  `--start-buttons`, starts the Buttons example from Rust.
+- `BUILD_DIR=<folder>` keeps the built demo and UI tests, and `REUSE=1` runs them again without
+  building, as CI does on a cache hit.
 
 ## Unit tests
 

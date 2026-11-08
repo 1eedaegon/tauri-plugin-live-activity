@@ -567,9 +567,11 @@ app.live_activity().on_action(move |event| {
 app.run(|_, _| {});
 ```
 
-Rust handlers run first, on a plugin thread, and may call the plugin. `onAction` needs
-`core:event:default`, which a new app has. On iOS the tap's intent returns once the plugin has
-taken the tap, before the handlers have run.
+Rust handlers run first, on a plugin thread, and may call the plugin. The tap's intent, and so an
+app that the system launched for the tap, waits until they have run and the tap has gone to
+JavaScript, at most 4 seconds. `onAction` listeners are not awaited: a webview handler is
+asynchronous, and does not run while the web view is suspended or was never created. Act on a tap
+in Rust when it must not be lost. `onAction` needs `core:event:default`, which a new app has.
 
 <table>
   <tr><th></th><th>iOS 26.3 simulator</th><th>Android 16 emulator</th></tr>
@@ -698,22 +700,20 @@ What was found about the Now Bar on One UI 9 is in [Android setup](android-integ
 Every update sends the whole snapshot with a higher revision. A lower revision fails with `STALE_REVISION`; the
 same revision answers the record when the values are the same, and fails with `CONFLICT` when they differ.
 
-On iOS activitykit numbers the revisions. A start is revision 0, whatever its snapshot says, and an update with a
-revision above the accepted one goes out as the accepted one plus one, which the record reports. Count from the
-record, as the demo does:
+The revision goes out as sent, on iOS as on Android. Count from the record, as the demo does:
 
 ```ts
 let record = await startLayout(request);
 record = await updateLayout({ id: record.id, snapshot: { revision: record.snapshot.revision + 1, values } });
 ```
 
-While an activity runs under a key, the same start returns it and a different start fails with `CONFLICT`. On iOS
-this holds while the app runs; after a relaunch the same start fails with `CONFLICT` too, because activitykit compares
-the content's time. Call `listLayout()` at launch to find the activities that still run.
+While an activity runs under a key, the same start returns it, also after a relaunch, and a different start fails with
+`CONFLICT`. Call `listLayout()` at launch to find the activities that still run.
 
 A snapshot may carry a `timestamp`, the time its content was made, in Unix milliseconds. ActivityKit uses it from
 iOS 17.2 to drop content older than what the activity shows: such an update still succeeds, but the activity keeps
-the newer content. Without one, iOS takes the time the content is sent, and a start's content is always timed then.
+the newer content. Without one, iOS takes the time the content is sent. iOS records carry the timestamp of the
+accepted content.
 Android keeps the timestamp in the record; the iOS record leaves it out.
 
 An end can carry final content:
@@ -749,8 +749,9 @@ app.live_activity().end_layout(LayoutEndInput { id, policy: EndPolicy::Default {
   `after` until the given time or four hours after the end, whichever comes first; a time in the past removes it at
   once. Android removes the notification on every end and answers `after` with `UNSUPPORTED_FEATURE`; the final
   content is in the record.
-- Ending again answers the record; an update after the end fails with `NOT_FOUND`. The v1 `end` takes no final
-  content.
+- Ending again answers the record; an update after the end fails with `NOT_FOUND`. On iOS, after a relaunch, ending
+  again an activity that ended at once, and that the system no longer lists, fails with `NOT_FOUND`. The v1 `end`
+  takes no final content.
 
 A record's `state` is `pending`, `active`, `stale`, `ended`, `dismissed` or `unknown`. `pending` is iOS 26's state of
 a scheduled start, which the plugin does not make. Rust's `ActivityState` may gain states: match it with a `_` arm.
@@ -1097,10 +1098,10 @@ capture is of 0.3's demo widget too.
 - `receipts`: on iOS activitykit keeps a receipt of each accepted request in the app's
   Application Support (`activitykit/receipts-v2.json`), so that a late ActivityKit read cannot
   bring back an older revision, also after a restart. A receipt holds the last accepted values
-  in plain text. `full`, the default, is the only mode iOS has in 0.4: activitykit has no
-  redacted receipts yet, so with `redacted` starts, updates and ends fail with
-  `CONFIGURATION_REQUIRED`, while lists still answer. Android ignores the option for now and
-  stores records in full in app-private preferences.
+  in plain text with `full`, the default. `redacted` keeps a SHA-256 digest of each accepted
+  content instead; after a relaunch a list then gives the values that ActivityKit shows. A digest
+  of guessable values can be guessed, and ActivityKit keeps the values in the activity's content.
+  Android ignores the option for now and stores records in full in app-private preferences.
 - `android.samsungNowBar`: the [Samsung Now Bar](#samsung-now-bar) extras; off when absent.
 
 ## Try the demo

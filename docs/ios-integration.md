@@ -112,10 +112,11 @@ the button's label without the button.
 A tap runs activitykit's `ActivityKitActionIntent`, a `LiveActivityIntent`, in the app process. When the app was not
 running, the system launches it in the background. The intent posts the tap to activitykit's bridge for at most 5
 seconds. The plugin creates its `ActivityKit` at plugin setup and reads its events on a thread of its own from then
-on; once the plugin has taken the tap, activitykit lets the intent return (at most 4 seconds after the tap), before
-the handlers have run. The plugin then calls every `on_action` handler on a plugin thread, one tap after another, and
-emits `live-activity://action` with `{ actionId, activityId, activityKey? }` for `onAction` listeners. Taps that come
-before the first handler wait for it, the newest 16.
+on. It calls every `on_action` handler on a plugin thread, one tap after another, emits `live-activity://action` with
+`{ actionId, activityId, activityKey? }` for `onAction` listeners, and only then lets go of the tap's acknowledgement:
+the intent, and so an app that the system launched for the tap, waits for the Rust handlers, at most 4 seconds after
+the tap. `onAction` listeners are not awaited; a webview handler is asynchronous and may not run at all while the web
+view is suspended. Taps that come before the first handler wait for it, the newest 16, but their intent does not.
 
 - Register `on_action` handlers on the built `App` before `App::run`, or in the setup of a plugin, and not in
   `Builder::setup`: when the system launches the app for a tap, Tauri may never run it, and may create no web view
@@ -141,15 +142,14 @@ only for `writeImage`. Live Activities are a switch in the system's Settings, an
 - A start needs the app in the foreground. ActivityKit refuses a start from the background, which answers
   `NOT_FOREGROUND`; a start right after the app left the foreground may still succeed.
 - The system ends an activity after 8 hours and removes it from the Lock Screen after 12.
-- activitykit numbers the revisions. A start is revision 0, whatever its snapshot says. An update below the accepted
-  revision is `STALE_REVISION`; at the accepted revision it answers the record when the values and the stale date are
-  the same, without sending anything, and `CONFLICT` otherwise; above it, it goes out as the accepted revision plus
-  one, which the record reports. Count from the record.
-- While an activity of a key runs, a different start under the key answers `CONFLICT`. The same start returns the
-  running activity's record while the app runs; after a relaunch it answers `CONFLICT` too, because activitykit
-  compares the content's time as well. Call `listLayout()` at launch to find the running activity. After an end the
-  key starts a new activity with a new id.
-- Commands find an activity by its id among those this launch has seen, or else in activitykit's list. An id that
+- Every start, update and end goes out at the request's revision, as in 0.3. activitykit's Swift layer takes a higher
+  revision than the accepted one, answers the accepted one with the same values and stale date as done, and refuses a
+  lower one (`STALE_REVISION`) or the accepted one with other values (`CONFLICT`). An end without a snapshot ends at
+  the next revision with the last values.
+- While an activity of a key runs, the same start returns it, also after a relaunch (activitykit compares the content
+  without its timestamp), and a different start under the key answers `CONFLICT`. After an end the key starts a new
+  activity with a new id.
+- Commands find an activity by its id through activitykit, which asks ActivityKit when it has no handle. An id that
   neither knows answers `NOT_FOUND`, and so does an update of an ended activity.
 - A snapshot's `timestamp` goes to activitykit as the content's time; without one activitykit takes the time it sends
   the content, and a start's content is always timed then. From iOS 17.2 ActivityKit drops content older than what it
@@ -170,7 +170,9 @@ End policies:
 `endLayout` takes final content in `snapshot`, checked as an update: `STALE_REVISION` below the accepted revision,
 `CONFLICT` at it with other values, `INVALID_INPUT` for other keys or types. Without `snapshot` the activity ends
 with its last accepted values at the next revision, so the record's revision is one higher. Ending again answers the
-record. The v1 `end` takes no final content.
+record, also once the system no longer lists an activity that ended at once: the plugin keeps the handles of the last
+64 activities it ended in this launch. After a relaunch such an activity is `NOT_FOUND`. The v1 `end` takes no final
+content.
 
 ## Receipts
 
@@ -180,9 +182,11 @@ also after a restart. A receipt holds the activity's key and its last accepted v
 readable by the app only and protected until the first unlock after a restart. Leave out of activities what must not
 rest on the device in plain text.
 
-`receipts: "redacted"` in the plugin configuration is not available on iOS in 0.4: activitykit has no redacted receipts
-yet. With it, starts, updates and ends answer `CONFIGURATION_REQUIRED`; lists, capabilities and permissions still
-answer. Android ignores the option.
+With `receipts: "redacted"` in the plugin configuration the plugin builds activitykit with redacted receipts, which keep
+a SHA-256 digest of each accepted content instead of its values. After a relaunch, `listLayout()` then gives the values
+that ActivityKit shows. A digest of guessable values can be guessed, and ActivityKit itself keeps the values in the
+activity's content. activitykit's settings hold for the whole process: when the app builds activitykit itself with
+other receipts first, the plugin's setup fails. Android ignores the option.
 
 0.4 does not read 0.3's receipts (`tauri-live-activity/receipts-v2.json`) and does not list activities that 0.3
 started.
@@ -229,8 +233,7 @@ that holds the value `liveActivityTemplate` with `progress` or `timer` is taken 
    is gone, and so is the `cargo check` that prepared it.
 3. Code: `endLayout` and `end_layout` take `LayoutEndInput` (`snapshot` is optional), a Rust `LayoutSnapshot` literal
    needs `timestamp: None`, a `match` on `ActivityState` needs a `_` arm, and a start may fail with `NOT_FOREGROUND`.
-4. Remove `receipts: "redacted"` from the plugin configuration.
-5. Write the images of `writeImage` again; 0.4 reads them from `activitykit/images`.
+4. Write the images of `writeImage` again; 0.4 reads them from `activitykit/images`.
 
 An app whose widget extension `setup` left alone does the same by hand: replace the plugin's Swift package and its
 products (`LiveActivityShared`, `LiveActivityUI`) with activitykit's, draw with `ActivityKitLayoutWidget()`, delete
@@ -240,8 +243,8 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
 
 ## Testing
 
-- `cargo test` runs the plugin's iOS logic on the host, against a fake of activitykit: revisions, lookups, repeated
-  starts, records, templates, redacted receipts and taps.
+- `cargo test` runs the plugin's iOS logic on the host, against a fake of activitykit: what each command sends, the
+  records, the templates, the receipts setting, and a tap held until a slow handler has run.
 - `ACTIVITYKIT_SKIP_SWIFT=1 cargo clippy --target aarch64-apple-ios --lib` checks the iOS code without building
   activitykit's Swift. `cargo build --target x86_64-apple-ios --lib` builds it with the Swift bridge, which needs
   Xcode. CI runs both.
@@ -261,6 +264,20 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
   copies the screenshots to `tests/ios/output` (or `$OUTPUT`), then deletes the simulator and the build. It needs
   Xcode, XcodeGen, Node with the repository's npm packages, and cargo with the iOS simulator target of this Mac. The
   archive step after the build needs a signing team and may fail; the simulator needs only the build.
+- `MODE=dev tests/ios/run.sh` lets `tauri ios dev` build, install, launch and serve the demo on the simulator, and
+  runs the layout, button and relaunch tests through its page, then launches it with `--start-buttons`, where Rust
+  starts the Buttons example and a tap on Pet Mochi reaches the Rust handler. Three things about Tauri CLI 2.12.4 have
+  nothing to do with Live Activities:
+  - `tauri ios dev --no-watch` ends once it has launched the app, and its server for the page ends with it: the page
+    then shows `Failed to request http://127.0.0.1:1430/`. Run it without `--no-watch`.
+  - With an iPhone connected, `tauri ios dev <simulator name>` takes the iPhone when no iPhone has that name. The
+    script hides connected iPhones from Tauri (`xcrun devicectl` and `ios-deploy`) for its run; disconnect them, or
+    name the device you mean, when you run `tauri ios dev` yourself.
+  - After the simulator build Tauri archives the app and installs the archive's copy; on an Intel Mac that archive is
+    a device build, which needs a signing team (`bundle > iOS > developmentTeam` or `APPLE_DEVELOPMENT_TEAM`). The
+    script answers the archive with the simulator build itself.
+- `BUILD_DIR=<folder>` keeps the built demo and UI tests and `REUSE=1` runs them again with `test-without-building`,
+  as CI does on a cache hit. The simulator destination names its architecture.
 
 The Swift layer's own tests (its validators, the lifecycle and receipts, the C bridge and a test host on a simulator)
 are activitykit's ([testing](https://github.com/1eedaegon/activitykit-rs/blob/main/docs/testing.md)). 0.3's
