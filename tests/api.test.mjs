@@ -207,6 +207,12 @@ for (const [name, build, expected] of [
   });
 }
 
+test('layout.bind writes the binding of a style member and nothing else', () => {
+  assert.deepEqual(layout.bind('tone'), { bind: 'tone' });
+  assert.deepEqual(Object.keys(layout.bind('')), ['bind']);
+  assert.notEqual(layout.bind('tone'), layout.bind('tone'));
+});
+
 test('layout builders omit options that were not given or are undefined', () => {
   assert.deepEqual(Object.keys(layout.vstack([])), ['type', 'children']);
   assert.deepEqual(layout.spacer({}), { type: 'spacer' });
@@ -308,11 +314,14 @@ const rebuilder = builders => {
   return rebuild;
 };
 const mapValues = (object, map) => Object.fromEntries(Object.entries(object).map(([key, value]) => [key, map(value, key)]));
-const rebuildLayout = ({ lockScreen, island, ...tints }, rebuild) => ({
+// A bound member is written again with `bind`, a literal as it is.
+const rebind = (member, bind) => (typeof member === 'object' && 'bind' in member ? bind(member.bind) : member);
+const rebuildLayout = ({ lockScreen, island, ...tints }, rebuild, bind) => ({
   lockScreen: rebuild(lockScreen),
   ...(island && { island: mapValues(island, (part, key) => (key === 'expanded' ? mapValues(part, rebuild) : rebuild(part))) }),
-  ...tints,
+  ...mapValues(tints, tint => rebind(tint, bind)),
 });
+const rebuildStyles = (styles, bind) => mapValues(styles, style => mapValues(style, member => rebind(member, bind)));
 
 test('layout builders reproduce every node of every valid fixture layout', async () => {
   const used = new Set();
@@ -320,10 +329,43 @@ test('layout builders reproduce every node of every valid fixture layout', async
     used.add(name);
     return build(...given);
   }));
+  const bind = key => {
+    used.add('bind');
+    return layout.bind(key);
+  };
   await each(starts, ({ input }) => {
-    assert.deepEqual(rebuildLayout(input.layout, rebuild), input.layout);
+    assert.deepEqual(rebuildLayout(input.layout, rebuild, bind), input.layout);
+    if (input.styles) assert.deepEqual(rebuildStyles(input.styles, bind), input.styles);
   });
   assert.deepEqual([...used].sort(), Object.keys(layout).sort());
+});
+
+test('sends the start and the update of every update fixture unchanged', async () => {
+  assert.notEqual(fixtures.updates.length, 0);
+  await each(fixtures.updates, async ({ start, update }) => {
+    const calls = [];
+    mockIPC((nativeCommand, payload) => {
+      calls.push({ nativeCommand, payload });
+      return layoutRecord;
+    });
+    await activity.startLayout(deepFreeze(structuredClone(start)));
+    await activity.updateLayout(deepFreeze(structuredClone(update)));
+    assert.deepEqual(calls, [
+      { nativeCommand: 'plugin:live-activity|start_layout', payload: { input: start } },
+      { nativeCommand: 'plugin:live-activity|update_layout', payload: { input: update } },
+    ]);
+  });
+});
+
+test('layout.bind writes the styles of the fixture that accepts every bindable style member bound at once', () => {
+  const { bind } = layout;
+  const named = starts.find(candidate => candidate.name === 'accepts every bindable style member bound at once');
+  assert.deepEqual({
+    s: {
+      size: bind('size'), weight: bind('weight'), color: bind('tone'), background: bind('fill'), cornerRadius: bind('radius'),
+      opacity: bind('alpha'), tint: bind('accent'),
+    },
+  }, named.input.styles);
 });
 
 for (const [name, build] of [

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import fixtures from './fixtures/layout-requests.json' with { type: 'json' };
 import v1Fixtures from './fixtures/requests.json' with { type: 'json' };
-import { validateRequest, weight } from '../tools/validate-request.mjs';
+import { validateLayoutUpdate, validateRequest, weight } from '../tools/validate-request.mjs';
 
 const LOCK = '/input/layout/lockScreen';
 const ISLAND = '/input/layout/island';
@@ -16,6 +16,9 @@ const layout = (tree, values = {}, rest = {}) => ({
   input: { activityKey: 'demo:1', schemaVersion: 2, fallback: 'none', layout: tree, snapshot: { revision: 0, values }, ...rest },
 });
 const start = (lockScreen, values, rest) => layout({ lockScreen }, values, rest);
+const COLOR = 'must name a color value';
+/** A literal text in the style `s`. */
+const styled = (style, values) => start({ type: 'text', value: 'a', style: 's' }, values, { styles: { s: style } });
 const update = (values) => ({ command: 'update_layout', input: { id: 'opaque-handle-1', snapshot: { revision: 1, values } } });
 const text = (value = 'a', rest = {}) => ({ type: 'text', value, ...rest });
 const stack = (children) => ({ type: 'vstack', children });
@@ -33,9 +36,11 @@ const weigh = ({ layout: tree, styles = {}, snapshot }) => (tree ? weight(tree) 
 const codeOf = (result) => (result.issues.some(({ message }) => message === WEIGHT_MESSAGE) ? 'PAYLOAD_TOO_LARGE' : 'INVALID_INPUT');
 
 test('fixture names are unique and every start and update states its weight', () => {
-  const cases = [...fixtures.valid, ...fixtures.invalid];
+  const cases = [...fixtures.valid, ...fixtures.invalid, ...fixtures.updates];
   assert.equal(new Set(cases.map(({ name }) => name)).size, cases.length);
   for (const { name, command, weight: stated } of fixtures.valid) assert.equal(Number.isInteger(stated), command !== 'end_layout', name);
+  assert.ok(fixtures.updates.length >= 20);
+  for (const { name, weight: stated, code } of fixtures.updates) assert.equal(Number.isInteger(stated), code === undefined, name);
 });
 
 for (const { name, command, input, weight: stated } of fixtures.valid) {
@@ -51,6 +56,22 @@ for (const { name, command, input, code } of fixtures.invalid) {
     assert.equal(result.valid, false);
     assert.notEqual(result.issues.length, 0);
     assert.equal(codeOf(result), code, JSON.stringify(result.issues));
+  });
+}
+
+// A start and the update after it: the update is checked against the stored layout and styles.
+for (const { name, start: started, update: next, weight: stated, code } of fixtures.updates) {
+  test(name, () => {
+    assert.deepEqual(validateRequest({ command: 'start_layout', input: started }), { valid: true, issues: [] });
+    const result = validateLayoutUpdate(started, next);
+    if (code === undefined) {
+      assert.deepEqual(result, { valid: true, issues: [] });
+      assert.equal(weight(started.layout) + weight(started.styles ?? {}) + weight(next.snapshot.values), stated);
+    } else {
+      assert.equal(result.valid, false);
+      assert.notEqual(result.issues.length, 0);
+      assert.equal(codeOf(result), code, JSON.stringify(result.issues));
+    }
   });
 }
 
@@ -131,6 +152,21 @@ for (const [name, request, expected] of [
     [`${LOCK}/child/bind`, 'must name a value'], [`${ISLAND}/expanded/bottom/children/0/style`, 'must name a style'],
     [`${ISLAND}/expanded/bottom/children/0/bind`, 'must name a value'],
   ]],
+  ['a bound style member that names no value', styled({ color: { bind: 'tone' } }, {}), [['/input/styles/*/color', 'must name a value']]],
+  ['bound members whose values do not fit', layout({ lockScreen: text('a', { style: 's' }), background: { bind: 'paper' }, keyline: { bind: 'edge' } }, {
+    tone: 'crimson', fill: 1, accent: '#FFF', points: 5, alpha: 2, radius: 65, weight: 'Bold', paper: true, edge: 'sky',
+  }, { styles: { s: {
+    color: { bind: 'tone' }, background: { bind: 'fill' }, tint: { bind: 'accent' }, size: { bind: 'points' }, opacity: { bind: 'alpha' },
+    cornerRadius: { bind: 'radius' }, weight: { bind: 'weight' },
+  } } }), [
+    ['/input/layout/background', COLOR], ['/input/layout/keyline', COLOR], ['/input/styles/*/color', COLOR],
+    ['/input/styles/*/background', COLOR], ['/input/styles/*/tint', COLOR], ['/input/styles/*/size', 'must name a number from 6 to 96'],
+    ['/input/styles/*/opacity', 'must name a number from 0 to 1'], ['/input/styles/*/cornerRadius', 'must name a number from 0 to 64'],
+    ['/input/styles/*/weight', 'must name a font weight value'],
+  ]],
+  ['a bound member of a style that no node uses', start(text('a'), { alpha: -1 }, { styles: { unused: { opacity: { bind: 'alpha' } } } }), [
+    ['/input/styles/*/opacity', 'must name a number from 0 to 1'],
+  ]],
   ['a lone surrogate in a value', update({ note: 'a\ud800' }), [['/input/snapshot/values/*', LONE_SURROGATE]]],
   ['a lone surrogate in a literal text', start(text('\udc00')), [[`${LOCK}/value`, LONE_SURROGATE]]],
   ['a lone surrogate in an update id', { command: 'update_layout', input: { id: '\ud800', snapshot: { revision: 1, values: {} } } }, [['/input/id', LONE_SURROGATE]]],
@@ -165,6 +201,41 @@ test('reads values and styles as own members only', () => {
 test('update_layout checks its values without a layout', () => {
   assert.deepEqual(validateRequest(update({ word: 'a', flag: true, count: 1 })), { valid: true, issues: [] });
   assert.equal(validateRequest(update({ word: null })).valid, false);
+});
+
+const tone = styled({ color: { bind: 'tone' } }, { tone: 'green', note: 'a' });
+// Values that fit alone, 3543, and not with the stored layout and styles, 90 more.
+const roomy = styled({ color: { bind: 'tone' } }, { tone: 'green', a: '', b: '', c: '', d: '' });
+const crowded = update({ tone: 'red', a: heavy.a, b: heavy.b, c: heavy.c, d: 'x'.repeat(500) });
+for (const [name, started, next, expected] of [
+  ['a bound color that no longer fits', tone, update({ tone: 'crimson', note: 'a' }), [['/input/styles/*/color', COLOR]]],
+  ['a value that is gone', tone, update({ tone: 'red' }), [['/input/snapshot/values', 'must keep the keys and types of the start']]],
+  ['a value that is new', tone, update({ tone: 'red', note: 'a', more: 1 }), [['/input/snapshot/values', 'must keep the keys and types of the start']]],
+  ['a value of another type', tone, update({ tone: 'red', note: 1 }), [['/input/snapshot/values', 'must keep the keys and types of the start']]],
+  ['a value that names an inherited member', tone, update({ tone: 'red', constructor: 'a' }), [
+    ['/input/snapshot/values', 'must keep the keys and types of the start'],
+  ]],
+  ['values too heavy for the stored layout and styles', roomy, crowded, TOO_HEAVY],
+  ['a start that is not valid', styled({ color: { bind: 'tone' } }, {}), update({}), [['/input/styles/*/color', 'must name a value']]],
+]) {
+  test(`the update check reports ${name}`, () => {
+    assert.deepEqual(validateLayoutUpdate(started.input, next.input), { valid: false, issues: issues(expected) });
+  });
+}
+
+test('the update check takes a valid update against a valid start', () => {
+  assert.deepEqual(validateRequest(crowded), { valid: true, issues: [] });
+  assert.equal(weight(roomy.input.layout) + weight(roomy.input.styles) + weight(crowded.input.snapshot.values), 3633);
+  assert.deepEqual(validateLayoutUpdate(tone.input, update({ tone: '#C9654D', note: '' }).input), { valid: true, issues: [] });
+  const plain = start({ type: 'text', bind: 'note' }, { note: 'a' });
+  assert.deepEqual(validateLayoutUpdate(plain.input, update({ note: 'b' }).input), { valid: true, issues: [] });
+});
+
+test('the update check reports the issues of an update that breaks a rule of its own', () => {
+  const broken = update({ tone: null, note: 'a' });
+  const alone = validateRequest(broken);
+  assert.equal(alone.valid, false);
+  assert.deepEqual(validateLayoutUpdate(tone.input, broken.input), alone);
 });
 
 test('accepts surrogate pairs', () => {
@@ -206,6 +277,12 @@ test('validates frozen requests without changing them', () => {
     assert.doesNotThrow(() => validateRequest(request), name);
     assert.equal(JSON.stringify(request), before, name);
   }
+  for (const { name, start: started, update: next } of fixtures.updates) {
+    const pair = freeze(structuredClone({ started, next }));
+    const before = JSON.stringify(pair);
+    assert.doesNotThrow(() => validateLayoutUpdate(pair.started, pair.next), name);
+    assert.equal(JSON.stringify(pair), before, name);
+  }
 });
 
 test('error results survive a later validation and do not echo input', () => {
@@ -220,7 +297,11 @@ test('error results survive a later validation and do not echo input', () => {
     update({ [`${secret}_key`]: { [secret]: secret } }),
     update({ [`${secret}_key`]: `${secret}\ud800` }),
     { command: 'end_layout', input: { id: secret, policy: { kind: secret } } },
+    styled({ color: { bind: `${secret}_key` } }, {}),
+    styled({ color: { bind: 'tone' } }, { tone: secret }),
   ].map(validateRequest);
+  const red = styled({ color: { bind: 'tone' } }, { tone: 'red' }).input;
+  results.push(validateLayoutUpdate(red, update({ tone: secret }).input), validateLayoutUpdate(red, update({ [`${secret}_key`]: 'red' }).input));
   const before = JSON.stringify(results);
   validateRequest(start(text()));
   assert.equal(JSON.stringify(results), before);

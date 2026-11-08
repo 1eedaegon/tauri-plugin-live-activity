@@ -69,6 +69,30 @@ await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 레이아웃은 시작할 때 모습 그대로 유지됩니다. 갱신할 때는 모든 값을 더 높은 revision과 함께 다시
 보냅니다.
 
+## 스타일 바꾸기
+
+트리는 시작할 때 정해지지만, 몇몇 스타일 멤버는 값을 가리킬 수 있습니다. 그러면 갱신으로 바꿀 수 있습니다.
+
+```ts
+const { bind } = layout;
+// styles: { status: { color: bind('tone'), weight: bind('weight') } }, values: { tone: 'green', weight: 'regular', … }
+await updateLayout({ id, snapshot: { revision: 2, values: { ...values, tone: 'red', weight: 'bold' } } });
+```
+
+```rust
+let status = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
+// 나중에: 값을 모두 다시 보내면서 색만 바꿉니다.
+values.insert("tone".into(), Value::Text("red".into()));
+app.live_activity().update_layout(LayoutUpdateInput { id, snapshot: LayoutSnapshot { revision: 2, values, stale_at: None } })?;
+```
+
+값을 가리킬 수 있는 것은 `color`, `background`, `tint`, `opacity`, `size`, `weight`, `cornerRadius`와
+레이아웃의 `background`, `keyline`뿐입니다. 색은 이름이나 hex 색만 되고, 라이트·다크 쌍은 쓸 수 없습니다.
+나머지는 시작한 그대로 남으니, 바꾸려면 활동을 끝내고 다시 시작하세요. 갱신마다 값을 전부 다시 보내고,
+레이아웃·스타일·값을 합친 weight는 3584를 넘을 수 없습니다. Android는 스타일을 그리지 않습니다.
+0.2.x 크레이트는 바인딩을 거부하므로 npm 패키지와 크레이트의 마이너 버전을 맞추세요.
+[자세히](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#changing-styles)
+
 ## 레이아웃에 넣을 수 있는 것
 
 레이아웃은 `text`/`bound`, `path`(SVG path 데이터), `vstack`·`hstack`·`zstack`·`spacer`·`divider`와

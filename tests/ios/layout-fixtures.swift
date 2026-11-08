@@ -34,6 +34,24 @@ extension LifecycleTests {
         } catch { fatalError("Unexpected error \(error)") }
     }
 
+    /// What this layer answers for an update after a start, as `LayoutActivityController.update` checks it: the
+    /// update alone, then against the stored layout and styles. The weight is the stored part plus the new values.
+    static func updateVerdict(_ start: Data, _ update: Data) -> (code: String?, weight: Int?) {
+        let decoder = JSONDecoder()
+        do {
+            let request = try decoder.decode(LayoutRequest.self, from: start)
+            try request.validate()
+            let next = try decoder.decode(LayoutUpdateRequest.self, from: update)
+            try next.validate()
+            try next.snapshot.validate(replacing: request.snapshot, in: request.document)
+            return (nil, request.document.weight + next.weight)
+        } catch let failure as ActivityFailure {
+            return (failure.code, nil)
+        } catch is DecodingError {
+            return ("INVALID_INPUT", nil)
+        } catch { fatalError("Unexpected error \(error)") }
+    }
+
     /// The request decoded and encoded again, for comparing with the wire input.
     static func reencoded(_ command: String, _ input: Data) throws -> Data {
         let decoder = JSONDecoder(), encoder = JSONEncoder()
@@ -96,6 +114,24 @@ extension LifecycleTests {
             }
         }
         expect(lenient <= 2, "only the v1 bodies with added v2 members pass the frozen v1 decoder")
-        print("Layout fixtures: \(valid.count) valid and \(invalid.count) invalid requests match")
+        guard let updates = fixtures["updates"] else { fatalError("Layout fixtures without updates") }
+        expect(updates.count >= 20, "update fixtures are loaded")
+        for fixture in updates {
+            guard let name = fixture["name"] as? String, let start = fixture["start"], let update = fixture["update"] else {
+                fatalError("Malformed update fixture")
+            }
+            guard names.insert(name).inserted else { fatalError("Duplicate fixture name \(name)") }
+            let (started, next) = (try JSONSerialization.data(withJSONObject: start), try JSONSerialization.data(withJSONObject: update))
+            expect(layoutVerdict("start_layout", started).code == nil, "the start of an update fixture is valid: \(name)")
+            let verdict = updateVerdict(started, next)
+            if let code = fixture["code"] as? String {
+                expect(verdict.code == code, "update fixture must be rejected with \(code): \(name), got \(verdict.code ?? "accepted")")
+            } else {
+                let weight = fixture["weight"] as? Int
+                expect(verdict.code == nil && verdict.weight == weight,
+                       "update fixture must be accepted with weight \(weight ?? -1): \(name), got \(verdict.code ?? String(verdict.weight ?? -1))")
+            }
+        }
+        print("Layout fixtures: \(valid.count) valid and \(invalid.count) invalid requests and \(updates.count) updates match")
     }
 }

@@ -1,5 +1,5 @@
 import type {
-  LayoutButtonNode, LayoutDividerNode, LayoutGaugeNode, LayoutHStackNode, LayoutImageNode, LayoutNode,
+  LayoutBound, LayoutButtonNode, LayoutDividerNode, LayoutGaugeNode, LayoutHStackNode, LayoutImageNode, LayoutNode,
   LayoutPathNode, LayoutProgressNode, LayoutSpacerNode, LayoutSymbolNode, LayoutTextNode,
   LayoutTimerTextNode, LayoutVStackNode, LayoutZStackNode,
 } from './types.js';
@@ -83,4 +83,13 @@ export function timerText(start: string, end: string, options?: Options<LayoutTi
 /** A button around `child`; a tap reports `actionId` to `onAction`. */
 export function button(actionId: string, child: LayoutNode, options?: Options<LayoutButtonNode, 'actionId' | 'child'>): LayoutButtonNode {
   return { type: 'button', actionId, child, ...given(options) };
+}
+
+/**
+ * A style member, `layout.background` or `layout.keyline` that reads the value of `key` on every render,
+ * so an update can change it: `{ color: bind('tone') }`. Only `color`, `background`, `tint`, `opacity`,
+ * `size`, `weight` and `cornerRadius` can be bound.
+ */
+export function bind(key: string): LayoutBound {
+  return { bind: key };
 }

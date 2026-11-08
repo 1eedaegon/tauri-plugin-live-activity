@@ -3,13 +3,13 @@ import type {
   ActionEvent, LayoutActivityRecord, LayoutColor, LayoutSnapshot, LayoutStartInput, LayoutStyle, LayoutValues,
 } from '../../../guest-js/index.js';
 import {
-  bound, button, divider, gauge, hstack, image, path, progress, spacer, symbol, text, timerText, vstack, zstack,
+  bind, bound, button, divider, gauge, hstack, image, path, progress, spacer, symbol, text, timerText, vstack, zstack,
 } from '../../../guest-js/layout.ts';
 import { snackSteps } from './mochi.ts';
 
 export type LayoutExampleId =
-  | 'text' | 'symbols' | 'image' | 'paths' | 'gauge' | 'progress' | 'timer' | 'stacks' | 'buttons' | 'island'
-  | 'android' | 'nowBar';
+  | 'text' | 'symbols' | 'image' | 'paths' | 'gauge' | 'progress' | 'timer' | 'stacks' | 'buttons' | 'styles'
+  | 'island' | 'android' | 'nowBar';
 
 export interface LayoutExample {
   readonly id: LayoutExampleId;
@@ -307,6 +307,42 @@ const buttonsExample: LayoutExample = {
   }),
 };
 
+/**
+ * Delivery states and the colors they show. A bound color is a name or one hex color for both appearances,
+ * never a light and dark pair.
+ */
+const deliveries = [
+  { status: 'On time', tone: 'green', weight: 'regular', done: 0.3 },
+  { status: 'Running 5 min late', tone: 'red', weight: 'bold', done: 0.5 },
+  { status: 'Home at last', tone: '#2E8B7A', weight: 'semibold', done: 1 },
+] as const;
+
+const stylesExample: LayoutExample = {
+  id: 'styles',
+  name: 'Changing styles',
+  feature: 'A style member can name a value with bind, so an update changes it. Here the status turns red and bold when the snack runs late.',
+  android: 'A notification has no styles: the status text changes, its color does not.',
+  start: () => ({
+    activityKey: 'mochi:styles', schemaVersion, fallback,
+    layout: {
+      lockScreen: vstack([
+        hstack([symbol('clock.fill', { style: 'badge' }), bound('title', { style: 'title' })], { spacing: 8 }),
+        bound('status', { style: 'status' }),
+        progress('done', { style: 'meter' }),
+      ], { alignment: 'leading', spacing: 6, style: 'card' }),
+      background,
+    },
+    styles: {
+      card, title,
+      badge: { color: bind('tone') },
+      status: { font: 'subheadline', weight: bind('weight'), color: bind('tone'), lineLimit: 1 },
+      meter: { tint: bind('tone') },
+    },
+    snapshot: { revision: 0, values: { title: 'Mochi’s snack', ...deliveries[0] } },
+  }),
+  next: values => ({ ...values, ...after(deliveries, deliveries.find(item => item.status === values.status) ?? deliveries[2]) }),
+};
+
 const islandExample: LayoutExample = {
   id: 'island',
   name: 'Dynamic Island',
@@ -406,7 +442,7 @@ const nowBarExample: LayoutExample = {
 
 export const layoutExamples: readonly LayoutExample[] = [
   textExample, symbolsExample, imageExample, pathsExample, gaugeExample, progressExample, timerExample,
-  stacksExample, buttonsExample, islandExample, androidExample, nowBarExample,
+  stacksExample, buttonsExample, stylesExample, islandExample, androidExample, nowBarExample,
 ];
 
 export function findLayoutExample(id: string): LayoutExample | undefined {

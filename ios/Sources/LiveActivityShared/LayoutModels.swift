@@ -74,7 +74,7 @@ public struct LayoutSnapshot: Codable, Hashable, Sendable {
 }
 
 /// A semantic name or a hex string, or one hex string per appearance.
-public enum LayoutColor: Codable, Sendable, LayoutWire {
+public enum LayoutColor: Codable, Sendable, Equatable, LayoutWire {
     case single(String)
     case pair(light: String, dark: String)
 
@@ -100,6 +100,53 @@ public enum LayoutColor: Codable, Sendable, LayoutWire {
 private struct LayoutColorPair: LayoutObject {
     let light: String, dark: String
     var members: LayoutMembers { [("light", light), ("dark", dark)] }
+    func encode(to encoder: Encoder) throws { try encodeMembers(to: encoder) }
+}
+
+/// A literal, or the key of a value that the member reads on every render: `{"bind": "<key>"}` on the wire.
+/// The members that can be bound are `color`, `background`, `tint`, `opacity`, `size`, `weight` and `cornerRadius`
+/// of a style, and the `background` and `keyline` of a layout.
+public enum LayoutBindable<Value: Codable & Sendable>: Codable, Sendable {
+    case literal(Value)
+    case bound(String)
+
+    public init(from decoder: Decoder) throws {
+        if let binding = try? LayoutBinding(from: decoder) { self = .bound(binding.bind); return }
+        self = .literal(try Value(from: decoder))
+    }
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .literal(let value): try value.encode(to: encoder)
+        case .bound(let key): try LayoutBinding(bind: key).encodeMembers(to: encoder)
+        }
+    }
+    /// The literal, or nil when the member is bound.
+    public var literal: Value? {
+        if case .literal(let value) = self { return value } else { return nil }
+    }
+    /// The value key, or nil when the member is a literal.
+    public var key: String? {
+        if case .bound(let key) = self { return key } else { return nil }
+    }
+}
+extension LayoutBindable: Equatable where Value: Equatable {}
+extension LayoutBindable: LayoutWire where Value: LayoutWire {
+    var wireWeight: Int {
+        switch self {
+        case .literal(let value): return value.wireWeight
+        case .bound(let key): return LayoutBinding(bind: key).wireWeight
+        }
+    }
+}
+private struct LayoutBinding: Decodable, LayoutObject {
+    let bind: String
+    init(bind: String) { self.bind = bind }
+    init(from decoder: Decoder) throws {
+        var object = try LayoutReader(decoder)
+        bind = try object.need("bind")
+        try object.finish()
+    }
+    var members: LayoutMembers { [("bind", bind)] }
     func encode(to encoder: Encoder) throws { try encodeMembers(to: encoder) }
 }
 
@@ -175,23 +222,23 @@ public struct LayoutFrame: Codable, Sendable, LayoutObject {
     }
 }
 
-/// One entry of the style table.
+/// One entry of the style table. The members of type `LayoutBindable` may name a value; the others are fixed at start.
 public struct LayoutStyle: Codable, Sendable, LayoutObject {
     public let font: LayoutFontName?
-    public let size: Double?
-    public let weight: LayoutFontWeight?
+    public let size: LayoutBindable<Double>?
+    public let weight: LayoutBindable<LayoutFontWeight>?
     public let design: LayoutFontDesign?
     public let monospacedDigit: Bool?
-    public let color: LayoutColor?
+    public let color: LayoutBindable<LayoutColor>?
     public let lineLimit: Int?
     public let minimumScaleFactor: Double?
     public let alignment: LayoutHorizontalAlignment?
     public let padding: LayoutPadding?
     public let frame: LayoutFrame?
-    public let background: LayoutColor?
-    public let cornerRadius: Double?
-    public let opacity: Double?
-    public let tint: LayoutColor?
+    public let background: LayoutBindable<LayoutColor>?
+    public let cornerRadius: LayoutBindable<Double>?
+    public let opacity: LayoutBindable<Double>?
+    public let tint: LayoutBindable<LayoutColor>?
     public let buttonStyle: LayoutButtonStyle?
 
     public init(from decoder: Decoder) throws {
@@ -366,7 +413,7 @@ public struct LayoutIsland: Codable, Sendable, LayoutObject {
 public struct LayoutRegions: Codable, Sendable, LayoutObject {
     public let lockScreen: LayoutNode
     public let island: LayoutIsland?
-    public let background: LayoutColor?, keyline: LayoutColor?
+    public let background: LayoutBindable<LayoutColor>?, keyline: LayoutBindable<LayoutColor>?
     public init(from decoder: Decoder) throws {
         var object = try LayoutReader(decoder)
         lockScreen = try object.need("lockScreen"); island = try object.take("island")

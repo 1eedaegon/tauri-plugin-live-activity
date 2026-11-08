@@ -69,6 +69,30 @@ await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 
 The layout stays as it started. Each update sends every value again, with a higher revision.
 
+## Changing styles
+
+The tree is fixed at start, but a few style members can name a value. An update then changes them:
+
+```ts
+const { bind } = layout;
+// styles: { status: { color: bind('tone'), weight: bind('weight') } }, values: { tone: 'green', weight: 'regular', … }
+await updateLayout({ id, snapshot: { revision: 2, values: { ...values, tone: 'red', weight: 'bold' } } });
+```
+
+```rust
+let status = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
+// Later: every value again, with the new color.
+values.insert("tone".into(), Value::Text("red".into()));
+app.live_activity().update_layout(LayoutUpdateInput { id, snapshot: LayoutSnapshot { revision: 2, values, stale_at: None } })?;
+```
+
+Only `color`, `background`, `tint`, `opacity`, `size`, `weight`, `cornerRadius` and the layout's
+`background` and `keyline` can be bound. A bound color is a name or a hex color, not a light and
+dark pair. Everything else stays as started; end the activity and start it again to change it.
+Each update sends all values again, and layout, styles and values share the weight limit of 3584.
+Android draws no styles. A 0.2.x crate rejects bindings, so keep the npm package and the crate on
+the same minor version. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#changing-styles)
+
 ## What a layout can hold
 
 Layouts are built from `text`/`bound`, `path` (SVG path data) and `vstack`, `hstack`, `zstack`,

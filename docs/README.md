@@ -6,7 +6,7 @@ Installation and a short example are in the [README](../README.md)
 
 | Guide | Contents |
 | --- | --- |
-| [Usage](usage.md) | What `setup` does and the same steps by hand, every layout node with captures, buttons in Rust, the Dynamic Island, Android and the Samsung Now Bar, the progress and timer templates, the plugin configuration |
+| [Usage](usage.md) | What `setup` does and the same steps by hand, every layout node with captures, styles that an update changes (in TypeScript and Rust), buttons in Rust, the Dynamic Island, Android and the Samsung Now Bar, the progress and timer templates, the plugin configuration |
 | [Request contract](request-contract.md) | Every field and limit of a request, and who checks what |
 | [iOS setup](ios-integration.md) | Shared models, the Widget Extension, permissions and end policies |
 | [Android setup](android-integration.md) | Notification permission, promotion, state recovery and limits |

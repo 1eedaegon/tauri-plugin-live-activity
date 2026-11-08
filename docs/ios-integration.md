@@ -82,6 +82,14 @@ leading and minimal parts show the lock screen's first `symbol` (or
 `circle.fill`), and the compact trailing part is empty. `background` becomes
 `activityBackgroundTint` and `keyline` becomes `keylineTint`.
 
+A bound style member reads the snapshot's values each time the view is drawn, so an update
+redraws it with the new color or size. `LayoutView` does this for the members of styles. The
+two tints are applied outside it, so the template passes the values to
+`LayoutDocument.background(values:)` and `keyline(values:)`. The properties `background` and
+`keyline` give the literal tints only; a widget copied from an earlier template uses them, still
+compiles, and draws a bound tint as absent. A value that a member cannot take, which validation
+prevents, leaves the member out.
+
 Rendering notes:
 
 - Style members apply in this order: font and text members, `color`, `tint` and

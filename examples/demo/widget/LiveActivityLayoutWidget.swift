@@ -29,7 +29,7 @@ struct LiveActivityLayoutWidget: Widget {
                 LayoutRegionView(context: context, region: .minimal)
             }
             // The Dynamic Island is always dark.
-            .keylineTint(context.attributes.document.keyline.map { Color($0, scheme: .dark) })
+            .keylineTint(context.attributes.document.keyline(values: context.state.values).map { Color($0, scheme: .dark) })
         }
     }
 }
@@ -41,7 +41,7 @@ private struct LayoutLockScreen: View {
 
     var body: some View {
         LayoutRegionView(context: context, region: .lockScreen)
-            .activityBackgroundTint(context.attributes.document.background.map { Color($0, scheme: scheme) })
+            .activityBackgroundTint(context.attributes.document.background(values: context.state.values).map { Color($0, scheme: scheme) })
     }
 }
 

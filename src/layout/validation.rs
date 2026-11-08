@@ -10,6 +10,10 @@ const MAX_WEIGHT: usize = 3584;
 const MAX_NUMBER: f64 = 8_640_000_000_000_000.0;
 const MAX_DEPTH: usize = 8;
 const MAX_BUTTONS: usize = 4;
+// The ranges of the numbers that a style member takes, as a literal or bound to a value.
+const SIZES: RangeInclusive<f64> = 6.0..=96.0;
+const OPACITIES: RangeInclusive<f64> = 0.0..=1.0;
+const CORNERS: RangeInclusive<f64> = 0.0..=64.0;
 /// A valid request nests at most 20 arrays and objects; deeper JSON is refused unread.
 const MAX_NESTING: usize = 32;
 
@@ -104,12 +108,14 @@ fn within(member: Option<f64>, range: RangeInclusive<f64>) -> bool {
     member.is_none_or(|number| range.contains(&number))
 }
 
+/// `#RRGGBB` or `#RRGGBBAA`, digits in either case.
+fn hex(text: &str) -> bool {
+    text.strip_prefix('#').is_some_and(|digits| {
+        matches!(digits.len(), 6 | 8) && digits.bytes().all(|c| c.is_ascii_hexdigit())
+    })
+}
+
 fn color(color: &Color) -> Result<()> {
-    let hex = |text: &str| {
-        text.strip_prefix('#').is_some_and(|digits| {
-            matches!(digits.len(), 6 | 8) && digits.bytes().all(|c| c.is_ascii_hexdigit())
-        })
-    };
     require(match color {
         Color::Named(_) => true,
         Color::Hex(text) => hex(text),
@@ -117,10 +123,27 @@ fn color(color: &Color) -> Result<()> {
     })
 }
 
+/// Whether `text` is one of the words that `T` reads, such as a color name.
+fn word_of<T: DeserializeOwned>(text: &str) -> bool {
+    serde_json::from_value::<T>(serde_json::Value::String(text.to_owned())).is_ok()
+}
+
+/// A value that a bound color takes: a color name or a hex color, never a light and dark pair.
+fn value_color(value: &Value) -> bool {
+    matches!(value, Value::Text(text) if hex(text) || word_of::<ColorName>(text))
+}
+
+/// The literal of a member, or `None` when it is absent or bound.
+fn literal<T: Copy>(member: &Option<Bindable<T>>) -> Option<T> {
+    member.as_ref().and_then(Bindable::literal).copied()
+}
+
+/// The literal rules of a style. Bound members are checked with the values.
 fn style(style: &Style) -> Result<()> {
     require(*style != Style::default() && !(style.font.is_some() && style.size.is_some()))?;
-    require(within(style.size, 6.0..=96.0) && within(style.minimum_scale_factor, 0.1..=1.0))?;
-    require(within(style.corner_radius, 0.0..=64.0) && within(style.opacity, 0.0..=1.0))?;
+    require(within(literal(&style.size), SIZES) && within(style.minimum_scale_factor, 0.1..=1.0))?;
+    require(within(literal(&style.corner_radius), CORNERS))?;
+    require(within(literal(&style.opacity), OPACITIES))?;
     require(
         style
             .line_limit
@@ -144,6 +167,7 @@ fn style(style: &Style) -> Result<()> {
     [&style.color, &style.background, &style.tint]
         .into_iter()
         .flatten()
+        .filter_map(Bindable::literal)
         .try_for_each(color)
 }
 
@@ -182,19 +206,47 @@ impl Validate for LayoutStartInput {
         let key = word(&self.activity_key, 128, u8::is_ascii_alphanumeric, b"._:-");
         require(key && self.schema_version == 2)?;
         self.snapshot.shape()?;
-        let mut styles = 2;
         if let Some(table) = &self.styles {
             require((1..=24).contains(&table.len()) && table.keys().all(|token| name(token)))?;
             table.values().try_for_each(style)?;
-            styles = weigh(table)?;
         }
-        let scope = Scope {
-            values: &self.snapshot.values,
-            styles: self.styles.as_ref(),
-        };
-        scope.layout(&self.layout)?;
+        self.scope(&self.snapshot.values).layout(&self.layout)?;
         // The weight is checked last: a broken rule is always `INVALID_INPUT`.
-        fits(weigh(&self.layout)? + styles + weigh(&self.snapshot.values)?)
+        fits(self.document_weight()? + weigh(&self.snapshot.values)?)
+    }
+}
+
+impl LayoutStartInput {
+    /// Checks `update` against this start, as the native layer checks an update against the
+    /// activity it started: the rules of the update itself, the same keys with the same value
+    /// types, the rules of the layout and the styles that read values (bound members included),
+    /// and the weight of the layout, the styles and the new values together. A start that breaks
+    /// a rule of its own fails here as well.
+    pub fn validate_update(&self, update: &LayoutUpdateInput) -> Result<()> {
+        self.validate()?;
+        update.validate()?;
+        let (before, values) = (&self.snapshot.values, &update.snapshot.values);
+        let kept = |(key, value): (&String, &Value)| {
+            before
+                .get(key)
+                .is_some_and(|old| std::mem::discriminant(old) == std::mem::discriminant(value))
+        };
+        require(values.len() == before.len() && values.iter().all(kept))?;
+        self.scope(values).layout(&self.layout)?;
+        fits(self.document_weight()? + weigh(values)?)
+    }
+
+    fn scope<'a>(&'a self, values: &'a BTreeMap<String, Value>) -> Scope<'a> {
+        Scope {
+            values,
+            styles: self.styles.as_ref(),
+        }
+    }
+
+    /// The layout and the style table, `{}` without one: the part of the weight an update keeps.
+    fn document_weight(&self) -> Result<usize> {
+        let styles = self.styles.as_ref().map_or(Ok(2), weigh)?;
+        Ok(weigh(&self.layout)? + styles)
     }
 }
 
@@ -215,7 +267,9 @@ impl Scope<'_> {
         [&layout.background, &layout.keyline]
             .into_iter()
             .flatten()
+            .filter_map(Bindable::literal)
             .try_for_each(color)?;
+        self.bindings(layout)?;
         self.region(&layout.lock_screen, 40, true)?;
         let Some(island) = &layout.island else {
             return Ok(());
@@ -237,6 +291,39 @@ impl Scope<'_> {
         for (region, most_nodes) in compact {
             if let Some(root) = region {
                 self.region(root, most_nodes, false)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Every bound member, in every style whether a node uses it or not, names a value that its
+    /// literal could be.
+    fn bindings(&self, layout: &Layout) -> Result<()> {
+        let styles: Vec<&Style> = self.styles.into_iter().flat_map(BTreeMap::values).collect();
+        let colors = styles
+            .iter()
+            .flat_map(|style| [&style.color, &style.background, &style.tint])
+            .chain([&layout.background, &layout.keyline]);
+        for key in colors.flatten().filter_map(Bindable::bound) {
+            require(self.values.get(key).is_some_and(value_color))?;
+        }
+        for style in styles {
+            let numbers = [
+                (&style.size, SIZES),
+                (&style.opacity, OPACITIES),
+                (&style.corner_radius, CORNERS),
+            ];
+            for (member, range) in numbers {
+                if let Some(key) = member.as_ref().and_then(Bindable::bound) {
+                    require(
+                        self.number(key)
+                            .is_some_and(|number| range.contains(&number)),
+                    )?;
+                }
+            }
+            if let Some(key) = style.weight.as_ref().and_then(Bindable::bound) {
+                let weight = |value: &Value| matches!(value, Value::Text(text) if word_of::<FontWeight>(text));
+                require(self.values.get(key).is_some_and(weight))?;
             }
         }
         Ok(())

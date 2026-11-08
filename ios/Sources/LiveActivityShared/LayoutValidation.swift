@@ -8,6 +8,10 @@ enum LayoutRules {
     static let maxWeight = 3584
     static let maxDepth = 8
     static let maxButtons = 4
+    /// The ranges of the numbers that a style member takes, as a literal or bound to a value.
+    static let sizes: ClosedRange<Double> = 6...96
+    static let opacities: ClosedRange<Double> = 0...1
+    static let corners: ClosedRange<Double> = 0...64
 
     static let request = ActivityFailure("INVALID_INPUT", "Invalid activity key, schema version, or fallback.")
     static let handle = ActivityFailure("INVALID_INPUT", "Invalid activity handle.")
@@ -137,7 +141,8 @@ extension LayoutStyle {
     fileprivate var isValid: Bool {
         let length = 0.0...1024
         let numbers: [(Double?, ClosedRange<Double>)] = [
-            (size, 6...96), (minimumScaleFactor, 0.1...1), (cornerRadius, 0...64), (opacity, 0...1),
+            (size?.literal, LayoutRules.sizes), (minimumScaleFactor, 0.1...1), (cornerRadius?.literal, LayoutRules.corners),
+            (opacity?.literal, LayoutRules.opacities),
             (frame?.width, length), (frame?.height, length), (frame?.minWidth, length), (frame?.minHeight, length),
             (frame?.maxWidth?.points, length), (frame?.maxHeight?.points, length)
         ]
@@ -151,8 +156,21 @@ extension LayoutStyle {
               frame?.members.contains(where: { $0.value != nil }) ?? true,
               numbers.allSatisfy({ value, range in value.map(range.contains) ?? true }),
               sides.allSatisfy((0...64).contains), lineLimit.map((1...10).contains) ?? true else { return false }
-        return [color, background, tint].allSatisfy { $0?.isValid ?? true }
+        return [color, background, tint].allSatisfy { $0?.literal?.isValid ?? true }
     }
+
+    /// Whether every bound member names a value that it can take.
+    fileprivate func fits(_ values: [String: LayoutValue]) -> Bool {
+        let numbers = [(size, LayoutRules.sizes), (opacity, LayoutRules.opacities), (cornerRadius, LayoutRules.corners)]
+        return numbers.allSatisfy { member, range in member?.fits { $0.resolve(values, within: range) } ?? true }
+            && weight?.fits { $0.resolve(values) } ?? true
+            && [color, background, tint].allSatisfy { member in member?.fits { $0.resolve(values) } ?? true }
+    }
+}
+
+extension LayoutBindable {
+    /// A literal fits; a bound member fits when `resolve` turns its value into what it draws.
+    fileprivate func fits<Resolved>(_ resolve: (LayoutBindable) -> Resolved?) -> Bool { key == nil || resolve(self) != nil }
 }
 
 extension LayoutDocument {
@@ -167,7 +185,7 @@ extension LayoutDocument {
             guard island.members.contains(where: { $0.value != nil }),
                   island.expanded?.members.contains(where: { $0.value != nil }) ?? true else { throw LayoutRules.layout }
         }
-        guard layout.background?.isValid ?? true, layout.keyline?.isValid ?? true else { throw LayoutRules.layout }
+        guard layout.background?.literal?.isValid ?? true, layout.keyline?.literal?.isValid ?? true else { throw LayoutRules.layout }
         for region in LayoutRegion.allCases {
             var tally = Tally()
             if let root = layout.node(in: region) { try check(root, in: region, depth: 1, inButton: false, tally: &tally) }
@@ -205,8 +223,11 @@ extension LayoutDocument {
     }
 
     /// The rules that tie the layout to the values: every named key exists and has the type its node needs;
-    /// a `variableBind` number is within 0...1 and timer bounds are times.
+    /// a `variableBind` number is within 0...1 and timer bounds are times. Every bound member, in every style
+    /// whether a node uses it or not, names a value that the member can take.
     func validateReferences(_ values: [String: LayoutValue]) throws {
+        let tints = [layout.background, layout.keyline].allSatisfy { tint in tint?.fits { $0.resolve(values) } ?? true }
+        guard tints, (styles ?? [:]).values.allSatisfy({ $0.fits(values) }) else { throw LayoutRules.reference }
         for region in LayoutRegion.allCases {
             if let root = layout.node(in: region) { try checkReferences(root, values) }
         }

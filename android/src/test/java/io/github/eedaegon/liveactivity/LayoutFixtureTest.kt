@@ -58,10 +58,37 @@ class LayoutFixtureTest {
         assertEquals(wrong.joinToString("\n"), 0, wrong.size)
     }
 
+    /** An update after a start, as the engine checks it: the update alone, then against the stored layout and styles. */
+    private fun replace(start: Any?, update: Any?): Outcome = try {
+        val origin = LayoutInput.start(start)
+        val snapshot = LayoutInput.update(update).second
+        LayoutRules.checkReplacement(origin, origin.snapshot.values, snapshot.values)
+        Outcome.Accepted(origin.documentWeight + snapshot.weight)
+    } catch (failure: ActivityFailure) { Outcome.Rejected(failure.code) }
+
+    @Test fun everyUpdateCaseMeetsTheStoredLayoutAsExpected() {
+        val updates = cases("updates")
+        assertTrue(updates.size >= 20)
+        val wrong = updates.mapNotNull { case ->
+            val name = case.getString("name")
+            val started = run("start_layout", case.get("start"))
+            val expected = if (case.has("code")) Outcome.Rejected(case.getString("code")) else Outcome.Accepted(case.getInt("weight"))
+            val outcome = replace(case.get("start"), case.get("update"))
+            when {
+                started !is Outcome.Accepted -> "$name: the start is $started"
+                outcome != expected -> "$name: $outcome, expected $expected"
+                else -> null
+            }
+        }
+        assertEquals(wrong.joinToString("\n"), 0, wrong.size)
+    }
+
     @Test fun everyValidStartAndUpdateStatesAWeight() {
         val missing = cases("valid").filter { it.getString("command") != "end_layout" && !it.has("weight") }
         assertEquals(emptyList<JSONObject>(), missing)
         assertTrue(cases("invalid").any { it.getString("code") == "PAYLOAD_TOO_LARGE" })
         assertTrue(JSONArray(cases("valid").map { it.getString("name") }).length() == cases("valid").map { it.getString("name") }.toSet().size)
+        val names = listOf("valid", "invalid", "updates").flatMap { kind -> cases(kind).map { it.getString("name") } }
+        assertEquals(names.size, names.toSet().size)
     }
 }

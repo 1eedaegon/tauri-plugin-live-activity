@@ -163,8 +163,8 @@
             "minimal": { "$ref": "#/$defs/node" }
           }
         },
-        "background": { "$ref": "#/$defs/color" },
-        "keyline": { "$ref": "#/$defs/color" }
+        "background": { "$ref": "#/$defs/bindableColor" },
+        "keyline": { "$ref": "#/$defs/bindableColor" }
       }
     },
     "node": {
@@ -339,11 +339,11 @@
       "minProperties": 1,
       "properties": {
         "font": { "enum": ["largeTitle", "title", "title2", "title3", "headline", "subheadline", "body", "callout", "footnote", "caption", "caption2"] },
-        "size": { "type": "number", "minimum": 6, "maximum": 96 },
-        "weight": { "enum": ["ultraLight", "thin", "light", "regular", "medium", "semibold", "bold", "heavy", "black"] },
+        "size": { "anyOf": [{ "type": "number", "minimum": 6, "maximum": 96 }, { "$ref": "#/$defs/bound" }] },
+        "weight": { "anyOf": [{ "$ref": "#/$defs/fontWeight" }, { "$ref": "#/$defs/bound" }] },
         "design": { "enum": ["default", "rounded", "serif", "monospaced"] },
         "monospacedDigit": { "type": "boolean" },
-        "color": { "$ref": "#/$defs/color" },
+        "color": { "$ref": "#/$defs/bindableColor" },
         "lineLimit": { "type": "integer", "minimum": 1, "maximum": 10 },
         "minimumScaleFactor": { "type": "number", "minimum": 0.1, "maximum": 1 },
         "alignment": { "enum": ["leading", "center", "trailing"] },
@@ -365,20 +365,28 @@
             "alignment": { "$ref": "#/$defs/anchor" }
           }
         },
-        "background": { "$ref": "#/$defs/color" },
-        "cornerRadius": { "type": "number", "minimum": 0, "maximum": 64 },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "tint": { "$ref": "#/$defs/color" },
+        "background": { "$ref": "#/$defs/bindableColor" },
+        "cornerRadius": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 64 }, { "$ref": "#/$defs/bound" }] },
+        "opacity": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "$ref": "#/$defs/bound" }] },
+        "tint": { "$ref": "#/$defs/bindableColor" },
         "buttonStyle": { "enum": ["automatic", "bordered", "borderedProminent", "plain"] }
       },
       "not": { "required": ["font", "size"], "properties": { "font": true, "size": true } }
     },
     "length": { "type": "number", "minimum": 0, "maximum": 1024 },
     "anchor": { "enum": ["center", "leading", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"] },
+    "fontWeight": { "enum": ["ultraLight", "thin", "light", "regular", "medium", "semibold", "bold", "heavy", "black"] },
+    "colorName": { "enum": ["primary", "secondary", "accent", "red", "orange", "yellow", "green", "mint", "teal", "cyan", "blue", "indigo", "purple", "pink", "brown", "white", "black", "gray", "clear"] },
     "hex": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$" },
+    "bound": {
+      "description": "A value key in place of a literal; the member reads that value on every render.",
+      "type": "object", "additionalProperties": false, "required": ["bind"],
+      "properties": { "bind": { "$ref": "#/$defs/name" } }
+    },
+    "bindableColor": { "anyOf": [{ "$ref": "#/$defs/color" }, { "$ref": "#/$defs/bound" }] },
     "color": {
       "anyOf": [
-        { "enum": ["primary", "secondary", "accent", "red", "orange", "yellow", "green", "mint", "teal", "cyan", "blue", "indigo", "purple", "pink", "brown", "white", "black", "gray", "clear"] },
+        { "$ref": "#/$defs/colorName" },
         { "$ref": "#/$defs/hex" },
         {
           "type": "object", "additionalProperties": false, "required": ["light", "dark"],

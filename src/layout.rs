@@ -79,7 +79,8 @@ pub struct Island {
     pub minimal: Option<Node>,
 }
 
-/// One tree per region. The layout is fixed when the activity starts.
+/// One tree per region. The layout is fixed when the activity starts; only a bound `background`
+/// or `keyline` follows the values.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Layout {
@@ -88,10 +89,10 @@ pub struct Layout {
     pub island: Option<Island>,
     /// Tint behind the lock screen presentation.
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
-    pub background: Option<Color>,
+    pub background: Option<Bindable<Color>>,
     /// Tint of the Dynamic Island keyline.
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
-    pub keyline: Option<Color>,
+    pub keyline: Option<Bindable<Color>>,
 }
 
 /// Lock screen visibility of the Android notification.

@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 use tauri_plugin_live_activity::{
-    Error, LayoutStartInput, LayoutUpdateInput, Validate, validate_request, weight,
+    Error, LayoutStartInput, LayoutUpdateInput, LiveActivityExt, Validate, validate_request, weight,
 };
 
 fn progress() -> Value {
@@ -155,6 +155,137 @@ fn layout_fixtures_match_reference_validator() {
             "{name}"
         );
     }
+}
+
+/// Each pair is a start and the update after it, which the native layer checks against the stored
+/// layout and styles. A valid pair states the weight of the layout, the styles and the new values.
+#[test]
+fn layout_update_fixtures_match_the_check_against_the_start() {
+    let updates = layout_cases("updates");
+    assert!(updates.len() >= 20);
+    for case in &updates {
+        let name = case["name"].as_str().unwrap();
+        assert_eq!(
+            validate_request("start_layout", case["start"].clone()),
+            Ok(()),
+            "{name}"
+        );
+        let start: LayoutStartInput = serde_json::from_value(case["start"].clone()).unwrap();
+        let verdict = validate_request("update_layout", case["update"].clone()).and_then(|()| {
+            let update: LayoutUpdateInput = serde_json::from_value(case["update"].clone()).unwrap();
+            start.validate_update(&update)
+        });
+        match case.get("code") {
+            None => {
+                assert_eq!(verdict, Ok(()), "{name}");
+                let stored =
+                    layout_weight(&case["start"]) - weight(&case["start"]["snapshot"]["values"]);
+                let total = stored + weight(&case["update"]["snapshot"]["values"]);
+                assert_eq!(case["weight"], json!(total), "{name}");
+            }
+            Some(code) => assert_eq!(code, verdict.expect_err(name).code.as_str(), "{name}"),
+        }
+    }
+}
+
+/// The Rust example of docs/usage.md: a status whose color is bound to the value `tone`.
+mod changing_styles {
+    use std::collections::BTreeMap;
+    use tauri::{AppHandle, Runtime};
+    use tauri_plugin_live_activity::{
+        Bound, Element, Fallback, Layout, LayoutSnapshot, LayoutStartInput, LayoutUpdateInput,
+        LiveActivityExt, Node, Result, Style, Value,
+    };
+
+    pub fn delivery(revision: u64, status: &str, tone: &str) -> LayoutSnapshot {
+        let values = [("status", status), ("tone", tone)]
+            .map(|(key, text)| (key.to_string(), Value::Text(text.into())));
+        LayoutSnapshot {
+            revision,
+            values: BTreeMap::from(values),
+            stale_at: None,
+        }
+    }
+
+    pub fn start_input() -> LayoutStartInput {
+        let text = Element::Text {
+            value: None,
+            bind: Some("status".into()),
+        };
+        let status = Node {
+            style: Some("status".into()),
+            ..text.into()
+        };
+        let style = Style {
+            color: Some(Bound::key("tone").into()),
+            ..Style::default()
+        };
+        LayoutStartInput {
+            activity_key: "mochi:snack".into(),
+            schema_version: 2,
+            fallback: Fallback::Notification,
+            layout: Layout {
+                lock_screen: status,
+                island: None,
+                background: None,
+                keyline: None,
+            },
+            styles: Some(BTreeMap::from([("status".to_string(), style)])),
+            snapshot: delivery(0, "On time", "green"),
+            android: None,
+        }
+    }
+
+    pub fn run_late<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
+        let record = app.live_activity().start_layout(start_input())?;
+        // Later: every value again, with a higher revision. The status turns red.
+        let snapshot = delivery(1, "Running late", "red");
+        let update = LayoutUpdateInput {
+            id: record.id,
+            snapshot,
+        };
+        app.live_activity().update_layout(update)?;
+        Ok(())
+    }
+}
+
+#[test]
+fn the_changing_styles_example_binds_a_color_that_an_update_changes() {
+    use changing_styles::{delivery, start_input};
+    let input = start_input();
+    assert_eq!(
+        serde_json::to_value(&input).unwrap(),
+        json!({"activityKey":"mochi:snack","schemaVersion":2,"fallback":"notification",
+            "layout":{"lockScreen":{"type":"text","bind":"status","style":"status"}},
+            "styles":{"status":{"color":{"bind":"tone"}}},
+            "snapshot":{"revision":0,"values":{"status":"On time","tone":"green"}}})
+    );
+    assert_eq!(input.validate(), Ok(()));
+    let update = |snapshot| LayoutUpdateInput {
+        id: "handle".into(),
+        snapshot,
+    };
+    let late = update(delivery(1, "Running late", "red"));
+    assert_eq!(input.validate_update(&late), Ok(()));
+    let unknown = update(delivery(1, "Running late", "crimson"));
+    assert_eq!(unknown.validate(), Ok(()));
+    assert_eq!(input.validate_update(&unknown), Err(Error::invalid()));
+
+    // The calls of the example. Desktop checks the request and then has no backend.
+    let app = tauri::test::mock_builder()
+        .plugin(tauri_plugin_live_activity::init())
+        .build(tauri::test::mock_context(tauri::test::noop_assets()))
+        .unwrap();
+    let unsupported = changing_styles::run_late(app.handle()).unwrap_err();
+    assert_eq!(unsupported.code, "UNSUPPORTED_PLATFORM");
+    let plugin = app.live_activity();
+    assert_eq!(
+        plugin.update_layout(late).unwrap_err().code,
+        "UNSUPPORTED_PLATFORM"
+    );
+    let mut wrong = start_input();
+    wrong.snapshot = delivery(0, "On time", "Green");
+    assert_eq!(plugin.start_layout(wrong), Err(Error::invalid()));
 }
 
 #[test]

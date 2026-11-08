@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Add bound style members to request contract v2. `{ "bind": "<value key>" }` can stand for a literal `color`, `background`, `tint`, `opacity`, `size`, `weight` or `cornerRadius` in a style, and for the layout's `background` and `keyline`. The member reads that value on every render, so `updateLayout` and `update_layout` change it while the activity runs. A bound color is a color name or a hex color, never a light and dark pair. The tree and the other members stay fixed at start.
+- Rust, the reference validator, Swift and Kotlin check the value at start, and the native layers check it again on every update, with `INVALID_INPUT` when it does not fit. The fixture file adds start cases and an `updates` list of start and update pairs that all four run.
+- TypeScript: `layout.bind(key)` and the types `LayoutBound` and `LayoutBindable<T>`. The reference validator adds `validateLayoutUpdate`.
+- Rust: `Bound`, `Bound::key`, `Bindable<T>` and `LayoutStartInput::validate_update`. Breaking: the bindable `Style` fields and `Layout::background` and `keyline` are `Option<Bindable<_>>`; wrap a literal with `.into()`.
+- iOS: the bindable members of `LayoutStyle` and `LayoutRegions` are `LayoutBindable`. `LayoutDocument.style(_:values:)`, `background(values:)` and `keyline(values:)` resolve them; `LayoutView` draws bound style members with the current values. The widget template passes the values to the two tints. A widget copied from the earlier template still compiles and draws a bound tint as absent; `setup` keeps a copy that differs: delete it and run `setup` again to take the new template.
+- Android still draws no styles and lists them in `degradedFeatures`.
+- A 0.2.x crate rejects bindings with `INVALID_INPUT`. Keep the npm package and the crate on the same minor version.
+- The demo's Layouts tab adds **Changing styles**: an update turns the status red and bold when the snack runs late.
+
 ## 0.2.1
 
 - Add `npx tauri-plugin-live-activity setup`, a command in the npm package with no dependencies. Run in a Tauri 2 app, it adds the plugin's permissions to the capability file and raises the Android minimum to API 26 in `tauri.conf.json` and in an existing `gen/android`. On a Mac with `src-tauri/gen/apple`, it sets `NSSupportsLiveActivities` in `src-tauri/Info.ios.plist`, copies the widget templates from the crate, writes `gen/apple/live-activity.yml` with the widget extension target and the button intent in both targets, includes it in `project.yml`, prepares the crate's Swift package and runs XcodeGen. A second run changes nothing. It keeps files that differ from what it would write and says so. `--dry-run` writes nothing; `--ios-only` leaves the capabilities and `tauri.conf.json` alone.

@@ -14,7 +14,8 @@ attributes as the plugin, with a cat design for the Lock Screen and Dynamic Isla
 
 The **Layouts** tab shows the layout nodes of request contract v2 one at a time: text
 and values, SF Symbols, an image, paths, a gauge, progress, a timer, stacks, buttons,
-the Dynamic Island, the Android notification and the Samsung Now Bar. Each example is
+styles that an update changes, the Dynamic Island, the Android notification and the Samsung
+Now Bar. Each example is
 one complete `startLayout` request in [src/layouts.ts](src/layouts.ts); the tab shows
 it under **The request**. Starting an example ends the other examples first.
 

@@ -99,12 +99,13 @@ public struct LayoutRenderStyle: Equatable, Sendable {
     public let buttonStyle: LayoutButtonStyle?
 
     /// The style of a node without a style token.
-    public static let plain = LayoutRenderStyle(nil)
+    public static let plain = LayoutRenderStyle(nil, values: [:])
 
-    init(_ style: LayoutStyle?) {
-        font = style?.font.map(LayoutRenderFont.named) ?? style?.size.map(LayoutRenderFont.size)
-        weight = style?.weight; design = style?.design; monospacedDigit = style?.monospacedDigit ?? false
-        color = style?.color.flatMap(LayoutColorSpec.init); lineLimit = style?.lineLimit
+    /// Bound members read `values`; a member whose value is missing or does not fit is left out.
+    init(_ style: LayoutStyle?, values: [String: LayoutValue]) {
+        font = style?.font.map(LayoutRenderFont.named) ?? style?.size?.resolve(values, within: LayoutRules.sizes).map(LayoutRenderFont.size)
+        weight = style?.weight?.resolve(values); design = style?.design; monospacedDigit = style?.monospacedDigit ?? false
+        color = style?.color?.resolve(values); lineLimit = style?.lineLimit
         minimumScaleFactor = style?.minimumScaleFactor; alignment = style?.alignment
         switch style?.padding {
         case .all(let value)?: padding = LayoutEdges(top: value, leading: value, bottom: value, trailing: value)
@@ -116,8 +117,40 @@ public struct LayoutRenderStyle: Equatable, Sendable {
                               maxWidth: $0.maxWidth.map { $0.points ?? .infinity }, maxHeight: $0.maxHeight.map { $0.points ?? .infinity },
                               alignment: $0.alignment ?? .center)
         }
-        background = style?.background.flatMap(LayoutColorSpec.init); cornerRadius = style?.cornerRadius; opacity = style?.opacity
-        tint = style?.tint.flatMap(LayoutColorSpec.init); buttonStyle = style?.buttonStyle
+        background = style?.background?.resolve(values)
+        cornerRadius = style?.cornerRadius?.resolve(values, within: LayoutRules.corners)
+        opacity = style?.opacity?.resolve(values, within: LayoutRules.opacities)
+        tint = style?.tint?.resolve(values); buttonStyle = style?.buttonStyle
+    }
+}
+
+extension LayoutBindable where Value == Double {
+    /// The literal, or the bound value when it is a number within `range`.
+    func resolve(_ values: [String: LayoutValue], within range: ClosedRange<Double>) -> Double? {
+        switch self {
+        case .literal(let value): return value
+        case .bound(let key): return values[key]?.number.flatMap { range.contains($0) ? $0 : nil }
+        }
+    }
+}
+
+extension LayoutBindable where Value == LayoutFontWeight {
+    /// The literal, or the bound value when it is a weight name.
+    func resolve(_ values: [String: LayoutValue]) -> LayoutFontWeight? {
+        switch self {
+        case .literal(let value): return value
+        case .bound(let key): return values[key]?.string.flatMap(LayoutFontWeight.init(rawValue:))
+        }
+    }
+}
+
+extension LayoutBindable where Value == LayoutColor {
+    /// The literal, or the bound value when it is a color name or a hex color. A value is never a light and dark pair.
+    func resolve(_ values: [String: LayoutValue]) -> LayoutColorSpec? {
+        switch self {
+        case .literal(let value): return LayoutColorSpec(value)
+        case .bound(let key): return values[key]?.string.flatMap { LayoutColorSpec(.single($0)) }
+        }
     }
 }
 
@@ -158,6 +191,9 @@ extension LayoutValue {
     }
     public var number: Double? {
         if case .number(let value) = self { return value } else { return nil }
+    }
+    public var string: String? {
+        if case .string(let value) = self { return value } else { return nil }
     }
     /// The value as a text node shows it. Numbers print as JavaScript's `String(number)` does.
     public var text: String {
@@ -213,8 +249,14 @@ extension LayoutNode {
 }
 
 extension LayoutDocument {
-    public var background: LayoutColorSpec? { layout.background.flatMap(LayoutColorSpec.init) }
-    public var keyline: LayoutColorSpec? { layout.keyline.flatMap(LayoutColorSpec.init) }
+    /// The literal background tint. A bound one needs the values: use `background(values:)`.
+    public var background: LayoutColorSpec? { background(values: [:]) }
+    /// The literal keyline tint. A bound one needs the values: use `keyline(values:)`.
+    public var keyline: LayoutColorSpec? { keyline(values: [:]) }
+    /// The tint behind the lock screen presentation, a bound one read from `values`.
+    public func background(values: [String: LayoutValue]) -> LayoutColorSpec? { layout.background?.resolve(values) }
+    /// The tint of the Dynamic Island keyline, a bound one read from `values`.
+    public func keyline(values: [String: LayoutValue]) -> LayoutColorSpec? { layout.keyline?.resolve(values) }
 
     /// The tree a region shows: its own, or the default of an absent island part. The expanded island
     /// defaults to the lock screen tree in its bottom region, the compact leading and minimal parts to
@@ -229,9 +271,10 @@ extension LayoutDocument {
         }
     }
 
-    /// The style a token names, or the plain style.
-    public func style(_ token: String?) -> LayoutRenderStyle {
-        LayoutRenderStyle(token.flatMap { styles?[$0] })
+    /// The style a token names, or the plain style. Bound members read `values`, so a render with the values of an
+    /// update draws the new colors and sizes.
+    public func style(_ token: String?, values: [String: LayoutValue] = [:]) -> LayoutRenderStyle {
+        LayoutRenderStyle(token.flatMap { styles?[$0] }, values: values)
     }
 
     /// What a region draws for these values, or nil when it draws nothing.
@@ -247,7 +290,7 @@ extension LayoutDocument {
         case nil: break
         }
         guard let content = content(of: node.content, values) else { return nil }
-        return LayoutRenderNode(content: content, style: style(node.style))
+        return LayoutRenderNode(content: content, style: style(node.style, values: values))
     }
 
     private func content(of content: LayoutContent, _ values: [String: LayoutValue]) -> LayoutRenderContent? {

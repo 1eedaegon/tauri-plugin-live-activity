@@ -177,7 +177,8 @@ Mochi's colors and padding to the code shown here.
 With a layout the app designs the activity itself: a tree of nodes, a table of styles and a
 map of values. On iOS the plugin's widget template draws it, with no SwiftUI in the app.
 Android shows part of it as a notification. The tree is fixed at start; an update sends new
-values with the same keys and types. Layout, styles and values share ActivityKit's 4 KiB
+values with the same keys and types, and a few style members can read values
+([Changing styles](#changing-styles)). Layout, styles and values share ActivityKit's 4 KiB
 limit.
 
 ### Text, values and styles
@@ -233,6 +234,113 @@ builders are all in `layout`.
 </table>
 
 Android drops styles: the first text is the title and the second the body.
+
+### Changing styles
+
+A style member can name a value with `bind` instead of holding a literal. The member reads
+the value each time the activity is drawn, so an update changes it:
+
+```ts
+import { layout, startLayout, updateLayout } from 'tauri-plugin-live-activity';
+
+const { vstack, hstack, symbol, bound, progress, bind } = layout;
+
+const values = { title: 'Mochi’s snack', status: 'On time', tone: 'green', weight: 'regular', done: 0.3 };
+const delivery = await startLayout({
+  activityKey: 'mochi:styles',
+  schemaVersion: 2,
+  fallback: 'notification',
+  layout: {
+    lockScreen: vstack([
+      hstack([symbol('clock.fill', { style: 'badge' }), bound('title')], { spacing: 8 }),
+      bound('status', { style: 'status' }),
+      progress('done', { style: 'meter' }),
+    ], { alignment: 'leading' }),
+  },
+  styles: {
+    badge: { color: bind('tone') },
+    status: { font: 'subheadline', weight: bind('weight'), color: bind('tone') },
+    meter: { tint: bind('tone') },
+  },
+  snapshot: { revision: 0, values },
+});
+
+// The snack runs late: the badge, the status and the bar turn red, and the status bold.
+await updateLayout({
+  id: delivery.id,
+  snapshot: { revision: 1, values: { ...values, status: 'Running 5 min late', tone: 'red', weight: 'bold', done: 0.5 } },
+});
+```
+
+`bind('tone')` writes `{ "bind": "tone" }`. In Rust, `Bound::key("tone")` writes the same, and
+`.into()` turns it, or a literal, into the member's `Bindable`:
+
+```rust
+use std::collections::BTreeMap;
+use tauri::{AppHandle, Runtime};
+use tauri_plugin_live_activity::{
+    Bound, Element, Fallback, Layout, LayoutSnapshot, LayoutStartInput, LayoutUpdateInput,
+    LiveActivityExt, Node, Result, Style, Value,
+};
+
+fn delivery(revision: u64, status: &str, tone: &str) -> LayoutSnapshot {
+    let values = [("status", status), ("tone", tone)]
+        .map(|(key, text)| (key.to_string(), Value::Text(text.into())));
+    LayoutSnapshot { revision, values: BTreeMap::from(values), stale_at: None }
+}
+
+fn start_input() -> LayoutStartInput {
+    let text = Element::Text { value: None, bind: Some("status".into()) };
+    let status = Node { style: Some("status".into()), ..text.into() };
+    let style = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
+    LayoutStartInput {
+        activity_key: "mochi:snack".into(),
+        schema_version: 2,
+        fallback: Fallback::Notification,
+        layout: Layout { lock_screen: status, island: None, background: None, keyline: None },
+        styles: Some(BTreeMap::from([("status".to_string(), style)])),
+        snapshot: delivery(0, "On time", "green"),
+        android: None,
+    }
+}
+
+fn run_late<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
+    let record = app.live_activity().start_layout(start_input())?;
+    // Later: every value again, with a higher revision. The status turns red.
+    let snapshot = delivery(1, "Running late", "red");
+    let update = LayoutUpdateInput { id: record.id, snapshot };
+    app.live_activity().update_layout(update)?;
+    Ok(())
+}
+```
+
+`LayoutStartInput::validate_update` checks an update against a start the way the native
+layer does, before anything is sent.
+
+The limits:
+
+- Only these members can be bound: `color`, `background` and `tint` (a color name or a hex
+  color), `size` (a number from 6 to 96), `opacity` (0 to 1), `cornerRadius` (0 to 64),
+  `weight` (a weight name), and the layout's `background` and `keyline` (a color).
+- A bound color cannot be a light and dark pair, because a value is a string, a number or a
+  boolean. Color names such as `primary` or `red` follow the appearance; a hex color does not.
+- The tree and every other member are fixed after start: `font`, `design`, `monospacedDigit`,
+  `lineLimit`, `minimumScaleFactor`, `alignment`, `padding`, `frame`, `buttonStyle` and the
+  members of nodes. To change them, end the activity and start it again.
+- The value must exist at start and fit the member. Every update is checked again; a value
+  that does not fit fails with `INVALID_INPUT`, and the activity keeps what it showed.
+- Every update sends all values again. Layout, styles and values share the weight limit of
+  3584, and each binding counts toward it.
+- Android draws no styles: the status text changes, its color does not.
+- A crate of 0.2.x rejects bindings with `INVALID_INPUT`. Keep the npm package and the crate on
+  the same minor version.
+- The iOS widget template passes the values to the background and keyline tints. A widget
+  copied from an earlier template draws a bound `background` or `keyline` as absent. `setup`
+  keeps a copy that differs; delete `LiveActivityWidget.swift` and run `setup` again.
+
+The demo's **Changing styles** example cycles through on time (green), late (red and bold) and
+home (a teal hex color). The full rules are in the
+[request contract](request-contract.md#bound-style-members).
 
 ### SF Symbols
 

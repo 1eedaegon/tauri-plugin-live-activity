@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { validateRequest } from '../../../tools/validate-request.mjs';
+import { validateLayoutUpdate, validateRequest } from '../../../tools/validate-request.mjs';
 import {
   actionMessage, findLayoutExample, layoutExamples, layoutRecordFor, nextLayoutSnapshot, runningLayoutExamples,
 } from '../src/layouts.ts';
@@ -25,7 +25,7 @@ const ofType = (id, type) => nodesOf(id).filter(node => node.type === type);
 
 test('offers one example per layout feature, each under its own key', () => {
   assert.deepEqual(layoutExamples.map(example => example.id), [
-    'text', 'symbols', 'image', 'paths', 'gauge', 'progress', 'timer', 'stacks', 'buttons', 'island', 'android', 'nowBar',
+    'text', 'symbols', 'image', 'paths', 'gauge', 'progress', 'timer', 'stacks', 'buttons', 'styles', 'island', 'android', 'nowBar',
   ]);
   const keys = layoutExamples.map(example => example.start(NOW).activityKey);
   assert.deepEqual(keys, layoutExamples.map(example => `mochi:${example.id}`));
@@ -57,6 +57,8 @@ test('updates keep the keys and value types of the start and change what is show
       assert.notDeepEqual(next, values, example.id);
       const input = { id: 'handle', snapshot: { revision: step + 1, values: next } };
       assert.deepEqual(validateRequest({ command: 'update_layout', input }), { valid: true, issues: [] }, example.id);
+      // The check the native layer makes against the stored layout and styles.
+      assert.deepEqual(validateLayoutUpdate(example.start(NOW), input), { valid: true, issues: [] }, example.id);
       values = next;
     }
   }
@@ -128,6 +130,28 @@ test('buttons report pet and done, and have no in-app update', () => {
   assert.deepEqual(ofType('buttons', 'button').map(node => node.actionId), ['pet', 'done']);
   assert.equal(startOf('buttons').snapshot.values.pets, 0);
   assert.equal(findLayoutExample('buttons').next, undefined);
+});
+
+test('the changing styles example binds a color, and an update turns the status red', () => {
+  const input = startOf('styles');
+  const { styles, snapshot: { values } } = input;
+  const status = nodesOf('styles').find(node => node.type === 'text' && node.bind === 'status');
+  assert.deepEqual(styles[status.style].color, { bind: 'tone' });
+  assert.deepEqual(styles[status.style].weight, { bind: 'weight' });
+  const bound = Object.values(styles).flatMap(style => Object.values(style)).filter(member => member?.bind === 'tone');
+  assert.ok(bound.length >= 3, 'the badge, the status and the bar follow one color');
+  assert.equal(values.tone, 'green');
+  const example = findLayoutExample('styles');
+  const late = example.next(values);
+  assert.equal(late.tone, 'red');
+  assert.equal(late.weight, 'bold');
+  assert.notEqual(late.status, values.status);
+  const home = example.next(late);
+  assert.match(home.tone, /^#[0-9A-F]{6}$/);
+  assert.deepEqual(example.next(home), values);
+  // A value the bound member cannot take is refused before the native layer.
+  const update = { id: 'handle', snapshot: { revision: 1, values: { ...values, tone: 'crimson' } } };
+  assert.equal(validateLayoutUpdate(input, update).valid, false);
 });
 
 test('the Dynamic Island example fills every region and tints the keyline', () => {

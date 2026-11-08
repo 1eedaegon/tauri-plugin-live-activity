@@ -149,6 +149,20 @@ type HexColor = `#${string}`;
 /** A semantic name, one hex color for both appearances, or a light and dark pair. */
 export type LayoutColor = ColorName | HexColor | { readonly light: HexColor; readonly dark: HexColor };
 
+/**
+ * A value key in place of a literal, as `layout.bind(key)` writes it. The member reads the value on
+ * every render, so an update can change it. The value must be what the member takes as a literal: a
+ * color name or a hex color (not a light and dark pair), a weight name, or a number in the member's range.
+ */
+export interface LayoutBound {
+  readonly bind: string;
+}
+
+/** A literal, or a value key that an update can change. */
+export type LayoutBindable<T> = T | LayoutBound;
+
+type FontWeight = 'ultraLight' | 'thin' | 'light' | 'regular' | 'medium' | 'semibold' | 'bold' | 'heavy' | 'black';
+
 type Anchor =
   | 'center' | 'leading' | 'trailing' | 'top' | 'bottom'
   | 'topLeading' | 'topTrailing' | 'bottomLeading' | 'bottomTrailing';
@@ -164,12 +178,16 @@ export interface LayoutFrame {
   readonly alignment?: Anchor;
 }
 
+/**
+ * `weight`, `color`, `background`, `cornerRadius`, `opacity`, `tint` and `size` may be bound to a value
+ * with `layout.bind(key)`. The other members are fixed at start.
+ */
 interface StyleFields {
-  readonly weight?: 'ultraLight' | 'thin' | 'light' | 'regular' | 'medium' | 'semibold' | 'bold' | 'heavy' | 'black';
+  readonly weight?: LayoutBindable<FontWeight>;
   readonly design?: 'default' | 'rounded' | 'serif' | 'monospaced';
   readonly monospacedDigit?: boolean;
   /** Foreground color. */
-  readonly color?: LayoutColor;
+  readonly color?: LayoutBindable<LayoutColor>;
   /** Integer from 1 to 10. */
   readonly lineLimit?: number;
   /** From 0.1 to 1. */
@@ -179,13 +197,13 @@ interface StyleFields {
   /** Points from 0 to 64: one number for every edge, or `[top, leading, bottom, trailing]`. */
   readonly padding?: number | readonly [number, number, number, number];
   readonly frame?: LayoutFrame;
-  readonly background?: LayoutColor;
+  readonly background?: LayoutBindable<LayoutColor>;
   /** Points from 0 to 64. */
-  readonly cornerRadius?: number;
+  readonly cornerRadius?: LayoutBindable<number>;
   /** From 0 to 1. */
-  readonly opacity?: number;
+  readonly opacity?: LayoutBindable<number>;
   /** Tint of buttons, progress views and gauges. */
-  readonly tint?: LayoutColor;
+  readonly tint?: LayoutBindable<LayoutColor>;
   readonly buttonStyle?: 'automatic' | 'bordered' | 'borderedProminent' | 'plain';
 }
 
@@ -196,7 +214,7 @@ export type LayoutStyle = StyleFields & (
       | 'callout' | 'footnote' | 'caption' | 'caption2';
     readonly size?: never;
   }
-  | { readonly size?: number; readonly font?: never }
+  | { readonly size?: LayoutBindable<number>; readonly font?: never }
 );
 
 /** Members every node may carry. A condition names a value key; `if` and `unless` exclude each other. */
@@ -340,9 +358,9 @@ export interface Layout {
   readonly lockScreen: LayoutNode;
   readonly island?: LayoutIsland;
   /** Tint behind the lock screen presentation. */
-  readonly background?: LayoutColor;
+  readonly background?: LayoutBindable<LayoutColor>;
   /** Tint of the Dynamic Island keyline. */
-  readonly keyline?: LayoutColor;
+  readonly keyline?: LayoutBindable<LayoutColor>;
 }
 
 export interface LayoutAndroidOptions {
