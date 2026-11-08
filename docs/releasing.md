@@ -9,9 +9,10 @@ Both registries use `tauri-plugin-live-activity` and the same version. The
 3. Wait for the CI run of that commit on `main`. It must succeed.
 4. Push the matching tag on that commit, for example `v0.2.0`.
 
-CI skips commits that change only Markdown, `docs/` or the licences. When the commit to tag is
-such a commit, run CI on it by hand first (Actions > CI > Run workflow on `main`); the release guard
-accepts that run.
+CI's first job looks at what a push or pull request changed and runs only the jobs for those
+parts: Rust, TypeScript, Swift or Android. A change to docs alone runs that first job only.
+The run still ends in success, so the release guard accepts it for a tag on that commit.
+Changes to a workflow or to the shared fixtures run everything, as does a run by hand.
 
 A published version cannot be replaced, so a bug found after step 4 needs a new version.
 Each commit on `main` gets its own CI run, and a later push does not cancel it. If that
