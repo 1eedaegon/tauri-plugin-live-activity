@@ -53,6 +53,9 @@ else
   rm -rf "$build"
   mkdir -p "$build/demo"
   (cd "$root" && npm run build:demo >/dev/null)
+  # The spec lists Externals (Rust libraries) and assets (the page), which Tauri fills during the build; a fresh
+  # checkout has neither, and XcodeGen refuses a missing source directory.
+  mkdir -p "$apple/Externals" "$apple/assets"
   xcodegen generate --spec "$apple/project.yml" --quiet
   xcodegen generate --spec "$root/tests/ios/DemoUITests/project.yml" --quiet
   if [ "$mode" = build ]; then
