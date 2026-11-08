@@ -122,7 +122,7 @@ bundle identifier and the versions with the app's:
 ```yaml
 packages:
   LiveActivity:
-    path: "/path/to/tauri-plugin-live-activity-0.2.0/ios"
+    path: "/path/to/tauri-plugin-live-activity-0.2.1/ios"
 targets:
   app_iOS:
     sources: [LiveActivityWidget/LiveActivityActionIntent.swift]
