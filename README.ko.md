@@ -71,33 +71,108 @@ await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 
 ## 레이아웃에 넣을 수 있는 것
 
-- `text`, `bound`: 고정된 글자나 키의 값을 원하는 스타일로
-- `symbol`: SF Symbols. 값에 따라 채울 수도 있습니다
-- `image`: 위젯 asset catalog에 넣은 그림
-- `path`: SVG 경로 데이터로 그린 도형
-- `gauge`, `progress`: 숫자를 링이나 막대로
-- `timerText`: 시스템이 대신 세는 타이머. 줄어들게도, 늘어나게도 셉니다
-- `button`: `onAction`이나 Rust의 `on_action`으로 전달되는 탭(iOS 17 이상)
-- 배치에 쓰는 `vstack`, `hstack`, `zstack`, `spacer`, `divider`, 그리고 Dynamic Island의 각 부분을
-  따로 정하는 `island`
+레이아웃은 `text`/`bound`, `path`(SVG path 데이터), `vstack`·`hstack`·`zstack`·`spacer`·`divider`와
+아래 여섯 가지로 만듭니다. 그림은 모두 iOS 잠금화면입니다. 예시의 빌더는 `layout`에서 꺼내 씁니다
+(`const { vstack, hstack, text, bound, symbol, image, gauge, progress, timerText, button } = layout;`).
+
+### 심볼
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-symbols.png" width="400" alt="고양이, 여러 색 하트, 35% 채운 스피커">
+
+```ts
+hstack([
+  symbol('cat.fill'),
+  symbol('heart.fill', { rendering: 'multicolor' }),
+  symbol('speaker.wave.3.fill', { variableBind: 'purr' }), // purr: 0.35
+])
+```
+
+SF Symbols입니다. `variableBind`는 0~1 값으로 가변 심볼을 채웁니다. iOS 전용입니다.
+
+### 이미지
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-image.png" width="400" alt="위젯 에셋 카탈로그의 Mochi 사진">
+
+```ts
+hstack([image('mochi', { resizable: true, style: 'portrait' }), bound('title')])
+// styles: { portrait: { frame: { width: 56, height: 56 } } }
+```
+
+위젯 확장의 에셋 카탈로그에 있는 그림입니다. iOS 전용입니다.
+
+### 게이지
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-gauge.png" width="400" alt="100 중 80을 가리키는 원형·선형 게이지">
+
+```ts
+hstack([gauge('bowl', { max: 100, kind: 'circular' }), gauge('bowl', { max: 100 })]) // bowl: 80
+```
+
+`min`~`max` 사이의 숫자를 원이나 막대로 보여 줍니다. iOS 전용입니다.
+
+### 진행률
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-progress.png" width="400" alt="65%를 가리키는 원과 막대">
+
+```ts
+vstack([bound('title'), progress('done', { kind: 'circular' }), progress('done')]) // done: 0.65
+```
+
+0~1 사이의 숫자입니다. Android에서는 첫 번째 진행률이 알림의 막대가 됩니다.
+
+### 타이머
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-timer.png" width="400" alt="Mochi 낮잠 아래 4:50에서 줄어드는 타이머">
+
+```ts
+vstack([bound('title'), timerText('start', 'end')]) // end: Date.now() + 5 * 60_000
+```
+
+시스템이 세는 타이머로, `end`까지 줄어들거나 `start`부터 늘어납니다(`countsDown: false`). Android에서는 알림의 크로노미터가 됩니다.
+
+### 버튼
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-buttons-after.png" width="400" alt="한 번 쓰다듬은 뒤의 Pet Mochi·All done 버튼">
+
+```ts
+hstack([button('pet', text('Pet Mochi')), button('done', text('All done'))])
+
+await onAction(async ({ actionId, activityId }) => {
+  if (actionId === 'done') await endLayout({ id: activityId, policy: { kind: 'immediate' } });
+});
+```
+
+탭은 `onAction`으로, 앱이 열려 있지 않을 때는 Rust의 `on_action`으로 전달됩니다. iOS 17 이상이며, Android는 최대 세 개를 알림 버튼으로 보여 줍니다.
+
+### Dynamic Island
 
 <table>
-  <tr><th>심볼</th><th>이미지</th><th>게이지</th></tr>
+  <tr><th>컴팩트</th><th>미니멀</th><th>확장</th></tr>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-symbols.png" width="260" alt="고양이, 다색 하트, 35% 채운 스피커 심볼"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-image.png" width="260" alt="위젯 asset catalog에서 가져온 Mochi 초상"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-gauge.png" width="260" alt="100 중 80을 가리키는 원형 게이지와 막대 게이지"></td>
-  </tr>
-  <tr><th>진행률</th><th>타이머</th><th>버튼</th></tr>
-  <tr>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-progress.png" width="260" alt="65%의 링과 막대"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-timer.png" width="260" alt="Mochi 낮잠 아래 4:50에서 줄어드는 타이머"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-buttons-after.png" width="260" alt="한 번 쓰다듬은 뒤의 Pet Mochi, All done 버튼"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-island-compact.png" width="270" alt="컴팩트 Dynamic Island의 발바닥과 9 min"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-island-minimal.png" width="180" alt="미니멀 Dynamic Island의 진행률 링"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-island-expanded.png" width="265" alt="확장 Dynamic Island의 사진, 제목, 시간, 상태, 막대"></td>
   </tr>
 </table>
 
-Android에서는 레이아웃을 알림으로 보여 줍니다. 첫 두 텍스트가 제목과 본문이 되고, 첫 진행 막대와
-타이머, 버튼 세 개까지 들어갑니다. 빠진 것은 `degradedFeatures`에 남습니다.
+```ts
+island: {
+  expanded: {
+    leading: image('mochi', { resizable: true, style: 'portrait' }),
+    center: bound('title'),
+    trailing: bound('eta'),
+    bottom: vstack([bound('status'), progress('done')]),
+  },
+  compactLeading: symbol('pawprint.fill'),
+  compactTrailing: bound('eta'),
+  minimal: progress('done', { kind: 'circular' }),
+},
+keyline: '#A3D9C2', // 아일랜드 테두리 색
+```
+
+레이아웃에서 `lockScreen` 옆에 `island`를 둡니다. 빠진 부분은 잠금화면 트리(확장)나 그 첫 심볼(컴팩트 왼쪽, 미니멀)을 보여 줍니다.
+
+Android는 레이아웃을 알림으로 보여 줍니다. 첫 두 텍스트가 제목과 본문이 되고, 첫 진행률 막대와 타이머, 버튼 최대 세 개가 들어갑니다. 빠진 것은 `degradedFeatures`에 이름이 남습니다.
 
 ## Samsung Now Bar
 
