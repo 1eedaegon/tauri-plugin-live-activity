@@ -71,33 +71,108 @@ The layout stays as it started. Each update sends every value again, with a high
 
 ## What a layout can hold
 
-- `text` and `bound`: fixed text, or the value of a key, in the styles you name
-- `symbol`: SF Symbols, also filled from a value
-- `image`: a picture from the widget's asset catalog
-- `path`: a shape from SVG path data
-- `gauge` and `progress`: a number as a ring or a bar
-- `timerText`: a timer that the system counts, down or up
-- `button`: a tap that reaches `onAction`, or `on_action` in Rust (iOS 17+)
-- `vstack`, `hstack`, `zstack`, `spacer` and `divider` to arrange them, and `island` for the
-  Dynamic Island's own parts
+Layouts are built from `text`/`bound`, `path` (SVG path data) and `vstack`, `hstack`, `zstack`,
+`spacer`, `divider`, plus the six below. Each picture is the iOS Lock Screen. The snippets take
+the builders from `layout` (`const { vstack, hstack, text, bound, symbol, image, gauge, progress, timerText, button } = layout;`).
+
+### Symbols
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-symbols.png" width="400" alt="A cat, a multicolor heart and a speaker filled to 35%">
+
+```ts
+hstack([
+  symbol('cat.fill'),
+  symbol('heart.fill', { rendering: 'multicolor' }),
+  symbol('speaker.wave.3.fill', { variableBind: 'purr' }), // purr: 0.35
+])
+```
+
+SF Symbols. `variableBind` fills a variable symbol from a value between 0 and 1. iOS only.
+
+### Image
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-image.png" width="400" alt="Mochi's portrait from the widget's asset catalog">
+
+```ts
+hstack([image('mochi', { resizable: true, style: 'portrait' }), bound('title')])
+// styles: { portrait: { frame: { width: 56, height: 56 } } }
+```
+
+A picture from the widget extension's asset catalog. iOS only.
+
+### Gauge
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-gauge.png" width="400" alt="A circular and a linear gauge at 80 of 100">
+
+```ts
+hstack([gauge('bowl', { max: 100, kind: 'circular' }), gauge('bowl', { max: 100 })]) // bowl: 80
+```
+
+A number between `min` and `max` as a ring or a bar. iOS only.
+
+### Progress
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-progress.png" width="400" alt="A ring and a bar at 65%">
+
+```ts
+vstack([bound('title'), progress('done', { kind: 'circular' }), progress('done')]) // done: 0.65
+```
+
+A number from 0 to 1. On Android the first one becomes the notification's bar.
+
+### Timer
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-timer.png" width="400" alt="A countdown at 4:50 under Mochi's nap">
+
+```ts
+vstack([bound('title'), timerText('start', 'end')]) // end: Date.now() + 5 * 60_000
+```
+
+The system counts it, down to `end` or up from `start` (`countsDown: false`). On Android it is the notification's chronometer.
+
+### Buttons
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-buttons-after.png" width="400" alt="Pet Mochi and All done buttons after one pet">
+
+```ts
+hstack([button('pet', text('Pet Mochi')), button('done', text('All done'))])
+
+await onAction(async ({ actionId, activityId }) => {
+  if (actionId === 'done') await endLayout({ id: activityId, policy: { kind: 'immediate' } });
+});
+```
+
+A tap reaches `onAction`, or `on_action` in Rust, which also runs when the app was not open. iOS 17+; Android shows up to three as notification actions.
+
+### Dynamic Island
 
 <table>
-  <tr><th>Symbols</th><th>Image</th><th>Gauge</th></tr>
+  <tr><th>Compact</th><th>Minimal</th><th>Expanded</th></tr>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-symbols.png" width="260" alt="A cat, a multicolor heart and a speaker filled to 35%"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-image.png" width="260" alt="Mochi's portrait from the widget's asset catalog"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-gauge.png" width="260" alt="A circular and a linear gauge at 80 of 100"></td>
-  </tr>
-  <tr><th>Progress</th><th>Timer</th><th>Buttons</th></tr>
-  <tr>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-progress.png" width="260" alt="A ring and a bar at 65%"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-timer.png" width="260" alt="A countdown at 4:50 under Mochi's nap"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-buttons-after.png" width="260" alt="Pet Mochi and All done buttons after one pet"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-island-compact.png" width="270" alt="A paw and 9 min in the compact Dynamic Island"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-island-minimal.png" width="180" alt="A progress ring in the minimal Dynamic Island"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-island-expanded.png" width="265" alt="Portrait, title, time, status and bar in the expanded Dynamic Island"></td>
   </tr>
 </table>
 
-Android shows a layout as a notification: the first two texts as title and body, the first
-progress bar and timer, and up to three buttons. `degradedFeatures` names what it left out.
+```ts
+island: {
+  expanded: {
+    leading: image('mochi', { resizable: true, style: 'portrait' }),
+    center: bound('title'),
+    trailing: bound('eta'),
+    bottom: vstack([bound('status'), progress('done')]),
+  },
+  compactLeading: symbol('pawprint.fill'),
+  compactTrailing: bound('eta'),
+  minimal: progress('done', { kind: 'circular' }),
+},
+keyline: '#A3D9C2', // the island's edge color
+```
+
+Put `island` next to `lockScreen` in the layout. A part you leave out shows the lock screen tree (expanded) or its first symbol (compact leading, minimal).
+
+Android shows a layout as a notification: the first two texts as title and body, the first progress bar and timer, and up to three buttons. `degradedFeatures` names what it left out.
 
 ## Samsung Now Bar
 
