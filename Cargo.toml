@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-live-activity"
-version = "0.2.0"
+version = "0.2.1"
 description = "Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates with ongoing notification fallback"
 authors = ["1eedaegon"]
 edition = "2024"

@@ -1,4 +1,20 @@
-# 0.2.0 validation
+# 0.2.1 validation
+
+0.2.1 adds the `npx tauri-plugin-live-activity setup` command and a short README; the plugin's
+Rust, Swift, Kotlin and TypeScript code is the same as in 0.2.0. Checked before the tag:
+
+- `tests/setup.test.mjs`: 28 tests (first run, a second run that changes nothing, dry run,
+  files the user changed, plugin updates, errors), against a fixture from a fresh Tauri 2 app.
+- End to end: a fresh Tauri 2 app with crates.io 0.2.0 and the packed npm package; `setup`,
+  then `tauri ios dev` on an iOS Simulator built and started a layout activity.
+- CI of the pull request that added the command (all four jobs), and the main run of the
+  release commit, which the release guard requires.
+
+Not checked: an Android build of a fresh app after `setup` raised its minimum to API 26.
+
+The record of 0.2.0 follows.
+
+# 0.2.0 validation (earlier)
 
 0.2.0 adds request contract v2: layouts, values, styles and buttons. It also adds the
 optional plugin configuration and moves iOS receipts to `receipts-v2.json`. Contract v1

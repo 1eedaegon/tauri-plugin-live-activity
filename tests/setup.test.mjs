@@ -437,7 +437,8 @@ test('notes a different minor version of the npm package and the crate', t => {
   const result = run(context);
 
   const note = result.notes.find(item => item.kind === 'version');
-  assert.match(note.text, /npm package 0\.2\.0 and the crate 0\.3\.0/);
+  const { version } = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'));
+  assert.ok(note.text.includes(`npm package ${version} and the crate 0.3.0`), note.text);
   assert.match(formatReport(result), /use the same minor version/);
 });
 
