@@ -18,6 +18,9 @@ import { fontNames } from '../cli/widget-files.mjs';
 import { addInclude, appGroupOf, readProject } from '../cli/xcodegen.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
+// The crate the fixtures stand in for has the package's own version unless a test says otherwise.
+const packageVersion = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')).version;
+const laterPatch = n => packageVersion.replace(/\d+$/, patch => String(Number(patch) + n));
 const fixtures = join(repo, 'tests', 'fixtures', 'setup');
 const nodeDir = dirname(process.execPath);
 
@@ -47,7 +50,7 @@ function executable(path, text) {
 }
 
 /** A temporary app from a fixture, a plugin crate and a tauri crate in a fake registry, and fake tools. */
-function makeApp(t, { fixture = 'fresh-app', pluginVersion = '0.2.0', xcodegen = true } = {}) {
+function makeApp(t, { fixture = 'fresh-app', pluginVersion = packageVersion, xcodegen = true } = {}) {
   const base = mkdtempSync(join(tmpdir(), 'la-setup-'));
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const app = join(base, 'app');
@@ -206,7 +209,7 @@ test('keeps a widget file that differs from the template, and says how to take t
 test('rewrites the spec it wrote after a plugin update, and keeps a spec the user edited', t => {
   const context = makeApp(t);
   run(context);
-  const plugin = usePlugin(context, '0.2.1');
+  const plugin = usePlugin(context, laterPatch(1));
 
   const updated = run(context);
 
@@ -216,7 +219,7 @@ test('rewrites the spec it wrote after a plugin update, and keeps a spec the use
   assert.equal(xcodegenRuns(context).length, 2);
 
   writeFileSync(specPath, `${readFileSync(specPath, 'utf8')}# mine\n`);
-  usePlugin(context, '0.2.2');
+  usePlugin(context, laterPatch(2));
   const kept = run(context);
   assert.equal(statuses(kept)['src-tauri/gen/apple/live-activity.yml'], 'kept');
   assert.match(readFileSync(specPath, 'utf8'), /# mine\n$/);
@@ -410,7 +413,7 @@ test('without Tauri\'s Swift API in the dependencies it says how to get it', t =
   const result = run(context);
 
   const todo = result.steps.find(step => step.status === 'todo');
-  assert.match(todo.path, /tauri-plugin-live-activity-0\.2\.0\/\.tauri\/tauri-api$/);
+  assert.match(todo.path, new RegExp(`tauri-plugin-live-activity-${packageVersion.replaceAll('.', '\\.')}/\\.tauri/tauri-api$`));
   assert.match(todo.detail, /cargo build --target aarch64-apple-ios-sim/);
 });
 
@@ -441,13 +444,13 @@ test('says what is wrong with a capability file it cannot read', t => {
 });
 
 test('notes a different minor version of the npm package and the crate', t => {
-  const context = makeApp(t, { pluginVersion: '0.3.0' });
+  const context = makeApp(t, { pluginVersion: '9.9.0' });
 
   const result = run(context);
 
   const note = result.notes.find(item => item.kind === 'version');
   const { version } = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'));
-  assert.ok(note.text.includes(`npm package ${version} and the crate 0.3.0`), note.text);
+  assert.ok(note.text.includes(`npm package ${version} and the crate 9.9.0`), note.text);
   assert.match(formatReport(result), /use the same minor version/);
 });
 
