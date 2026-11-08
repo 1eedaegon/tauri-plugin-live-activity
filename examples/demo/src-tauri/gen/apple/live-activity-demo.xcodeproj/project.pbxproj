@@ -19,6 +19,7 @@
 		57D1487D0A28960A8A48A8FB /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7D314CA54309C36DF5B76FB /* Security.framework */; };
 		5A3EA72F1D8B8DD6E881F11E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D044131875580C81E48A4B42 /* Assets.xcassets */; };
 		5CCA5BC9E7CB981B346E1789 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DB84EDEC7D435F01516C62A2 /* WebKit.framework */; };
+		68D74337693FA37A0890F9E0 /* LiveActivityCustomRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28D967AD1F486D9244A975D3 /* LiveActivityCustomRegistry.swift */; };
 		9B7C3FC723498AA4ADFDF0A3 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EC3D5F34CBE9A562F0792FBE /* UIKit.framework */; };
 		AE41AF1729DA5FE65CC318B4 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 712B829A02022B487DDFB5FD /* assets */; };
 		AE85642B7B27E86C185F5EDA /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 92D81DCC18FCCCE5DFF01CA1 /* Metal.framework */; };
@@ -57,6 +58,7 @@
 		027195C26091580FF752E2EF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		141513FB7FDDB6D68253FC9D /* report.rs */ = {isa = PBXFileReference; path = report.rs; sourceTree = "<group>"; };
 		1993A4014201B10B83405A8E /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		28D967AD1F486D9244A975D3 /* LiveActivityCustomRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityCustomRegistry.swift; sourceTree = "<group>"; };
 		3D0F5ADE9B9F10771AE23FD9 /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = ../../../../../ios; sourceTree = SOURCE_ROOT; };
 		55FA5591411097F6C1CEF7B7 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		58764C10758B6236D852D998 /* LiveActivityLayoutWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityLayoutWidget.swift; sourceTree = "<group>"; };
@@ -78,6 +80,7 @@
 		E0E3E2C30DC8749F1DE30AEE /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		EC3D5F34CBE9A562F0792FBE /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		ED6BC6D389954FB9EC38EC1D /* MochiWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MochiWidget.swift; sourceTree = "<group>"; };
+		EE27E91BDA8400523B155E24 /* actions.rs */ = {isa = PBXFileReference; path = actions.rs; sourceTree = "<group>"; };
 		EFEFB03207CB86199C0CE934 /* live-activity-demo_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "live-activity-demo_iOS.entitlements"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -178,6 +181,7 @@
 		9FB21C42C0D69B2A5CECAC3C /* src */ = {
 			isa = PBXGroup;
 			children = (
+				EE27E91BDA8400523B155E24 /* actions.rs */,
 				D502F734A85E962C94ACADBA /* lib.rs */,
 				DCC9D53DA425000BB4D7D9E8 /* main.rs */,
 				141513FB7FDDB6D68253FC9D /* report.rs */,
@@ -226,23 +230,24 @@
 			isa = PBXGroup;
 			children = (
 				8BE90AF9F129EDDBC31F86C0 /* LiveActivityActionIntent.swift */,
+				28D967AD1F486D9244A975D3 /* LiveActivityCustomRegistry.swift */,
 			);
 			name = ios;
 			path = ../../../../../templates/ios;
 			sourceTree = "<group>";
 		};
-		"TEMP_40944C6B-7F6F-4D8A-943F-8459B9D2E238" /* x86_64 */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = x86_64;
-			sourceTree = "<group>";
-		};
-		"TEMP_466E511F-6C2B-4D01-A4F9-2F480613E94C" /* arm64 */ = {
+		"TEMP_BB3C3301-E0A6-48AF-B668-BA430E4BFC76" /* arm64 */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = arm64;
+			sourceTree = "<group>";
+		};
+		"TEMP_E6A1D79D-23F2-445E-B161-ED4A325EF3DD" /* x86_64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = x86_64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -383,6 +388,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BEDAEC1D677C7ABF54946D53 /* LiveActivityActionIntent.swift in Sources */,
+				68D74337693FA37A0890F9E0 /* LiveActivityCustomRegistry.swift in Sources */,
 				0750377636FA2259E32E3305 /* LiveActivityLayoutWidget.swift in Sources */,
 				E75356D6531815D2C599B6BE /* MochiWidget.swift in Sources */,
 			);

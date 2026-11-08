@@ -51,7 +51,8 @@ private struct LayoutRegionView: View {
     let region: LayoutRegion
 
     var body: some View {
-        LayoutView(document: context.attributes.document, values: context.state.values, region: region, button: button)
+        LayoutView(document: context.attributes.document, values: context.state.values, region: region, button: button,
+                   custom: custom)
     }
 
     /// Buttons run `LiveActivityActionIntent` (LiveActivityActionIntent.swift) in the app process.
@@ -60,6 +61,25 @@ private struct LayoutRegionView: View {
         let activityId = context.attributes.instanceID
         return { actionId, label in
             AnyView(Button(intent: LiveActivityActionIntent(activityId: activityId, actionId: actionId)) { label })
+        }
+    }
+
+    /// A `custom` node draws the view of its name from LiveActivityCustomViews.swift, or nothing
+    /// (LiveActivityCustomRegistry.swift).
+    private var custom: LayoutView.CustomBuilder {
+        { name, props in
+            LiveActivityCustomViewRegistry.registered?.views[name]?.make(LiveActivityCustomProps(values: props.mapValues(LiveActivityCustomProps.Value.init)))
+        }
+    }
+}
+
+@available(iOS 16.1, *)
+private extension LiveActivityCustomProps.Value {
+    init(_ value: LayoutValue) {
+        switch value {
+        case .string(let text): self = .string(text)
+        case .number(let number): self = .number(number)
+        case .bool(let flag): self = .bool(flag)
         }
     }
 }

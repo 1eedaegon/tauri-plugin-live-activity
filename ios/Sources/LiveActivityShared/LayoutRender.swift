@@ -85,6 +85,8 @@ public struct LayoutRenderStyle: Equatable, Sendable {
     public let font: LayoutRenderFont?
     public let weight: LayoutFontWeight?
     public let design: LayoutFontDesign?
+    /// A font of the widget extension: with `font` at that text style's size, with a `size` at that size.
+    public let fontFamily: String?
     public let monospacedDigit: Bool
     public let color: LayoutColorSpec?
     public let lineLimit: Int?
@@ -104,7 +106,8 @@ public struct LayoutRenderStyle: Equatable, Sendable {
     /// Bound members read `values`; a member whose value is missing or does not fit is left out.
     init(_ style: LayoutStyle?, values: [String: LayoutValue]) {
         font = style?.font.map(LayoutRenderFont.named) ?? style?.size?.resolve(values, within: LayoutRules.sizes).map(LayoutRenderFont.size)
-        weight = style?.weight?.resolve(values); design = style?.design; monospacedDigit = style?.monospacedDigit ?? false
+        weight = style?.weight?.resolve(values); design = style?.design; fontFamily = style?.fontFamily
+        monospacedDigit = style?.monospacedDigit ?? false
         color = style?.color?.resolve(values); lineLimit = style?.lineLimit
         minimumScaleFactor = style?.minimumScaleFactor; alignment = style?.alignment
         switch style?.padding {
@@ -169,7 +172,7 @@ public indirect enum LayoutRenderContent: Equatable, Sendable {
     case text(String)
     /// `variableValue` is within 0...1.
     case symbol(name: String, rendering: LayoutSymbolRendering?, variableValue: Double?)
-    case image(asset: String, resizable: Bool, contentMode: LayoutContentMode?)
+    case image(source: LayoutImageSource, resizable: Bool, contentMode: LayoutContentMode?)
     /// `width` and `height` are the coordinate space of the commands.
     case path(commands: [LayoutPathCommand], width: Double, height: Double, stroke: Double?)
     /// `value` is within 0...1.
@@ -178,6 +181,8 @@ public indirect enum LayoutRenderContent: Equatable, Sendable {
     case gauge(value: Double, range: ClosedRange<Double>, kind: LayoutMeterKind)
     case timer(interval: ClosedRange<Date>, countsDown: Bool)
     case button(actionId: String, label: LayoutRenderNode)
+    /// The props with bound ones read from the values.
+    case custom(name: String, props: [String: LayoutValue])
 }
 
 extension LayoutValue {
@@ -306,7 +311,7 @@ extension LayoutDocument {
         case .boundText(let key): return values[key].map { .text($0.text) }
         case let .symbol(name, rendering, key):
             return .symbol(name: name, rendering: rendering, variableValue: key.flatMap { values[$0]?.number }.map(unit))
-        case let .image(asset, resizable, contentMode): return .image(asset: asset, resizable: resizable ?? false, contentMode: contentMode)
+        case let .image(source, resizable, contentMode): return .image(source: source, resizable: resizable ?? false, contentMode: contentMode)
         case let .path(data, box, stroke):
             guard box.count == 2, let commands = LayoutPath.commands(data) else { return nil }
             return .path(commands: commands, width: box[0], height: box[1], stroke: stroke)
@@ -319,6 +324,35 @@ extension LayoutDocument {
             guard let from = values[start]?.number, let to = values[end]?.number, to > from else { return nil }
             return .timer(interval: Date(timeIntervalSince1970: from / 1000)...Date(timeIntervalSince1970: to / 1000), countsDown: countsDown ?? true)
         case let .button(actionId, child): return render(child, values: values).map { .button(actionId: actionId, label: $0) }
+        case let .custom(name, props):
+            let resolved = (props ?? [:]).compactMapValues { prop -> LayoutValue? in
+                switch prop {
+                case .literal(let value): return value
+                case .bound(let key): return values[key]
+                }
+            }
+            return .custom(name: name, props: resolved)
         }
+    }
+
+    /// The names of the custom views of every region, in document order, each once.
+    public var customViewNames: [String] {
+        var names: [String] = []
+        func visit(_ node: LayoutNode) {
+            switch node.content {
+            case let .vstack(children, _, _), let .hstack(children, _, _), let .zstack(children, _): children.forEach(visit)
+            case let .button(_, child): visit(child)
+            case let .custom(name, _): if !names.contains(name) { names.append(name) }
+            default: break
+            }
+        }
+        LayoutRegion.allCases.compactMap(layout.node(in:)).forEach(visit)
+        return names
+    }
+
+    /// `layout.custom.<name>` for every custom view of the layout that `registered` lacks; every one of them when
+    /// the app has no registry. The widget draws nothing for such a node.
+    public func unknownCustomViews(registered: Set<String>?) -> [String] {
+        customViewNames.filter { !(registered?.contains($0) ?? false) }.map { "layout.custom.\($0)" }
     }
 }

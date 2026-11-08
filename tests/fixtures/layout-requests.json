@@ -1140,6 +1140,144 @@
       "command": "start_layout",
       "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green", "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "c": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "d": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } } },
       "weight": 3584
+    },
+    {
+      "name": "accepts a fontFamily alone",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 107
+    },
+    {
+      "name": "accepts a fontFamily with a text style and a weight",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter", "font": "headline", "weight": "bold" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 141
+    },
+    {
+      "name": "accepts a fontFamily with a literal size",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter-Bold", "size": 22 } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 128
+    },
+    {
+      "name": "accepts a fontFamily with a bound size, color and weight",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Avenir Next", "size": { "bind": "points" }, "color": { "bind": "tone" }, "weight": { "bind": "heft" } } }, "snapshot": { "revision": 0, "values": { "title": "Mochi", "points": 18, "tone": "red", "heft": "semibold" } } },
+      "weight": 239
+    },
+    {
+      "name": "accepts a fontFamily with spaces, dots, hyphens and underscores",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "My Font_2.0-Regular" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 121
+    },
+    {
+      "name": "accepts a fontFamily of 64 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 166
+    },
+    {
+      "name": "accepts a fontFamily that starts with a digit",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "3270 Condensed" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 116
+    },
+    {
+      "name": "accepts an image drawn from a file",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "badge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 68
+    },
+    {
+      "name": "accepts a resizable file image that fills its frame, with a style",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "badge.png" }, "resizable": true, "contentMode": "fill", "style": "art" } }, "styles": { "art": { "frame": { "width": 48, "height": 48 }, "cornerRadius": 8 } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 200
+    },
+    {
+      "name": "accepts a file name without an extension",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "badge" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 64
+    },
+    {
+      "name": "accepts a file name of 64 characters with dots, hyphens and underscores",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb_x-2.v9.pngab" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 123
+    },
+    {
+      "name": "accepts file and asset images side by side and in the island",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "hstack", "children": [{ "type": "image", "source": { "asset": "mochi" } }, { "type": "image", "source": { "file": "mochi.png" } }] }, "island": { "compactLeading": { "type": "image", "source": { "file": "dot.png" }, "resizable": true }, "expanded": { "leading": { "type": "image", "source": { "file": "badge.png" } } } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 314
+    },
+    {
+      "name": "accepts a custom node with only a name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 52
+    },
+    {
+      "name": "accepts a custom node with literal props of every type",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "label": "Bowl", "empty": "", "level": 0.8, "rings": 3, "animated": false } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 140
+    },
+    {
+      "name": "accepts a custom node with props bound to values of every type",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl" }, "label": { "bind": "title" }, "full": { "bind": "isFull" }, "thickness": 4 } } }, "snapshot": { "revision": 0, "values": { "bowl": 0.8, "title": "Bowl", "isFull": false } } },
+      "weight": 207
+    },
+    {
+      "name": "accepts a custom node with a style and an if condition",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "style": "s", "if": "shown" } }, "styles": { "s": { "frame": { "width": 40, "height": 40 }, "color": "mint" } }, "snapshot": { "revision": 0, "values": { "shown": true } } },
+      "weight": 159
+    },
+    {
+      "name": "accepts a custom node with an unless condition",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "unless": "hidden" } }, "snapshot": { "revision": 0, "values": { "hidden": false } } },
+      "weight": 85
+    },
+    {
+      "name": "accepts custom nodes in every island region and inside a button",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "button", "actionId": "pet", "child": { "type": "custom", "name": "paw.button" } }, "island": { "expanded": { "leading": { "type": "custom", "name": "ring" }, "trailing": { "type": "custom", "name": "ring" }, "center": { "type": "custom", "name": "title-art" }, "bottom": { "type": "custom", "name": "bar_2" } }, "compactLeading": { "type": "custom", "name": "dot" }, "compactTrailing": { "type": "custom", "name": "dot" }, "minimal": { "type": "custom", "name": "3dots" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 448
+    },
+    {
+      "name": "accepts a custom node with 16 props",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "p0": 0, "p1": 1, "p2": 2, "p3": 3, "p4": 4, "p5": 5, "p6": 6, "p7": 7, "p8": 8, "p9": 9, "p10": 10, "p11": 11, "p12": 12, "p13": 13, "p14": 14, "p15": 15 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 293
+    },
+    {
+      "name": "accepts a custom name of 64 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "raaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaax" } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 112
+    },
+    {
+      "name": "accepts a custom prop string of 200 code points",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "label": "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 674
+    },
+    {
+      "name": "accepts custom prop numbers at both ends of the value range",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "low": -8640000000000000, "high": 8640000000000000 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 94
+    },
+    {
+      "name": "accepts a custom node beside text, a progress bar and a symbol",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "children": [{ "type": "text", "bind": "title" }, { "type": "hstack", "children": [{ "type": "custom", "name": "ring", "props": { "level": { "bind": "done" } } }, { "type": "progress", "bind": "done" }] }, { "type": "symbol", "name": "pawprint.fill" }] } }, "snapshot": { "revision": 0, "values": { "title": "Mochi", "done": 0.4 } } },
+      "weight": 295
     }
   ],
   "invalid": [
@@ -5774,6 +5912,378 @@
       "command": "start_layout",
       "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" }, "tint": { "bind": "absent" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green", "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "c": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "d": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } } },
       "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an empty fontFamily",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily of 65 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbc" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily that starts with a space",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": " Inter" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily that starts with a hyphen",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "-Inter" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily that starts with a dot",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": ".SFUI" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily with a slash",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Fonts/Inter" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily with a comma",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter,Arial" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily with a non-ASCII letter",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Pretendardé" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily with a trailing line break",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter\n" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily with a tab",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter\tBold" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects null as a fontFamily",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": null } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a number as a fontFamily",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": 12 } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a list of fontFamily names",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": ["Inter"] } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound fontFamily",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": { "bind": "face" } } }, "snapshot": { "revision": 0, "values": { "title": "Mochi", "face": "Inter" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily together with a design",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter", "design": "rounded" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects fontfamily in lower case",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontfamily": "Inter" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an image source with both an asset and a file",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "asset": "mochi", "file": "mochi.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an empty image source",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": {} } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an empty file name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name of 65 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name that starts with a dot",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": ".badge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name of two dots",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": ".." } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name with a slash",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "images/badge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name with a backslash",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "images\\badge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name with a space",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "my badge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name with a non-ASCII letter",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "bädge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects null as a file name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": null } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a number as a file name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": 7 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound file name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": { "bind": "art" } } } }, "snapshot": { "revision": 0, "values": { "art": "badge.png" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file source with another member",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "badge.png", "scale": 3 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file image with an unknown content mode",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "badge.png" }, "contentMode": "stretch" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom node without a name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an empty custom name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name of 65 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "raaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxy" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name that starts with a dot",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": ".ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name with a slash",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "views/ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name with a space",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "my ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name with a colon",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "mochi:ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name with a non-ASCII letter",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "rìng" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects null as a custom name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": null } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a number as a custom name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": 1 } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom node type in upper case",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "Custom", "name": "ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects children on a custom node",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "children": [{ "type": "divider" }] } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an unknown member on a custom node",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "view": "ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects empty custom props",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": {} } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects 17 custom props",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "p0": 0, "p1": 1, "p2": 2, "p3": 3, "p4": 4, "p5": 5, "p6": 6, "p7": 7, "p8": 8, "p9": 9, "p10": 10, "p11": 11, "p12": 12, "p13": 13, "p14": 14, "p15": 15, "p16": 16 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects custom props that are a list",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": [1, 2] } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects null as custom props",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": null } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop key that starts with a digit",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "1st": 1 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop key with a hyphen",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "line-width": 1 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop key of 33 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk": 1 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects null as a custom prop",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": null } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a list as a custom prop",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "levels": [0.1, 0.2] } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an object custom prop that is not a binding",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "color": { "light": "#FFFFFF", "dark": "#000000" } } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop binding with another member",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl", "scale": 2 } } } }, "snapshot": { "revision": 0, "values": { "bowl": 1 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop binding that names no value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl" } } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop binding whose key is not a value key",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": { "bind": "2bowl" } } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop binding to null",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": { "bind": null } } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop string of 201 code points",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "label": "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop number above the value range",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "high": 8640000000000001 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop number below the value range",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "low": -8640000000000001 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom node that is the fourth node of a compact region",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "value": "a" }, "island": { "compactTrailing": { "type": "hstack", "children": [{ "type": "custom", "name": "a" }, { "type": "custom", "name": "b" }, { "type": "custom", "name": "c" }] } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
     }
   ],
   "updates": [
@@ -5950,6 +6460,36 @@
       "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green", "a": "", "b": "", "c": "", "d": "" } } },
       "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "tone": "red", "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "c": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "d": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } } },
       "code": "PAYLOAD_TOO_LARGE"
+    },
+    {
+      "name": "updates the value that a custom prop binds",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "children": [{ "type": "text", "bind": "title" }, { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl" }, "width": 3 } }] } }, "snapshot": { "revision": 0, "values": { "title": "Bowl", "bowl": 0.25 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "title": "Bowl", "bowl": 0.75 } } },
+      "weight": 201
+    },
+    {
+      "name": "updates a value beside a file image and a custom font",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "hstack", "children": [{ "type": "image", "source": { "file": "badge.png" } }, { "type": "text", "bind": "title", "style": "face" }] } }, "styles": { "face": { "fontFamily": "Pacifico", "size": { "bind": "points" } } }, "snapshot": { "revision": 0, "values": { "title": "Mochi", "points": 20, "badge": 1 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "title": "Mochi", "points": 24, "badge": 2 } } },
+      "weight": 259
+    },
+    {
+      "name": "rejects an update that drops the value a custom prop binds",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "children": [{ "type": "text", "bind": "title" }, { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl" }, "width": 3 } }] } }, "snapshot": { "revision": 0, "values": { "title": "Bowl", "bowl": 0.25 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "title": "Bowl" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that turns the value of a custom prop into text",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "children": [{ "type": "text", "bind": "title" }, { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl" }, "width": 3 } }] } }, "snapshot": { "revision": 0, "values": { "title": "Bowl", "bowl": 0.25 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "title": "Bowl", "bowl": "full" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update whose size for a custom font is out of range",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "hstack", "children": [{ "type": "image", "source": { "file": "badge.png" } }, { "type": "text", "bind": "title", "style": "face" }] } }, "styles": { "face": { "fontFamily": "Pacifico", "size": { "bind": "points" } } }, "snapshot": { "revision": 0, "values": { "title": "Mochi", "points": 20, "badge": 1 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "title": "Mochi", "points": 97, "badge": 1 } } },
+      "code": "INVALID_INPUT"
     }
   ]
 }

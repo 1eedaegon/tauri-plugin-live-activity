@@ -141,6 +141,7 @@ struct LifecycleTests {
         try testLayoutFixtures()
         try await testLayoutModels()
         try testLayoutRender()
+        try testLayoutCustomizations()
         try await testLayoutLifecycle()
         try await testReceipts()
         print("iOS lifecycle tests: \(assertions) assertions passed")

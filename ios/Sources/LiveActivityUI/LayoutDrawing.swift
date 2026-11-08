@@ -47,17 +47,33 @@ private extension LayoutSemanticColor {
     }
 }
 
-/// An image of the widget extension's asset catalog. An unknown name draws nothing.
+/// An image of the widget extension's asset catalog, or a PNG that the app wrote into the App Group container named by
+/// the extension's Info.plist. A missing image draws nothing.
 @available(iOS 16.1, *)
-struct LayoutAssetImage: View {
-    let asset: String
+struct LayoutImageView: View {
+    let source: LayoutImageSource
     let resizable: Bool
     let contentMode: LayoutContentMode?
 
+    /// Read on every render, so an update after the app wrote a new file draws it.
+    private var image: Image? {
+        switch source {
+        case .asset(let name): return UIImage(named: name) == nil ? nil : Image(name)
+        case .file(let name):
+            guard let file = LayoutImageView.folder.flatMap({ LayoutImageFolder.file(name, in: $0) }),
+                  let picture = UIImage(contentsOfFile: file.path) else { return nil }
+            return Image(uiImage: picture)
+        }
+    }
+
+    private static let folder = LayoutImageFolder.url(group: Bundle.main.object(forInfoDictionaryKey: LayoutImageFolder.infoKey) as? String) {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0)
+    }
+
     var body: some View {
-        if UIImage(named: asset) != nil {
-            let image = resizable ? Image(asset).resizable() : Image(asset)
-            if let contentMode { image.aspectRatio(contentMode: contentMode == .fill ? .fill : .fit) } else { image }
+        if let image {
+            let sized = resizable ? image.resizable() : image
+            if let contentMode { sized.aspectRatio(contentMode: contentMode == .fill ? .fill : .fit) } else { sized }
         }
     }
 }

@@ -1,4 +1,4 @@
-use super::{Alignment, HorizontalAlignment, non_null, none};
+use super::{Alignment, HorizontalAlignment, Value, non_null, none};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
 
 /// A value key in place of a literal: `{ "bind": "<key>" }` on the wire. The member reads the value
@@ -77,6 +77,12 @@ impl From<ColorName> for Bindable<Color> {
     }
 }
 
+impl From<Value> for Bindable<Value> {
+    fn from(value: Value) -> Self {
+        Self::Literal(value)
+    }
+}
+
 impl From<FontWeight> for Bindable<FontWeight> {
     fn from(weight: FontWeight) -> Self {
         Self::Literal(weight)
@@ -84,7 +90,7 @@ impl From<FontWeight> for Bindable<FontWeight> {
 }
 
 /// Modifiers a node takes through its `style` token. At least one member; `font` and `size`
-/// exclude each other. The [`Bindable`] members may name a value instead of a literal; the
+/// exclude each other, and so do `font_family` and `design`. The [`Bindable`] members may name a value instead of a literal; the
 /// others are fixed at start.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -98,6 +104,11 @@ pub struct Style {
     pub weight: Option<Bindable<FontWeight>>,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
     pub design: Option<FontDesign>,
+    /// The PostScript or family name of a font that the widget extension bundles, such as one
+    /// that `setup --font` added. With `font` it takes that text style's size, with `size` that
+    /// size; not together with `design`. A name the extension lacks draws the system font.
+    #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
+    pub font_family: Option<String>,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
     pub monospaced_digit: Option<bool>,
     /// Foreground color.

@@ -58,6 +58,8 @@ const SEGMENT = new RegExp(`${GAP}([MLHVCSQTZmlhvcsqtz])${GAP}(${NUMBER}(?:${GAP
 const NUMBERS = new RegExp(NUMBER, 'g');
 // Value keys and style tokens are input, so an issue path never spells them.
 const ENTRY = /^(\/input\/(?:snapshot\/values|styles))\/[^/]+/;
+// The same for the props of a custom node, wherever the node is.
+const PROP = /(\/props)\/[^/]+/g;
 // JSON can carry a lone UTF-16 surrogate as an escape, but a Rust or Swift string cannot hold one.
 const LONE_SURROGATE = 'must not contain a lone surrogate';
 const hasLoneSurrogate = (text) => typeof text === 'string' && !text.isWellFormed();
@@ -79,7 +81,7 @@ export function validateRequest(request) {
     return {
       valid: false,
       issues: validateShape.errors.map(({ instancePath, message }) => ({
-        path: instancePath.replace(ENTRY, '$1/*'),
+        path: instancePath.replace(ENTRY, '$1/*').replace(PROP, '$1/*'),
         message,
       })),
     };
@@ -180,6 +182,11 @@ function layoutIssues({ layout, styles = {}, snapshot: { values } }) {
       if (timed && values[node.end] <= values[node.start]) report(`${path}/end`, 'must name a value later than start');
       if (node.type === 'gauge' && !((node.min ?? 0) < (node.max ?? 1))) report(path, 'must have min below max');
       if (node.type === 'path' && !isPathData(node.d)) report(`${path}/d`, 'must be valid SVG path data');
+      // A prop is a literal or a binding; prop names are input, so the path does not spell them.
+      for (const prop of Object.values(node.props ?? {})) {
+        if (typeof prop === 'object' && !Object.hasOwn(values, prop.bind)) report(`${path}/props/*`, 'must name a value');
+        if (hasLoneSurrogate(prop)) report(`${path}/props/*`, LONE_SURROGATE);
+      }
       node.children?.forEach((child, index) => visit(child, `${path}/children/${index}`, depth + 1, inButton));
       if (node.child) visit(node.child, `${path}/child`, depth + 1, true);
     };

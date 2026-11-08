@@ -1,5 +1,6 @@
 use crate::{
     Error, LiveActivityExt, Result,
+    image::ImageInput,
     layout::{self, LayoutActivityRecord},
     models::*,
     validation,
@@ -68,6 +69,12 @@ pub(crate) async fn end_layout<R: Runtime>(
     input: Value,
 ) -> Result<LayoutActivityRecord> {
     app.live_activity().end_layout(layout::parse(input)?)
+}
+
+#[tauri::command]
+pub(crate) async fn write_image<R: Runtime>(app: AppHandle<R>, input: Value) -> Result<()> {
+    let input: ImageInput = validation::parse(input)?;
+    app.live_activity().write_image(&input.name, &input.png)
 }
 
 #[tauri::command]

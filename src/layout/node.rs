@@ -1,5 +1,6 @@
-use super::{non_null, none};
+use super::{Bindable, Value, non_null, none};
 use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
+use std::collections::BTreeMap;
 
 /// One node of a layout tree: an element and the members every node may carry.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -137,13 +138,45 @@ pub enum Element {
         action_id: String,
         child: Box<Node>,
     },
+    /// A SwiftUI view that the app registers under `name` in its widget extension. Each prop is a
+    /// literal or [`Bound`](super::Bound) to a value, which the view reads on every render. Android
+    /// shows no custom view.
+    Custom {
+        name: String,
+        #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
+        props: Option<BTreeMap<String, Bindable<Value>>>,
+    },
 }
 
-/// An image in the widget extension's asset catalog.
+/// Where an image comes from.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ImageSource {
-    pub asset: String,
+#[serde(untagged, deny_unknown_fields)]
+pub enum ImageSource {
+    /// An image in the widget extension's asset catalog: `{ "asset": name }`.
+    Asset { asset: String },
+    /// A PNG that the app wrote with `write_image`, which the widget reads from the App Group
+    /// container: `{ "file": name }`.
+    File { file: String },
+}
+
+impl ImageSource {
+    /// An image of the widget extension's asset catalog.
+    pub fn asset(name: impl Into<String>) -> Self {
+        Self::Asset { asset: name.into() }
+    }
+
+    /// A PNG written with `write_image` under `name`.
+    pub fn file(name: impl Into<String>) -> Self {
+        Self::File { file: name.into() }
+    }
+
+    /// The asset name or the file name.
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Asset { asset } => asset,
+            Self::File { file } => file,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

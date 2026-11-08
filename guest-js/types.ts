@@ -184,7 +184,6 @@ export interface LayoutFrame {
  */
 interface StyleFields {
   readonly weight?: LayoutBindable<FontWeight>;
-  readonly design?: 'default' | 'rounded' | 'serif' | 'monospaced';
   readonly monospacedDigit?: boolean;
   /** Foreground color. */
   readonly color?: LayoutBindable<LayoutColor>;
@@ -207,7 +206,11 @@ interface StyleFields {
   readonly buttonStyle?: 'automatic' | 'bordered' | 'borderedProminent' | 'plain';
 }
 
-/** At least one member. `font`, a system text style, and `size`, points from 6 to 96, exclude each other. */
+/**
+ * At least one member. `font`, a system text style, and `size`, points from 6 to 96, exclude each other.
+ * `fontFamily`, the PostScript or family name of a font that the widget extension bundles (`setup --font`),
+ * and `design`, a design of the system font, exclude each other too.
+ */
 export type LayoutStyle = StyleFields & (
   | {
     readonly font?: 'largeTitle' | 'title' | 'title2' | 'title3' | 'headline' | 'subheadline' | 'body'
@@ -215,6 +218,10 @@ export type LayoutStyle = StyleFields & (
     readonly size?: never;
   }
   | { readonly size?: LayoutBindable<number>; readonly font?: never }
+) & (
+  | { readonly design?: 'default' | 'rounded' | 'serif' | 'monospaced'; readonly fontFamily?: never }
+  /** 1 to 64 ASCII letters, digits, spaces, `.`, `_` and `-`, starting with a letter or digit. */
+  | { readonly fontFamily?: string; readonly design?: never }
 );
 
 /** Members every node may carry. A condition names a value key; `if` and `unless` exclude each other. */
@@ -274,10 +281,17 @@ export type LayoutSymbolNode = NodeFields & {
   readonly variableBind?: string;
 };
 
+/**
+ * `asset`: an image in the widget extension's asset catalog. `file`: a PNG that the app wrote with
+ * `writeImage(file, png)`. A name is 1 to 64 ASCII letters, digits, `.`, `_` and `-`, starting with a letter or digit.
+ */
+export type LayoutImageSource =
+  | { readonly asset: string; readonly file?: never }
+  | { readonly file: string; readonly asset?: never };
+
 export type LayoutImageNode = NodeFields & {
   readonly type: 'image';
-  /** Name of an image in the widget extension's asset catalog. */
-  readonly source: { readonly asset: string };
+  readonly source: LayoutImageSource;
   readonly resizable?: boolean;
   readonly contentMode?: 'fit' | 'fill';
 };
@@ -328,10 +342,26 @@ export type LayoutButtonNode = NodeFields & {
   readonly child: LayoutNode;
 };
 
+/**
+ * A SwiftUI view that the app registers under `name` in LiveActivityCustomViews.swift of its widget extension.
+ * A name without a view draws nothing and is reported in `degradedFeatures` as `layout.custom.<name>`; Android
+ * shows no custom view (`layout.custom`).
+ */
+export type LayoutCustomNode = NodeFields & {
+  readonly type: 'custom';
+  /** 1 to 64 ASCII letters, digits, `.`, `_` and `-`, starting with a letter or digit. */
+  readonly name: string;
+  /**
+   * 1 to 16 inputs of the view under value-key names: text of at most 200 code points, a number, a boolean, or
+   * `layout.bind(key)` for a value that each update can change.
+   */
+  readonly props?: { readonly [name: string]: LayoutBindable<LayoutValue> };
+};
+
 export type LayoutNode =
   | LayoutVStackNode | LayoutHStackNode | LayoutZStackNode | LayoutSpacerNode | LayoutDividerNode
   | LayoutTextNode | LayoutSymbolNode | LayoutImageNode | LayoutPathNode | LayoutProgressNode
-  | LayoutGaugeNode | LayoutTimerTextNode | LayoutButtonNode;
+  | LayoutGaugeNode | LayoutTimerTextNode | LayoutButtonNode | LayoutCustomNode;
 
 /** At least one region, each of at most 12 nodes. */
 export interface LayoutIslandExpanded {

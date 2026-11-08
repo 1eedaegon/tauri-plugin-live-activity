@@ -8,11 +8,15 @@ internal object LayoutRules {
     const val MAX_REVISION = 9007199254740991.0
     private const val MAX_DEPTH = 8
     private const val MAX_BUTTONS = 4
+    private const val MAX_PROPS = 16
 
     private val NAME = Regex("[A-Za-z][A-Za-z0-9_]{0,31}")
     private val ACTIVITY_KEY = Regex("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
     private val ACTION_ID = Regex("[A-Za-z0-9][A-Za-z0-9._:-]{0,63}")
+    /** An asset name, an image file name or the name of a custom view. */
     private val ASSET = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+    /** The PostScript or family name of a font of the widget extension. */
+    private val FONT_FAMILY = Regex("[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}")
     private val SYMBOL = Regex("[a-z0-9]+(\\.[a-z0-9]+)*")
     private val HEX = Regex("#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})")
 
@@ -27,7 +31,7 @@ internal object LayoutRules {
     private val FONTS = setOf("largeTitle", "title", "title2", "title3", "headline", "subheadline", "body", "callout", "footnote", "caption", "caption2")
     private val WEIGHTS = setOf("ultraLight", "thin", "light", "regular", "medium", "semibold", "bold", "heavy", "black")
     private val STYLE_MEMBERS = setOf(
-        "font", "size", "weight", "design", "monospacedDigit", "color", "lineLimit", "minimumScaleFactor", "alignment",
+        "font", "size", "weight", "design", "fontFamily", "monospacedDigit", "color", "lineLimit", "minimumScaleFactor", "alignment",
         "padding", "frame", "background", "cornerRadius", "opacity", "tint", "buttonStyle",
     )
     /** The members that may name a value, and what that value must be: what the member takes as a literal. */
@@ -52,6 +56,7 @@ internal object LayoutRules {
         "gauge" to Shape(setOf("bind"), setOf("min", "max", "kind")),
         "timerText" to Shape(setOf("start", "end"), setOf("countsDown")),
         "button" to Shape(setOf("actionId", "child")),
+        "custom" to Shape(setOf("name"), setOf("props")),
     )
 
     fun isName(text: String) = NAME.matches(text)
@@ -109,6 +114,7 @@ internal object LayoutRules {
         BOUND_NUMBERS.forEach { (key, range) -> style[key]?.let { if (bound(it) == null) it.within(range.start, range.endInclusive) } }
         style["weight"]?.let { if (bound(it) == null) it.oneOf(WEIGHTS) }
         style["design"]?.oneOf(setOf("default", "rounded", "serif", "monospaced"))
+        style["fontFamily"]?.let { if (!FONT_FAMILY.matches(it.text()) || "design" in style) invalidLayout() }
         style["monospacedDigit"]?.flag()
         style["lineLimit"]?.let { if (it.integer(10.0) < 1) invalidLayout() }
         style["minimumScaleFactor"]?.within(0.1, 1.0)
@@ -222,7 +228,8 @@ internal object LayoutRules {
                     node["variableBind"]?.let { if (number(it) !in 0.0..1.0) invalidLayout() }
                 }
                 "image" -> {
-                    if (!ASSET.matches(node["source"].members().only(setOf("asset"))["asset"].text())) invalidLayout()
+                    val source = node["source"].members().only(emptySet(), setOf("asset", "file"))
+                    if (source.size != 1 || !ASSET.matches(source.values.single().text())) invalidLayout()
                     node["resizable"]?.flag()
                     node["contentMode"]?.oneOf(setOf("fit", "fill"))
                 }
@@ -236,6 +243,25 @@ internal object LayoutRules {
                 "timerText" -> {
                     if (time(node["end"]) <= time(node["start"])) invalidLayout()
                     node["countsDown"]?.flag()
+                }
+                "custom" -> {
+                    if (!ASSET.matches(node["name"].text())) invalidLayout()
+                    node["props"]?.let(::props)
+                }
+            }
+        }
+
+        /** 1 to 16 props under value-key names, each a literal that a value could be or bound to a value. */
+        private fun props(raw: Any) {
+            val props = raw.members()
+            if (props.size !in 1..MAX_PROPS) invalidLayout()
+            props.forEach { (key, prop) ->
+                if (!isName(key)) invalidLayout()
+                when (prop) {
+                    is String -> if (prop.codePointLength() > 200) invalidLayout()
+                    is Double -> prop.within(-MAX_NUMBER, MAX_NUMBER)
+                    is Boolean -> Unit
+                    else -> known(bound(prop) ?: invalidLayout())
                 }
             }
         }

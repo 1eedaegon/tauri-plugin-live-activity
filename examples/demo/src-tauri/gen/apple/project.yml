@@ -112,6 +112,8 @@ targets:
       - ../../../widget/LiveActivityLayoutWidget.swift
       - ../../../widget/Assets.xcassets
       - ../../../../../templates/ios/LiveActivityActionIntent.swift
+      # The types that LiveActivityWidget.swift draws custom nodes with; the demo registers no custom view.
+      - ../../../../../templates/ios/LiveActivityCustomRegistry.swift
     dependencies:
       - package: LiveActivity
         product: LiveActivityShared

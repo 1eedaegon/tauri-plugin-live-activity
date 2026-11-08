@@ -7,25 +7,35 @@ public struct LayoutView: View {
     /// Wraps the label of a button node in the host's button, for example `Button(intent:)`, so the package
     /// never names an intent type. Without a builder, or below iOS 17, a button shows its label only.
     public typealias ButtonBuilder = (_ actionId: String, _ label: AnyView) -> AnyView
+    /// The view of a `custom` node with its props, bound ones read from the current values, or nil when the host has no
+    /// view of that name. Without a builder, or for nil, the node draws nothing.
+    public typealias CustomBuilder = (_ name: String, _ props: [String: LayoutValue]) -> AnyView?
 
     private let node: LayoutRenderNode?
-    private let button: ButtonBuilder?
+    private let views: LayoutNodeView.Builders
 
-    public init(document: LayoutDocument, values: [String: LayoutValue], region: LayoutRegion, button: ButtonBuilder? = nil) {
+    public init(document: LayoutDocument, values: [String: LayoutValue], region: LayoutRegion, button: ButtonBuilder? = nil,
+                custom: CustomBuilder? = nil) {
         node = document.render(region, values: values)
-        self.button = button
+        views = LayoutNodeView.Builders(button: button, custom: custom)
     }
 
     public var body: some View {
-        if let node { LayoutNodeView(node: node, button: button) }
+        if let node { LayoutNodeView(node: node, views: views) }
     }
 }
 
 /// One resolved node and its subtree.
 @available(iOS 16.1, *)
 struct LayoutNodeView: View {
+    /// What the host draws: buttons and custom views.
+    struct Builders {
+        let button: LayoutView.ButtonBuilder?
+        let custom: LayoutView.CustomBuilder?
+    }
+
     let node: LayoutRenderNode
-    let button: LayoutView.ButtonBuilder?
+    let views: Builders
 
     var body: some View {
         content.layoutStyle(node.style)
@@ -47,8 +57,8 @@ struct LayoutNodeView: View {
             Text(verbatim: text)
         case let .symbol(name, rendering, variableValue):
             Image(systemName: name, variableValue: variableValue).symbolRenderingMode(rendering?.mode)
-        case let .image(asset, resizable, contentMode):
-            LayoutAssetImage(asset: asset, resizable: resizable, contentMode: contentMode)
+        case let .image(source, resizable, contentMode):
+            LayoutImageView(source: source, resizable: resizable, contentMode: contentMode)
         case let .path(commands, width, height, stroke):
             LayoutPathView(commands: commands, box: CGSize(width: width, height: height), stroke: stroke)
         case let .progress(value, kind):
@@ -61,16 +71,19 @@ struct LayoutNodeView: View {
             Text(timerInterval: interval, countsDown: countsDown)
         case let .button(actionId, label):
             wrap(label, as: actionId)
+        case let .custom(name, props):
+            if let view = views.custom?(name, props) { view }
         }
     }
 
     private func stack(_ children: [LayoutRenderNode]) -> some View {
-        ForEach(children.indices, id: \.self) { LayoutNodeView(node: children[$0], button: button) }
+        ForEach(children.indices, id: \.self) { LayoutNodeView(node: children[$0], views: views) }
     }
 
+    /// A button's label keeps the custom views and has no button of its own.
     private func wrap(_ label: LayoutRenderNode, as actionId: String) -> AnyView {
-        let view = AnyView(LayoutNodeView(node: label, button: nil))
-        if #available(iOS 17.0, *), let button { return button(actionId, view) }
+        let view = AnyView(LayoutNodeView(node: label, views: Builders(button: nil, custom: views.custom)))
+        if #available(iOS 17.0, *), let button = views.button { return button(actionId, view) }
         return view
     }
 }

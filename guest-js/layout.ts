@@ -1,6 +1,6 @@
 import type {
-  LayoutBound, LayoutButtonNode, LayoutDividerNode, LayoutGaugeNode, LayoutHStackNode, LayoutImageNode, LayoutNode,
-  LayoutPathNode, LayoutProgressNode, LayoutSpacerNode, LayoutSymbolNode, LayoutTextNode,
+  LayoutBound, LayoutButtonNode, LayoutCustomNode, LayoutDividerNode, LayoutGaugeNode, LayoutHStackNode, LayoutImageNode,
+  LayoutImageSource, LayoutNode, LayoutPathNode, LayoutProgressNode, LayoutSpacerNode, LayoutSymbolNode, LayoutTextNode,
   LayoutTimerTextNode, LayoutVStackNode, LayoutZStackNode,
 } from './types.js';
 
@@ -55,9 +55,12 @@ export function symbol(name: string, options?: Options<LayoutSymbolNode, 'name'>
   return { type: 'symbol', name, ...given(options) };
 }
 
-/** An image of the widget extension's asset catalog. */
-export function image(asset: string, options?: Options<LayoutImageNode, 'source'>): LayoutImageNode {
-  return { type: 'image', source: { asset }, ...given(options) };
+/**
+ * An image of the widget extension's asset catalog, by its name, or a PNG that the app wrote with
+ * `writeImage`: `image({ file: 'badge.png' })`.
+ */
+export function image(source: string | LayoutImageSource, options?: Options<LayoutImageNode, 'source'>): LayoutImageNode {
+  return { type: 'image', source: typeof source === 'string' ? { asset: source } : { ...source }, ...given(options) };
 }
 
 /** A shape from SVG path data `d`, drawn in a `box` of `[width, height]`. */
@@ -85,10 +88,15 @@ export function button(actionId: string, child: LayoutNode, options?: Options<La
   return { type: 'button', actionId, child, ...given(options) };
 }
 
+/** A SwiftUI view that the app registers under `name` in LiveActivityCustomViews.swift; `props` are its inputs. */
+export function custom(name: string, options?: Options<LayoutCustomNode, 'name'>): LayoutCustomNode {
+  return { type: 'custom', name, ...given(options) };
+}
+
 /**
  * A style member, `layout.background` or `layout.keyline` that reads the value of `key` on every render,
  * so an update can change it: `{ color: bind('tone') }`. Only `color`, `background`, `tint`, `opacity`,
- * `size`, `weight` and `cornerRadius` can be bound.
+ * `size`, `weight` and `cornerRadius` can be bound, and the props of a `custom` node.
  */
 export function bind(key: string): LayoutBound {
   return { bind: key };

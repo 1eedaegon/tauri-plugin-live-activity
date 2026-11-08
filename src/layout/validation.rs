@@ -10,6 +10,7 @@ const MAX_WEIGHT: usize = 3584;
 const MAX_NUMBER: f64 = 8_640_000_000_000_000.0;
 const MAX_DEPTH: usize = 8;
 const MAX_BUTTONS: usize = 4;
+const MAX_PROPS: usize = 16;
 // The ranges of the numbers that a style member takes, as a literal or bound to a value.
 const SIZES: RangeInclusive<f64> = 6.0..=96.0;
 const OPACITIES: RangeInclusive<f64> = 0.0..=1.0;
@@ -93,6 +94,16 @@ fn name(value: &str) -> bool {
     word(value, 32, u8::is_ascii_alphabetic, b"_")
 }
 
+/// An asset name, an image file name or the name of a custom view.
+fn file_name(value: &str) -> bool {
+    word(value, 64, u8::is_ascii_alphanumeric, b"._-")
+}
+
+/// The PostScript or family name of a font: letters, digits, space, `.`, `_` and `-`.
+fn font_family(value: &str) -> bool {
+    word(value, 64, u8::is_ascii_alphanumeric, b" ._-")
+}
+
 /// An SF Symbol name: `^[a-z0-9]+(\.[a-z0-9]+)*$` in at most 64 bytes.
 fn symbol(name: &str) -> bool {
     let part = |part: &str| {
@@ -141,6 +152,8 @@ fn literal<T: Copy>(member: &Option<Bindable<T>>) -> Option<T> {
 /// The literal rules of a style. Bound members are checked with the values.
 fn style(style: &Style) -> Result<()> {
     require(*style != Style::default() && !(style.font.is_some() && style.size.is_some()))?;
+    require(style.font_family.as_deref().is_none_or(font_family))?;
+    require(!(style.font_family.is_some() && style.design.is_some()))?;
     require(within(literal(&style.size), SIZES) && within(style.minimum_scale_factor, 0.1..=1.0))?;
     require(within(literal(&style.corner_radius), CORNERS))?;
     require(within(literal(&style.opacity), OPACITIES))?;
@@ -263,6 +276,18 @@ struct Count {
 }
 
 impl Scope<'_> {
+    /// The props of a custom node: 1 to 16 under value-key names, each a literal that a value
+    /// could be (text of at most 200 code points) or bound to a value of any type.
+    fn props(&self, props: &BTreeMap<String, Bindable<Value>>) -> Result<()> {
+        require((1..=MAX_PROPS).contains(&props.len()) && props.keys().all(|key| name(key)))?;
+        require(props.values().all(|prop| match prop {
+            Bindable::Literal(Value::Text(text)) => text.chars().count() <= 200,
+            Bindable::Literal(Value::Number(number)) => number.abs() <= MAX_NUMBER,
+            Bindable::Literal(Value::Bool(_)) => true,
+            Bindable::Bound(bound) => self.values.contains_key(&bound.bind),
+        }))
+    }
+
     fn layout(&self, layout: &Layout) -> Result<()> {
         [&layout.background, &layout.keyline]
             .into_iter()
@@ -405,8 +430,10 @@ impl Scope<'_> {
                 variable_bind,
                 ..
             } => require(symbol(name) && variable_bind.as_ref().is_none_or(level)),
-            Element::Image { source, .. } => {
-                require(word(&source.asset, 64, u8::is_ascii_alphanumeric, b"._-"))
+            Element::Image { source, .. } => require(file_name(source.name())),
+            Element::Custom { name, props } => {
+                require(file_name(name))?;
+                props.as_ref().map_or(Ok(()), |props| self.props(props))
             }
             Element::Path { d, r#box, stroke } => {
                 require(d.len() <= 512 && path::valid(d) && within(*stroke, 0.5..=16.0))?;

@@ -1,11 +1,13 @@
 use crate::{
     Error, Result,
     actions::{self, ACTION_EVENT, Actions},
+    image::{self, ImageFolder},
     layout::{ActionEvent, LayoutActivityRecord, LayoutStartInput, LayoutUpdateInput},
     models::*,
     validation::Validate,
 };
 use serde::{Serialize, de::DeserializeOwned};
+use std::{path::PathBuf, sync::OnceLock};
 use tauri::{
     AppHandle, Emitter, Runtime,
     ipc::Channel,
@@ -40,12 +42,18 @@ pub(crate) fn init<R: Runtime, C: DeserializeOwned>(
     let actions = actions::start(register, move |event| {
         let _ = app.emit(ACTION_EVENT, event);
     })?;
-    Ok(LiveActivity { handle, actions })
+    Ok(LiveActivity {
+        handle,
+        actions,
+        images: OnceLock::new(),
+    })
 }
 
 pub struct LiveActivity<R: Runtime> {
     handle: PluginHandle<R>,
     actions: Actions,
+    /// The folder of `write_image`, once the native layer has named it.
+    images: OnceLock<PathBuf>,
 }
 
 impl<R: Runtime> LiveActivity<R> {
@@ -95,6 +103,26 @@ impl<R: Runtime> LiveActivity<R> {
     }
     pub fn list_layout(&self) -> Result<Vec<LayoutActivityRecord>> {
         self.call("listLayout", serde_json::json!({}))
+    }
+
+    /// Writes a PNG that `image` nodes with the source `{ "file": name }` show, replacing an
+    /// earlier one of that name. The widget reads the file when it draws, which it does on start
+    /// and on every update: write the new picture first, then send the update. See
+    /// [`check_image`](crate::check_image) for the limits. On iOS the file goes to the App Group
+    /// container that the widget extension names (`setup --app-group`), else
+    /// `CONFIGURATION_REQUIRED`; on Android to the app's private files, where the first such image
+    /// of a layout becomes the notification's large icon.
+    pub fn write_image(&self, name: &str, png: &[u8]) -> Result<()> {
+        image::check_image(name, png)?;
+        image::write(&self.image_folder()?, name, png)
+    }
+
+    fn image_folder(&self) -> Result<PathBuf> {
+        if let Some(folder) = self.images.get() {
+            return Ok(folder.clone());
+        }
+        let folder: ImageFolder = self.call("imageDirectory", serde_json::json!({}))?;
+        Ok(self.images.get_or_init(|| folder.path).clone())
     }
 
     /// Calls `handler` for every tap on a button node, on a thread of the plugin and never

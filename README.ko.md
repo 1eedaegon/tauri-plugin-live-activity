@@ -198,6 +198,49 @@ keyline: '#A3D9C2', // 아일랜드 테두리 색
 
 Android는 레이아웃을 알림으로 보여 줍니다. 첫 두 텍스트가 제목과 본문이 되고, 첫 진행률 막대와 타이머, 버튼 최대 세 개가 들어갑니다. 빠진 것은 `degradedFeatures`에 이름이 남습니다.
 
+## 기본 부품 너머
+
+대부분은 Swift 없이 바꿀 수 있습니다. 글꼴과 그림을 위젯 확장에 넣고 이름으로 부르면 됩니다.
+
+```sh
+npx tauri-plugin-live-activity setup --font fonts/Pacifico-Regular.ttf --asset art/paw@3x.png
+```
+
+```ts
+styles: { title: { fontFamily: 'Pacifico-Regular', size: 22 } }, // 글꼴을 부르는 이름은 setup이 알려 줍니다
+lockScreen: hstack([image('paw'), bound('title', { style: 'title' })]),
+```
+
+앱이 캔버스나 Rust로 직접 그린 그림은 App Group을 거칩니다(`setup --app-group`). PNG를 쓴 다음 시작하거나
+갱신하면 위젯이 그 그림을 그립니다.
+
+```ts
+await writeImage('badge.png', png); // Rust: app.live_activity().write_image("badge.png", &png)
+lockScreen: image({ file: 'badge.png' }, { resizable: true }),
+```
+
+직접 만든 뷰가 필요하면 `gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift`에 SwiftUI로 쓰고 `custom`으로
+놓습니다. 이 파일은 `setup`이 한 번 만들고 다시는 덮어쓰지 않습니다.
+
+```ts
+custom('ring', { props: { level: bind('done'), width: 4 } }),
+```
+
+```swift
+"ring": LiveActivityCustomView { props in Ring(level: props.number("level") ?? 0) },
+```
+
+뷰가 없는 이름은 아무것도 그리지 않고 `degradedFeatures`에 `layout.custom.ring`으로 남습니다. 마지막 수단은
+복사된 `LiveActivityWidget.swift`를 직접 고치는 것입니다. 그러면 `setup`은 그 파일을 그대로 두고, 템플릿이
+바뀐 부분은 직접 합쳐야 합니다.
+
+제한: Live Activity는 네트워크를 쓸 수 없고 메모리도 적습니다. 그린 PNG는 1 MiB, 1224 × 480 픽셀까지이고,
+이는 Apple의 가장 큰 잠금화면 크기를 @3x로 잰 값입니다. 글꼴은 확장 안에 있어야 합니다. 기기에서는 App
+Group을 Apple 계정에 한 번 등록해야 하는데, 자동 서명이 대신 해 줍니다. 검증기는 커스텀 뷰의 이름과 props만
+보고 뷰 자체는 보지 않습니다. Android는 이 가운데 아무것도 그리지 않고, 처음 나오는 그린 그림만 알림의 큰
+아이콘이 됩니다. 레이아웃, 스타일, 값은 여전히 3584를 나눠 씁니다.
+[자세히](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#beyond-the-built-in-parts)
+
 ## Samsung Now Bar
 
 `tauri.conf.json`에 `"plugins": { "live-activity": { "android": { "samsungNowBar": true } } }`를 넣으면

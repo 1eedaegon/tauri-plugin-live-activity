@@ -29,6 +29,9 @@ fn every_node_keeps_its_wire_shape() {
         json!({"type":"gauge","bind":"p","min":-1,"max":10,"kind":"linear"}),
         json!({"type":"timerText","start":"from","end":"to","countsDown":false}),
         json!({"type":"button","actionId":"stop","child":{"type":"text","value":"Stop"},"style":"s"}),
+        json!({"type":"image","source":{"file":"badge.png"}}),
+        json!({"type":"custom","name":"ring"}),
+        json!({"type":"custom","name":"ring","props":{"level":{"bind":"p"},"label":"a","width":4,"on":true},"if":"a"}),
     ] {
         let decoded: Node = serde_json::from_value(node.clone()).unwrap();
         assert!(
@@ -417,4 +420,36 @@ fn path_data_follows_the_reference_grammar() {
     ] {
         assert!(!path::valid(d), "{d:?}");
     }
+}
+
+#[test]
+fn image_sources_and_custom_props_build_their_wire_shape() {
+    assert_eq!(ImageSource::asset("logo").name(), "logo");
+    assert_eq!(ImageSource::file("badge.png").name(), "badge.png");
+    assert_eq!(
+        serde_json::to_value(ImageSource::file("badge.png")).unwrap(),
+        json!({"file":"badge.png"})
+    );
+    assert!(!reads::<ImageSource>(&json!({"asset":"a","file":"b"})));
+    assert!(!reads::<ImageSource>(&json!({})));
+    let ring = Element::Custom {
+        name: "ring".into(),
+        props: Some(BTreeMap::from([
+            ("level".to_string(), Bound::key("done").into()),
+            ("width".to_string(), Value::Number(4.0).into()),
+        ])),
+    };
+    assert_eq!(
+        serde_json::to_value(Node::from(ring)).unwrap(),
+        json!({"type":"custom","name":"ring","props":{"level":{"bind":"done"},"width":4.0}})
+    );
+    let face = Style {
+        font_family: Some("Pacifico".into()),
+        size: Some(20.0.into()),
+        ..Style::default()
+    };
+    assert_eq!(
+        serde_json::to_value(&face).unwrap(),
+        json!({"fontFamily":"Pacifico","size":20.0})
+    );
 }

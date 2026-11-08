@@ -21,7 +21,7 @@ internal const val LAYOUT_DISMISS_ACTION = "io.github.eedaegon.liveactivity.LAYO
 /**
  * Layout activities as notifications on the v1 channel. The notification keeps the Live Update
  * requirements: ongoing, a title, no custom views, not colorized, not a group summary, and a
- * standard or BigText style.
+ * standard or BigText style. A large icon is not among them.
  */
 internal class LayoutNotifications(
     private val context: Context,
@@ -85,6 +85,7 @@ internal class LayoutNotifications(
         spec.timer?.let {
             builder.setWhen(if (it.countsDown) it.end else it.start).setShowWhen(true).setUsesChronometer(true).setChronometerCountDown(it.countsDown)
         }
+        spec.largeIcon?.let { name -> LayoutImages.icon(context, name)?.let { builder.setLargeIcon(it) } }
         spec.actions.forEach { builder.addAction(action(record.id, it)) }
         if (Build.VERSION.SDK_INT >= 36) spec.shortCriticalText?.let { builder.setShortCriticalText(it) }
         return builder.build()

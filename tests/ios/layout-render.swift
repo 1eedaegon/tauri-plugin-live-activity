@@ -87,8 +87,8 @@ extension LifecycleTests {
             && symbols([:]).last == .symbol(name: "wifi", rendering: .palette, variableValue: nil), "symbol variable value is clamped to 0...1")
 
         let image = try layoutDocument(#"{"type":"hstack","children":[{"type":"image","source":{"asset":"logo"}},{"type":"image","source":{"asset":"logo.dark"},"resizable":true,"contentMode":"fill"}]}"#)
-        expect(children(image.render(.lockScreen, values: [:])).map(\.content) == [.image(asset: "logo", resizable: false, contentMode: nil),
-            .image(asset: "logo.dark", resizable: true, contentMode: .fill)], "image asset, resizable and content mode")
+        expect(children(image.render(.lockScreen, values: [:])).map(\.content) == [.image(source: .asset("logo"), resizable: false, contentMode: nil),
+            .image(source: .asset("logo.dark"), resizable: true, contentMode: .fill)], "image asset, resizable and content mode")
 
         let stacks = try layoutDocument(#"{"type":"vstack","spacing":6,"alignment":"leading","children":[{"type":"hstack","alignment":"firstTextBaseline","children":[{"type":"spacer"},{"type":"spacer","minLength":4}]},"#
             + #"{"type":"zstack","alignment":"bottomTrailing","children":[{"type":"divider"}]},{"type":"hstack","children":[{"type":"text","value":"x","if":"off"}]},{"type":"zstack","children":[{"type":"divider"}]}]}"#)

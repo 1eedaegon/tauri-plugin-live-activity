@@ -8,6 +8,7 @@ enum LayoutRules {
     static let maxWeight = 3584
     static let maxDepth = 8
     static let maxButtons = 4
+    static let maxProps = 16
     /// The ranges of the numbers that a style member takes, as a literal or bound to a value.
     static let sizes: ClosedRange<Double> = 6...96
     static let opacities: ClosedRange<Double> = 0...1
@@ -38,7 +39,10 @@ enum LayoutRules {
     static func isName(_ text: String) -> Bool { matches(text, most: 32, first: isLetter) { isWord($0) || $0 == 0x5f } }
     static func isActivityKey(_ text: String) -> Bool { matches(text, most: 128, first: isWord) { isWord($0) || [0x2e, 0x5f, 0x3a, 0x2d].contains($0) } }
     static func isActionID(_ text: String) -> Bool { matches(text, most: 64, first: isWord) { isWord($0) || [0x2e, 0x5f, 0x3a, 0x2d].contains($0) } }
+    /// An asset name, an image file name or the name of a custom view.
     static func isAssetName(_ text: String) -> Bool { matches(text, most: 64, first: isWord) { isWord($0) || [0x2e, 0x5f, 0x2d].contains($0) } }
+    /// The PostScript or family name of a font: letters, digits, space, `.`, `_` and `-`.
+    static func isFontFamily(_ text: String) -> Bool { matches(text, most: 64, first: isWord) { isWord($0) || [0x20, 0x2e, 0x5f, 0x2d].contains($0) } }
     /// Lower-case words and digits joined by single dots.
     static func isSymbolName(_ text: String) -> Bool {
         let bytes = Array(text.utf8)
@@ -153,6 +157,7 @@ extension LayoutStyle {
         case nil: sides = []
         }
         guard members.contains(where: { $0.value != nil }), font == nil || size == nil,
+              fontFamily.map(LayoutRules.isFontFamily) ?? true, fontFamily == nil || design == nil,
               frame?.members.contains(where: { $0.value != nil }) ?? true,
               numbers.allSatisfy({ value, range in value.map(range.contains) ?? true }),
               sides.allSatisfy((0...64).contains), lineLimit.map((1...10).contains) ?? true else { return false }
@@ -205,7 +210,8 @@ extension LayoutDocument {
         case .spacer(let minLength): valid = minLength.map((0...256).contains) ?? true
         case .text(let value): valid = value.unicodeScalars.count <= 200
         case let .symbol(name, _, _): valid = LayoutRules.isSymbolName(name)
-        case let .image(asset, _, _): valid = LayoutRules.isAssetName(asset)
+        case let .image(source, _, _): valid = LayoutRules.isAssetName(source.name)
+        case let .custom(name, props): valid = LayoutRules.isAssetName(name) && props.map(Self.isValid) ?? true
         case let .path(data, box, stroke):
             valid = (1...512).contains(data.utf8.count) && LayoutPath.isValid(data) && box.count == 2
                 && box.allSatisfy((1...1024).contains) && stroke.map((0.5...16).contains) ?? true
@@ -220,6 +226,18 @@ extension LayoutDocument {
         let insideButton: Bool
         if case .button = node.content { insideButton = true } else { insideButton = inButton }
         for child in children { try check(child, in: region, depth: depth + 1, inButton: insideButton, tally: &tally) }
+    }
+
+    /// 1 to 16 props under value-key names; a literal is what a value could be, with text of at most 200 code points.
+    private static func isValid(_ props: [String: LayoutBindable<LayoutValue>]) -> Bool {
+        (1...LayoutRules.maxProps).contains(props.count) && props.allSatisfy { key, prop in
+            guard LayoutRules.isName(key) else { return false }
+            switch prop {
+            case .literal(.string(let text)): return text.unicodeScalars.count <= 200
+            case .literal(.number(let number)): return (-LayoutRules.maxNumber...LayoutRules.maxNumber).contains(number)
+            case .literal(.bool), .bound: return true
+            }
+        }
     }
 
     /// The rules that tie the layout to the values: every named key exists and has the type its node needs;
@@ -245,7 +263,8 @@ extension LayoutDocument {
             if let from = values[start]?.number, let to = values[end]?.number, LayoutRules.isTime(from), LayoutRules.isTime(to), to > from { break }
             valid = false
         case let .button(_, child): try checkReferences(child, values)
-        case .spacer, .divider, .text, .symbol, .image, .path: break
+        case let .custom(_, props?): valid = valid && props.values.allSatisfy { $0.key.map { values[$0] != nil } ?? true }
+        case .spacer, .divider, .text, .symbol, .image, .path, .custom: break
         }
         guard valid else { throw LayoutRules.reference }
     }

@@ -14,7 +14,8 @@ import { main } from '../cli/main.mjs';
 import { setTrueKey } from '../cli/plist.mjs';
 import { formatReport } from '../cli/report.mjs';
 import { PERMISSIONS, SetupError, setup } from '../cli/setup.mjs';
-import { addInclude, readProject } from '../cli/xcodegen.mjs';
+import { fontNames } from '../cli/widget-files.mjs';
+import { addInclude, appGroupOf, readProject } from '../cli/xcodegen.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
 const fixtures = join(repo, 'tests', 'fixtures', 'setup');
@@ -130,13 +131,15 @@ test('sets up a fresh Tauri 2 app: capabilities, Android minimum, widget files, 
   assert.equal(read(context, 'tauri.conf.json'), `${JSON.stringify(config, null, 2)}\n`);
   assert.match(read(context, 'gen/android/app/build.gradle.kts'), /^ {8}minSdk = 26$/m);
   assert.equal(setTrueKey(read(context, 'Info.ios.plist'), 'NSSupportsLiveActivities').status, 'present');
-  for (const name of ['LiveActivityWidget.swift', 'LiveActivityActionIntent.swift', 'Info.plist']) {
+  for (const name of ['LiveActivityWidget.swift', 'LiveActivityActionIntent.swift', 'LiveActivityCustomRegistry.swift', 'LiveActivityCustomViews.swift', 'Info.plist']) {
     assert.equal(read(context, `gen/apple/LiveActivityWidget/${name}`), readFileSync(join(repo, 'templates/ios', name), 'utf8'));
   }
 
   const spec = read(context, 'gen/apple/live-activity.yml');
   assert.ok(spec.includes(`path: ${JSON.stringify(join(context.plugin, 'ios'))}`));
-  assert.match(spec, /\n  "app_iOS":\n    sources: \[LiveActivityWidget\/LiveActivityActionIntent.swift\]\n/);
+  const appSources = ['LiveActivityActionIntent.swift', 'LiveActivityCustomRegistry.swift', 'LiveActivityCustomViews.swift'].map(file => `LiveActivityWidget/${file}`);
+  assert.ok(spec.includes(`\n  "app_iOS":\n    sources: [${appSources.join(', ')}]\n`));
+  for (const absent of ['UIAppFonts', 'TauriLiveActivityAppGroup', 'entitlements']) assert.equal(spec.includes(absent), false, absent);
   assert.match(spec, /\n  LiveActivityWidget:\n    type: app-extension\n/);
   for (const line of ['TauriLiveActivityLayout: 2', 'NSExtensionPointIdentifier: com.apple.widgetkit-extension',
     'PRODUCT_BUNDLE_IDENTIFIER: "com.example.lasetupcheck.widget"', 'CFBundleShortVersionString: "0.1.0"',
@@ -178,7 +181,7 @@ test('a dry run writes nothing and reports what it would do', t => {
   const report = formatReport(result);
   assert.match(report, /Dry run: nothing was written\./);
   assert.match(report, /would create +src-tauri\/gen\/apple\/live-activity\.yml/);
-  assert.match(report, /would update +src-tauri\/capabilities\/default\.json \(8 permissions added\)/);
+  assert.match(report, /would update +src-tauri\/capabilities\/default\.json \(9 permissions added\)/);
   assert.match(report, /would run +xcodegen generate --spec src-tauri\/gen\/apple\/project\.yml/);
 });
 
@@ -234,6 +237,12 @@ test('leaves an Xcode project with its own widget extension alone', t => {
   assert.match(skipped.detail, /LiveActivityWidget/);
   assert.equal(statuses(result)['src-tauri/Info.ios.plist'], 'created');
   assert.equal(xcodegenRuns(context).length, 0);
+  assert.equal(result.steps.some(step => step.status === 'todo'), false);
+
+  const art = artwork(context);
+  const flags = run(context, { fonts: [art('Mono.otf')], appGroup: true });
+  assert.match(flags.steps.find(step => step.status === 'todo').detail, /^--font, --app-group not applied: that widget is yours/);
+  assert.equal(existsSync(join(context.srcTauri, 'gen/apple/LiveActivityWidget')), false);
 });
 
 test('says what it could not do when project.yml has no app target it knows', t => {
@@ -491,7 +500,7 @@ test('the permissions it adds are permissions of the plugin', () => {
       .matchAll(/^identifier = "(.+)"$/gm)].map(match => `live-activity:${match[1]}`)));
   identifiers.add('live-activity:default');
   for (const permission of PERMISSIONS) assert.ok(identifiers.has(permission), permission);
-  const commands = ['request-permissions', 'start', 'update', 'end', 'start-layout', 'update-layout', 'end-layout'];
+  const commands = ['request-permissions', 'start', 'update', 'end', 'start-layout', 'update-layout', 'end-layout', 'write-image'];
   assert.deepEqual(PERMISSIONS, ['live-activity:default', ...commands.map(command => `live-activity:allow-${command}`)]);
 });
 
@@ -523,8 +532,11 @@ test('plist: adds a key to the root dict only, keeps false, and reads a missing 
 test('XcodeGen spec: reads names and groups, and adds to an include list of either form', () => {
   const yaml = 'name: "my-app"\nsettingGroups:\n  app:\n    base: {}\ntargets:\n  # the app\n  my-app_iOS:\n    type: application\n';
   assert.deepEqual(readProject(yaml), {
-    name: 'my-app', appTarget: 'my-app_iOS', settingGroups: ['app'], bundleId: undefined, widget: undefined,
+    name: 'my-app', appTarget: 'my-app_iOS', entitlements: undefined, settingGroups: ['app'], bundleId: undefined, widget: undefined,
   });
+  const entitled = `${yaml}    entitlements:\n      # the app's\n      path: "my-app_iOS/app.entitlements"\n    info:\n      path: x\n`;
+  assert.equal(readProject(entitled).entitlements, 'my-app_iOS/app.entitlements');
+  assert.equal(readProject(`${yaml}    entitlements:\n      properties: {}\n    info:\n      path: x\n`).entitlements, undefined);
   assert.equal(readProject('targets:\n  X:\n    type: app-extension\n    info:\n      properties:\n        NSExtension:\n          NSExtensionPointIdentifier: com.apple.widgetkit-extension\n').widget, 'X');
 
   assert.deepEqual(addInclude('name: a\ninclude: [base.yml]\n', 'live-activity.yml'),
@@ -536,4 +548,206 @@ test('XcodeGen spec: reads names and groups, and adds to an include list of eith
   assert.equal(addInclude('include:\n  - path: live-activity.yml\n', 'live-activity.yml').status, 'present');
   assert.equal(addInclude('include: base.yml\n', 'live-activity.yml').status, 'unsupported');
   assert.deepEqual(addInclude('name: a', 'live-activity.yml'), { status: 'added', text: 'name: a\n\ninclude:\n  - live-activity.yml\n' });
+});
+
+// A TrueType font with only a name table: `records` are [platform, nameId, text].
+function font(records) {
+  const encoded = records.map(([platform, id, text]) => [platform, id, platform === 3 ? Buffer.from(text, 'utf16le').swap16() : Buffer.from(text, 'latin1')]);
+  const strings = Buffer.concat(encoded.map(([, , bytes]) => bytes));
+  const table = Buffer.alloc(6 + encoded.length * 12);
+  table.writeUInt16BE(encoded.length, 2);
+  table.writeUInt16BE(table.length, 4);
+  let offset = 0;
+  encoded.forEach(([platform, id, bytes], index) => {
+    const at = 6 + index * 12;
+    [platform, platform === 3 ? 1 : 0, platform === 3 ? 0x409 : 0, id, bytes.length, offset].forEach((value, field) => table.writeUInt16BE(value, at + field * 2));
+    offset += bytes.length;
+  });
+  const head = Buffer.alloc(28);
+  head.write('\0\u0001\0\0', 0, 'latin1');
+  head.writeUInt16BE(1, 4);
+  head.write('name', 12, 'latin1');
+  head.writeUInt32BE(28, 20);
+  head.writeUInt32BE(table.length + strings.length, 24);
+  return Buffer.concat([head, table, strings]);
+}
+
+/** Files outside the app, as an app keeps its fonts and pictures. */
+function artwork(context) {
+  const folder = join(context.base, 'art');
+  mkdirSync(folder);
+  const files = {
+    'Pacifico-Regular.ttf': font([[1, 1, 'Pacifico Mac'], [3, 1, 'Pacifico'], [3, 6, 'Pacifico-Regular']]),
+    'Mono.otf': Buffer.from('OTTO not a font'),
+    'mochi@2x.png': Buffer.from('two'), 'mochi@3x.png': Buffer.from('three'), 'badge.png': Buffer.from('one'), 'paw.svg': Buffer.from('<svg/>'),
+  };
+  for (const [name, bytes] of Object.entries(files)) writeFileSync(join(folder, name), bytes);
+  return name => join(folder, name);
+}
+
+const widgetPath = (context, path) => join(context.srcTauri, 'gen/apple/LiveActivityWidget', path);
+
+test('--font bundles fonts in the widget, lists them in UIAppFonts and names their fontFamily', t => {
+  const context = makeApp(t);
+  const art = artwork(context);
+
+  const first = run(context, { fonts: [art('Pacifico-Regular.ttf')] });
+
+  assert.deepEqual(readFileSync(widgetPath(context, 'Fonts/Pacifico-Regular.ttf')), readFileSync(art('Pacifico-Regular.ttf')));
+  const copied = first.steps.find(step => step.path.endsWith('Fonts/Pacifico-Regular.ttf'));
+  assert.equal(copied.status, 'created');
+  assert.equal(copied.detail, 'fontFamily: "Pacifico-Regular" or "Pacifico"');
+  assert.match(read(context, 'gen/apple/live-activity.yml'), /\n {8}UIAppFonts:\n {10}- "Pacifico-Regular\.ttf"\n/);
+
+  assert.deepEqual([...new Set(run(context, { fonts: [art('Pacifico-Regular.ttf')] }).steps.map(step => step.status))], ['unchanged']);
+  const runs = xcodegenRuns(context).length;
+  // A later font joins the first; a font without a readable name table is copied all the same.
+  const second = run(context, { fonts: [art('Mono.otf')] });
+  assert.equal(second.steps.find(step => step.path.endsWith('Fonts/Mono.otf')).detail, '');
+  assert.match(read(context, 'gen/apple/live-activity.yml'), /UIAppFonts:\n {10}- "Mono\.otf"\n {10}- "Pacifico-Regular\.ttf"\n/);
+  assert.equal(xcodegenRuns(context).length, runs + 1);
+  writeFileSync(art('Mono.otf'), 'OTTO changed');
+  assert.equal(statuses(run(context, { fonts: [art('Mono.otf')] }))['src-tauri/gen/apple/LiveActivityWidget/Fonts/Mono.otf'], 'updated');
+  // Without the option the fonts in the folder stay listed.
+  assert.equal(statuses(run(context))['src-tauri/gen/apple/live-activity.yml'], 'unchanged');
+});
+
+test('--asset puts images in the widget asset catalog, one image set per name and scale', t => {
+  const context = makeApp(t);
+  const art = artwork(context);
+
+  run(context, { assets: [art('mochi@2x.png'), art('mochi@3x.png'), art('badge.png'), art('paw.svg')] });
+
+  const catalog = path => JSON.parse(readFileSync(widgetPath(context, `Assets.xcassets/${path}`), 'utf8'));
+  assert.deepEqual(catalog('Contents.json'), { info: { author: 'xcode', version: 1 } });
+  assert.deepEqual(catalog('mochi.imageset/Contents.json').images, [
+    { filename: 'mochi@2x.png', idiom: 'universal', scale: '2x' }, { filename: 'mochi@3x.png', idiom: 'universal', scale: '3x' },
+  ]);
+  assert.deepEqual(catalog('badge.imageset/Contents.json').images, [{ filename: 'badge.png', idiom: 'universal' }]);
+  assert.deepEqual(catalog('paw.imageset/Contents.json').images, [
+    { filename: 'paw.svg', idiom: 'universal', properties: { 'preserves-vector-representation': true } },
+  ]);
+  assert.match(readFileSync(widgetPath(context, 'Assets.xcassets/badge.imageset/Contents.json'), 'utf8'), /^ {6}"filename" : "badge\.png",$/m);
+  assert.equal(readFileSync(widgetPath(context, 'Assets.xcassets/badge.imageset/badge.png'), 'utf8'), 'one');
+
+  // An image set edited in Xcode keeps its entries; a new scale is added next to them.
+  const contents = widgetPath(context, 'Assets.xcassets/badge.imageset/Contents.json');
+  writeFileSync(contents, JSON.stringify({ images: [{ filename: 'badge.png', idiom: 'universal', appearances: [] }], info: { version: 1 } }));
+  writeFileSync(art('badge@3x.png'), 'three');
+  const again = run(context, { assets: [art('badge.png'), art('badge@3x.png')] });
+  assert.equal(statuses(again)['src-tauri/gen/apple/LiveActivityWidget/Assets.xcassets/badge.imageset/Contents.json'], 'updated');
+  assert.deepEqual(JSON.parse(readFileSync(contents, 'utf8')).images, [
+    { filename: 'badge.png', idiom: 'universal', appearances: [] }, { filename: 'badge@3x.png', idiom: 'universal', scale: '3x' },
+  ]);
+  writeFileSync(contents, '{ "images": 1 }');
+  const odd = run(context, { assets: [art('badge.png')] });
+  assert.match(odd.steps.find(step => step.status === 'todo').detail, /not an image set's Contents\.json/);
+  assert.equal(statuses(odd)['Xcode project'], 'unchanged');
+});
+
+test('--app-group gives the app and the widget an App Group in the spec, and later runs keep it', t => {
+  const context = makeApp(t);
+  const spec = () => read(context, 'gen/apple/live-activity.yml');
+  const group = name => `      properties:\n        com.apple.security.application-groups: ["${name}"]\n`;
+
+  const first = run(context, { appGroup: true });
+
+  assert.equal(statuses(first)['src-tauri/gen/apple/live-activity.yml'], 'created');
+  // XcodeGen writes both entitlements files from the spec; it merges the app target's part into project.yml's.
+  assert.ok(spec().includes(`    dependencies: [{ target: LiveActivityWidget }]\n    entitlements:\n      path: "app_iOS/app_iOS.entitlements"\n${group('group.com.example.lasetupcheck')}`));
+  assert.ok(spec().includes(`\n        TauriLiveActivityAppGroup: "group.com.example.lasetupcheck"\n    entitlements:\n      path: LiveActivityWidget.entitlements\n${group('group.com.example.lasetupcheck')}`));
+  assert.equal(appGroupOf(spec()), 'group.com.example.lasetupcheck');
+
+  assert.deepEqual([...new Set(run(context).steps.map(step => step.status))], ['unchanged']);
+  assert.equal(statuses(run(context, { appGroup: 'group.com.example.shared' }))['src-tauri/gen/apple/live-activity.yml'], 'updated');
+  assert.equal(appGroupOf(spec()), 'group.com.example.shared');
+  assert.equal(spec().split(group('group.com.example.shared')).length, 3);
+  assert.throws(() => run(context, { appGroup: 'com.example' }), { name: 'SetupError', message: /must be "group\." followed by/ });
+
+  // An app target whose entitlements live elsewhere keeps that path.
+  const projectPath = join(context.srcTauri, 'gen/apple/project.yml');
+  writeFileSync(projectPath, read(context, 'gen/apple/project.yml').replace('path: app_iOS/app_iOS.entitlements', 'path: Signing/app.entitlements'));
+  run(context);
+  assert.match(spec(), /entitlements:\n {6}path: "Signing\/app\.entitlements"\n/);
+});
+
+test('creates LiveActivityCustomViews.swift once and never writes it again', t => {
+  const context = makeApp(t);
+  run(context);
+  const file = widgetPath(context, 'LiveActivityCustomViews.swift');
+  writeFileSync(file, '// my views\n');
+  rmSync(widgetPath(context, 'LiveActivityCustomRegistry.swift'));
+
+  const result = run(context);
+
+  assert.equal(readFileSync(file, 'utf8'), '// my views\n');
+  assert.equal(statuses(result)['src-tauri/gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift'], 'unchanged');
+  assert.equal(statuses(result)['src-tauri/gen/apple/LiveActivityWidget/LiveActivityCustomRegistry.swift'], 'created');
+  rmSync(join(context.plugin, 'templates/ios/LiveActivityCustomViews.swift'));
+  rmSync(file);
+  assert.throws(() => run(context), { name: 'SetupError', message: /no templates\/ios\/LiveActivityCustomViews\.swift/ });
+});
+
+test('checks the fonts and images it is given before it writes anything', t => {
+  const context = makeApp(t);
+  const art = artwork(context);
+  writeFileSync(art('notes.txt'), 'x');
+  writeFileSync(art('café.png'), 'x');
+  writeFileSync(art('.hidden@2x.png'), 'x');
+  writeFileSync(art('paw@2x.svg'), 'x');
+  const before = snapshot(context.app);
+  for (const [options, message] of [
+    [{ fonts: [art('missing.ttf')] }, /missing\.ttf: no such file/],
+    [{ fonts: [join(context.base, 'art')] }, /no such file/],
+    [{ fonts: [art('badge.png')] }, /a font must be \.ttf, \.otf, \.ttc/],
+    [{ assets: [art('notes.txt')] }, /an image must be \.png, \.jpg, \.jpeg, \.pdf, \.svg/],
+    [{ assets: [art('café.png')] }, /rename it to ASCII/],
+    [{ assets: [art('.hidden@2x.png')] }, /rename it to ASCII/],
+    [{ assets: [art('paw@2x.svg')] }, /has one scale; drop the @2x/],
+  ]) {
+    assert.throws(() => run(context, options), { name: 'SetupError', message }, message.source);
+  }
+  writeFileSync(art('a b.png'), 'x');
+  assert.throws(() => run(context, { assets: [art('a b.png')] }), { message: /the asset name "a b" must be/ });
+  mkdirSync(join(context.base, 'other'));
+  writeFileSync(join(context.base, 'other', 'badge.png'), 'other');
+  assert.throws(() => run(context, { assets: [art('badge.png'), join(context.base, 'other', 'badge.png')] }), { message: /badge\.png is named twice/ });
+  assert.throws(() => run(context, { fonts: [art('Mono.otf'), art('Mono.otf')] }), { message: /Mono\.otf is named twice/ });
+  assert.deepEqual(snapshot(context.app), before);
+});
+
+test('the CLI takes --font, --asset and --app-group, with a value after the option or after =', t => {
+  const context = makeApp(t);
+  const art = artwork(context);
+  const cli = join(repo, 'cli', 'bin.mjs');
+  const exec = (...args) => spawnSync(process.execPath, [cli, ...args], { cwd: context.app, env: context.env, encoding: 'utf8' });
+
+  const done = exec('setup', '--font', art('Pacifico-Regular.ttf'), `--asset=${art('badge.png')}`, '--app-group=group.com.example.art');
+  assert.equal(done.status, 0, done.stderr);
+  assert.match(done.stdout, /created +src-tauri\/gen\/apple\/LiveActivityWidget\/Fonts\/Pacifico-Regular\.ttf \(fontFamily: "Pacifico-Regular" or "Pacifico"\)/);
+  assert.match(done.stdout, /created +src-tauri\/gen\/apple\/LiveActivityWidget\/Assets\.xcassets\/badge\.imageset\/badge\.png \(the asset "badge"\)/);
+  assert.equal(appGroupOf(read(context, 'gen/apple/live-activity.yml')), 'group.com.example.art');
+  for (const args of [['--font'], ['--asset='], ['--fonts', 'a.ttf']]) {
+    const wrong = exec('setup', ...args);
+    assert.equal(wrong.status, 2, args.join(' '));
+    assert.match(wrong.stderr, /needs a file|Unknown option/);
+  }
+  const missing = exec('setup', '--font', art('none.ttf'));
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /none\.ttf: no such file/);
+});
+
+test('fontNames reads the family and PostScript names, Windows names first, and nothing else', () => {
+  assert.deepEqual(fontNames(font([[1, 1, 'Mac'], [3, 1, 'Win'], [1, 6, 'Mac-PS'], [3, 16, 'Typographic']])), { family: 'Typographic', postScript: 'Mac-PS' });
+  assert.deepEqual(fontNames(font([[3, 4, 'Full name only']])), undefined);
+  assert.deepEqual(fontNames(font([[0, 1, 'Unicode platform']])), undefined);
+  const ttc = Buffer.from(font([[3, 1, 'a']]));
+  ttc.write('ttcf', 0, 'latin1');
+  assert.equal(fontNames(ttc), undefined);
+  const truncated = font([[3, 1, 'Family']]);
+  assert.equal(fontNames(truncated.subarray(0, truncated.length - 3)), undefined);
+  assert.equal(fontNames(Buffer.from('OTTO')), undefined);
+  const noName = font([[3, 1, 'a']]);
+  noName.write('cmap', 12, 'latin1');
+  assert.equal(fontNames(noName), undefined);
 });

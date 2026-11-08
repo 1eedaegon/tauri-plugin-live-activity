@@ -58,6 +58,28 @@ for (const code of ['PERMISSION_DENIED', 'UNSUPPORTED_PLATFORM', 'STALE_REVISION
   });
 }
 
+test('writeImage sends the name and the bytes of a Uint8Array or an ArrayBuffer', async () => {
+  const calls = [];
+  mockIPC((nativeCommand, payload) => {
+    calls.push({ nativeCommand, payload });
+    return null;
+  });
+  const png = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0, 255);
+  assert.equal(await activity.writeImage('badge.png', png), null);
+  await activity.writeImage('badge.png', png.buffer);
+  const expected = { nativeCommand: 'plugin:live-activity|write_image', payload: { input: { name: 'badge.png', png: [0x89, 0x50, 0x4e, 0x47, 0, 255] } } };
+  assert.deepEqual(calls, [expected, expected]);
+});
+
+test('writeImage reports the native rejection of an image', async () => {
+  const expected = { code: 'CONFIGURATION_REQUIRED', message: 'The widget extension names no App Group: run setup with --app-group.' };
+  mockIPC(() => Promise.reject(expected));
+  await assert.rejects(activity.writeImage('badge.png', new Uint8Array(1)), error => {
+    assert.deepEqual(error, expected);
+    return true;
+  });
+});
+
 test('preserves unknown visibility and unknown promotion without inventing delivery', async () => {
   const unknownRecord = { ...record, backend: 'androidNotification', state: 'unknown', promotionRequested: true, promotionState: 'unknown' };
   mockIPC(() => [unknownRecord]);
@@ -187,6 +209,11 @@ for (const [name, build, expected] of [
   ['image', () => layout.image('logo'), { type: 'image', source: { asset: 'logo' } }],
   ['image with options', () => layout.image('logo', { resizable: false, contentMode: 'fill', style: 'icon' }),
     { type: 'image', source: { asset: 'logo' }, resizable: false, contentMode: 'fill', style: 'icon' }],
+  ['image from a file', () => layout.image({ file: 'badge.png' }, { resizable: true }), { type: 'image', source: { file: 'badge.png' }, resizable: true }],
+  ['image from an asset source', () => layout.image({ asset: 'logo' }), { type: 'image', source: { asset: 'logo' } }],
+  ['custom', () => layout.custom('ring'), { type: 'custom', name: 'ring' }],
+  ['custom with options', () => layout.custom('ring', { props: { level: layout.bind('bowl'), width: 3 }, style: 'art', if: 'shown' }),
+    { type: 'custom', name: 'ring', props: { level: { bind: 'bowl' }, width: 3 }, style: 'art', if: 'shown' }],
   ['path', () => layout.path('M0 0L10 10', [24, 24]), { type: 'path', d: 'M0 0L10 10', box: [24, 24] }],
   ['path with options', () => layout.path('M0 0L10 10', [24, 12], { stroke: 1.5, style: 'accent' }),
     { type: 'path', d: 'M0 0L10 10', box: [24, 12], stroke: 1.5, style: 'accent' }],
@@ -304,7 +331,10 @@ const rebuilder = builders => {
     text: ({ value, ...options }) => builders.text(value, options),
     bound: ({ bind, ...options }) => builders.bound(bind, options),
     symbol: ({ name, ...options }) => builders.symbol(name, options),
-    image: ({ source, ...options }) => builders.image(source.asset, options),
+    image: ({ source, ...options }) => builders.image('asset' in source ? source.asset : { file: source.file }, options),
+    custom: ({ name, props, ...options }) => builders.custom(name, {
+      ...options, ...(props && { props: mapValues(props, prop => rebind(prop, builders.bind)) }),
+    }),
     path: ({ d, box, ...options }) => builders.path(d, box, options),
     progress: ({ bind, ...options }) => builders.progress(bind, options),
     gauge: ({ bind, ...options }) => builders.gauge(bind, options),

@@ -4,6 +4,12 @@ import { createHash } from 'node:crypto';
 
 export const SPEC_FILE = 'live-activity.yml';
 export const WIDGET = 'LiveActivityWidget';
+/** The extension's entitlements, next to its folder so that XcodeGen does not take them for a source. */
+export const WIDGET_ENTITLEMENTS = `${WIDGET}.entitlements`;
+/** The Info.plist key of the extension that names the App Group, for the plugin and the widget. */
+export const APP_GROUP_KEY = 'TauriLiveActivityAppGroup';
+/** The files of the widget folder that the app target compiles too. */
+export const APP_SOURCES = ['LiveActivityActionIntent.swift', 'LiveActivityCustomRegistry.swift', 'LiveActivityCustomViews.swift'];
 
 const DIGEST_LINE = /^# setup-digest: ([0-9a-f]{16})\n/m;
 
@@ -37,22 +43,43 @@ function children(body) {
   return result;
 }
 
+/** The `path` under the `entitlements` key of a target's lines. */
+function entitlementsPath(lines) {
+  const at = lines.findIndex(line => /^\s+entitlements:\s*$/.test(line));
+  if (at === -1) return undefined;
+  const indent = /^\s*/.exec(lines[at])[0].length;
+  for (const line of lines.slice(at + 1)) {
+    if (isContent(line) && /^\s*/.exec(line)[0].length <= indent) break;
+    const path = /^\s+path:\s*(.+?)\s*$/.exec(line)?.[1];
+    if (path) return unquote(path);
+  }
+  return undefined;
+}
+
 /**
- * The project name, Tauri's app target (`<name>_iOS`) when it exists, the setting groups, the first
- * bundle identifier and a target that already is a widget extension.
+ * The project name, Tauri's app target (`<name>_iOS`) when it exists, the path of its entitlements, the
+ * setting groups, the first bundle identifier and a target that already is a widget extension.
  */
 export function readProject(text) {
   const lines = text.split('\n');
   const name = unquote(/^name:\s*(.+?)\s*$/m.exec(text)?.[1]);
   const targets = children(topLevel(lines, 'targets')?.body ?? []);
   const isWidget = target => target.name === WIDGET || target.lines.some(line => line.includes('com.apple.widgetkit-extension'));
+  const app = targets.find(target => name && target.name === `${name}_iOS`);
   return {
     name,
-    appTarget: targets.find(target => name && target.name === `${name}_iOS`)?.name,
+    appTarget: app?.name,
+    entitlements: app && entitlementsPath(app.lines),
     settingGroups: children(topLevel(lines, 'settingGroups')?.body ?? []).map(group => group.name),
     bundleId: unquote(/^\s*PRODUCT_BUNDLE_IDENTIFIER:\s*(\S+)\s*$/m.exec(text)?.[1]),
     widget: targets.find(isWidget)?.name,
   };
+}
+
+/** The App Group of a spec that setup wrote, so that a later run keeps it. */
+export function appGroupOf(spec = '') {
+  const value = new RegExp(`^\\s+${APP_GROUP_KEY}: ("[^"\\n]*")$`, 'm').exec(spec)?.[1];
+  return value && JSON.parse(value);
 }
 
 /**
@@ -86,20 +113,36 @@ export function writtenBySetup(text) {
 
 const quoted = value => JSON.stringify(String(value));
 
-/** The included spec: the widget extension target, and the button intent and the extension in the app target. */
-export function widgetSpec({ pluginVersion, packagePath, appTarget, bundleId, appVersion, buildVersion, teamGroup }) {
+/**
+ * The included spec: the widget extension target, and the button intent, the custom views and the extension
+ * in the app target. `fonts` go to the extension's UIAppFonts. An `appGroup` goes to the entitlements of both
+ * targets, the app's at `appEntitlements`, and to the extension's Info.plist, where the plugin and the widget
+ * read it. XcodeGen merges the app target's part into the target of project.yml.
+ */
+export function widgetSpec({
+  pluginVersion, packagePath, appTarget, bundleId, appVersion, buildVersion, teamGroup, fonts = [], appGroup, appEntitlements,
+}) {
   const versions = appVersion === undefined ? [] : [
     `        CFBundleShortVersionString: ${quoted(appVersion)}`,
     `        CFBundleVersion: ${quoted(buildVersion ?? appVersion)}`,
   ];
+  const fontList = fonts.length === 0 ? [] : ['        UIAppFonts:', ...fonts.map(font => `          - ${quoted(font)}`)];
+  const group = appGroup === undefined ? [] : [`        ${APP_GROUP_KEY}: ${quoted(appGroup)}`];
+  const entitlements = path => (appGroup === undefined ? [] : [
+    '    entitlements:',
+    `      path: ${path}`,
+    '      properties:',
+    `        com.apple.security.application-groups: [${quoted(appGroup)}]`,
+  ]);
   const body = [
     'packages:',
     '  LiveActivity:',
     `    path: ${quoted(packagePath)}`,
     'targets:',
     `  ${quoted(appTarget)}:`,
-    `    sources: [${WIDGET}/LiveActivityActionIntent.swift]`,
+    `    sources: [${APP_SOURCES.map(file => `${WIDGET}/${file}`).join(', ')}]`,
     `    dependencies: [{ target: ${WIDGET} }]`,
+    ...entitlements(quoted(appEntitlements)),
     '    settings:',
     '      base:',
     '        SWIFT_VERSION: "5.0"',
@@ -121,6 +164,9 @@ export function widgetSpec({ pluginVersion, packagePath, appTarget, bundleId, ap
     '          NSExtensionPointIdentifier: com.apple.widgetkit-extension',
     '        # startLayout answers CONFIGURATION_REQUIRED without an extension that declares this.',
     '        TauriLiveActivityLayout: 2',
+    ...fontList,
+    ...group,
+    ...entitlements(WIDGET_ENTITLEMENTS),
     '    settings:',
     ...(teamGroup ? ['      groups: [app]'] : []),
     '      base:',

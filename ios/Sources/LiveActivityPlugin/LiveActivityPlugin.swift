@@ -10,6 +10,7 @@ private struct PermissionRequest: Decodable { let kind: String }
 private struct PluginConfig: Decodable { let receipts: ReceiptMode? }
 private struct ActionRegistration: Decodable { let channel: Channel }
 private struct Registered: Encodable {}
+private struct ImageFolder: Encodable { let path: String }
 
 /// Both contract versions keep their receipts in one store.
 @MainActor
@@ -74,6 +75,17 @@ public final class LiveActivityPlugin: Plugin {
     }
     @objc public func listLayout(_ invoke: Invoke) {
         run(invoke) { try await $0.layouts.list() }
+    }
+
+    /// The folder where Rust writes the PNGs of `write_image`: in the App Group container that the widget extension's
+    /// Info.plist names, so the widget reads what the app wrote.
+    @objc public func imageDirectory(_ invoke: Invoke) {
+        do {
+            let folder = try LayoutWidgetPreflight.imageFolder(plugIns: Bundle.main.builtInPlugInsURL) {
+                FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0)
+            }
+            invoke.resolve(Success(data: ImageFolder(path: folder.path)))
+        } catch { fail(invoke, error) }
     }
 
     /// Takes the channel that carries button taps to Rust. Rust sends it once, from plugin setup on the main

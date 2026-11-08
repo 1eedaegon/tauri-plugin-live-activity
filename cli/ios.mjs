@@ -1,13 +1,18 @@
-// The iOS part of setup: Info.ios.plist, the widget files in gen/apple, the XcodeGen spec that adds
-// the widget extension, the plugin's Swift package and the regenerated Xcode project.
+// The iOS part of setup: Info.ios.plist, the widget files in gen/apple with the fonts and images it
+// bundles, the XcodeGen spec that adds the widget extension, the App Group, the plugin's Swift package
+// and the regenerated Xcode project.
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, readdirSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { newPlist, setTrueKey } from './plist.mjs';
 import { SetupError, parseJson, readText, step, tail, which, writeFile } from './steps.mjs';
-import { SPEC_FILE, WIDGET, addInclude, readProject, widgetSpec, writtenBySetup } from './xcodegen.mjs';
+import { assetSteps, bundledFonts, fontSteps } from './widget-files.mjs';
+import { SPEC_FILE, WIDGET, addInclude, appGroupOf, readProject, widgetSpec, writtenBySetup } from './xcodegen.mjs';
 
-const TEMPLATES = ['LiveActivityWidget.swift', 'LiveActivityActionIntent.swift', 'Info.plist'];
+const TEMPLATES = ['LiveActivityWidget.swift', 'LiveActivityActionIntent.swift', 'LiveActivityCustomRegistry.swift', 'Info.plist'];
+/** The app's own file: created once from the template and never written again. */
+const CUSTOM_VIEWS = 'LiveActivityCustomViews.swift';
+const GROUP = /^group\.[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/;
 const PLIST_KEY = 'NSSupportsLiveActivities';
 // Left out of the copy of Tauri's Swift API, as the plugin's build script does.
 const NOT_COPIED = ['.build', 'Package.resolved', 'Tests'];
@@ -25,15 +30,46 @@ export function iosSteps(context) {
   const plist = infoPlistStep(context);
   if (project.widget) {
     const detail = `already has a widget extension, ${project.widget}; add the plugin's widget to it by hand (docs/ios-integration.md)`;
-    return [plist, step('skipped', show(specPath), detail)];
+    const { files, appGroup } = context;
+    const given = [files.fonts.length && '--font', files.assets.length && '--asset', appGroup && '--app-group'].filter(Boolean);
+    const left = given.length === 0 ? [] : [step('todo', show(specPath), `${given.join(', ')} not applied: that widget is yours to give fonts, images and an App Group (docs/ios-integration.md)`)];
+    return [plist, step('skipped', show(specPath), detail), ...left];
   }
   if (!project.appTarget) {
     const detail = `no target named ${project.name ?? '<name>'}_iOS, so setup did not add the widget; see docs/usage.md`;
     return [plist, step('todo', show(specPath), detail)];
   }
+  const widget = join(apple, WIDGET);
+  const appGroup = appGroupFor(context, apple, project);
+  const include = includeStep(context, specPath, yaml);
   // XcodeGen lists the files of a folder when it generates, so a new widget file also needs a run.
-  const projectSteps = [...templateSteps(context, apple), specStep(context, apple, project), includeStep(context, specPath, yaml)];
-  return [plist, ...projectSteps, swiftPackageStep(context), xcodegenStep(context, apple, specPath, projectSteps)];
+  const projectSteps = [
+    ...templateSteps(context, apple), customViewsStep(context, widget), ...fontSteps(context, widget), ...assetSteps(context, widget),
+    specStep(context, apple, project, { fonts: bundledFonts(context, widget), appGroup }), include,
+  ];
+  return [plist, ...projectSteps, swiftPackageStep(context), xcodegenStep(context, apple, specPath, projectSteps, include)];
+}
+
+/**
+ * The App Group of `--app-group`: the group it names, or `group.<app identifier>`. A spec that setup wrote
+ * with a group keeps it on later runs.
+ */
+function appGroupFor({ appGroup, config }, apple, project) {
+  const kept = appGroupOf(readText(join(apple, SPEC_FILE)));
+  const group = typeof appGroup === 'string' ? appGroup : kept ?? (appGroup ? `group.${project.bundleId ?? config.identifier}` : undefined);
+  if (group !== undefined && !GROUP.test(group)) {
+    throw new SetupError(`The App Group ${JSON.stringify(group)} must be "group." followed by letters, digits, '-' and '.'.`);
+  }
+  return group;
+}
+
+/** LiveActivityCustomViews.swift belongs to the app: created once, then never written again. */
+function customViewsStep({ plugin, show }, widget) {
+  const path = join(widget, CUSTOM_VIEWS);
+  if (readText(path) !== undefined) return step('unchanged', show(path));
+  const stub = readText(join(plugin.dir, 'templates', 'ios', CUSTOM_VIEWS));
+  if (stub === undefined) throw new SetupError(`The plugin crate at ${plugin.dir} has no templates/ios/${CUSTOM_VIEWS}.`);
+  return step('created', show(path), 'yours, for custom views; setup never changes it again', writeFile(path, stub));
 }
 
 /** Tauri merges src-tauri/Info.ios.plist into the app's Info.plist when it builds. */
@@ -63,9 +99,13 @@ function templateSteps({ plugin, show }, apple) {
   });
 }
 
-function specStep({ plugin, config, srcTauri, show }, apple, project) {
+function specStep({ plugin, config, srcTauri, show }, apple, project, { fonts, appGroup }) {
   const path = join(apple, SPEC_FILE);
   const wanted = widgetSpec({
+    fonts,
+    appGroup,
+    // XcodeGen writes the entitlements file from the spec, so the App Group goes into the spec, at the app's path.
+    appEntitlements: project.entitlements ?? `${project.appTarget}/${project.appTarget}.entitlements`,
     pluginVersion: plugin.version,
     packagePath: join(plugin.dir, 'ios'),
     appTarget: project.appTarget,
@@ -75,7 +115,7 @@ function specStep({ plugin, config, srcTauri, show }, apple, project) {
   });
   const current = readText(path);
   if (current === undefined) {
-    return step('created', show(path), 'the widget extension, and the button intent in both targets', writeFile(path, wanted));
+    return step('created', show(path), 'the widget extension, and the button intent and custom views in both targets', writeFile(path, wanted));
   }
   if (current === wanted) return step('unchanged', show(path));
   if (!writtenBySetup(current)) {
@@ -130,9 +170,9 @@ function generatedWithWidget(apple) {
     .some(name => readText(join(apple, name, 'project.pbxproj'))?.includes(WIDGET));
 }
 
-function xcodegenStep({ env, show }, apple, specPath, projectSteps) {
+function xcodegenStep({ env, show }, apple, specPath, projectSteps, include) {
   const command = `xcodegen generate --spec ${show(specPath)}`;
-  if (projectSteps.some(item => item.status === 'todo')) return step('skipped', 'Xcode project', 'waits for the include in project.yml');
+  if (include.status === 'todo') return step('skipped', 'Xcode project', 'waits for the include in project.yml');
   const changed = projectSteps.some(item => item.status === 'created' || item.status === 'updated');
   if (!changed && generatedWithWidget(apple)) return step('unchanged', 'Xcode project');
   const xcodegen = which('xcodegen', env);

@@ -118,16 +118,27 @@ current values and the `if`/`unless` conditions applied:
 | first `progress` | progress bar, clamped to 0..1 |
 | first `timerText` | chronometer: counting down to `end`, or up from `start` with `countsDown: false` |
 | up to three `button`s | actions, labelled with the first text inside the button |
+| first `image` with a `file` source | large icon: the PNG that `writeImage` wrote, scaled down by powers of two to at most 256 pixels; nothing when the file is missing |
 | `android.visibility` | lock screen visibility: `public`, `private` (also when absent) or `secret` |
 
 Texts inside a button only label it. A button without a shown text, a fourth button and
 every other shown node are left out and named once in `degradedFeatures` as
 `layout.<type>` (for example `layout.symbol`, `layout.spacer`, a third text as
-`layout.text`). `layout.island`, `layout.styles`, `layout.background` and
+`layout.text`, an asset image or a second file image as `layout.image`, a custom view
+as `layout.custom`). A style's `fontFamily` is one of the styles, which a notification
+does not draw. `layout.island`, `layout.styles`, `layout.background` and
 `layout.keyline` are added when the request has them, bound or literal: a notification
 draws no styles, so a bound color changes nothing on Android. A node hidden by its condition is
 not listed. `nativeLiveActivity` follows the v1 rule. The list is computed from the
 current values, so it can change with an update.
+
+The large icon is the one picture a notification takes from a layout. Google's
+[Live Update requirements](https://developer.android.com/develop/ui/views/notifications/live-update) list the
+styles, the title, no custom views, not colorized, not a group summary and the channel importance; they do not
+name the large icon, so a drawn image keeps promotion. OEMs can add rules of their own, and One UI was not
+checked with a large icon. `writeImage` writes to `tauri-live-activity/images` in the app's private files
+(`filesDir`): Android has no App Group, and the app posts the notification itself. Nothing on Android draws a
+custom font, an asset image or a custom view.
 
 The status chip text (`setShortCriticalText`, API 36+) is set only when the layout gives
 one: with a progress bar and no timer it is the percentage (`65%`). With a timer it is

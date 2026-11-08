@@ -113,6 +113,13 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun listLayout(invoke: Invoke) = respond(invoke) { JSONArray(layouts.list().map { it.json() }) }
 
+    /** Where Rust writes the PNGs of `writeImage`: the app's private files. */
+    @Command
+    fun imageDirectory(invoke: Invoke) = respond(invoke) {
+        Input.keys(invoke.getArgs(), emptySet())
+        JSONObject().put("path", LayoutImages.directory(activity.applicationContext).absolutePath)
+    }
+
     /**
      * Takes the channel of button taps. Rust sends it once, from plugin setup, and waits for this
      * reply; taps are sent on the relay's thread, never here on the main thread.

@@ -52,6 +52,7 @@ targets:
     sources:
       - ../../../templates/ios/LiveActivityWidget.swift
       - ../../../templates/ios/LiveActivityActionIntent.swift
+      - ../../../templates/ios/LiveActivityCustomRegistry.swift
     dependencies:
       - package: LiveActivity
         product: LiveActivityShared

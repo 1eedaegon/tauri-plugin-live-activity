@@ -167,6 +167,12 @@ for (const [name, request, expected] of [
   ['a bound member of a style that no node uses', start(text('a'), { alpha: -1 }, { styles: { unused: { opacity: { bind: 'alpha' } } } }), [
     ['/input/styles/*/opacity', 'must name a number from 0 to 1'],
   ]],
+  ['a custom prop binding that names no value', start({ type: 'custom', name: 'ring', props: { level: { bind: 'bowl' }, width: 2 } }), [
+    [`${LOCK}/props/*`, 'must name a value'],
+  ]],
+  ['a lone surrogate in a custom prop', start(stack([{ type: 'custom', name: 'ring', props: { label: 'a\ud800' } }])), [
+    [`${LOCK}/children/0/props/*`, LONE_SURROGATE],
+  ]],
   ['a lone surrogate in a value', update({ note: 'a\ud800' }), [['/input/snapshot/values/*', LONE_SURROGATE]]],
   ['a lone surrogate in a literal text', start(text('\udc00')), [[`${LOCK}/value`, LONE_SURROGATE]]],
   ['a lone surrogate in an update id', { command: 'update_layout', input: { id: '\ud800', snapshot: { revision: 1, values: {} } } }, [['/input/id', LONE_SURROGATE]]],
@@ -299,6 +305,9 @@ test('error results survive a later validation and do not echo input', () => {
     { command: 'end_layout', input: { id: secret, policy: { kind: secret } } },
     styled({ color: { bind: `${secret}_key` } }, {}),
     styled({ color: { bind: 'tone' } }, { tone: secret }),
+    start({ type: 'custom', name: 'ring', props: { [`${secret}_prop`]: { bind: `${secret}_key` } } }),
+    start({ type: 'custom', name: `${secret} view`, props: { [`${secret} prop`]: secret } }),
+    start(stack([{ type: 'custom', name: 'ring', props: { [`${secret}_prop`]: null } }])),
   ].map(validateRequest);
   const red = styled({ color: { bind: 'tone' } }, { tone: 'red' }).input;
   results.push(validateLayoutUpdate(red, update({ tone: secret }).input), validateLayoutUpdate(red, update({ [`${secret}_key`]: 'red' }).input));
@@ -308,7 +317,9 @@ test('error results survive a later validation and do not echo input', () => {
   assert.equal(results.every(({ valid }) => !valid), true);
   assert.equal(before.includes(secret), false);
   const paths = results.flatMap((result) => result.issues.map(({ path }) => path));
-  for (const path of ['/input/snapshot/values/*', '/input/styles/*', '/input/styles/*/size']) assert.equal(paths.includes(path), true, path);
+  for (const path of ['/input/snapshot/values/*', '/input/styles/*', '/input/styles/*/size', `${LOCK}/children/0/props/*`]) {
+    assert.equal(paths.includes(path), true, path);
+  }
 });
 
 test('weight follows the contract formula', () => {
