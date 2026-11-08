@@ -4,7 +4,8 @@ The minimum versions below took effect in `0.1.0-alpha.3`, which is published on
 crates.io. `0.1.0-alpha.4` added search metadata; it is published on both registries and
 was checked in a real Tauri app. `0.2.0` is a regular release. It adds layouts (request
 contract v2) and buttons. The OS minimums stay the same, and the table below gives the OS
-requirements of the new features. Both registries use the name
+requirements of the new features. 0.4 moves iOS onto the activitykit crate and raises the
+iPhone minimum to iOS 16.2. Both registries use the name
 `tauri-plugin-live-activity`. This page sets what is supported;
 [platform coverage](platform-coverage.md) records the tests that actually ran.
 
@@ -12,15 +13,15 @@ requirements of the new features. Both registries use the name
 
 | Platform | Supported from | What it provides |
 | --- | --- | --- |
-| iPhone | iOS 16.1+ | ActivityKit start, update, end and list; progress and timer |
+| iPhone | iOS 16.2+ (16.1+ before 0.4) | ActivityKit start, update, end and list; progress and timer. Below 16.2 every command but the reads answers `UNSUPPORTED_PLATFORM` |
 | iPhone `staleAt` | iOS 16.2+ | Passes the stale date in `ActivityContent`. The stale state returned is the one the OS reports |
 | iPad | iPadOS 17+ | The same ActivityKit API; iPadOS 16.x is explicitly unsupported |
 | Android | Android 8.0 / API 26+ | Ongoing progress and timer notifications as the fallback. API 24 is excluded: a Tauri startup crash was reproduced there |
 | Android notification channels | Android 8.0 / API 26+ | Channel creation, blocked channels and importance checks |
 | Android notification permission | Android 13 / API 33+ | Runtime request, cancellation, denial and the settings-required state |
 | Android Live Updates | Android 16 / API 36+ | Promotion request after eligibility and user-setting checks; the result is read from the OS flag |
-| iPhone layouts (v2) | iOS 16.1+ | The plugin's widget template draws the layout tree; on iPad the iPadOS 17+ rule above applies |
-| iPhone layout buttons | iOS 17+ | `LiveActivityActionIntent` brings the tap to the app process |
+| iPhone layouts (v2) | iOS 16.2+ | activitykit's widget, `ActivityKitLayoutWidget`, draws the layout tree; on iPad the iPadOS 17+ rule above applies |
+| iPhone layout buttons | iOS 17+ | activitykit's `ActivityKitActionIntent` brings the tap to the app process |
 | Android layouts (v2) | Android 8.0 / API 26+ | Shown in part as a notification (title, body, progress bar, chronometer, up to three buttons); the rest is listed in `degradedFeatures` |
 | Samsung Now Bar extras | Android 17 / API 37+ | With `android.samsungNowBar` on, adds One UI's text extras. Does not put the app on Samsung's allow list |
 | macOS, Windows, Linux | No activity backend | Capability queries and a stable unsupported error; no desktop notification fallback yet |
@@ -52,15 +53,16 @@ listed as tested.
 | --- | --- |
 | Rust | MSRV 1.90, edition 2024; release checks use Rust 1.99.1 |
 | Tauri | Tauri 2: Rust `^2.12.5`, JS API `^2.12.4` |
-| Apple plugin package | Swift tools 5.9, iOS deployment target 15+; activity features need the OS versions in the table above |
-| Demo and Widget Extension | iOS deployment target 16.1; the 17+ rule applies on iPad |
+| Apple Swift package | activitykit's: Swift tools 5.9, built for iOS 15+; activity features need the OS versions in the table above. The plugin has no Swift of its own since 0.4 |
+| Demo and Widget Extension | The demo app's deployment target is iOS 16.1, the widget extension's 16.2; the 17+ rule applies on iPad |
 | Apple toolchain for checks | Xcode 27.2 / iOS SDK 27.2 for the alpha releases; Xcode 26.3 for the 0.2.0 checks |
 | Android package | `minSdk = 26` since alpha.3; `compileSdk = 37` |
 | Android toolchain for checks | JDK 21, Android SDK 37, NDK 30 |
 
 Xcode 27.2 builds for deployment targets from iOS 15, but it runs apps on devices and
 simulators from iOS 17 only. Compile checks and unit tests of the iOS 16.1 and 16.2
-branches are not reported as runs on those versions. Running them needs a compatible
+branches of 0.3 and earlier, and of the iOS 16.2 branches since, are not reported as runs on
+those versions. Running them needs a compatible
 Xcode and host of their own.
 [Apple's Xcode support table](https://developer.apple.com/xcode/system-requirements/).
 

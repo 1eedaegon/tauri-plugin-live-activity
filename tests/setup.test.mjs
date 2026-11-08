@@ -49,7 +49,11 @@ function executable(path, text) {
   chmodSync(path, 0o755);
 }
 
-/** A temporary app from a fixture, a plugin crate and a tauri crate in a fake registry, and fake tools. */
+/** activitykit's widget template, as the fake activitykit crate holds it. */
+const AK_WIDGET = 'import ActivityKitWidget\nimport SwiftUI\nimport WidgetKit\n\n@main\nstruct Widgets: WidgetBundle {\n    var body: some Widget { ActivityKitLayoutWidget() }\n}\n';
+const customViewsStub = readFileSync(join(repo, 'cli/templates/LiveActivityCustomViews.swift'), 'utf8');
+
+/** A temporary app from a fixture, the plugin and activitykit crates in a fake registry, and fake tools. */
 function makeApp(t, { fixture = 'fresh-app', pluginVersion = packageVersion, xcodegen = true } = {}) {
   const base = mkdtempSync(join(tmpdir(), 'la-setup-'));
   t.after(() => rmSync(base, { recursive: true, force: true }));
@@ -59,47 +63,43 @@ function makeApp(t, { fixture = 'fresh-app', pluginVersion = packageVersion, xco
   mkdirSync(bin);
   executable(join(bin, 'cargo'), FAKE_CARGO);
   if (xcodegen) executable(join(bin, 'xcodegen'), FAKE_XCODEGEN);
-  const tauri = join(base, 'registry', 'tauri-2.12.5');
-  for (const [file, text] of [
-    ['Cargo.toml', '[package]\nname = "tauri"\n'],
-    ['mobile/ios-api/Package.swift', '// swift-tools-version:5.3\n'],
-    ['mobile/ios-api/Package.resolved', '{}\n'],
-    ['mobile/ios-api/Sources/Tauri/Tauri.swift', 'public enum Tauri {}\n'],
-    ['mobile/ios-api/Tests/TauriTests/TauriTests.swift', '\n'],
-    ['mobile/ios-api/.build/debug.yaml', '\n'],
-  ]) {
-    mkdirSync(dirname(join(tauri, file)), { recursive: true });
-    writeFileSync(join(tauri, file), text);
-  }
   const env = {
     PATH: `${bin}:${nodeDir}`,
     CARGO: join(bin, 'cargo'),
     FAKE_METADATA: join(base, 'metadata.json'),
     FAKE_XCODEGEN_LOG: join(base, 'xcodegen.log'),
   };
-  const context = { base, app, bin, tauri, env, srcTauri: join(app, 'src-tauri') };
+  const context = { base, app, bin, env, srcTauri: join(app, 'src-tauri') };
   usePlugin(context, pluginVersion);
   return context;
 }
 
-/** Points cargo metadata at a copy of this crate's iOS files under the given version. */
-function usePlugin(context, version) {
+/** Points cargo metadata at a plugin crate of `version` that depends on an activitykit crate of `kitVersion`. */
+function usePlugin(context, version, kitVersion = '0.1.0', { kit = true } = {}) {
   const plugin = join(context.base, 'registry', `tauri-plugin-live-activity-${version}`);
-  cpSync(join(repo, 'templates', 'ios'), join(plugin, 'templates', 'ios'), { recursive: true });
-  mkdirSync(join(plugin, 'ios'), { recursive: true });
-  cpSync(join(repo, 'ios', 'Package.swift'), join(plugin, 'ios', 'Package.swift'));
+  mkdirSync(plugin, { recursive: true });
   writeFileSync(join(plugin, 'Cargo.toml'), `[package]\nname = "tauri-plugin-live-activity"\nversion = "${version}"\n`);
+  const activitykit = join(context.base, 'registry', `activitykit-${kitVersion}`);
+  for (const [file, text] of [
+    ['Cargo.toml', `[package]\nname = "activitykit"\nversion = "${kitVersion}"\n`],
+    ['swift/Package.swift', '// swift-tools-version:5.9\n'],
+    ['templates/ios/Widget.swift', AK_WIDGET],
+  ]) {
+    mkdirSync(dirname(join(activitykit, file)), { recursive: true });
+    writeFileSync(join(activitykit, file), text);
+  }
   const metadata = {
     packages: [
       { name: 'app', version: '0.1.0', id: 'app', manifest_path: join(context.srcTauri, 'Cargo.toml') },
       { name: 'tauri-plugin-live-activity', version, id: 'plugin', manifest_path: join(plugin, 'Cargo.toml') },
-      { name: 'tauri', version: '2.12.5', id: 'tauri', manifest_path: join(context.tauri, 'Cargo.toml') },
+      ...(kit ? [{ name: 'activitykit', version: kitVersion, id: 'activitykit', manifest_path: join(activitykit, 'Cargo.toml') }] : []),
     ],
-    resolve: { nodes: [{ id: 'plugin', deps: [{ name: 'tauri', pkg: 'tauri' }] }] },
+    resolve: { nodes: [{ id: 'plugin', deps: kit ? [{ name: 'activitykit', pkg: 'activitykit' }] : [] }] },
   };
   writeFileSync(context.env.FAKE_METADATA, JSON.stringify(metadata));
   context.plugin = plugin;
-  return plugin;
+  context.activitykit = activitykit;
+  return activitykit;
 }
 
 /** Every file under a folder with its bytes, to compare two states of an app. */
@@ -122,6 +122,7 @@ const xcodegenRuns = context => (existsSync(context.env.FAKE_XCODEGEN_LOG)
   ? readFileSync(context.env.FAKE_XCODEGEN_LOG, 'utf8').trim().split('\n') : []);
 const run = (context, options = {}) => setup({ cwd: context.app, env: context.env, platform: 'darwin', ...options });
 
+// TP-SETUP-2, TP-SETUP-7
 test('sets up a fresh Tauri 2 app: capabilities, Android minimum, widget files, XcodeGen spec', t => {
   const context = makeApp(t);
   const projectBefore = read(context, 'gen/apple/project.yml');
@@ -134,33 +135,32 @@ test('sets up a fresh Tauri 2 app: capabilities, Android minimum, widget files, 
   assert.equal(read(context, 'tauri.conf.json'), `${JSON.stringify(config, null, 2)}\n`);
   assert.match(read(context, 'gen/android/app/build.gradle.kts'), /^ {8}minSdk = 26$/m);
   assert.equal(setTrueKey(read(context, 'Info.ios.plist'), 'NSSupportsLiveActivities').status, 'present');
-  for (const name of ['LiveActivityWidget.swift', 'LiveActivityActionIntent.swift', 'LiveActivityCustomRegistry.swift', 'LiveActivityCustomViews.swift', 'Info.plist']) {
-    assert.equal(read(context, `gen/apple/LiveActivityWidget/${name}`), readFileSync(join(repo, 'templates/ios', name), 'utf8'));
-  }
+  assert.equal(read(context, 'gen/apple/LiveActivityWidget/LiveActivityWidget.swift'), AK_WIDGET);
+  assert.equal(read(context, 'gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift'), customViewsStub);
+  assert.deepEqual(readdirSync(join(context.srcTauri, 'gen/apple/LiveActivityWidget')).sort(), ['LiveActivityCustomViews.swift', 'LiveActivityWidget.swift']);
 
   const spec = read(context, 'gen/apple/live-activity.yml');
-  assert.ok(spec.includes(`path: ${JSON.stringify(join(context.plugin, 'ios'))}`));
-  const appSources = ['LiveActivityActionIntent.swift', 'LiveActivityCustomRegistry.swift', 'LiveActivityCustomViews.swift'].map(file => `LiveActivityWidget/${file}`);
-  assert.ok(spec.includes(`\n  "app_iOS":\n    sources: [${appSources.join(', ')}]\n`));
-  for (const absent of ['UIAppFonts', 'TauriLiveActivityAppGroup', 'entitlements']) assert.equal(spec.includes(absent), false, absent);
+  assert.ok(spec.includes(`  ActivityKit:\n    path: ${JSON.stringify(join(context.activitykit, 'swift'))}\n`));
+  assert.ok(spec.includes('\n  "app_iOS":\n    sources: [LiveActivityWidget/LiveActivityCustomViews.swift]\n    dependencies:\n      - target: LiveActivityWidget\n'
+    + '      - package: ActivityKit\n        product: ActivityKitIntent\n      - package: ActivityKit\n        product: ActivityKitViews\n'));
+  for (const absent of ['UIAppFonts', 'AppGroup', 'entitlements', 'TauriLiveActivity', 'LiveActivityShared', 'LiveActivityUI']) {
+    assert.equal(spec.includes(absent), false, absent);
+  }
   assert.match(spec, /\n  LiveActivityWidget:\n    type: app-extension\n/);
-  for (const line of ['TauriLiveActivityLayout: 2', 'NSExtensionPointIdentifier: com.apple.widgetkit-extension',
+  for (const line of ['ActivityKitLayout: 2', 'NSExtensionPointIdentifier: com.apple.widgetkit-extension',
     'PRODUCT_BUNDLE_IDENTIFIER: "com.example.lasetupcheck.widget"', 'CFBundleShortVersionString: "0.1.0"',
-    'groups: [app]', 'product: LiveActivityShared', 'product: LiveActivityUI', 'deploymentTarget: "16.1"']) {
+    'groups: [app]', 'product: ActivityKitWidget', 'deploymentTarget: "16.2"']) {
     assert.ok(spec.includes(line), line);
   }
   // Tauri writes project.yml without a final newline.
   assert.equal(read(context, 'gen/apple/project.yml'), `${projectBefore}\n\ninclude:\n  - live-activity.yml\n`);
-
-  const swiftApi = join(context.plugin, '.tauri', 'tauri-api');
-  assert.ok(existsSync(join(swiftApi, 'Sources/Tauri/Tauri.swift')));
-  for (const left of ['Tests', 'Package.resolved', '.build']) assert.equal(existsSync(join(swiftApi, left)), false, left);
   assert.deepEqual(xcodegenRuns(context), [`generate --spec ${join(context.srcTauri, 'gen/apple/project.yml')}`]);
 
   assert.equal(result.steps.filter(step => step.status === 'todo').length, 0);
   assert.deepEqual(result.notes.map(note => note.kind), ['register']);
 });
 
+// TP-SETUP-6
 test('a second run changes nothing and does not run XcodeGen again', t => {
   const context = makeApp(t);
   run(context);
@@ -174,6 +174,7 @@ test('a second run changes nothing and does not run XcodeGen again', t => {
   assert.match(formatReport(result), /Everything was set up already\./);
 });
 
+// TP-SETUP-6
 test('a dry run writes nothing and reports what it would do', t => {
   const context = makeApp(t);
   const before = snapshot(context.base);
@@ -188,38 +189,40 @@ test('a dry run writes nothing and reports what it would do', t => {
   assert.match(report, /would run +xcodegen generate --spec src-tauri\/gen\/apple\/project\.yml/);
 });
 
+// TP-SETUP-3
 test('keeps a widget file that differs from the template, and says how to take the template', t => {
   const context = makeApp(t);
   run(context);
   const widget = join(context.srcTauri, 'gen/apple/LiveActivityWidget/LiveActivityWidget.swift');
   writeFileSync(widget, '// my widget\n');
-  rmSync(join(context.srcTauri, 'gen/apple/LiveActivityWidget/Info.plist'));
 
   const result = run(context);
 
   assert.equal(readFileSync(widget, 'utf8'), '// my widget\n');
   const kept = result.steps.find(step => step.status === 'kept');
   assert.equal(kept.path, 'src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift');
-  assert.match(kept.detail, /differs from the plugin's template.*delete it and run setup again/);
-  assert.equal(statuses(result)['src-tauri/gen/apple/LiveActivityWidget/Info.plist'], 'created');
+  assert.match(kept.detail, /differs from activitykit's template.*delete it and run setup again/);
+  rmSync(widget);
+  assert.equal(statuses(run(context))['src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift'], 'created');
   // XcodeGen lists a folder's files when it generates, so a file put back needs another run.
   assert.equal(xcodegenRuns(context).length, 2);
 });
 
-test('rewrites the spec it wrote after a plugin update, and keeps a spec the user edited', t => {
+// TP-SETUP-7
+test('rewrites the spec it wrote after an activitykit update, and keeps a spec the user edited', t => {
   const context = makeApp(t);
   run(context);
-  const plugin = usePlugin(context, laterPatch(1));
+  const activitykit = usePlugin(context, packageVersion, '0.1.1');
 
   const updated = run(context);
 
   const specPath = join(context.srcTauri, 'gen/apple/live-activity.yml');
   assert.equal(statuses(updated)['src-tauri/gen/apple/live-activity.yml'], 'updated');
-  assert.ok(readFileSync(specPath, 'utf8').includes(JSON.stringify(join(plugin, 'ios'))));
+  assert.ok(readFileSync(specPath, 'utf8').includes(JSON.stringify(join(activitykit, 'swift'))));
   assert.equal(xcodegenRuns(context).length, 2);
 
   writeFileSync(specPath, `${readFileSync(specPath, 'utf8')}# mine\n`);
-  usePlugin(context, laterPatch(2));
+  usePlugin(context, packageVersion, '0.1.2');
   const kept = run(context);
   assert.equal(statuses(kept)['src-tauri/gen/apple/live-activity.yml'], 'kept');
   assert.match(readFileSync(specPath, 'utf8'), /# mine\n$/);
@@ -406,15 +409,19 @@ test('reports a failed XcodeGen run as a step to do', t => {
   assert.match(todo.detail, /xcodegen failed: Spec validation error/);
 });
 
-test('without Tauri\'s Swift API in the dependencies it says how to get it', t => {
+// TP-SETUP-1
+test('finds activitykit through the plugin, and fails with a message without it', t => {
   const context = makeApp(t);
-  rmSync(join(context.tauri, 'mobile'), { recursive: true });
+  const activitykit = usePlugin(context, packageVersion, '0.2.0');
+  run(context);
+  assert.ok(read(context, 'gen/apple/live-activity.yml').includes(JSON.stringify(join(activitykit, 'swift'))));
 
-  const result = run(context);
-
-  const todo = result.steps.find(step => step.status === 'todo');
-  assert.match(todo.path, new RegExp(`tauri-plugin-live-activity-${packageVersion.replaceAll('.', '\\.')}/\\.tauri/tauri-api$`));
-  assert.match(todo.detail, /cargo build --target aarch64-apple-ios-sim/);
+  usePlugin(context, '0.3.0', '0.1.0', { kit: false });
+  assert.throws(() => run(context), { name: 'SetupError', message: /tauri-plugin-live-activity 0\.3\.0 does not depend on activitykit/ });
+  usePlugin(context, packageVersion);
+  rmSync(join(context.activitykit, 'templates'), { recursive: true });
+  rmSync(join(context.srcTauri, 'gen/apple/LiveActivityWidget/LiveActivityWidget.swift'));
+  assert.throws(() => run(context), { name: 'SetupError', message: /has no templates\/ios\/Widget\.swift/ });
 });
 
 test('picks the only capability file, and lists the permissions when it cannot choose', t => {
@@ -648,6 +655,7 @@ test('--asset puts images in the widget asset catalog, one image set per name an
   assert.equal(statuses(odd)['Xcode project'], 'unchanged');
 });
 
+// TP-SETUP-7
 test('--app-group gives the app and the widget an App Group in the spec, and later runs keep it', t => {
   const context = makeApp(t);
   const spec = () => read(context, 'gen/apple/live-activity.yml');
@@ -657,8 +665,8 @@ test('--app-group gives the app and the widget an App Group in the spec, and lat
 
   assert.equal(statuses(first)['src-tauri/gen/apple/live-activity.yml'], 'created');
   // XcodeGen writes both entitlements files from the spec; it merges the app target's part into project.yml's.
-  assert.ok(spec().includes(`    dependencies: [{ target: LiveActivityWidget }]\n    entitlements:\n      path: "app_iOS/app_iOS.entitlements"\n${group('group.com.example.lasetupcheck')}`));
-  assert.ok(spec().includes(`\n        TauriLiveActivityAppGroup: "group.com.example.lasetupcheck"\n    entitlements:\n      path: LiveActivityWidget.entitlements\n${group('group.com.example.lasetupcheck')}`));
+  assert.ok(spec().includes(`        product: ActivityKitViews\n    entitlements:\n      path: "app_iOS/app_iOS.entitlements"\n${group('group.com.example.lasetupcheck')}`));
+  assert.ok(spec().includes(`\n        ActivityKitAppGroup: "group.com.example.lasetupcheck"\n    entitlements:\n      path: LiveActivityWidget.entitlements\n${group('group.com.example.lasetupcheck')}`));
   assert.equal(appGroupOf(spec()), 'group.com.example.lasetupcheck');
 
   assert.deepEqual([...new Set(run(context).steps.map(step => step.status))], ['unchanged']);
@@ -674,21 +682,81 @@ test('--app-group gives the app and the widget an App Group in the spec, and lat
   assert.match(spec(), /entitlements:\n {6}path: "Signing\/app\.entitlements"\n/);
 });
 
+// TP-SETUP-4
 test('creates LiveActivityCustomViews.swift once and never writes it again', t => {
   const context = makeApp(t);
   run(context);
   const file = widgetPath(context, 'LiveActivityCustomViews.swift');
   writeFileSync(file, '// my views\n');
-  rmSync(widgetPath(context, 'LiveActivityCustomRegistry.swift'));
 
   const result = run(context);
 
   assert.equal(readFileSync(file, 'utf8'), '// my views\n');
   assert.equal(statuses(result)['src-tauri/gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift'], 'unchanged');
-  assert.equal(statuses(result)['src-tauri/gen/apple/LiveActivityWidget/LiveActivityCustomRegistry.swift'], 'created');
-  rmSync(join(context.plugin, 'templates/ios/LiveActivityCustomViews.swift'));
-  rmSync(file);
-  assert.throws(() => run(context), { name: 'SetupError', message: /no templates\/ios\/LiveActivityCustomViews\.swift/ });
+});
+
+// TP-SETUP-3, TP-SETUP-4, TP-SETUP-5, TP-SETUP-6
+test('migrates an app that 0.3 set up to activitykit, and a second run changes nothing', t => {
+  const context = makeApp(t, { fixture: 'app-0.3' });
+  const views = widgetPath(context, 'LiveActivityCustomViews.swift');
+  const before = readFileSync(views, 'utf8');
+
+  const result = run(context);
+
+  const status = statuses(result);
+  for (const name of ['LiveActivityActionIntent.swift', 'LiveActivityCustomRegistry.swift']) {
+    assert.equal(status[`src-tauri/gen/apple/LiveActivityWidget/${name}`], 'removed', name);
+    assert.equal(existsSync(widgetPath(context, name)), false, name);
+  }
+  assert.equal(status['src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift'], 'updated');
+  assert.equal(readFileSync(widgetPath(context, 'LiveActivityWidget.swift'), 'utf8'), AK_WIDGET);
+  assert.equal(status['src-tauri/gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift'], 'updated');
+  const after = readFileSync(views, 'utf8');
+  assert.match(after, /^import ActivityKitViews\nimport SwiftUI$/m);
+  assert.match(after, /@objc\(ActivityKitCustomViews\)\nfinal class LiveActivityCustomViews: ActivityKitCustomViewRegistry \{/);
+  assert.match(after, /override class var views: \[String: ActivityKitCustomView\]/);
+  assert.match(after, /"bowl": ActivityKitCustomView \{ \(props: ActivityKitCustomProps\) in\n {16}Circle\(\)\.trim\(from: 0, to: props\.number\("level"\) \?\? 0\)/);
+  assert.equal(after.split('\n').length, before.split('\n').length + 1);
+  assert.doesNotMatch(after, /TauriLiveActivity|LiveActivityCustomViewRegistry|LiveActivityCustomView\b|LiveActivityCustomProps/);
+
+  const spec = read(context, 'gen/apple/live-activity.yml');
+  assert.equal(status['src-tauri/gen/apple/live-activity.yml'], 'updated');
+  assert.ok(spec.includes('        ActivityKitLayout: 2\n        ActivityKitAppGroup: "group.com.example.lasetupcheck"\n'));
+  assert.doesNotMatch(spec, /TauriLiveActivity|tauri-plugin-live-activity-0\.3\.0\/ios|LiveActivityShared|LiveActivityActionIntent/);
+  assert.equal(appGroupOf(spec), 'group.com.example.lasetupcheck');
+  assert.equal(status['src-tauri/gen/apple/project.yml'], 'unchanged');
+  assert.equal(xcodegenRuns(context).length, 1);
+  assert.equal(result.steps.filter(step => step.status === 'todo').length, 0);
+  assert.match(formatReport(result), /removed +src-tauri\/gen\/apple\/LiveActivityWidget\/LiveActivityActionIntent\.swift/);
+
+  const settled = snapshot(context.base);
+  const again = run(context);
+  assert.deepEqual([...new Set(again.steps.map(step => step.status))], ['unchanged']);
+  assert.deepEqual(snapshot(context.base), settled);
+  assert.equal(xcodegenRuns(context).length, 1);
+});
+
+// TP-SETUP-3, TP-SETUP-6
+test('keeps old files that were changed by hand, as steps to do, and a dry run of a migration writes nothing', t => {
+  const context = makeApp(t, { fixture: 'app-0.3' });
+  const before = snapshot(context.base);
+  const dry = run(context, { dryRun: true });
+  assert.deepEqual(snapshot(context.base), before);
+  assert.match(formatReport(dry), /would remove +src-tauri\/gen\/apple\/LiveActivityWidget\/LiveActivityCustomRegistry\.swift/);
+
+  const intent = widgetPath(context, 'LiveActivityActionIntent.swift');
+  writeFileSync(intent, `${readFileSync(intent, 'utf8')}// mine\n`);
+  const widget = widgetPath(context, 'LiveActivityWidget.swift');
+  writeFileSync(widget, `${readFileSync(widget, 'utf8')}// mine\n`);
+
+  const result = run(context);
+
+  const todo = Object.fromEntries(result.steps.filter(step => step.status === 'todo').map(step => [step.path, step.detail]));
+  assert.match(todo['src-tauri/gen/apple/LiveActivityWidget/LiveActivityActionIntent.swift'], /changed by hand; activitykit's Swift package replaces it/);
+  assert.match(todo['src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift'], /imports the Swift modules of tauri-plugin-live-activity 0\.3/);
+  assert.match(readFileSync(intent, 'utf8'), /\/\/ mine\n$/);
+  assert.match(readFileSync(widget, 'utf8'), /\/\/ mine\n$/);
+  assert.equal(existsSync(widgetPath(context, 'LiveActivityCustomRegistry.swift')), false);
 });
 
 test('checks the fonts and images it is given before it writes anything', t => {

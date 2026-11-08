@@ -3,7 +3,7 @@
 
 use tauri::{App, AppHandle, Runtime};
 use tauri_plugin_live_activity::{
-    ActionEvent, ActivityState, EndInput, EndPolicy, LayoutActivityRecord, LayoutSnapshot,
+    ActionEvent, ActivityState, EndPolicy, LayoutActivityRecord, LayoutEndInput, LayoutSnapshot,
     LayoutUpdateInput, LiveActivityExt, Value,
 };
 
@@ -11,7 +11,7 @@ use tauri_plugin_live_activity::{
 #[derive(Debug, PartialEq)]
 pub enum Reply {
     Update(LayoutUpdateInput),
-    End(EndInput),
+    End(LayoutEndInput),
 }
 
 /// Handles taps from now on. Call it on the built app before `run`: when the system launches the
@@ -52,9 +52,10 @@ pub fn reply(action_id: &str, record: &LayoutActivityRecord) -> Option<Reply> {
     match action_id {
         "pet" => petted(&record.snapshot)
             .map(|snapshot| Reply::Update(LayoutUpdateInput { id, snapshot })),
-        "done" | "wake" => Some(Reply::End(EndInput {
+        "done" | "wake" => Some(Reply::End(LayoutEndInput {
             id,
             policy: EndPolicy::Immediate {},
+            snapshot: None,
         })),
         _ => None,
     }
@@ -89,6 +90,7 @@ fn petted(snapshot: &LayoutSnapshot) -> Option<LayoutSnapshot> {
         revision: snapshot.revision + 1,
         values,
         stale_at: snapshot.stale_at,
+        timestamp: None,
     })
 }
 
@@ -154,9 +156,10 @@ mod tests {
         for action in ["done", "wake"] {
             assert_eq!(
                 reply(action, &buttons(1.0)),
-                Some(Reply::End(EndInput {
+                Some(Reply::End(LayoutEndInput {
                     id: "handle-1".into(),
                     policy: EndPolicy::Immediate {},
+                    snapshot: None,
                 }))
             );
         }

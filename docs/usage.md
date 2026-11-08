@@ -28,12 +28,15 @@ tauri::Builder::default()
 ```
 
 Android builds need Android SDK 37. iOS builds need Xcode and XcodeGen, which `tauri ios init`
-asks for too.
+asks for too. On iOS the plugin is built on the [activitykit](https://github.com/1eedaegon/activitykit-rs) crate,
+which the plugin's crate takes from GitHub until activitykit is on crates.io.
 
 ### What setup does
 
-`setup` runs in the app's folder or in its `src-tauri` folder. It finds the plugin crate with
-`cargo metadata` and takes the iOS templates from it, so they always match the crate's version.
+`setup` runs in the app's folder or in its `src-tauri` folder. It finds the plugin crate and the activitykit crate
+it depends on with `cargo metadata`, and takes the widget template and the Swift package from activitykit's folder,
+so they always match the version the app builds with. It stops with a message when the plugin or activitykit is not
+in the app's build.
 
 - **Permissions.** It adds `live-activity:default` and the `allow-` permissions of
   `request_permissions`, `start`, `update`, `end`, `start_layout`, `update_layout`,
@@ -47,30 +50,31 @@ asks for too.
 - **iOS**, on a Mac, once `src-tauri/gen/apple` exists:
   - adds `NSSupportsLiveActivities` = true to `src-tauri/Info.ios.plist`, which Tauri merges into
     the app's Info.plist when it builds;
-  - copies `LiveActivityWidget.swift`, `LiveActivityActionIntent.swift`,
-    `LiveActivityCustomRegistry.swift` and the extension's `Info.plist` from the crate's
-    `templates/ios` to `src-tauri/gen/apple/LiveActivityWidget`, and creates
+  - writes activitykit's widget template, a widget bundle of `ActivityKitLayoutWidget()`, as
+    `src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift`, and creates
     `LiveActivityCustomViews.swift` there once, for [custom views](#custom-swiftui-views);
   - with `--font` and `--asset`, copies [fonts and pictures](#fonts-and-pictures-of-the-widget)
     into that folder;
-  - writes `src-tauri/gen/apple/live-activity.yml`, an XcodeGen spec with the
-    `LiveActivityWidget` app extension (iOS 16.1, the `LiveActivityShared` and `LiveActivityUI`
-    products of the crate's Swift package, `TauriLiveActivityLayout` = 2, the bundle identifier
-    `<app identifier>.widget`, the app's version, the bundled fonts and, with `--app-group`, the
-    [App Group](#pictures-the-app-draws)), and adds the intent file, the two custom view files and
-    the extension to the app target;
+  - writes `src-tauri/gen/apple/live-activity.yml`, an XcodeGen spec with activitykit's Swift
+    package (the `swift` folder of activitykit's crate), the `LiveActivityWidget` app extension
+    (iOS 16.2, the `ActivityKitWidget` and `ActivityKitViews` products, `ActivityKitLayout` = 2 in
+    its Info.plist, the bundle identifier `<app identifier>.widget`, the app's version, the bundled
+    fonts and, with `--app-group`, the [App Group](#pictures-the-app-draws)), and in the app target
+    the extension, the `ActivityKitIntent` and `ActivityKitViews` products and the custom views file.
+    That file is also the Swift the app target must compile, so that Xcode takes the App Intents
+    metadata of the button intent;
   - adds `live-activity.yml` to the `include` list of `src-tauri/gen/apple/project.yml`;
-  - copies Tauri's Swift API next to the crate's Swift package (`.tauri/tauri-api` in the crate's
-    folder) when it is not there yet, as the plugin's iOS build does. Xcode resolves that package
-    before the Rust code is built;
-  - runs `xcodegen generate` when any of these files changed, or when the Xcode project has no
-    widget target yet.
+  - on an app that 0.2 or 0.3 set up, removes the plugin's old Swift files, replaces the old
+    widget file and gives the custom views file activitykit's names
+    ([Migrating from 0.3](ios-integration.md#migrating-from-03));
+  - runs `xcodegen generate` when any of these files changed or was removed, or when the Xcode
+    project has no widget target yet.
 
 It prints what it changed. A second run changes nothing. It leaves a file alone when it differs
 from what setup would write, and says so: a widget file you edited, or a `live-activity.yml`
 changed by hand. To take the template again, delete the file and run setup again. It also
 leaves alone an Xcode project that already has a widget extension, such as the
-[demo's](../examples/demo/src-tauri/gen/apple/project.yml); add the plugin's widget to that one
+[demo's](../examples/demo/src-tauri/gen/apple/project.yml); add activitykit's widget to that one
 as [iOS setup](ios-integration.md) describes.
 
 Run it again:
@@ -78,8 +82,9 @@ Run it again:
 - when `src-tauri/gen/apple` is made from scratch, for example after you delete it and run
   `tauri ios init`: the new `project.yml` does not include `live-activity.yml`. A `tauri ios init`
   over an existing folder keeps `project.yml` (checked with Tauri CLI 2.12.4);
-- after a plugin update: it rewrites `live-activity.yml` for the new crate folder, and names
-  widget files that differ from the new templates;
+- after a plugin update: it rewrites `live-activity.yml` for activitykit's folder of the new
+  version, whose path changes with each activitykit revision, and names a widget file that
+  differs from the new template;
 - after a change of the app's version, so that the extension's version matches the app's, which
   the App Store requires.
 
@@ -112,45 +117,50 @@ Raise the Android minimum: set `bundle.android.minSdkVersion` to `26` in
 
 On iOS, after `tauri ios init`, in one shell:
 
-1. find the plugin's folder (`jq` comes with macOS 15 and later);
-2. copy the widget, the button intent, the custom view files and the extension's Info.plist;
-3. add `NSSupportsLiveActivities` to `src-tauri/Info.ios.plist`;
-4. prepare the Tauri dependency of the plugin's Swift package. On an Intel Mac, use
-   `--target x86_64-apple-ios`.
+1. find activitykit's folder, which `cargo metadata` lists as a dependency of the plugin (`jq`
+   comes with macOS 15 and later);
+2. copy activitykit's widget template, and once the plugin's custom views file from the npm
+   package;
+3. add `NSSupportsLiveActivities` to `src-tauri/Info.ios.plist`.
 
 ```sh
-LA=$(cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml | jq -r '.packages[] | select(.name == "tauri-plugin-live-activity") | .manifest_path | rtrimstr("Cargo.toml")')
-mkdir -p src-tauri/gen/apple/LiveActivityWidget && cp "$LA"templates/ios/* src-tauri/gen/apple/LiveActivityWidget/
+AK=$(cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml | jq -r '.packages[] | select(.name == "activitykit") | .manifest_path | rtrimstr("Cargo.toml")')
+mkdir -p src-tauri/gen/apple/LiveActivityWidget && cp "$AK"templates/ios/Widget.swift src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift
 # Once: LiveActivityCustomViews.swift is yours from now on; do not copy it over your edits again.
+cp node_modules/tauri-plugin-live-activity/cli/templates/LiveActivityCustomViews.swift src-tauri/gen/apple/LiveActivityWidget/
 /usr/libexec/PlistBuddy -c 'Add :NSSupportsLiveActivities bool true' src-tauri/Info.ios.plist
-IPHONEOS_DEPLOYMENT_TARGET=16.1 cargo check --manifest-path src-tauri/Cargo.toml --target aarch64-apple-ios-sim
 ```
 
 Then write `src-tauri/gen/apple/live-activity.yml`. Replace `app_iOS` with the name of the app
-target in `project.yml` (`<name>_iOS`), the path with the plugin's folder plus `ios`, and the
-bundle identifier and the versions with the app's:
+target in `project.yml` (`<name>_iOS`), the path with activitykit's folder (`$AK`) plus `swift`,
+and the bundle identifier and the versions with the app's:
 
 ```yaml
 packages:
-  LiveActivity:
-    path: "/path/to/tauri-plugin-live-activity-0.3.0/ios"
+  ActivityKit:
+    path: "/path/to/activitykit/swift"
 targets:
   app_iOS:
-    sources: [LiveActivityWidget/LiveActivityActionIntent.swift, LiveActivityWidget/LiveActivityCustomRegistry.swift, LiveActivityWidget/LiveActivityCustomViews.swift]
-    dependencies: [{ target: LiveActivityWidget }]
+    sources: [LiveActivityWidget/LiveActivityCustomViews.swift]
+    dependencies:
+      - target: LiveActivityWidget
+      - package: ActivityKit
+        product: ActivityKitIntent
+      - package: ActivityKit
+        product: ActivityKitViews
     settings:
       base:
         SWIFT_VERSION: "5.0"
   LiveActivityWidget:
     type: app-extension
     platform: iOS
-    deploymentTarget: "16.1"
+    deploymentTarget: "16.2"
     sources: [LiveActivityWidget]
     dependencies:
-      - package: LiveActivity
-        product: LiveActivityShared
-      - package: LiveActivity
-        product: LiveActivityUI
+      - package: ActivityKit
+        product: ActivityKitWidget
+      - package: ActivityKit
+        product: ActivityKitViews
     info:
       path: LiveActivityWidget/Info.plist
       properties:
@@ -158,7 +168,7 @@ targets:
         CFBundleVersion: "0.1.0"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
-        TauriLiveActivityLayout: 2
+        ActivityKitLayout: 2
     settings:
       groups: [app]
       base:
@@ -171,7 +181,7 @@ targets:
 
 `groups: [app]` gives the extension the signing team of Tauri's `app` setting group. For bundled
 fonts, add `UIAppFonts` with the file names under `properties`, and put the files in
-`LiveActivityWidget/Fonts`. For drawn images, add `TauriLiveActivityAppGroup: "group.com.example.app"`
+`LiveActivityWidget/Fonts`. For drawn images, add `ActivityKitAppGroup: "group.com.example.app"`
 under `properties`, and to both targets:
 
 ```yaml
@@ -187,18 +197,23 @@ Include the file and regenerate the Xcode project:
 printf '\ninclude:\n  - live-activity.yml\n' >> src-tauri/gen/apple/project.yml && xcodegen generate --spec src-tauri/gen/apple/project.yml
 ```
 
-The intent file goes into both targets: the widget builds its buttons from it, and the system
-runs it in the app. So do the two custom view files: the widget draws the views, and the plugin
-in the app reads which names have one. A `src-tauri/gen/apple` made from scratch has a new `project.yml`; run the
-last line again then.
+The custom views file goes into both targets: the extension compiles the whole `LiveActivityWidget`
+folder and draws the views, and activitykit in the app reads which names have one. It is also the
+Swift that the app target must compile: Xcode takes the App Intents metadata of the linked
+`ActivityKitIntent` only for a target that compiles Swift, and without it a button does nothing.
+Link no other activitykit product to the app, and never `ActivityKitBridge`: the Rust library holds
+it already. A `src-tauri/gen/apple` made from scratch has a new `project.yml`; run the last line
+again then.
 
 ## Layouts
 
 Captures: iOS 26.3 on the iPhone 17 simulator, Android 16 on an emulator. The demo adds
-Mochi's colors and padding to the code shown here.
+Mochi's colors and padding to the code shown here. The iOS captures were made with 0.3, before
+the renderer moved from the plugin into activitykit.
 
 With a layout the app designs the activity itself: a tree of nodes, a table of styles and a
-map of values. On iOS the plugin's widget template draws it, with no SwiftUI in the app.
+map of values. On iOS activitykit's widget, `ActivityKitLayoutWidget`, draws it, with no SwiftUI
+in the app.
 Android shows part of it as a notification. The tree is fixed at start; an update sends new
 values with the same keys and types, and a few style members can read values
 ([Changing styles](#changing-styles)). Layout, styles and values share ActivityKit's 4 KiB
@@ -309,7 +324,7 @@ use tauri_plugin_live_activity::{
 fn delivery(revision: u64, status: &str, tone: &str) -> LayoutSnapshot {
     let values = [("status", status), ("tone", tone)]
         .map(|(key, text)| (key.to_string(), Value::Text(text.into())));
-    LayoutSnapshot { revision, values: BTreeMap::from(values), stale_at: None }
+    LayoutSnapshot { revision, values: BTreeMap::from(values), stale_at: None, timestamp: None }
 }
 
 fn start_input() -> LayoutStartInput {
@@ -337,8 +352,9 @@ fn run_late<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
 }
 ```
 
-`LayoutStartInput::validate_update` checks an update against a start the way the native
-layer does, before anything is sent.
+`LayoutStartInput::validate_update` checks an update against a start the way activitykit's
+Swift layer and Android do, before anything is sent; `validate_end` does the same for the final
+content of an end.
 
 The limits:
 
@@ -357,9 +373,7 @@ The limits:
 - Android draws no styles: the status text changes, its color does not.
 - A crate of 0.2.x rejects bindings with `INVALID_INPUT`. Keep the npm package and the crate on
   the same minor version.
-- The iOS widget template passes the values to the background and keyline tints. A widget
-  copied from an earlier template draws a bound `background` or `keyline` as absent. `setup`
-  keeps a copy that differs; delete `LiveActivityWidget.swift` and run `setup` again.
+- On iOS, `ActivityKitLayoutWidget` passes the values to the background and keyline tints too.
 
 The demo's **Changing styles** example cycles through on time (green), late (red and bold) and
 home (a teal hex color). The full rules are in the
@@ -537,7 +551,7 @@ view. Taps that must work then belong in Rust. Register the handler on the built
 before `run`:
 
 ```rust
-use tauri_plugin_live_activity::{EndInput, EndPolicy, LiveActivityExt};
+use tauri_plugin_live_activity::{EndPolicy, LayoutEndInput, LiveActivityExt};
 
 let app = tauri::Builder::default()
     .plugin(tauri_plugin_live_activity::init())
@@ -546,7 +560,7 @@ let app = tauri::Builder::default()
 let handle = app.handle().clone();
 app.live_activity().on_action(move |event| {
     if event.action_id == "done" {
-        let input = EndInput { id: event.activity_id, policy: EndPolicy::Immediate {} };
+        let input = LayoutEndInput { id: event.activity_id, policy: EndPolicy::Immediate {}, snapshot: None };
         let _ = handle.live_activity().end_layout(input);
     }
 });
@@ -554,7 +568,8 @@ app.run(|_, _| {});
 ```
 
 Rust handlers run first, on a plugin thread, and may call the plugin. `onAction` needs
-`core:event:default`, which a new app has.
+`core:event:default`, which a new app has. On iOS the tap's intent returns once the plugin has
+taken the tap, before the handlers have run.
 
 <table>
   <tr><th></th><th>iOS 26.3 simulator</th><th>Android 16 emulator</th></tr>
@@ -678,6 +693,72 @@ also needs this entry in the `<application>` of
 
 What was found about the Now Bar on One UI 9 is in [Android setup](android-integration.md#samsung-now-bar).
 
+## Revisions, timestamps and ends
+
+Every update sends the whole snapshot with a higher revision. A lower revision fails with `STALE_REVISION`; the
+same revision answers the record when the values are the same, and fails with `CONFLICT` when they differ.
+
+On iOS activitykit numbers the revisions. A start is revision 0, whatever its snapshot says, and an update with a
+revision above the accepted one goes out as the accepted one plus one, which the record reports. Count from the
+record, as the demo does:
+
+```ts
+let record = await startLayout(request);
+record = await updateLayout({ id: record.id, snapshot: { revision: record.snapshot.revision + 1, values } });
+```
+
+While an activity runs under a key, the same start returns it and a different start fails with `CONFLICT`. On iOS
+this holds while the app runs; after a relaunch the same start fails with `CONFLICT` too, because activitykit compares
+the content's time. Call `listLayout()` at launch to find the activities that still run.
+
+A snapshot may carry a `timestamp`, the time its content was made, in Unix milliseconds. ActivityKit uses it from
+iOS 17.2 to drop content older than what the activity shows: such an update still succeeds, but the activity keeps
+the newer content. Without one, iOS takes the time the content is sent, and a start's content is always timed then.
+Android keeps the timestamp in the record; the iOS record leaves it out.
+
+An end can carry final content:
+
+```ts
+import { endLayout } from 'tauri-plugin-live-activity';
+
+await endLayout({
+  id: snack.id,
+  policy: { kind: 'default' },
+  snapshot: { revision: 3, values: { title: 'Mochi’s snack', status: 'Delivered', done: 1 }, timestamp: Date.now() },
+});
+```
+
+```rust
+use std::collections::BTreeMap;
+use tauri_plugin_live_activity::{EndPolicy, LayoutEndInput, LayoutSnapshot, LiveActivityExt, Value};
+
+let values = BTreeMap::from([
+    ("title".to_string(), Value::Text("Mochi’s snack".into())),
+    ("status".to_string(), Value::Text("Delivered".into())),
+    ("done".to_string(), Value::Number(1.0)),
+]);
+let snapshot = LayoutSnapshot { revision: 3, values, stale_at: None, timestamp: None };
+app.live_activity().end_layout(LayoutEndInput { id, policy: EndPolicy::Default {}, snapshot: Some(snapshot) })?;
+```
+
+- The final content is checked as an update: the same keys and value types as the start, `STALE_REVISION` below
+  the accepted revision, `CONFLICT` at it with other values. `LayoutStartInput::validate_end` checks it in Rust.
+- Without `snapshot` the activity ends with its last accepted values. On iOS that end goes out at the next revision,
+  so the record's revision is one higher.
+- On iOS, `immediate` removes the activity at once, `default` keeps it on the Lock Screen for up to four hours, and
+  `after` until the given time or four hours after the end, whichever comes first; a time in the past removes it at
+  once. Android removes the notification on every end and answers `after` with `UNSUPPORTED_FEATURE`; the final
+  content is in the record.
+- Ending again answers the record; an update after the end fails with `NOT_FOUND`. The v1 `end` takes no final
+  content.
+
+A record's `state` is `pending`, `active`, `stale`, `ended`, `dismissed` or `unknown`. `pending` is iOS 26's state of
+a scheduled start, which the plugin does not make. Rust's `ActivityState` may gain states: match it with a `_` arm.
+
+On iOS a start needs the app in the foreground and fails with `NOT_FOREGROUND` otherwise. The system ends an iOS
+activity after 8 hours and removes it from the Lock Screen after 12. [iOS integration](ios-integration.md) has the
+details.
+
 ## Beyond the built-in parts
 
 The nodes above draw with system fonts, SF Symbols, the widget's asset catalog, SVG path data, progress views,
@@ -690,8 +771,8 @@ gauges and timers. Four ways go further. The first two need no Swift:
 | a view of your own | `custom(name)` and a SwiftUI view in `LiveActivityCustomViews.swift` | yes, that view |
 | everything | edit the copied `LiveActivityWidget.swift` | yes, all of it |
 
-The captures were made with a scratch Tauri app on the iOS 26.3 simulator (iPhone 17 Pro), with the plugin added
-by path.
+The captures were made with 0.3 in a scratch Tauri app on the iOS 26.3 simulator (iPhone 17 Pro), with the plugin
+added by path.
 
 ### Fonts and pictures of the widget
 
@@ -745,7 +826,7 @@ npx tauri-plugin-live-activity setup --app-group=group.com.example.shared
 ```
 
 Setup writes the group into `live-activity.yml`: into the entitlements of the app target and of the extension, and
-under `TauriLiveActivityAppGroup` into the extension's Info.plist, where the plugin and the widget read it. Later runs
+under `ActivityKitAppGroup` into the extension's Info.plist, where activitykit and the widget read it. Later runs
 keep the group without the option. XcodeGen writes both entitlements files from the spec each time it generates the
 project, and it did so before this option too: with Tauri's `project.yml` it writes the app's file empty. An
 entitlement the app needs, such as `aps-environment`, belongs under `entitlements.properties` of the app target in
@@ -806,15 +887,15 @@ app.live_activity().write_image("badge.png", &png_bytes)?;
   larger than its presentation and says that a larger one may keep the activity from starting; 1224 × 480 is the
   largest Lock Screen presentation, 408 × 160 points, at @3x. Draw at the size the frame shows at @3x: 56 points are
   168 pixels.
-- On iOS the file goes to `tauri-live-activity/images` in the App Group container, replacing an earlier file of that
-  name as a whole: the widget reads the old picture or the new one, never part of one. Without an App Group in the
+- On iOS activitykit writes the file to `activitykit/images` in the App Group container, replacing an earlier file
+  of that name as a whole: the widget reads the old picture or the new one, never part of one. Without an App Group in the
   extension the call fails with `CONFIGURATION_REQUIRED`. On desktop it checks the PNG and returns
   `UNSUPPORTED_PLATFORM`.
 - The widget reads the file each time it draws the activity, which it does on start and on every update. Writing
   alone draws nothing new: write first, then update. The update may keep every value; its higher revision is new
   content. A missing or unreadable file draws nothing and is not reported.
 - The name is fixed in the tree at start, so a new picture takes the same name. Files stay until the app writes them
-  again; the plugin removes none, so reuse a few names.
+  again; neither the plugin nor activitykit removes any, so reuse a few names.
 - Files get the app's default data protection, readable after the first unlock, so the Lock Screen can draw them.
 
 <img src="images/ios-custom-after.png" width="400" alt="The same activity after an update: a teal badge with 2, Mochi is home, the ring at 80%">
@@ -840,18 +921,19 @@ styles: { ring: { frame: { width: 46, height: 46 }, color: 'mint' } },
 snapshot: { revision: 0, values: { title: 'Mochi’s snack', done: 0.35, percent: '35%' } },
 ```
 
-`setup` creates `src-tauri/gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift` once and never writes it again.
-Fill in its table:
+`setup` creates `src-tauri/gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift` once and never writes it again,
+except to give a file of 0.3 activitykit's names. Fill in its table:
 
 ```swift
+import ActivityKitViews
 import SwiftUI
 
 @available(iOS 16.1, *)
-@objc(TauriLiveActivityCustomViews)
-final class LiveActivityCustomViews: LiveActivityCustomViewRegistry {
-    override class var views: [String: LiveActivityCustomView] {
+@objc(ActivityKitCustomViews)
+final class LiveActivityCustomViews: ActivityKitCustomViewRegistry {
+    override class var views: [String: ActivityKitCustomView] {
         [
-            "ring": LiveActivityCustomView { props in
+            "ring": ActivityKitCustomView { props in
                 Ring(level: props.number("level") ?? 0, label: props.string("label") ?? "", width: props.number("width") ?? 4)
             },
         ]
@@ -879,15 +961,18 @@ struct Ring: View {
   `props.bool` read them, and `props["key"]` gives the value as it is. A prop the node does not set is absent.
 - The node's `style` and conditions work as on any node: the style sets the frame, padding, colors and font around
   the view, which inherits the foreground color and the tint.
-- The file is compiled into the widget extension, which draws the views, and into the app, so the plugin can tell
-  which names have a view. Keep the class name and `@objc(TauriLiveActivityCustomViews)`: the widget and the plugin
-  find the table by it. Mark your views `@available(iOS 16.1, *)` when they use newer SwiftUI, because the app target
-  may support an older iOS than the extension.
-- The plugin's half, `LiveActivityCustomRegistry.swift`, and `LiveActivityWidget.swift` stay templates of the plugin,
-  so a plugin update replaces them while your views stay.
+- The file is compiled into the widget extension, which draws the views, and into the app, so that activitykit can
+  tell which names have a view. Both targets link activitykit's `ActivityKitViews` product, which holds
+  `ActivityKitCustomViewRegistry`, `ActivityKitCustomView` and the props type `ActivityKitCustomProps`. Keep
+  `@objc(ActivityKitCustomViews)`: the widget and activitykit find the table by it. The Swift class name may stay
+  `LiveActivityCustomViews`. Mark your views `@available(iOS 16.1, *)` when they use newer SwiftUI, because the app
+  target may support an older iOS than the extension.
+- The registry comes from activitykit's package, so an update of the plugin or of activitykit leaves this file and
+  your views alone. On a file that 0.3 created, `setup` puts activitykit's names in place of 0.3's
+  (`TauriLiveActivityCustomViews`, `LiveActivityCustomViewRegistry`, `LiveActivityCustomView`) and adds
+  `import ActivityKitViews`; your views stay.
 - A node whose name has no view draws nothing. On iOS the record names it in `degradedFeatures` as
-  `layout.custom.<name>`, for every such name of the layout, as long as ActivityKit reports the activity. Android
-  draws no custom view and lists `layout.custom`.
+  `layout.custom.<name>`, for every such name of the layout. Android draws no custom view and lists `layout.custom`.
 - The validators check the name (the asset name rule) and the props, not the view: what it draws, how much memory it
   takes and whether it compiles are yours to test. A Live Activity has no network; draw with shapes, text and images
   of the extension, and leave out timers and animations of your own.
@@ -896,15 +981,17 @@ The ring in the captures is this view, with `level` bound to a value: 35% at sta
 
 ### The whole widget
 
-The last resort is to edit `src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift`, the copy of the
-plugin's template, and draw `context.state.values` your own way. Keep `ActivityConfiguration(for:
-LiveActivityLayoutAttributes.self)` and the extension's `TauriLiveActivityLayout` = 2. What you give up:
+The last resort is to edit `src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift`, the copy of
+activitykit's template, and put a widget of your own in place of `ActivityKitLayoutWidget()` that draws
+`context.state.values` your own way. `import ActivityKitWidget` brings `LiveActivityLayoutAttributes`,
+`LayoutDocument` and `LayoutView`. Keep `ActivityConfiguration(for: LiveActivityLayoutAttributes.self)` and the
+extension's `ActivityKitLayout` = 2. What you give up:
 
-- `setup` keeps a file that differs from the template and says so on every run; fixes and features of later
-  templates, such as the bound tints of 0.3.0 or custom views, are yours to merge by hand.
-- The plugin draws nothing of the layout any more: the validators still check every request, but what the widget
-  shows for it is your code, outside the shared fixtures and the plugin's tests.
-- `degradedFeatures` describes the plugin's widget, not yours.
+- `setup` keeps a file that differs from the template and says so on every run; fixes and features of
+  activitykit's widget are yours to merge by hand.
+- activitykit draws nothing of the layout any more: the validators still check every request, but what the widget
+  shows for it is your code, outside the shared fixtures and activitykit's tests.
+- `degradedFeatures` describes activitykit's widget, not yours.
 
 ### Limits
 
@@ -927,8 +1014,11 @@ LiveActivityLayoutAttributes.self)` and the extension's `TauriLiveActivityLayout
 
 ## Templates: progress and timer
 
-Request contract v1 has two fixed templates. The plugin's widget draws them on iOS, with a
-title, a status and a bar or a countdown; Android shows them as a notification.
+Request contract v1 has two fixed templates. On iOS each becomes a layout activity with a fixed
+tree, which activitykit's widget draws like any layout: a title, a status and a bar or a countdown
+on the Lock Screen, and parts of them in the Dynamic Island
+([iOS integration](ios-integration.md#the-progress-and-timer-templates)). Android shows them as a
+notification.
 
 ### Progress template
 
@@ -952,8 +1042,9 @@ await update({
 await end({ id: snack.id, policy: { kind: 'immediate' } });
 ```
 
-Each update sends a complete snapshot with a higher revision. `list()` finds the activities
-again after a restart.
+Each update sends a complete snapshot with a higher revision; on iOS the revisions follow the
+[rules of layouts](#revisions-timestamps-and-ends). `list()` finds the activities again after a
+restart. It gives template activities only, and `listLayout()` layout activities only.
 
 <table>
   <tr><th>iOS 26.3 simulator</th><th>Android 16 emulator</th></tr>
@@ -963,8 +1054,8 @@ again after a restart.
   </tr>
 </table>
 
-On iOS the cat comes from the demo's own widget. The plugin's template shows the same title,
-status and bar.
+The iOS captures here show the demo's own widget of 0.3, with the cat. 0.4 has no such widget:
+activitykit's widget draws the template's fixed layout, with the same title, status and bar.
 
 ### Timer template
 
@@ -984,7 +1075,8 @@ await start({
 });
 ```
 
-Times are Unix milliseconds. The system counts down; the app sends nothing per second.
+Times are Unix milliseconds. The system counts down; the app sends nothing per second. The iOS
+capture is of 0.3's demo widget too.
 
 <table>
   <tr><th>iOS 26.3 simulator</th><th>Android 16 emulator</th></tr>
@@ -999,14 +1091,16 @@ Times are Unix milliseconds. The system counts down; the app sends nothing per s
 `plugins.live-activity` in `tauri.conf.json` is optional:
 
 ```json
-{ "plugins": { "live-activity": { "receipts": "redacted", "android": { "samsungNowBar": true } } } }
+{ "plugins": { "live-activity": { "receipts": "full", "android": { "samsungNowBar": true } } } }
 ```
 
-- `receipts`: iOS stores a receipt of each accepted request, so that a late ActivityKit read
-  cannot bring back an older revision, also after a restart. `full`, the default, keeps the
-  snapshot and its text. `redacted` keeps only a SHA-256 digest of it; a digest hides only
-  values that cannot be guessed. Android ignores the option for now and stores records in
-  full in app-private preferences.
+- `receipts`: on iOS activitykit keeps a receipt of each accepted request in the app's
+  Application Support (`activitykit/receipts-v2.json`), so that a late ActivityKit read cannot
+  bring back an older revision, also after a restart. A receipt holds the last accepted values
+  in plain text. `full`, the default, is the only mode iOS has in 0.4: activitykit has no
+  redacted receipts yet, so with `redacted` starts, updates and ends fail with
+  `CONFIGURATION_REQUIRED`, while lists still answer. Android ignores the option for now and
+  stores records in full in app-private preferences.
 - `android.samsungNowBar`: the [Samsung Now Bar](#samsung-now-bar) extras; off when absent.
 
 ## Try the demo
@@ -1020,4 +1114,6 @@ with the mobile toolchain configured:
 npm ci && npm run build:demo && cd examples/demo && npm run tauri -- ios dev
 ```
 
-Use `android dev` for Android. The [demo's README](../examples/demo/README.md) has more.
+Use `android dev` for Android. `tests/ios/run.sh` runs the demo with UI tests on an iOS Simulator
+of its own ([iOS integration](ios-integration.md#testing)). The
+[demo's README](../examples/demo/README.md) has more.

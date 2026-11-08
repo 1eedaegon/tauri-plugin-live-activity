@@ -6,10 +6,15 @@ export const SPEC_FILE = 'live-activity.yml';
 export const WIDGET = 'LiveActivityWidget';
 /** The extension's entitlements, next to its folder so that XcodeGen does not take them for a source. */
 export const WIDGET_ENTITLEMENTS = `${WIDGET}.entitlements`;
-/** The Info.plist key of the extension that names the App Group, for the plugin and the widget. */
-export const APP_GROUP_KEY = 'TauriLiveActivityAppGroup';
-/** The files of the widget folder that the app target compiles too. */
-export const APP_SOURCES = ['LiveActivityActionIntent.swift', 'LiveActivityCustomRegistry.swift', 'LiveActivityCustomViews.swift'];
+/** The Info.plist key of the extension that names the App Group, for activitykit and the widget. */
+export const APP_GROUP_KEY = 'ActivityKitAppGroup';
+/** The key of 0.2 and 0.3, which a spec they wrote may hold. */
+const OLD_APP_GROUP_KEY = 'TauriLiveActivityAppGroup';
+/**
+ * The files of the widget folder that the app target compiles too. The custom views file is Swift, so the app target
+ * compiles Swift, which Xcode needs to take the App Intents metadata of the linked ActivityKitIntent product.
+ */
+export const APP_SOURCES = ['LiveActivityCustomViews.swift'];
 
 const DIGEST_LINE = /^# setup-digest: ([0-9a-f]{16})\n/m;
 
@@ -76,9 +81,9 @@ export function readProject(text) {
   };
 }
 
-/** The App Group of a spec that setup wrote, so that a later run keeps it. */
+/** The App Group of a spec that setup wrote, this version or 0.2 and 0.3, so that a later run keeps it. */
 export function appGroupOf(spec = '') {
-  const value = new RegExp(`^\\s+${APP_GROUP_KEY}: ("[^"\\n]*")$`, 'm').exec(spec)?.[1];
+  const value = new RegExp(`^\\s+(?:${APP_GROUP_KEY}|${OLD_APP_GROUP_KEY}): ("[^"\\n]*")$`, 'm').exec(spec)?.[1];
   return value && JSON.parse(value);
 }
 
@@ -114,10 +119,10 @@ export function writtenBySetup(text) {
 const quoted = value => JSON.stringify(String(value));
 
 /**
- * The included spec: the widget extension target, and the button intent, the custom views and the extension
- * in the app target. `fonts` go to the extension's UIAppFonts. An `appGroup` goes to the entitlements of both
- * targets, the app's at `appEntitlements`, and to the extension's Info.plist, where the plugin and the widget
- * read it. XcodeGen merges the app target's part into the target of project.yml.
+ * The included spec: activitykit's Swift package, the widget extension target, and in the app target the extension,
+ * the button intent and the custom views. `fonts` go to the extension's UIAppFonts. An `appGroup` goes to the
+ * entitlements of both targets, the app's at `appEntitlements`, and to the extension's Info.plist, where activitykit
+ * and the widget read it. XcodeGen merges the app target's part into the target of project.yml.
  */
 export function widgetSpec({
   pluginVersion, packagePath, appTarget, bundleId, appVersion, buildVersion, teamGroup, fonts = [], appGroup, appEntitlements,
@@ -134,14 +139,19 @@ export function widgetSpec({
     '      properties:',
     `        com.apple.security.application-groups: [${quoted(appGroup)}]`,
   ]);
+  const product = name => ['      - package: ActivityKit', `        product: ${name}`];
   const body = [
     'packages:',
-    '  LiveActivity:',
+    '  ActivityKit:',
     `    path: ${quoted(packagePath)}`,
     'targets:',
     `  ${quoted(appTarget)}:`,
     `    sources: [${APP_SOURCES.map(file => `${WIDGET}/${file}`).join(', ')}]`,
-    `    dependencies: [{ target: ${WIDGET} }]`,
+    '    dependencies:',
+    `      - target: ${WIDGET}`,
+    // The system runs a button's intent in the app. The bridge itself is in the Rust library already.
+    ...product('ActivityKitIntent'),
+    ...product('ActivityKitViews'),
     ...entitlements(quoted(appEntitlements)),
     '    settings:',
     '      base:',
@@ -149,21 +159,19 @@ export function widgetSpec({
     `  ${WIDGET}:`,
     '    type: app-extension',
     '    platform: iOS',
-    '    deploymentTarget: "16.1"',
+    '    deploymentTarget: "16.2"',
     `    sources: [${WIDGET}]`,
     '    dependencies:',
-    '      - package: LiveActivity',
-    '        product: LiveActivityShared',
-    '      - package: LiveActivity',
-    '        product: LiveActivityUI',
+    ...product('ActivityKitWidget'),
+    ...product('ActivityKitViews'),
     '    info:',
     `      path: ${WIDGET}/Info.plist`,
     '      properties:',
     ...versions,
     '        NSExtension:',
     '          NSExtensionPointIdentifier: com.apple.widgetkit-extension',
-    '        # startLayout answers CONFIGURATION_REQUIRED without an extension that declares this.',
-    '        TauriLiveActivityLayout: 2',
+    '        # A start answers CONFIGURATION_REQUIRED without an extension that declares this.',
+    '        ActivityKitLayout: 2',
     ...fontList,
     ...group,
     ...entitlements(WIDGET_ENTITLEMENTS),
@@ -179,7 +187,7 @@ export function widgetSpec({
   ].join('\n');
   return [
     `# Written by \`npx tauri-plugin-live-activity setup\` for tauri-plugin-live-activity ${pluginVersion}.`,
-    '# project.yml includes it. Setup writes it again for a new plugin version or app version, unless',
+    '# project.yml includes it. Setup writes it again for a new plugin or activitykit version or app version, unless',
     '# the lines below were changed by hand.',
     `# setup-digest: ${digest(body)}`,
     body,

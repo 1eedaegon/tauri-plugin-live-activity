@@ -39,6 +39,7 @@ mod tests {
         serde_json::from_value(value)
     }
 
+    // TP-CONFIG-1
     #[test]
     fn the_android_options_are_optional_and_strict() {
         let on = read(json!({"android":{"samsungNowBar":true}}))

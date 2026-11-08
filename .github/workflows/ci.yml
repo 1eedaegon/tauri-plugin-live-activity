@@ -24,7 +24,7 @@ jobs:
     outputs:
       rust: ${{ steps.areas.outputs.rust }}
       js: ${{ steps.areas.outputs.js }}
-      swift: ${{ steps.areas.outputs.swift }}
+      ios: ${{ steps.areas.outputs.ios }}
       android: ${{ steps.areas.outputs.android }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,7 +37,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD: ${{ github.sha }}
         run: |
-          all() { for area in rust js swift android; do echo "$area=true" >> "$GITHUB_OUTPUT"; done; echo "every part: $1"; }
+          all() { for area in rust js ios android; do echo "$area=true" >> "$GITHUB_OUTPUT"; done; echo "every part: $1"; }
           if [ "$EVENT" = workflow_dispatch ]; then all "run by hand"; exit 0; fi
           if [ -z "$BASE" ] || [ "$BASE" = 0000000000000000000000000000000000000000 ]; then all "no base to compare"; exit 0; fi
           if ! files=$(git diff --name-only "$BASE" "$HEAD"); then all "git diff failed"; exit 0; fi
@@ -47,18 +47,32 @@ jobs:
           area() { grep -qE "$2" <<< "$files" && echo "$1=true" >> "$GITHUB_OUTPUT" || echo "$1=false" >> "$GITHUB_OUTPUT"; }
           area rust '^(src/|build\.rs$|Cargo\.(toml|lock)$|permissions/|tests/[^/]+\.rs$|examples/demo/src-tauri/)'
           area js '^(guest-js/|cli/|tools/|tests/[^/]+\.mjs$|tests/release/|package(-lock)?\.json$|tsconfig\.json$|examples/demo/)'
-          area swift '^(ios/|templates/ios/|tests/ios/)'
+          # iOS is the activitykit crate and the plugin's Rust on it: Cargo.lock holds activitykit's version.
+          area ios '^(src/|build\.rs$|Cargo\.(toml|lock)$|cli/|tests/ios/|examples/demo/(widget|app)/|examples/demo/src-tauri/)'
           area android '^(android/|tests/android/|Cargo\.(toml|lock)$)'
           cat "$GITHUB_OUTPUT"
+  # The specification against the tests, for every change: docs/spec.md may change alone.
+  spec:
+    name: Specification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - run: sh tools/spec-coverage.sh
+      - run: node --test tests/ci.test.mjs
   contracts:
-    name: Rust, TypeScript and Swift
+    name: Rust, TypeScript and iOS
     needs: changes
-    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.js == 'true' || needs.changes.outputs.swift == 'true'
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.js == 'true' || needs.changes.outputs.ios == 'true'
     runs-on: macos-15-intel
     env:
       RUST: ${{ needs.changes.outputs.rust }}
       JS: ${{ needs.changes.outputs.js }}
-      SWIFT: ${{ needs.changes.outputs.swift }}
+      IOS: ${{ needs.changes.outputs.ios }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -68,9 +82,9 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - if: env.RUST == 'true'
-        run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt,clippy,llvm-tools-preview
-      - if: env.RUST == 'true'
+      - if: env.RUST == 'true' || env.IOS == 'true'
+        run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt,clippy,llvm-tools-preview --target x86_64-apple-ios,aarch64-apple-ios
+      - if: env.RUST == 'true' || env.IOS == 'true'
         run: rustup default 1.99.1
       - if: env.JS == 'true'
         run: npm ci
@@ -91,8 +105,12 @@ jobs:
         run: cargo llvm-cov --locked --summary-only --fail-under-lines 80
       - if: env.RUST == 'true'
         run: cargo test --locked --manifest-path examples/demo/src-tauri/Cargo.toml
-      - if: env.SWIFT == 'true'
-        run: bash tests/ios/run-core.sh
+      # The plugin's iOS code on activitykit: checked for the device without Swift, then built for the simulator, which
+      # builds activitykit's Swift bridge into the library.
+      - if: env.IOS == 'true'
+        run: ACTIVITYKIT_SKIP_SWIFT=1 cargo clippy --locked --target aarch64-apple-ios --lib -- -D warnings
+      - if: env.IOS == 'true'
+        run: cargo build --locked --target x86_64-apple-ios --lib
       - if: env.JS == 'true'
         run: npm pack --dry-run
       - if: env.RUST == 'true'

@@ -24,6 +24,7 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    // TP-ANDROID-3
     #[test]
     fn unwraps_success_and_preserves_stable_native_errors() {
         assert_eq!(
@@ -37,6 +38,7 @@ mod tests {
         assert_eq!(error.code, "PERMISSION_DENIED");
     }
 
+    // TP-ANDROID-3
     #[test]
     fn malformed_native_replies_fail_closed() {
         for value in [
@@ -52,5 +54,24 @@ mod tests {
             assert_eq!(error.code, "NATIVE_ERROR");
             assert!(!error.message.contains("private-value"));
         }
+    }
+
+    // TP-ANDROID-3, TP-IOS-8
+    #[test]
+    fn an_android_layout_record_reads_into_the_plugins_record() {
+        let record: crate::LayoutActivityRecord = decode(json!({"ok":true,"data":{
+            "id":"la-android-1","activityKey":"demo:1","schemaVersion":2,
+            "snapshot":{"revision":3,"values":{"status":"Late"},"timestamp":1_790_000_000_000u64},
+            "backend":"androidNotification","state":"ended","visibility":"unknown",
+            "degradedFeatures":["layout.island"],"promotionRequested":true,"promotionState":"unknown"}}))
+        .unwrap();
+        assert_eq!(
+            (record.snapshot.revision, record.snapshot.timestamp),
+            (3, Some(1_790_000_000_000))
+        );
+        assert_eq!(record.state, crate::ActivityState::Ended);
+        assert_eq!(record.backend, crate::Backend::AndroidNotification);
+        let pending: crate::ActivityState = serde_json::from_value(json!("pending")).unwrap();
+        assert_eq!(pending, crate::ActivityState::Pending);
     }
 }

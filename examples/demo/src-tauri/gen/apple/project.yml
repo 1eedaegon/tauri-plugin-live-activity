@@ -1,7 +1,8 @@
 name: live-activity-demo
 packages:
-  LiveActivity:
-    path: ../../../../../ios
+  # activitykit's Swift package, through the link that ../../../link-activitykit.mjs makes.
+  ActivityKit:
+    path: activitykit/swift
 options:
   bundleIdPrefix: io.github.eedaegon.liveactivitydemo
   deploymentTarget:
@@ -44,10 +45,9 @@ targets:
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
-      # The intent of layout buttons. The app needs its own copy: Xcode extracts App Intents
-      # metadata only from Swift it compiles in the target. No package product is linked here;
-      # the plugin's Swift code is in the Rust library already.
-      - path: ../../../../../templates/ios/LiveActivityActionIntent.swift
+      # Swift in the app target, so that Xcode takes the App Intents metadata of the linked
+      # ActivityKitIntent product. activitykit's bridge is in the Rust library already.
+      - path: ../../../app/ActivityKitIntents.swift
     info:
       path: live-activity-demo_iOS/Info.plist
       properties:
@@ -76,8 +76,9 @@ targets:
       base:
         ENABLE_BITCODE: false
         SWIFT_VERSION: "5.0"
-        ARCHS: [arm64]
-        VALID_ARCHS: arm64
+        # Tauri's defaults: x86_64 is for the simulator of an Intel Mac.
+        ARCHS: [arm64, x86_64]
+        VALID_ARCHS: arm64  x86_64
         LIBRARY_SEARCH_PATHS[arch=x86_64]: $(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
         LIBRARY_SEARCH_PATHS[arch=arm64]: $(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
         ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: true
@@ -85,6 +86,9 @@ targets:
       groups: [app]
     dependencies:
       - target: LiveActivityWidget
+      # The intent of layout buttons, which the system runs in the app.
+      - package: ActivityKit
+        product: ActivityKitIntent
       - framework: libapp.a
         embed: false
       - sdk: CoreGraphics.framework
@@ -107,18 +111,13 @@ targets:
   LiveActivityWidget:
     type: app-extension
     platform: iOS
+    deploymentTarget: "16.2"
     sources:
-      - ../../../widget/MochiWidget.swift
-      - ../../../widget/LiveActivityLayoutWidget.swift
+      - ../../../widget/MochiWidgets.swift
       - ../../../widget/Assets.xcassets
-      - ../../../../../templates/ios/LiveActivityActionIntent.swift
-      # The types that LiveActivityWidget.swift draws custom nodes with; the demo registers no custom view.
-      - ../../../../../templates/ios/LiveActivityCustomRegistry.swift
     dependencies:
-      - package: LiveActivity
-        product: LiveActivityShared
-      - package: LiveActivity
-        product: LiveActivityUI
+      - package: ActivityKit
+        product: ActivityKitWidget
     info:
       path: LiveActivityWidget/Info.plist
       properties:
@@ -127,7 +126,7 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         # start_layout answers CONFIGURATION_REQUIRED without an extension that declares this.
-        TauriLiveActivityLayout: 2
+        ActivityKitLayout: 2
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.eedaegon.liveactivitydemo.widget

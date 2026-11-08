@@ -1,7 +1,7 @@
 // The summary that setup prints.
 
-const DONE = { created: 'created', updated: 'updated', ran: 'ran', kept: 'kept', skipped: 'skipped' };
-const WOULD = { created: 'would create', updated: 'would update', ran: 'would run', kept: 'would keep', skipped: 'would skip' };
+const DONE = { created: 'created', updated: 'updated', removed: 'removed', ran: 'ran', kept: 'kept', skipped: 'skipped' };
+const WOULD = { created: 'would create', updated: 'would update', removed: 'would remove', ran: 'would run', kept: 'would keep', skipped: 'would skip' };
 
 function line(item, dryRun) {
   const label = (dryRun ? WOULD : DONE)[item.status];

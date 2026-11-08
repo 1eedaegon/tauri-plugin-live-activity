@@ -89,7 +89,8 @@ export interface EndInput {
   readonly policy: EndPolicy;
 }
 
-export type ActivityState = 'active' | 'stale' | 'ended' | 'dismissed' | 'unknown';
+/** `pending`: scheduled and not started yet (iOS 26). */
+export type ActivityState = 'pending' | 'active' | 'stale' | 'ended' | 'dismissed' | 'unknown';
 export type PromotionState = 'promoted' | 'notPromoted' | 'unknown' | 'notApplicable';
 
 export interface ActivityRecord {
@@ -110,7 +111,7 @@ export interface ActivityRecord {
 }
 
 export type ErrorCode =
-  | 'UNSUPPORTED_PLATFORM' | 'UNSUPPORTED_FEATURE' | 'PERMISSION_DENIED'
+  | 'UNSUPPORTED_PLATFORM' | 'UNSUPPORTED_FEATURE' | 'PERMISSION_DENIED' | 'NOT_FOREGROUND'
   | 'CONFIGURATION_REQUIRED' | 'INVALID_INPUT' | 'PAYLOAD_TOO_LARGE'
   | 'NOT_FOUND' | 'STALE_REVISION' | 'CONFLICT' | 'SYSTEM_LIMIT' | 'NATIVE_ERROR';
 
@@ -132,12 +133,20 @@ export interface LayoutValues {
 }
 
 export interface LayoutSnapshot {
-  /** Nonnegative JavaScript safe integer; strictly increases when the values change. */
+  /**
+   * Nonnegative JavaScript safe integer; strictly increases when the values change. On iOS a higher revision than
+   * the record's is sent as the record's plus one: activitykit numbers the revisions.
+   */
   readonly revision: number;
   /** The complete map. An update keeps the keys and the value types accepted at start. */
   readonly values: LayoutValues;
   /** UTC Unix epoch milliseconds. */
   readonly staleAt?: number;
+  /**
+   * When the content was made, UTC Unix epoch milliseconds. ActivityKit (iOS 17.2) drops content older than what it
+   * shows; without it iOS takes the time the content is sent. Android keeps it in the record.
+   */
+  readonly timestamp?: number;
 }
 
 type ColorName =
@@ -417,6 +426,14 @@ export interface LayoutUpdateInput {
   readonly id: string;
   /** Complete replacement snapshot, not a partial update. */
   readonly snapshot: LayoutSnapshot;
+}
+
+/**
+ * The end of a layout activity. With `snapshot` it ends with that final content, checked as an update; without one it
+ * ends with the last accepted values.
+ */
+export interface LayoutEndInput extends EndInput {
+  readonly snapshot?: LayoutSnapshot;
 }
 
 /** The record does not repeat the layout. */

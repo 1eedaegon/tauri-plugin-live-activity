@@ -106,8 +106,8 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun endLayout(invoke: Invoke) = respond(invoke) {
-        val (id, policy) = LayoutInput.end(invoke.getArgs())
-        layouts.end(id, policy).json()
+        val end = LayoutInput.end(invoke.getArgs())
+        layouts.end(end.id, end.policy, end.snapshot).json()
     }
 
     @Command

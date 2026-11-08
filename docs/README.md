@@ -1,18 +1,19 @@
 # Developer docs
 
 Installation and a short example are in the [README](../README.md)
-([한국어](../README.ko.md)). What the current release was tested on is in the
+([in Korean](../README.ko.md)). What the current release was tested on is in the
 [validation record](validation.md).
 
 | Guide | Contents |
 | --- | --- |
-| [Usage](usage.md) | What `setup` does and the same steps by hand, every layout node with captures, styles that an update changes (in TypeScript and Rust), buttons in Rust, the Dynamic Island, Android and the Samsung Now Bar, fonts, drawn images and custom SwiftUI views, the progress and timer templates, the plugin configuration |
+| [Specification](spec.md) | Every requirement of 0.4, one per row, with the tests that prove it |
+| [Usage](usage.md) | What `setup` does and the same steps by hand, every layout node with captures, styles that an update changes (in TypeScript and Rust), buttons in Rust, the Dynamic Island, Android and the Samsung Now Bar, revisions, timestamps and ends with final content, fonts, drawn images and custom SwiftUI views, the progress and timer templates, the plugin configuration |
 | [Request contract](request-contract.md) | Every field and limit of a request, and who checks what |
-| [iOS setup](ios-integration.md) | Shared models, the Widget Extension, permissions and end policies |
+| [iOS setup](ios-integration.md) | The widget extension and the app target on activitykit's Swift products, the Info.plist keys, the App Group, fonts, custom views, buttons, permissions and end policies, the migration from 0.3, and the simulator tests |
 | [Android setup](android-integration.md) | Notification permission, promotion, state recovery and limits |
 | [Validation](validation.md) | Test, emulator and packaging results |
 | [Releases](releasing.md) | The publish workflow and the registry setup |
-| [Demo app](../examples/demo/README.md) | How to run it, and lifecycle checks through the real bridge |
+| [Demo app](../examples/demo/README.md) | How to run it, lifecycle checks through the real bridge, and the UI tests on an iOS Simulator |
 
 ## Research notes
 

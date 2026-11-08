@@ -7,6 +7,7 @@ fn start_input() -> Value {
         "snapshot":{"revision":0,"title":"Job","status":"Running","progress":0.5}})
 }
 
+// TP-DESKTOP-1
 #[test]
 fn desktop_queries_report_unavailable_and_mutations_fail_explicitly() {
     let app = mock_builder()
@@ -54,6 +55,7 @@ fn desktop_queries_report_unavailable_and_mutations_fail_explicitly() {
     });
 }
 
+// TP-DESKTOP-1, TP-IOS-11
 #[test]
 fn command_boundaries_reject_invalid_requests_before_dispatch() {
     let app = mock_builder()
@@ -79,6 +81,7 @@ fn command_boundaries_reject_invalid_requests_before_dispatch() {
     });
 }
 
+// TP-PERM-1
 #[test]
 fn ipc_denies_ungranted_mutations_and_remote_content() {
     use tauri::{
@@ -154,6 +157,7 @@ fn layout_start_input() -> Value {
         "snapshot":{"revision":0,"values":{"title":"Job"}}})
 }
 
+// TP-DESKTOP-1
 #[test]
 fn desktop_layout_commands_validate_before_they_fail_explicitly() {
     use crate::{LiveActivityExt, Validate};
@@ -242,6 +246,7 @@ fn capabilities_from_a_native_side_without_layout_decode_as_unsupported() {
     }
 }
 
+// TP-CONFIG-1
 #[test]
 fn plugin_accepts_an_absent_null_or_redacted_configuration() {
     let build = |config: Option<Value>| {
@@ -281,6 +286,7 @@ fn plugin_accepts_an_absent_null_or_redacted_configuration() {
     assert_eq!(config(json!({})).unwrap().receipts, None);
 }
 
+// TP-ACTION-1
 #[test]
 fn taps_reach_tauri_listeners_as_the_action_event() {
     use crate::actions::{ACTION_EVENT, start};
@@ -318,6 +324,7 @@ fn taps_reach_tauri_listeners_as_the_action_event() {
     assert_eq!(serde_json::from_str::<Value>(&payload).unwrap(), tap);
 }
 
+// TP-DESKTOP-1
 #[test]
 fn write_image_checks_the_png_then_reports_that_desktop_has_no_widget() {
     use crate::LiveActivityExt;

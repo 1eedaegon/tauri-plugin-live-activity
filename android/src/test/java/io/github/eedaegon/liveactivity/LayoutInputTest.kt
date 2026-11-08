@@ -117,8 +117,8 @@ class LayoutInputTest {
     }
 
     @Test fun endTakesTheV1PolicyShapes() {
-        assertEquals("handle" to "immediate", LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":"immediate"}}""")))
-        assertEquals("handle" to "after", LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":"after","at":0}}""")))
+        assertEquals(LayoutEnd("handle", "immediate", null), LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":"immediate"}}""")))
+        assertEquals(LayoutEnd("handle", "after", null), LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":"after","at":0}}""")))
         assertEquals("INVALID_INPUT", code { LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":5}}""")) })
         assertEquals("INVALID_INPUT", code { LayoutInput.end("text") })
     }

@@ -21,7 +21,8 @@ class LayoutFixtureTest {
         when (command) {
             "start_layout" -> Outcome.Accepted(LayoutInput.start(input).weight)
             "update_layout" -> Outcome.Accepted(LayoutInput.update(input).second.weight)
-            "end_layout" -> { LayoutInput.end(input); Outcome.Accepted(null) }
+            // An end states the weight of its final content's values, and none without final content.
+            "end_layout" -> Outcome.Accepted(LayoutInput.end(input).snapshot?.weight)
             "start", "update" -> v1(command, input)
             else -> Outcome.Rejected("INVALID_INPUT")
         }
@@ -37,6 +38,7 @@ class LayoutFixtureTest {
 
     private fun cases(kind: String): List<JSONObject> = fixtures.getJSONArray(kind).let { array -> (0 until array.length()).map(array::getJSONObject) }
 
+    // TP-CONTRACT-4
     @Test fun everyValidCaseIsAcceptedWithItsWeight() {
         val valid = cases("valid")
         assertTrue(valid.size >= 100)
@@ -48,6 +50,7 @@ class LayoutFixtureTest {
         assertEquals(wrong.joinToString("\n"), 0, wrong.size)
     }
 
+    // TP-CONTRACT-4
     @Test fun everyInvalidCaseFailsWithItsCode() {
         val invalid = cases("invalid")
         assertTrue(invalid.size >= 100)
@@ -58,37 +61,55 @@ class LayoutFixtureTest {
         assertEquals(wrong.joinToString("\n"), 0, wrong.size)
     }
 
-    /** An update after a start, as the engine checks it: the update alone, then against the stored layout and styles. */
-    private fun replace(start: Any?, update: Any?): Outcome = try {
+    /**
+     * New content after a start, as the engine checks an update or the final content of an end: the
+     * request alone, then its values against the stored layout and styles.
+     */
+    private fun replace(start: Any?, content: () -> LayoutSnapshot): Outcome = try {
         val origin = LayoutInput.start(start)
-        val snapshot = LayoutInput.update(update).second
+        val snapshot = content()
         LayoutRules.checkReplacement(origin, origin.snapshot.values, snapshot.values)
         Outcome.Accepted(origin.documentWeight + snapshot.weight)
     } catch (failure: ActivityFailure) { Outcome.Rejected(failure.code) }
 
+    /** The cases of a list of `start` and new content that `content` reads, which do not meet their verdict. */
+    private fun mismatches(kind: String, content: (JSONObject) -> LayoutSnapshot): List<String> = cases(kind).mapNotNull { case ->
+        val name = case.getString("name")
+        val started = run("start_layout", case.get("start"))
+        val expected = if (case.has("code")) Outcome.Rejected(case.getString("code")) else Outcome.Accepted(case.getInt("weight"))
+        val outcome = replace(case.get("start")) { content(case) }
+        when {
+            started !is Outcome.Accepted -> "$name: the start is $started"
+            outcome != expected -> "$name: $outcome, expected $expected"
+            else -> null
+        }
+    }
+
+    // TP-CONTRACT-4
     @Test fun everyUpdateCaseMeetsTheStoredLayoutAsExpected() {
-        val updates = cases("updates")
-        assertTrue(updates.size >= 20)
-        val wrong = updates.mapNotNull { case ->
-            val name = case.getString("name")
-            val started = run("start_layout", case.get("start"))
-            val expected = if (case.has("code")) Outcome.Rejected(case.getString("code")) else Outcome.Accepted(case.getInt("weight"))
-            val outcome = replace(case.get("start"), case.get("update"))
-            when {
-                started !is Outcome.Accepted -> "$name: the start is $started"
-                outcome != expected -> "$name: $outcome, expected $expected"
-                else -> null
-            }
+        assertTrue(cases("updates").size >= 20)
+        val wrong = mismatches("updates") { LayoutInput.update(it.get("update")).second }
+        assertEquals(wrong.joinToString("\n"), 0, wrong.size)
+    }
+
+    // TP-CONTRACT-4
+    @Test fun everyEndCaseMeetsTheStoredLayoutAsExpected() {
+        assertTrue(cases("ends").size >= 4)
+        val wrong = mismatches("ends") { case ->
+            checkNotNull(LayoutInput.end(case.get("end")).snapshot) { "${case.getString("name")} has no final content" }
         }
         assertEquals(wrong.joinToString("\n"), 0, wrong.size)
     }
 
-    @Test fun everyValidStartAndUpdateStatesAWeight() {
-        val missing = cases("valid").filter { it.getString("command") != "end_layout" && !it.has("weight") }
+    // TP-CONTRACT-4
+    @Test fun everyValidStartUpdateAndFinalContentStatesAWeight() {
+        val missing = cases("valid").filter { case ->
+            !case.has("weight") && (case.getString("command") != "end_layout" || case.getJSONObject("input").has("snapshot"))
+        }
         assertEquals(emptyList<JSONObject>(), missing)
         assertTrue(cases("invalid").any { it.getString("code") == "PAYLOAD_TOO_LARGE" })
         assertTrue(JSONArray(cases("valid").map { it.getString("name") }).length() == cases("valid").map { it.getString("name") }.toSet().size)
-        val names = listOf("valid", "invalid", "updates").flatMap { kind -> cases(kind).map { it.getString("name") } }
+        val names = listOf("valid", "invalid", "updates", "ends").flatMap { kind -> cases(kind).map { it.getString("name") } }
         assertEquals(names.size, names.toSet().size)
     }
 }

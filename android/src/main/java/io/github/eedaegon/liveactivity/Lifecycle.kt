@@ -89,31 +89,51 @@ internal class Lifecycle<E : Entry<E, S>, O, S>(
         val records = reconcile()
         val previous = records.firstOrNull { it.id == id } ?: fail("NOT_FOUND", "Unknown activity.")
         if (previous.terminal || (previous.state == "unknown" && !previous.awaitingObservation)) fail("NOT_FOUND", "Activity is no longer observable as active.")
-        contract.checkReplacement(previous, snapshot)
-        val revision = contract.revision(snapshot)
-        val current = contract.revision(previous.snapshot)
-        if (revision < current) fail("STALE_REVISION", "Activity revision is stale.")
-        if (revision == current) {
-            if (snapshot != previous.snapshot) fail("CONFLICT", "Revision already contains different content.")
-            return@synchronized if (previous.postFailed) deliver(previous, records) else previous
-        }
+        if (!replaces(previous, snapshot)) return@synchronized if (previous.postFailed) deliver(previous, records) else previous
         ensurePermission()
         val record = previous.with(snapshot = snapshot, state = "unknown", awaitingObservation = true)
         deliver(record, records)
     }
 
-    fun end(id: String, policy: String): E = synchronized(ACTIVITY_LOCK) {
+    /**
+     * Ends the activity, with `snapshot` as its final content when there is one. No end leaves a
+     * notification on Android, so the final content is what the returned and stored records carry.
+     */
+    fun end(id: String, policy: String, snapshot: S? = null): E = synchronized(ACTIVITY_LOCK) {
         val records = reconcile()
         val previous = records.firstOrNull { it.id == id } ?: fail("NOT_FOUND", "Unknown activity.")
         if (policy == "after") fail("UNSUPPORTED_FEATURE", "Android does not support delayed activity dismissal.")
         if (previous.state == "ended") return@synchronized previous
-        val ended = previous.with(state = "ended")
+        val ended = previous.with(snapshot = finalContent(previous, snapshot), state = "ended")
         save(records.filter { it.id != id } + ended)
         port.cancel(id)
         ended
     }
 
     fun list(): List<E> = synchronized(ACTIVITY_LOCK) { reconcile() }
+
+    /**
+     * Whether `snapshot` is new content for `previous` under the rules of an update: the contract's
+     * check, STALE_REVISION below the current revision, and at that revision CONFLICT unless the
+     * content is the same, which is not new.
+     */
+    private fun replaces(previous: E, snapshot: S): Boolean {
+        contract.checkReplacement(previous, snapshot)
+        val revision = contract.revision(snapshot)
+        val current = contract.revision(previous.snapshot)
+        if (revision < current) fail("STALE_REVISION", "Activity revision is stale.")
+        if (revision > current) return true
+        if (snapshot != previous.snapshot) fail("CONFLICT", "Revision already contains different content.")
+        return false
+    }
+
+    /**
+     * The content an activity ends with: final content that an update could bring, or else the
+     * accepted snapshot. A dismissed activity is shown nowhere and its tombstone keeps no layout to
+     * check final content against, so it ends with what it had, as without final content.
+     */
+    private fun finalContent(previous: E, snapshot: S?): S =
+        if (snapshot != null && !previous.terminal && replaces(previous, snapshot)) snapshot else previous.snapshot
 
     private fun reconcile(): List<E> = settle(store.read(), always = false)
 

@@ -33,14 +33,16 @@ internal object LayoutInput {
         return handle(request["id"]) to snapshotOf(request["snapshot"])
     }
 
-    fun end(input: Any?): Pair<String, String> {
-        val request = tree(input).members().only(setOf("id", "policy"))
+    /** An end, with its optional final content checked as the snapshot of an update is checked alone. */
+    fun end(input: Any?): LayoutEnd {
+        val request = tree(input).members().only(setOf("id", "policy"), setOf("snapshot"))
         val id = handle(request["id"])
         val policy = request["policy"].members()
         val kind = policy["kind"].text()
         if (kind == "after") policy.only(setOf("kind", "at"))["at"].integer(LayoutRules.MAX_TIMESTAMP)
         else if (kind !in POLICIES || policy.size != 1) invalidLayout()
-        return id to kind
+        // A `null` snapshot is JsonNull here, not a missing member, so it fails as a snapshot.
+        return LayoutEnd(id, kind, request["snapshot"]?.let(::snapshotOf))
     }
 
     /** A snapshot as JSON: every rule of its own, the weight of its values included. */
@@ -54,12 +56,14 @@ internal object LayoutInput {
 
     /** Every rule of a snapshot but the weight. */
     private fun shape(raw: Any?): LayoutSnapshot {
-        val snapshot = raw.members().only(setOf("revision", "values"), setOf("staleAt"))
+        val snapshot = raw.members().only(setOf("revision", "values"), setOf("staleAt", "timestamp"))
         val revision = snapshot["revision"].integer(LayoutRules.MAX_REVISION)
         val values = snapshot["values"].members()
         if (values.size > 32) invalidLayout()
         values.forEach { (key, value) -> if (!LayoutRules.isName(key)) invalidLayout(); value(value) }
-        return LayoutSnapshot(revision, values, snapshot["staleAt"]?.integer(LayoutRules.MAX_TIMESTAMP))
+        return LayoutSnapshot(
+            revision, values, snapshot["staleAt"]?.integer(LayoutRules.MAX_TIMESTAMP), snapshot["timestamp"]?.integer(LayoutRules.MAX_TIMESTAMP),
+        )
     }
 
     private fun value(value: Any) {

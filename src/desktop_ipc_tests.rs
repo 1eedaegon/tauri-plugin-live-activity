@@ -48,6 +48,7 @@ fn invoke(
     .map(|response| response.deserialize().unwrap())
 }
 
+// TP-DESKTOP-1
 #[test]
 fn desktop_ipc_never_advertises_native_features_or_requests_os_permissions() {
     let webview = webview_with_grants(&["get_capabilities", "check_permissions"]);
@@ -78,6 +79,7 @@ fn desktop_ipc_never_advertises_native_features_or_requests_os_permissions() {
     );
 }
 
+// TP-DESKTOP-1
 #[test]
 fn granted_desktop_ipc_returns_structured_unsupported_errors() {
     let webview = webview_with_grants(&["start", "update", "end", "list", "request_permissions"]);
@@ -113,6 +115,7 @@ fn granted_desktop_ipc_returns_structured_unsupported_errors() {
     }
 }
 
+// TP-DESKTOP-1
 #[test]
 fn desktop_ipc_reports_layout_as_unsupported_and_answers_layout_commands_with_structured_errors() {
     let webview = webview_with_grants(&[
@@ -179,6 +182,7 @@ fn desktop_ipc_reports_layout_as_unsupported_and_answers_layout_commands_with_st
     );
 }
 
+// TP-PERM-1
 #[test]
 fn layout_commands_need_their_own_grants() {
     let webview = webview_with_grants(&["start", "update", "end", "list"]);
@@ -191,6 +195,7 @@ fn layout_commands_need_their_own_grants() {
     }
 }
 
+// TP-PERM-1
 #[test]
 fn default_permission_grants_only_the_read_commands() {
     let identifiers = |file: &'static str| -> Vec<&'static str> {

@@ -1,5 +1,70 @@
 # Changelog
 
+## Unreleased
+
+iOS moves onto the [activitykit](https://github.com/1eedaegon/activitykit-rs) crate, which was split out of this
+plugin's iOS code. The plugin has no Swift of its own any more: its Rust commands call activitykit, whose build script
+builds its Swift bridge into the app's Rust library, and the widget extension links activitykit's Swift products.
+Android and desktop work as before. Until activitykit is on crates.io the crate depends on it by git.
+
+- iOS: the commands call activitykit directly. The Tauri Swift plugin and the copied Swift packages (`ios/`,
+  `LiveActivityShared`, `LiveActivityCore`, `LiveActivityUI`, `LiveActivityPlugin`) and the templates under
+  `templates/ios` are gone. activitykit also fixes what 0.3's Swift got wrong: ActivityKit's `unsupported`,
+  `unsupportedTarget` and `visibility` refusals keep their codes, the start's preflight no longer depends on the app's
+  state, `pending` is a state, `End::after` takes any time, an end can carry final content, and every content has a
+  timestamp.
+- Breaking: iOS needs 16.2 on an iPhone (iPadOS 17 on an iPad). Below it every command but the reads answers
+  `UNSUPPORTED_PLATFORM`, and `getCapabilities()` reports the features as unsupported.
+- Breaking: an end can carry final content. `end_layout` takes `LayoutEndInput { id, policy, snapshot }` in Rust, and
+  `endLayout` takes `LayoutEndInput`, which is `EndInput` with an optional `snapshot`, in TypeScript. On iOS an end
+  without a snapshot ends with the last accepted values at the next revision, so its record has one revision more.
+- Breaking: `LayoutSnapshot` has an optional `timestamp`, the time the content was made, which ActivityKit uses on
+  iOS 17.2 to drop older content. A struct literal needs `timestamp: None`. A start's content is timed when it is sent.
+- Breaking: `ActivityState` has `Pending`, and the Rust enum is `#[non_exhaustive]`: a match needs a `_` arm.
+  TypeScript's `ActivityState` adds `'pending'`.
+- Breaking: the error code `NOT_FOREGROUND`, for a start that ActivityKit refuses while the app is not in the
+  foreground (it was `NATIVE_ERROR` or `PERMISSION_DENIED`). `UNSUPPORTED_FEATURE` and `SYSTEM_LIMIT` messages name
+  the feature and the limit.
+- Breaking: on iOS activitykit numbers the revisions. A start is revision 0 whatever its snapshot says, and an update
+  with a revision above the accepted one goes out as the accepted one plus one, which the record reports. A lower
+  revision is still `STALE_REVISION`, the same revision with the same values still answers the record, and with other
+  values `CONFLICT`. An app that counts revisions from the record, as the demo does, sees no difference.
+- Breaking: on iOS the same start under a running key answers the running activity while the app runs; after a
+  relaunch it answers `CONFLICT`, because activitykit compares the content's timestamp too.
+- Breaking: `receipts: "redacted"` is not available on iOS yet: activitykit keeps the last values in plain text and
+  has no redacted receipts. With it, starts, updates and ends answer `CONFIGURATION_REQUIRED`; lists still answer.
+- Breaking: the extension's Info.plist keys are activitykit's, `ActivityKitLayout` and `ActivityKitAppGroup`, and
+  activitykit keeps receipts in `activitykit/receipts-v2.json` and drawn images in `activitykit/images` of the App
+  Group. Activities that 0.3 started are not listed by 0.4: end them before the update, or the system ends them
+  within 8 hours.
+- Breaking: the progress and timer templates of contract v1 are layout activities on iOS, with a fixed layout like
+  0.3's template widget, so `ActivityKitLayoutWidget` draws them and a widget of the app's own for them no longer
+  applies. `start`, `update`, `end` and `list` keep their requests and records. A v1 and a v2 activity can no longer
+  share an activity key.
+- Breaking: on iOS a button's intent returns once the plugin has taken the tap, not after the `on_action` handlers ran.
+- `npx tauri-plugin-live-activity setup` finds activitykit's folder with `cargo metadata` and writes
+  `live-activity.yml` on its Swift package: the widget extension (iOS 16.2) links `ActivityKitWidget` and
+  `ActivityKitViews`, and the app target links `ActivityKitIntent` and `ActivityKitViews` and compiles the custom
+  views file. It writes activitykit's widget template as `LiveActivityWidget.swift`. On an app that 0.2 or 0.3 set
+  up, it removes `LiveActivityActionIntent.swift` and `LiveActivityCustomRegistry.swift`, replaces the old widget
+  file, gives `LiveActivityCustomViews.swift` activitykit's names (your views stay), and writes the new Info.plist
+  keys with the App Group it had. A file changed by hand is kept and reported as a step to do. A second run changes
+  nothing.
+- Rust: the layout types (`Node`, `Element`, `Style`, `Island`, `Bound`, `Bindable`, `Color`, `Value` and the rest)
+  are activitykit's, under the same names and with the same JSON, and gain activitykit's builder methods. `Layout` is
+  activitykit's `contract::LayoutRegions`. The plugin's validator is activitykit's; `LayoutStartInput::validate_end`
+  is new.
+- Request contract v2 is activitykit's: `contracts/request.schema.json` and `tests/fixtures/layout-requests.json`
+  are its files, which `node tools/sync-contract.mjs --write` copies and a test compares. They add `timestamp` to
+  snapshots, final content to `end_layout` and the `ends` fixtures. The reference validator adds
+  `validateLayoutEnd`.
+- Android takes a snapshot's `timestamp` and keeps it in the record, and ends a layout activity with the final
+  content of `end_layout`, checked as an update. Everything else on Android is unchanged.
+- `docs/spec.md` lists every requirement with its tests, checked by `tools/spec-coverage.sh` in CI. The demo runs on
+  an iOS Simulator of its own with `tests/ios/run.sh`: a bound style on the Lock Screen, a button that reaches Rust and
+  JavaScript, the list after a relaunch, the lifecycle test and the templates.
+- The demo's widget is activitykit's template; its own Mochi widget for the templates is gone.
+
 ## 0.3.0
 
 - Add bound style members to request contract v2. `{ "bind": "<value key>" }` can stand for a literal `color`, `background`, `tint`, `opacity`, `size`, `weight` or `cornerRadius` in a style, and for the layout's `background` and `keyline`. The member reads that value on every render, so `updateLayout` and `update_layout` change it while the activity runs. A bound color is a color name or a hex color, never a light and dark pair. The tree and the other members stay fixed at start.

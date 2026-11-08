@@ -13,6 +13,7 @@ class InputTest {
         try { action(); fail("Expected rejection") } catch (_: ActivityFailure) {}
     }
 
+    // TP-CONTRACT-5
     @Test fun matchesTheSharedRequestFixtures() {
         val fixtures = JSONArray(File(requireNotNull(System.getProperty("fixturePath", "tests/fixtures/requests.json"))).readText())
         for (index in 0 until fixtures.length()) {

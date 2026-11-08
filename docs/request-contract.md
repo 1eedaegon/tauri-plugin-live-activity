@@ -3,7 +3,8 @@
 Contract v1 is the request input used since `0.1.0-alpha.1`. 0.2.0 leaves it unchanged
 and adds [contract v2](#request-contract-v2-layout) for layouts. Validator tests in other
 languages reuse `contracts/request.schema.json` and `tests/fixtures/requests.json`.
-`tools/validate-request.mjs` is the reference implementation, for development only.
+`tools/validate-request.mjs` is the reference implementation, for development only. Since 0.4
+the schema file is a copy of the activitykit crate's, which also holds contract v2.
 
 ## Format
 
@@ -63,10 +64,13 @@ tests cover the lifecycle.
 ## Who checks what
 
 JSON Schema checks shape, length, range and the template match. The reference tool also
-checks the order of the timer times. The Rust, Swift and Kotlin fixture tests apply the
-same rules. The native code checks the final Swift encoded size of state and attributes,
-the real OS capabilities and permissions, ID ownership, and the comparison with the
-previous revision. Character limits do not replace the 4 KB check.
+checks the order of the timer times. The Rust and Kotlin fixture tests apply the same rules.
+On iOS the plugin's Rust checks a v1 request, turns it into a layout activity
+([below](#the-templates-on-ios)) and checks that as a v2 request; activitykit's Swift layer
+then checks the final encoded size of state and attributes and reports the real OS
+capabilities and permissions. The plugin's Rust and activitykit find the activity by its id and
+compare with the previous revision. On Android the Kotlin layer does all of this. Character
+limits do not replace the 4 KB check.
 
 ```sh
 npm ci
@@ -80,23 +84,35 @@ tests, and the coverage of each layer, are recorded separately in the
 
 ## Request contract v2 (layout)
 
-Status: released in 0.2.0. Not released yet: [bound style members](#bound-style-members), the style
-member `fontFamily`, images from a `file`, [custom nodes](#custom-nodes) and
-[`write_image`](#images-the-app-writes). It follows the [layout DSL RFC](rfc-layout-dsl.md) with the
-differences listed at the end of this section. Contract v1 above is unchanged.
+Status: released in 0.2.0. [Bound style members](#bound-style-members), the style member
+`fontFamily`, images from a `file`, [custom nodes](#custom-nodes) and
+[`write_image`](#images-the-app-writes) came in 0.3.0. In 0.4 v2 is the contract of the
+[activitykit](https://github.com/1eedaegon/activitykit-rs) crate, which adds a `timestamp` to snapshots,
+final content to `end_layout`, the state `pending` and the error code `NOT_FOREGROUND`. It follows the
+[layout DSL RFC](rfc-layout-dsl.md) with the differences listed at the end of this section. Contract v1
+above is unchanged.
 
-In v2 the host sends a tree of nodes, and a widget extension that the host builds from the
-plugin's template (`templates/ios`) draws it. The tree is sent once, at start. An update sends
-values only. A bound style member reads a value, so an update can change a color, a size or an
-opacity; the tree and every other member stay as they started.
+In v2 the host sends a tree of nodes. On iOS activitykit's widget, `ActivityKitLayoutWidget`, draws
+it in a widget extension of the app. The tree is sent once, at start. An update sends values only.
+A bound style member reads a value, so an update can change a color, a size or an opacity; the tree
+and every other member stay as they started.
+
+In this section the native layer is activitykit's Swift layer on iOS and the plugin's Kotlin on
+Android. The plugin's Rust validator is activitykit's: the plugin converts each request into
+activitykit's types and checks it there.
 
 `contracts/request.schema.json` holds the shapes of both versions. Its envelope
 `{ "command", "input" }` takes the v1 and the v2 command names.
 `tests/fixtures/layout-requests.json` lists requests with the result every validator must give:
-a `valid` start or update states its weight, and an `invalid` case states its error code. A third
-list, `updates`, holds a `start` and the `update` after it, which a runner checks the way the native
-layer checks an update against the activity it started; a valid pair states the weight of the
-layout, the styles and the new values, and an invalid one its error code. Most cases use
+a `valid` start, update or end with final content states its weight, and an `invalid` case states
+its error code. A third list, `updates`, holds a `start` and the `update` after it, which a runner
+checks the way the native layer checks an update against the activity it started; a valid pair
+states the weight of the layout, the styles and the new values, and an invalid one its error code.
+A fourth list, `ends`, holds a `start` and an `end_layout` with final content, checked the same way.
+Both files are activitykit's, byte for byte, at the version that the plugin's `Cargo.lock` holds:
+`node tools/sync-contract.mjs --write` copies them after activitykit changed, and
+`tests/contract-sync.test.mjs` fails when they differ. Change the contract in activitykit, not
+here. Most cases use
 `start_layout`, `update_layout` or `end_layout`. A few invalid cases send a body to the
 v1 `start` or `update` command, and a runner passes those to its v1 validator. Two use command
 names that the envelope does not take: `startLayout`, the JavaScript function name, and
@@ -119,10 +135,10 @@ The three Tauri commands take `{ input: ... }`; `list_layout` takes no input.
 The default permission set gains `allow-list-layout` only. The commands that change an activity
 need an explicit grant, as in v1.
 
-The two versions do not see each other's activities, and the same `activityKey` can be in use in
-both. `update` or `end` with the id of a layout activity answers `NOT_FOUND`, and so does
-`update_layout` or `end_layout` with a v1 id. `list` returns v1 activities and `list_layout`
-returns layout activities.
+The two versions do not see each other's activities. `update` or `end` with the id of a layout
+activity answers `NOT_FOUND`, and so does `update_layout` or `end_layout` with a v1 id. `list`
+returns v1 activities and `list_layout` returns layout activities. On Android the same
+`activityKey` can be in use in both; on iOS it cannot, see below.
 
 `getCapabilities` gains `layout`: `supported`, `unsupported` or `unknown`. `actions` is
 `supported` on iOS 17 and later and on Android, and `unsupported` elsewhere. On desktop both are
@@ -131,11 +147,12 @@ returns layout activities.
 A tap on a `button` node reaches the handlers registered with `onAction` and `on_action`. The
 event carries `actionId` and `activityId`, and `activityKey` when it is known.
 
-On iOS the button's intent waits until the `on_action` handlers registered at the time of the tap
-have run, for at most 4 seconds, so an app that the system launched for the tap keeps running
-meanwhile. The system can launch the app in the background for a tap; the app's `setup` may then
-never run, and no web view may exist for `onAction`. Register `on_action` handlers on the built
-`App` before `App::run`, or in the setup of a plugin, and not in the app's `setup`.
+On iOS the tap comes from activitykit's events. The button's intent returns once the plugin has
+taken the tap, at most 4 seconds after it, before the `on_action` handlers have run. On Android the
+native side waits for the handlers, for at most 4 seconds. The system can launch the app in the
+background for a tap; the app's `setup` may then never run, and no web view may exist for
+`onAction`. Register `on_action` handlers on the built `App` before `App::run`, or in the setup of
+a plugin, and not in the app's `setup`.
 
 On Android a notification shows the layout in part. The plugin walks the lock screen tree in
 document order with the values and conditions applied: the first `text` is the title, the second
@@ -151,6 +168,17 @@ is lost if it does not. Android reads a minus zero as 0, so a request with `-0.0
 writes an f64 minus zero, and the same request with `0` are one request. The details are in
 [Android integration](android-integration.md).
 
+### The templates on iOS
+
+activitykit has no templates. On iOS `start` turns a v1 request into a layout activity with a fixed
+tree: title, status and a progress bar or a timer on the Lock Screen and in the Dynamic Island. The
+snapshot's fields become its values (`title`, `status`, `progress` with `percent`, or `startedAt` and
+`endsAt`), with the marker value `liveActivityTemplate` set to `progress` or `timer`, by which `list`
+and the v1 commands find their activities and the layout commands leave them alone. The records stay
+v1 records. Both versions start through activitykit's keys, so a template and a layout activity
+cannot run under the same `activityKey`: the second start answers `CONFLICT`. A layout whose values
+hold `liveActivityTemplate` with `progress` or `timer` is taken for a template.
+
 ### Requests
 
 ```jsonc
@@ -161,19 +189,41 @@ writes an f64 minus zero, and the same request with `0` are one request. The det
   "fallback": "none",                         // "none" or "notification"; required, as in v1
   "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "title" } },   // required
   "styles": { "title": { "font": "headline" } },                                       // optional; 1 to 24 styles
-  "snapshot": { "revision": 0, "values": { "title": "Focus" }, "staleAt": 1790000000000 },
+  "snapshot": { "revision": 0, "values": { "title": "Focus" }, "staleAt": 1790000000000, "timestamp": 1789999400000 },
   "android": { "visibility": "private" }      // optional; "public", "private" or "secret"
 }
 
 // update_layout
-{ "id": "<handle>", "snapshot": { "revision": 1, "values": { "title": "Break" } } }
+{ "id": "<handle>", "snapshot": { "revision": 1, "values": { "title": "Break" }, "timestamp": 1789999700000 } }
 
-// end_layout: the same shape as the v1 end
-{ "id": "<handle>", "policy": { "kind": "immediate" } }
+// end_layout: the v1 end with an optional "snapshot", the final content
+{ "id": "<handle>", "policy": { "kind": "immediate" }, "snapshot": { "revision": 2, "values": { "title": "Done" } } }
 ```
 
 `activityKey`, `id`, `revision`, `staleAt`, `fallback` and `policy` follow the v1 rules. `staleAt`
-is optional in both snapshots. `android`, when present, must carry `visibility`; iOS ignores it.
+and `timestamp` are optional in every snapshot. `android`, when present, must carry `visibility`;
+iOS ignores it.
+
+`timestamp` is a time by the v1 rule: when the snapshot's content was made. ActivityKit uses it
+from iOS 17.2 to drop content older than what it shows; such a request still succeeds. Without one,
+iOS takes the time the content is sent, and a start's content is always timed when it is sent.
+Android keeps the timestamp in the record; the iOS record leaves it out.
+
+The `snapshot` of an end is the final content, checked like an update: the keys and value types of
+the start, `STALE_REVISION` below the accepted revision and `CONFLICT` at it with other values.
+Without it the activity ends with its last accepted content. On iOS the `after` policy takes any
+time: the system removes the ended activity at that time or four hours after the end, whichever
+comes first, and a time in the past removes it at once. Android answers `after` with
+`UNSUPPORTED_FEATURE` and removes the notification on every end; the final content is in the
+record.
+
+On iOS activitykit numbers the revisions. A start is revision 0, whatever its snapshot says. An
+update or the final content of an end below the accepted revision is `STALE_REVISION`; at the
+accepted revision it answers the record when the values are the same and is `CONFLICT` otherwise;
+above it, it goes out as the accepted revision plus one, which the record reports. An end without
+final content goes out at the next revision as well. The same start under a running key answers the
+running activity while the app runs, and `CONFLICT` after a relaunch, because activitykit compares
+the content's time too. Android keeps the revisions as sent.
 
 An `id` is 1 to 256 code points and holds at least one character that is not whitespace.
 Whitespace here is the ECMAScript set: U+0009 to U+000D, U+0020, U+00A0, U+1680, U+2000 to
@@ -210,12 +260,26 @@ the Rust and Swift tests would fail to read the whole file.
 list of them:
 
 ```jsonc
-{ "id", "activityKey", "schemaVersion": 2, "snapshot": { "revision", "values", "staleAt"? },
+{ "id", "activityKey", "schemaVersion": 2, "snapshot": { "revision", "values", "staleAt"?, "timestamp"? },
   "backend", "state", "visibility": "unknown", "degradedFeatures": [...],
   "promotionRequested", "promotionState" }
 ```
 
-The record has no `template` and does not repeat the layout.
+The record has no `template` and does not repeat the layout. `state` is `pending`, `active`,
+`stale`, `ended`, `dismissed` or `unknown`; `pending` is iOS 26's state of a scheduled start, which
+the plugin does not make.
+
+### Errors
+
+A failed request answers `{ "code", "message" }`; the message never repeats the request. The codes are
+`INVALID_INPUT`, `PAYLOAD_TOO_LARGE`, `NOT_FOUND`, `CONFLICT`, `STALE_REVISION`,
+`PERMISSION_DENIED`, `NOT_FOREGROUND`, `CONFIGURATION_REQUIRED`, `UNSUPPORTED_PLATFORM`,
+`UNSUPPORTED_FEATURE`, `SYSTEM_LIMIT` and `NATIVE_ERROR`. `NOT_FOREGROUND` is new in 0.4: ActivityKit
+refused a start because the app was not in the foreground (0.3 answered `NATIVE_ERROR` or
+`PERMISSION_DENIED`). On iOS the codes are activitykit's, and the message of `UNSUPPORTED_FEATURE`
+names the feature and the iOS version it needs, that of `SYSTEM_LIMIT` whether the app's or the
+device's limit was reached. With `receipts: "redacted"` in the plugin configuration, starts, updates
+and ends on iOS answer `CONFIGURATION_REQUIRED`: activitykit has no redacted receipts yet.
 
 ### Values
 
@@ -232,9 +296,10 @@ they do for Korean syllables, they are different strings with different lengths 
 A value is truthy when it is `true`, a number other than 0, or a non-empty string. `if` and
 `unless` use this.
 
-An update replaces the whole map. It must have exactly the keys accepted at start, and each key
-must keep its JSON type (string, number or boolean); otherwise the update is `INVALID_INPUT`.
-The native layer checks this, because it holds the started activity.
+An update replaces the whole map, and so does the final content of an end. It must have exactly
+the keys accepted at start, and each key must keep its JSON type (string, number or boolean);
+otherwise the request is `INVALID_INPUT`. The native layer checks this, because it holds the
+started activity.
 
 ### Layout
 
@@ -337,11 +402,12 @@ These rules need the layout, the styles and the values together, so they are che
 A style that no node uses and a value that no node reads are allowed. The number that a
 `progress` or a `gauge` reads is not range-checked; a progress bar shows it clamped to 0..1.
 
-On update the native layer checks the rules that depend on values again, ranges and bound members
-included, against the layout and styles it stored at start. Rust and the reference tool check an
-update alone, since they keep no activity; `LayoutStartInput::validate_update` in Rust and
-`validateLayoutUpdate` in `tools/validate-request.mjs` apply the native check to a start and an
-update that the caller passes, and run the `updates` fixtures.
+On update, and for the final content of an end, the native layer checks the rules that depend on
+values again, ranges and bound members included, against the layout and styles it stored at start.
+Rust and the reference tool check an update or an end alone, since they keep no layout;
+`LayoutStartInput::validate_update` and `validate_end` in Rust and `validateLayoutUpdate` and
+`validateLayoutEnd` in `tools/validate-request.mjs` apply the native check to a start and the
+request after it that the caller passes, and run the `updates` and `ends` fixtures.
 
 ### Styles
 
@@ -420,13 +486,14 @@ the two tints of the layout take a binding:
 - A binding counts toward the weight as the object it is: `{ "bind": "tone" }` weighs
   2 + (4 + 3 + 6 + 1) = 16.
 
-On iOS, `LiveActivityUI` reads a bound member from the snapshot's values every time it draws. The
-widget template passes the values to `LayoutDocument.background(values:)` and `keyline(values:)`;
-a widget copied from an earlier template still compiles and draws a bound tint as absent. Android
-draws no styles, bound or literal: `layout.styles`, `layout.background` and `layout.keyline` stay in
+On iOS, activitykit's renderer (`ActivityKitUI`) reads a bound member from the snapshot's values
+every time it draws, and `ActivityKitLayoutWidget` passes the values to
+`LayoutDocument.background(values:)` and `keyline(values:)` for the two tints. Android draws no
+styles, bound or literal: `layout.styles`, `layout.background` and `layout.keyline` stay in
 `degradedFeatures` as before.
 
-The Rust crate carries the Rust validator and both native layers. A crate of 0.2.x rejects a binding
+The Rust crate carries the Rust validator, which is activitykit's since 0.4, and the Android
+layer, and brings in activitykit for iOS. A crate of 0.2.x rejects a binding
 with `INVALID_INPUT`, and the npm package of 0.2.x has no type or helper for it. Use the npm package
 and the crate of the same minor version. The same holds for `fontFamily`, `file` sources and `custom`
 nodes, which a crate of 0.2.x rejects.
@@ -451,9 +518,10 @@ like any node.
 - The validators check the name and the props only. Whether the app has a view of that name, and what
   the view draws, they cannot check.
 - On iOS a node whose name has no view draws nothing, and the record lists `layout.custom.<name>` in
-  `degradedFeatures`, once for each such name of the layout in document order, region by region. The
-  plugin reads the names from the copy of `LiveActivityCustomViews.swift` in the app target; without it,
-  every name is listed. Android draws no custom node and lists `layout.custom`.
+  `degradedFeatures`, once for each such name of the layout in document order, region by region.
+  activitykit reads the names from the `ActivityKitCustomViews` class in the app target, which
+  `LiveActivityCustomViews.swift` defines; without it, every name is listed. Android draws no custom
+  node and lists `layout.custom`.
 - A binding weighs as the object it is, like a bound style member.
 
 ### Images the app writes
@@ -468,11 +536,12 @@ this way; Rust's `write_image(name, &bytes)` and `check_image(name, &bytes)` tak
 | an unknown member, or `png` that is not an array of bytes | `INVALID_INPUT` |
 | `png` starts with the PNG signature and an `IHDR` header of a width and a height of at least 1, and ends with the `IEND` chunk | `INVALID_INPUT` |
 | `png` has at most 1048576 bytes, a width of at most 1224 and a height of at most 480 pixels | `PAYLOAD_TOO_LARGE` |
-| iOS: the widget extension names an App Group (`TauriLiveActivityAppGroup`) and the app has its container | `CONFIGURATION_REQUIRED` |
+| iOS: the widget extension names an App Group (`ActivityKitAppGroup`) and the app has its container | `CONFIGURATION_REQUIRED` |
 
 Rust checks the input, asks the native layer for the folder once and writes the file there, under a
-hidden name first and then renamed over the old file. The folder is `tauri-live-activity/images` in the
-App Group container on iOS and in the app's private files on Android. On desktop the input is checked
+hidden name first and then renamed over the old file; on iOS activitykit's Rust does the writing. The
+folder is `activitykit/images` in the App Group container on iOS and `tauri-live-activity/images` in
+the app's private files on Android. On desktop the input is checked
 and the answer is `UNSUPPORTED_PLATFORM`. The command answers `null`. The widget reads the file each
 time it draws, on start and on every update; a missing or unreadable file draws nothing.
 
@@ -527,9 +596,9 @@ total  = 48 + 2 + 2                            = 52    layout, {} for styles, {}
 The JSON Schema checks shapes, ranges and patterns, including the characters allowed in `d`, the
 shape of a binding (`$defs/bound`), the props of a custom node and `fontFamily` beside `design`. It
 leaves the grammar of `d`, `min` below `max`, lone surrogates, the structural limits, the reference
-rules (the values of bound members and the bindings of props among them) and the weight to
-`tools/validate-request.mjs`, which checks those as well and
-gives the results the fixtures record. The tool checks a request against the definitions of its
+rules (the values of bound members and the bindings of props among them) and the weight to the
+validators: activitykit's in Rust and Swift, the plugin's Kotlin and `tools/validate-request.mjs`,
+which check those as well and give the results the fixtures record. The tool checks a request against the definitions of its
 own contract version only, so a v1 request gets the same issues as before v2.
 
 ### Differences from the RFC draft

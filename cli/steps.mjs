@@ -9,7 +9,7 @@ export class SetupError extends Error {
   name = 'SetupError';
 }
 
-/** Status: created, updated, ran, kept, skipped, todo or unchanged. */
+/** Status: created, updated, removed, ran, kept, skipped, todo or unchanged. */
 export function step(status, path, detail = '', effect = undefined) {
   return effect ? { status, path, detail, effect } : { status, path, detail };
 }

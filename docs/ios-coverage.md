@@ -2,6 +2,8 @@
 
 Research and validation date: 2026-11-04. This covers the iOS ActivityKit backend; forwarded Apple Watch, Mac, and CarPlay presentations are separate from a native backend on those platforms.
 
+This page records the alpha releases, whose iOS backend was the plugin's own Swift package. Since 0.4 the plugin calls the [activitykit](https://github.com/1eedaegon/activitykit-rs) crate instead and needs iOS 16.2 on an iPhone; iOS 16.1 answers `UNSUPPORTED_PLATFORM`. `tests/ios/run-core.sh`, `tests/ios/SimulatorHost` and the Swift tests named below are gone; activitykit tests its Swift layer, and `tests/ios/run.sh` runs the demo on a simulator ([iOS integration](ios-integration.md#testing)).
+
 ## Platform boundaries
 
 | Environment | Plugin policy | Evidence |
@@ -67,7 +69,7 @@ The final paired registry results above supersede the earlier publication-pendin
 
 ## Version policy and remaining runtime gaps
 
-Three versions have different roles. Tauri's current [`bundle.iOS.minimumSystemVersion`](https://v2.tauri.app/reference/config/#iosconfig) defaults to **15.0**, confirmed in the pinned `tauri-utils 2.10.2` source. This plugin's Swift package also has a **15.0 build floor**. Live Activity feature availability is **iPhone 16.1+ / iPadOS 17+**; `staleAt` additionally requires iOS **16.2+**. The demo host and widget deploy at **16.1**. A lower host deployment target does not make Live Activities available on that OS.
+Three versions have different roles. Tauri's current [`bundle.iOS.minimumSystemVersion`](https://v2.tauri.app/reference/config/#iosconfig) defaults to **15.0**, confirmed in the pinned `tauri-utils 2.10.2` source. activitykit's Swift is built for **iOS 15.0** or later, as the plugin's Swift package was. Since 0.4 Live Activity feature availability is **iPhone 16.2+ / iPadOS 17+**; in the alpha releases it was iPhone 16.1+, with `staleAt` from 16.2. The demo host deploys at **16.1** and its widget at **16.2**. A lower host deployment target does not make Live Activities available on that OS.
 
 The published shared Swift module and generic WidgetKit template pass compiler availability checks for `arm64-apple-ios16.1-simulator`, `16.2` and `17.0`, including application-extension restrictions. All ActivityContent/stale-state API uses remain behind 16.2 guards and the legacy 16.1 API remains present. This confirms compile-time consistency, not execution of those older branches. [Availability evidence](../tests/ios/results/published-alpha2-availability.json).
 

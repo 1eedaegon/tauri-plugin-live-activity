@@ -1,8 +1,4 @@
-use crate::{
-    Error, Result,
-    layout::{self, LayoutStartInput, LayoutUpdateInput},
-    models::*,
-};
+use crate::{Error, Result, layout, models::*};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
@@ -19,15 +15,16 @@ pub(crate) fn parse<T: DeserializeOwned + Validate>(value: Value) -> Result<T> {
     Ok(input)
 }
 
-/// Validate a JSON request without invoking any native API.
+/// Validate a JSON request without invoking any native API: `start`, `update` and `end` of contract v1, and
+/// `start_layout`, `update_layout` and `end_layout` of contract v2, which activitykit checks.
 pub fn validate_request(command: &str, input: Value) -> Result<()> {
     match command {
         "start" => parse::<StartInput>(input).map(|_| ()),
         "update" => parse::<UpdateInput>(input).map(|_| ()),
         "end" => parse::<EndInput>(input).map(|_| ()),
-        "start_layout" => layout::parse::<LayoutStartInput>(input).map(|_| ()),
-        "update_layout" => layout::parse::<LayoutUpdateInput>(input).map(|_| ()),
-        "end_layout" => layout::parse::<EndInput>(input).map(|_| ()),
+        "start_layout" => layout::parse::<layout::LayoutStartInput>(command, input).map(|_| ()),
+        "update_layout" => layout::parse::<layout::LayoutUpdateInput>(command, input).map(|_| ()),
+        "end_layout" => layout::parse::<layout::LayoutEndInput>(command, input).map(|_| ()),
         _ => Err(Error::invalid()),
     }
 }

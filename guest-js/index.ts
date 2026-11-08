@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
-  ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutStartInput,
+  ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutEndInput, LayoutStartInput,
   LayoutUpdateInput, PermissionKind, Permissions, StartInput, UpdateInput,
 } from './types.js';
 
@@ -54,8 +54,8 @@ export function updateLayout(input: LayoutUpdateInput): Promise<LayoutActivityRe
   return invoke('plugin:live-activity|update_layout', { input });
 }
 
-/** End this layout generation. A late update cannot revive it. */
-export function endLayout(input: EndInput): Promise<LayoutActivityRecord> {
+/** End this layout generation, with final content when `snapshot` is given. A late update cannot revive it. */
+export function endLayout(input: LayoutEndInput): Promise<LayoutActivityRecord> {
   return invoke('plugin:live-activity|end_layout', { input });
 }
 
@@ -68,7 +68,8 @@ export function listLayout(): Promise<readonly LayoutActivityRecord[]> {
  * Write a PNG that `image` nodes with the source `{ file: name }` show, replacing one of that name. The widget
  * reads it each time it draws the activity, on start and on every update, so write the picture first and then
  * update. At most 1 MiB and 1224 x 480 pixels (`PAYLOAD_TOO_LARGE` beyond). On iOS it needs the App Group
- * that `setup --app-group` configures (`CONFIGURATION_REQUIRED` without one); on Android the first such image
+ * that `setup --app-group` configures (`CONFIGURATION_REQUIRED` without one), where activitykit writes it to
+ * `activitykit/images`; on Android the first such image
  * becomes the notification's large icon.
  */
 export function writeImage(name: string, png: Uint8Array | ArrayBuffer): Promise<void> {

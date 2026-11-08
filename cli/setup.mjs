@@ -10,6 +10,8 @@ import { widgetFiles } from './widget-files.mjs';
 export { SetupError } from './steps.mjs';
 
 export const CRATE = 'tauri-plugin-live-activity';
+/** The crate whose Swift package the widget extension and the app target link. */
+export const ACTIVITYKIT = 'activitykit';
 /** `default` reads; the others allow the commands that change activities. */
 export const PERMISSIONS = [
   'live-activity:default',
@@ -31,8 +33,8 @@ export function setup({
 } = {}) {
   const files = widgetFiles(cwd, { fonts, assets });
   const app = findApp(cwd);
-  const plugin = findPlugin(app, env);
-  const context = { ...app, plugin, env, platform, files, appGroup, show: path => display(cwd, path) };
+  const { plugin, activitykit } = findCrates(app, env);
+  const context = { ...app, plugin, activitykit, env, platform, files, appGroup, show: path => display(cwd, path) };
   const planned = [...(iosOnly ? [] : [capabilitiesStep(context), ...androidSteps(context)]), ...iosSteps(context)];
   const steps = dryRun ? planned : planned.map(apply);
   return { dryRun, version: plugin.version, steps: steps.map(({ effect, ...rest }) => rest), notes: notes(context) };
@@ -63,8 +65,11 @@ function findApp(cwd) {
   return { srcTauri, configPath, configText, config };
 }
 
-/** The plugin crate's folder from `cargo metadata`, and the folder of the `tauri` crate it uses. */
-function findPlugin({ srcTauri }, env) {
+/**
+ * The plugin crate's version and the folder of the activitykit crate it depends on, from `cargo metadata`: the widget
+ * extension and the app target link activitykit's Swift package, which lies in that folder.
+ */
+export function findCrates({ srcTauri }, env) {
   const args = ['metadata', '--format-version', '1', '--manifest-path', join(srcTauri, 'Cargo.toml')];
   const result = spawnSync(env.CARGO || 'cargo', args, { env, encoding: 'utf8', maxBuffer: 1024 ** 3 });
   if (result.error?.code === 'ENOENT') throw new SetupError('cargo was not found. Install Rust from https://rustup.rs, then run this again.');
@@ -76,9 +81,15 @@ function findPlugin({ srcTauri }, env) {
   if (!crate) {
     throw new SetupError(`${CRATE} is not a dependency of src-tauri/Cargo.toml yet. Add it first:\n  cargo add ${CRATE} --manifest-path src-tauri/Cargo.toml`);
   }
-  const tauriId = metadata.resolve?.nodes?.find(node => node.id === crate.id)?.deps?.find(dep => dep.name === 'tauri')?.pkg;
-  const tauri = metadata.packages.find(item => (tauriId ? item.id === tauriId : item.name === 'tauri'));
-  return { version: crate.version, dir: dirname(crate.manifest_path), tauriDir: tauri && dirname(tauri.manifest_path) };
+  const kitId = metadata.resolve?.nodes?.find(node => node.id === crate.id)?.deps?.find(dep => dep.name === ACTIVITYKIT)?.pkg;
+  const kit = metadata.packages.find(item => (kitId ? item.id === kitId : item.name === ACTIVITYKIT));
+  if (!kit) {
+    throw new SetupError(`${CRATE} ${crate.version} does not depend on ${ACTIVITYKIT}, whose Swift package the widget extension links: use the crate of the npm package's version, ${NPM_VERSION}.`);
+  }
+  return {
+    plugin: { version: crate.version, dir: dirname(crate.manifest_path) },
+    activitykit: { version: kit.version, dir: dirname(kit.manifest_path) },
+  };
 }
 
 /** Adds the plugin's permissions to the app's capability: default.json, or the only capability file. */

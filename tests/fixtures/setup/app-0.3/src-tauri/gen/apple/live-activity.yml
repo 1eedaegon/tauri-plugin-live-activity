@@ -1,0 +1,50 @@
+# Written by `npx tauri-plugin-live-activity setup` for tauri-plugin-live-activity 0.3.0.
+# project.yml includes it. Setup writes it again for a new plugin version or app version, unless
+# the lines below were changed by hand.
+# setup-digest: 35b3575505829ce4
+packages:
+  LiveActivity:
+    path: "/cargo/registry/tauri-plugin-live-activity-0.3.0/ios"
+targets:
+  "app_iOS":
+    sources: [LiveActivityWidget/LiveActivityActionIntent.swift, LiveActivityWidget/LiveActivityCustomRegistry.swift, LiveActivityWidget/LiveActivityCustomViews.swift]
+    dependencies: [{ target: LiveActivityWidget }]
+    entitlements:
+      path: "app_iOS/app_iOS.entitlements"
+      properties:
+        com.apple.security.application-groups: ["group.com.example.lasetupcheck"]
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+  LiveActivityWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.1"
+    sources: [LiveActivityWidget]
+    dependencies:
+      - package: LiveActivity
+        product: LiveActivityShared
+      - package: LiveActivity
+        product: LiveActivityUI
+    info:
+      path: LiveActivityWidget/Info.plist
+      properties:
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "0.1.0"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        # startLayout answers CONFIGURATION_REQUIRED without an extension that declares this.
+        TauriLiveActivityLayout: 2
+        TauriLiveActivityAppGroup: "group.com.example.lasetupcheck"
+    entitlements:
+      path: LiveActivityWidget.entitlements
+      properties:
+        com.apple.security.application-groups: ["group.com.example.lasetupcheck"]
+    settings:
+      groups: [app]
+      base:
+        PRODUCT_NAME: LiveActivityWidget
+        PRODUCT_BUNDLE_IDENTIFIER: "com.example.lasetupcheck.widget"
+        SWIFT_VERSION: "5.0"
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES

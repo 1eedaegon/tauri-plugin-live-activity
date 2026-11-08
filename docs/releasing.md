@@ -10,7 +10,8 @@ Both registries use `tauri-plugin-live-activity` and the same version. The
 4. Push the matching tag on that commit, for example `v0.2.0`.
 
 CI's first job looks at what a push or pull request changed and runs only the jobs for those
-parts: Rust, TypeScript, Swift or Android. A change to docs alone runs that first job only.
+parts: Rust, TypeScript, iOS (the Rust code on activitykit, with `Cargo.lock`) or Android. The
+specification check runs for every change, so a change to docs alone runs it and that first job.
 The run still ends in success, so the release guard accepts it for a tag on that commit.
 Changes to a workflow or to the shared fixtures run everything, as does a run by hand.
 

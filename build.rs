@@ -15,7 +15,7 @@ const COMMANDS: &[&str] = &[
 
 fn main() {
     tauri_plugin::Builder::new(COMMANDS)
+        // iOS has no Swift of the plugin's own: the activitykit crate builds its Swift bridge into the app's Rust library.
         .android_path("android")
-        .ios_path("ios")
         .build();
 }

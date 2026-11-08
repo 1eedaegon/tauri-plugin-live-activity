@@ -152,9 +152,13 @@ pub struct Permissions {
     pub promotion: PermissionState,
 }
 
+/// The lifecycle of an activity. More states may come, so a match needs a `_` arm.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum ActivityState {
+    /// Scheduled and not started yet (iOS 26 reports it for a scheduled start).
+    Pending,
     Active,
     Stale,
     Ended,

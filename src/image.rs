@@ -7,7 +7,7 @@ use crate::{
     validation::{Validate, require},
 };
 use serde::{Deserialize, Serialize};
-#[cfg(any(mobile, test))]
+#[cfg(any(target_os = "android", test))]
 use std::{
     fs,
     path::Path,
@@ -43,7 +43,7 @@ impl Validate for ImageInput {
 }
 
 /// Where the native layer keeps the images.
-#[cfg(mobile)]
+#[cfg(target_os = "android")]
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ImageFolder {
@@ -91,7 +91,7 @@ fn too_large() -> Error {
 
 /// Writes the PNG under `name` in `folder`, replacing an earlier one. The bytes go to a hidden file
 /// first and are then renamed, so the widget reads the old image or the new one, never part of it.
-#[cfg(any(mobile, test))]
+#[cfg(any(target_os = "android", test))]
 pub(crate) fn write(folder: &Path, name: &str, png: &[u8]) -> Result<()> {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let staging = folder.join(format!(

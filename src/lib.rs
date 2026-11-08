@@ -2,7 +2,8 @@
 //!
 //! Initialize with `.plugin(tauri_plugin_live_activity::init())` and explicitly
 //! grant mutation permissions in the host capability file. The plugin
-//! implements iOS and Android; desktop mutations return `UNSUPPORTED_PLATFORM`.
+//! implements iOS, on the `activitykit` crate, and Android; desktop mutations
+//! return `UNSUPPORTED_PLATFORM`.
 
 use tauri::{
     Manager, Runtime,
@@ -11,7 +12,11 @@ use tauri::{
 
 #[cfg(any(mobile, test))]
 mod actions;
-#[cfg(any(mobile, test))]
+#[cfg(target_os = "android")]
+mod android;
+#[cfg(any(target_os = "ios", test))]
+mod apple;
+#[cfg(any(target_os = "android", test))]
 mod bridge;
 #[cfg(all(test, desktop))]
 mod command_tests;
@@ -23,20 +28,22 @@ mod desktop;
 mod desktop_ipc_tests;
 mod error;
 mod image;
+#[cfg(target_os = "ios")]
+mod ios;
 mod layout;
-#[cfg(mobile)]
-mod mobile;
 mod models;
 mod validation;
 
+#[cfg(target_os = "android")]
+pub use android::LiveActivity;
 pub use config::{AndroidConfig, Config, Receipts};
 #[cfg(desktop)]
 pub use desktop::LiveActivity;
 pub use error::{Error, Result};
 pub use image::{ImageInput, MAX_IMAGE_BYTES, MAX_IMAGE_HEIGHT, MAX_IMAGE_WIDTH, check_image};
+#[cfg(target_os = "ios")]
+pub use ios::LiveActivity;
 pub use layout::*;
-#[cfg(mobile)]
-pub use mobile::LiveActivity;
 pub use models::*;
 pub use validation::{Validate, validate_request};
 
@@ -70,8 +77,10 @@ pub fn init<R: Runtime>() -> TauriPlugin<R, Option<Config>> {
             commands::write_image
         ])
         .setup(|app, _api| {
-            #[cfg(mobile)]
-            let backend = mobile::init(app, _api)?;
+            #[cfg(target_os = "android")]
+            let backend = android::init(app, _api)?;
+            #[cfg(target_os = "ios")]
+            let backend = ios::init(app, _api)?;
             #[cfg(desktop)]
             let backend = LiveActivity::<R>::default();
             app.manage(backend);
