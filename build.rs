@@ -10,6 +10,7 @@ const COMMANDS: &[&str] = &[
     "update_layout",
     "end_layout",
     "list_layout",
+    "write_image",
 ];
 
 fn main() {

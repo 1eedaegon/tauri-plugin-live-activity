@@ -65,6 +65,18 @@ export function listLayout(): Promise<readonly LayoutActivityRecord[]> {
 }
 
 /**
+ * Write a PNG that `image` nodes with the source `{ file: name }` show, replacing one of that name. The widget
+ * reads it each time it draws the activity, on start and on every update, so write the picture first and then
+ * update. At most 1 MiB and 1224 x 480 pixels (`PAYLOAD_TOO_LARGE` beyond). On iOS it needs the App Group
+ * that `setup --app-group` configures (`CONFIGURATION_REQUIRED` without one); on Android the first such image
+ * becomes the notification's large icon.
+ */
+export function writeImage(name: string, png: Uint8Array | ArrayBuffer): Promise<void> {
+  const bytes = png instanceof Uint8Array ? png : new Uint8Array(png);
+  return invoke('plugin:live-activity|write_image', { input: { name, png: Array.from(bytes) } });
+}
+
+/**
  * Receive button taps while this webview is alive; resolves to the function that stops listening.
  * Listening uses Tauri's event permissions (`core:event:default`).
  */

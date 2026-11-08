@@ -12,7 +12,7 @@ struct LayoutStyleModifier: ViewModifier {
     func body(content: Content) -> some View {
         let frame = style.frame
         return content
-            .modifier(FontMember(value: style.font?.font))
+            .modifier(FontMember(value: style.swiftFont))
             .modifier(WeightMember(value: style.weight?.weight))
             .modifier(DesignMember(value: style.design?.design))
             .modifier(DigitsMember(value: style.monospacedDigit ? true : nil))
@@ -158,24 +158,60 @@ private struct OpacityMember: LayoutStyleMember {
 }
 
 @available(iOS 16.1, *)
+extension LayoutRenderStyle {
+    /// The system font, or the extension's font named by `fontFamily`: at a text style's size, scaling with it, or at a
+    /// fixed size. A name that the extension does not have draws the system font at that size.
+    var swiftFont: Font? {
+        guard let family = fontFamily else { return font?.font }
+        switch font {
+        case .named(let name)?: return .custom(family, size: name.pointSize, relativeTo: name.textStyle)
+        case .size(let size)?: return .custom(family, fixedSize: size)
+        case nil: return .custom(family, size: LayoutFontName.body.pointSize, relativeTo: .body)
+        }
+    }
+}
+
+@available(iOS 16.1, *)
 extension LayoutRenderFont {
     var font: Font {
         switch self {
         case .size(let size): return .system(size: size)
-        case .named(let name):
-            switch name {
-            case .largeTitle: return .largeTitle
-            case .title: return .title
-            case .title2: return .title2
-            case .title3: return .title3
-            case .headline: return .headline
-            case .subheadline: return .subheadline
-            case .body: return .body
-            case .callout: return .callout
-            case .footnote: return .footnote
-            case .caption: return .caption
-            case .caption2: return .caption2
-            }
+        case .named(let name): return Font.system(name.textStyle)
+        }
+    }
+}
+
+@available(iOS 16.1, *)
+extension LayoutFontName {
+    var textStyle: Font.TextStyle {
+        switch self {
+        case .largeTitle: return .largeTitle
+        case .title: return .title
+        case .title2: return .title2
+        case .title3: return .title3
+        case .headline: return .headline
+        case .subheadline: return .subheadline
+        case .body: return .body
+        case .callout: return .callout
+        case .footnote: return .footnote
+        case .caption: return .caption
+        case .caption2: return .caption2
+        }
+    }
+
+    /// The point size of the text style at the default (Large) text size, from Apple's Human Interface Guidelines.
+    var pointSize: CGFloat {
+        switch self {
+        case .largeTitle: return 34
+        case .title: return 28
+        case .title2: return 22
+        case .title3: return 20
+        case .headline, .body: return 17
+        case .callout: return 16
+        case .subheadline: return 15
+        case .footnote: return 13
+        case .caption: return 12
+        case .caption2: return 11
         }
     }
 }

@@ -317,3 +317,40 @@ fn taps_reach_tauri_listeners_as_the_action_event() {
         .unwrap();
     assert_eq!(serde_json::from_str::<Value>(&payload).unwrap(), tap);
 }
+
+#[test]
+fn write_image_checks_the_png_then_reports_that_desktop_has_no_widget() {
+    use crate::LiveActivityExt;
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let handle = app.handle().clone();
+    let png = crate::image::tests::png(8, 8, 1);
+    tauri::async_runtime::block_on(async {
+        let write = |input: Value| commands::write_image(handle.clone(), input);
+        assert_eq!(
+            write(json!({"name":"badge.png","png":png}))
+                .await
+                .unwrap_err()
+                .code,
+            "UNSUPPORTED_PLATFORM"
+        );
+        for input in [
+            json!({"name":"../badge.png","png":png}),
+            json!({"name":"badge.png","png":"iVBORw0KGgo"}),
+            json!({"name":"badge.png","png":png,"scale":3}),
+            json!({"name":"badge.png","png":[1, 2, 3]}),
+        ] {
+            assert_eq!(write(input).await.unwrap_err().code, "INVALID_INPUT");
+        }
+    });
+    let wide = crate::image::tests::png(1225, 8, 1);
+    assert_eq!(
+        app.live_activity()
+            .write_image("wide.png", &wide)
+            .unwrap_err()
+            .code,
+        "PAYLOAD_TOO_LARGE"
+    );
+}

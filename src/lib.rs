@@ -22,6 +22,7 @@ mod desktop;
 #[cfg(all(test, desktop))]
 mod desktop_ipc_tests;
 mod error;
+mod image;
 mod layout;
 #[cfg(mobile)]
 mod mobile;
@@ -32,6 +33,7 @@ pub use config::{AndroidConfig, Config, Receipts};
 #[cfg(desktop)]
 pub use desktop::LiveActivity;
 pub use error::{Error, Result};
+pub use image::{ImageInput, MAX_IMAGE_BYTES, MAX_IMAGE_HEIGHT, MAX_IMAGE_WIDTH, check_image};
 pub use layout::*;
 #[cfg(mobile)]
 pub use mobile::LiveActivity;
@@ -64,7 +66,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R, Option<Config>> {
             commands::start_layout,
             commands::update_layout,
             commands::end_layout,
-            commands::list_layout
+            commands::list_layout,
+            commands::write_image
         ])
         .setup(|app, _api| {
             #[cfg(mobile)]

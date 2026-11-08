@@ -35,6 +35,22 @@ const RANGES = {
   start: [isTime, `must name an integer from 0 to ${MAX_TIME}`],
   end: [isTime, `must name an integer from 0 to ${MAX_TIME}`],
 };
+const { colorName, fontWeight, hex } = schema.$defs;
+const HEX = new RegExp(hex.pattern);
+const isColor = (value) => colorName.enum.includes(value) || (typeof value === 'string' && HEX.test(value));
+const between = (low, high) => (value) => typeof value === 'number' && value >= low && value <= high;
+// The value a bound member names must be what the member takes as a literal; a color cannot be a
+// light and dark pair, because a value is a string, a number or a boolean.
+const COLOR = [isColor, 'must name a color value'];
+const BINDABLE = {
+  color: COLOR,
+  background: COLOR,
+  tint: COLOR,
+  size: [between(6, 96), 'must name a number from 6 to 96'],
+  opacity: [between(0, 1), 'must name a number from 0 to 1'],
+  cornerRadius: [between(0, 64), 'must name a number from 0 to 64'],
+  weight: [(value) => fontWeight.enum.includes(value), 'must name a font weight value'],
+};
 const ARITY = { M: 2, L: 2, T: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, Z: 0 };
 const NUMBER = String.raw`[+-]?(?:\d*\.)?\d+(?:[eE][+-]?\d+)?`;
 const GAP = String.raw`[ \t\r\n]*`;
@@ -42,9 +58,12 @@ const SEGMENT = new RegExp(`${GAP}([MLHVCSQTZmlhvcsqtz])${GAP}(${NUMBER}(?:${GAP
 const NUMBERS = new RegExp(NUMBER, 'g');
 // Value keys and style tokens are input, so an issue path never spells them.
 const ENTRY = /^(\/input\/(?:snapshot\/values|styles))\/[^/]+/;
+// The same for the props of a custom node, wherever the node is.
+const PROP = /(\/props)\/[^/]+/g;
 // JSON can carry a lone UTF-16 surrogate as an escape, but a Rust or Swift string cannot hold one.
 const LONE_SURROGATE = 'must not contain a lone surrogate';
 const hasLoneSurrogate = (text) => typeof text === 'string' && !text.isWellFormed();
+const TOO_HEAVY = { valid: false, issues: [{ path: '/input', message: `must weigh at most ${MAX_WEIGHT}` }] };
 
 /** Development reference validator. Does not call Tauri or any OS API. */
 export function validateRequest(request) {
@@ -62,7 +81,7 @@ export function validateRequest(request) {
     return {
       valid: false,
       issues: validateShape.errors.map(({ instancePath, message }) => ({
-        path: instancePath.replace(ENTRY, '$1/*'),
+        path: instancePath.replace(ENTRY, '$1/*').replace(PROP, '$1/*'),
         message,
       })),
     };
@@ -101,10 +120,30 @@ function validateLayout({ command, input }) {
   if (issues.length > 0) return { valid: false, issues };
   if (command === 'end_layout') return { valid: true, issues };
   const layoutWeight = command === 'start_layout' ? weight(input.layout) + weight(input.styles ?? {}) : 0;
-  if (layoutWeight + weight(input.snapshot.values) > MAX_WEIGHT) {
-    return { valid: false, issues: [{ path: '/input', message: `must weigh at most ${MAX_WEIGHT}` }] };
-  }
+  if (layoutWeight + weight(input.snapshot.values) > MAX_WEIGHT) return structuredClone(TOO_HEAVY);
   return { valid: true, issues };
+}
+
+/**
+ * Development reference of the check the native layer makes on `update_layout`: `update` against the
+ * `start_layout` input of its activity. The values keep the keys and types of the start, meet the rules of
+ * the stored layout and styles, bound members included, and weigh at most 3584 with them. A start or an
+ * update that fails on its own gets the result of `validateRequest`.
+ */
+export function validateLayoutUpdate(start, update) {
+  for (const request of [{ command: 'start_layout', input: start }, { command: 'update_layout', input: update }]) {
+    const result = validateRequest(request);
+    if (!result.valid) return result;
+  }
+  const before = start.snapshot.values;
+  const { values } = update.snapshot;
+  const kept = Object.keys(values).length === Object.keys(before).length
+    && Object.entries(values).every(([key, value]) => Object.hasOwn(before, key) && typeof value === typeof before[key]);
+  if (!kept) return { valid: false, issues: [{ path: '/input/snapshot/values', message: 'must keep the keys and types of the start' }] };
+  const issues = layoutIssues({ ...start, snapshot: update.snapshot });
+  if (issues.length > 0) return { valid: false, issues };
+  if (weight(start.layout) + weight(start.styles ?? {}) + weight(values) > MAX_WEIGHT) return structuredClone(TOO_HEAVY);
+  return { valid: true, issues: [] };
 }
 
 function layoutIssues({ layout, styles = {}, snapshot: { values } }) {
@@ -143,12 +182,29 @@ function layoutIssues({ layout, styles = {}, snapshot: { values } }) {
       if (timed && values[node.end] <= values[node.start]) report(`${path}/end`, 'must name a value later than start');
       if (node.type === 'gauge' && !((node.min ?? 0) < (node.max ?? 1))) report(path, 'must have min below max');
       if (node.type === 'path' && !isPathData(node.d)) report(`${path}/d`, 'must be valid SVG path data');
+      // A prop is a literal or a binding; prop names are input, so the path does not spell them.
+      for (const prop of Object.values(node.props ?? {})) {
+        if (typeof prop === 'object' && !Object.hasOwn(values, prop.bind)) report(`${path}/props/*`, 'must name a value');
+        if (hasLoneSurrogate(prop)) report(`${path}/props/*`, LONE_SURROGATE);
+      }
       node.children?.forEach((child, index) => visit(child, `${path}/children/${index}`, depth + 1, inButton));
       if (node.child) visit(node.child, `${path}/child`, depth + 1, true);
     };
     visit(root, top, 1, false);
     if (count.nodes > mostNodes) report(top, `must have at most ${mostNodes} nodes`);
     if (count.buttons > MAX_BUTTONS) report(top, `must have at most ${MAX_BUTTONS} buttons`);
+  }
+
+  // Bound members, in every style whether a node uses it or not.
+  const bound = (path, member, given) => {
+    if (typeof given !== 'object' || !Object.hasOwn(given, 'bind')) return;
+    const [fits, outside] = BINDABLE[member];
+    if (!Object.hasOwn(values, given.bind)) report(path, 'must name a value');
+    else if (!fits(values[given.bind])) report(path, outside);
+  };
+  for (const tint of ['background', 'keyline']) bound(`/input/layout/${tint}`, 'color', layout[tint]);
+  for (const style of Object.values(styles)) {
+    for (const member of Object.keys(BINDABLE)) bound(`/input/styles/*/${member}`, member, style[member]);
   }
   return issues;
 }

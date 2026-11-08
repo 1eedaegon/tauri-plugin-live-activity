@@ -74,7 +74,7 @@ public struct LayoutSnapshot: Codable, Hashable, Sendable {
 }
 
 /// A semantic name or a hex string, or one hex string per appearance.
-public enum LayoutColor: Codable, Sendable, LayoutWire {
+public enum LayoutColor: Codable, Sendable, Equatable, LayoutWire {
     case single(String)
     case pair(light: String, dark: String)
 
@@ -100,6 +100,53 @@ public enum LayoutColor: Codable, Sendable, LayoutWire {
 private struct LayoutColorPair: LayoutObject {
     let light: String, dark: String
     var members: LayoutMembers { [("light", light), ("dark", dark)] }
+    func encode(to encoder: Encoder) throws { try encodeMembers(to: encoder) }
+}
+
+/// A literal, or the key of a value that the member reads on every render: `{"bind": "<key>"}` on the wire.
+/// The members that can be bound are `color`, `background`, `tint`, `opacity`, `size`, `weight` and `cornerRadius`
+/// of a style, and the `background` and `keyline` of a layout.
+public enum LayoutBindable<Value: Codable & Sendable>: Codable, Sendable {
+    case literal(Value)
+    case bound(String)
+
+    public init(from decoder: Decoder) throws {
+        if let binding = try? LayoutBinding(from: decoder) { self = .bound(binding.bind); return }
+        self = .literal(try Value(from: decoder))
+    }
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .literal(let value): try value.encode(to: encoder)
+        case .bound(let key): try LayoutBinding(bind: key).encodeMembers(to: encoder)
+        }
+    }
+    /// The literal, or nil when the member is bound.
+    public var literal: Value? {
+        if case .literal(let value) = self { return value } else { return nil }
+    }
+    /// The value key, or nil when the member is a literal.
+    public var key: String? {
+        if case .bound(let key) = self { return key } else { return nil }
+    }
+}
+extension LayoutBindable: Equatable where Value: Equatable {}
+extension LayoutBindable: LayoutWire where Value: LayoutWire {
+    var wireWeight: Int {
+        switch self {
+        case .literal(let value): return value.wireWeight
+        case .bound(let key): return LayoutBinding(bind: key).wireWeight
+        }
+    }
+}
+private struct LayoutBinding: Decodable, LayoutObject {
+    let bind: String
+    init(bind: String) { self.bind = bind }
+    init(from decoder: Decoder) throws {
+        var object = try LayoutReader(decoder)
+        bind = try object.need("bind")
+        try object.finish()
+    }
+    var members: LayoutMembers { [("bind", bind)] }
     func encode(to encoder: Encoder) throws { try encodeMembers(to: encoder) }
 }
 
@@ -175,29 +222,32 @@ public struct LayoutFrame: Codable, Sendable, LayoutObject {
     }
 }
 
-/// One entry of the style table.
+/// One entry of the style table. The members of type `LayoutBindable` may name a value; the others are fixed at start.
 public struct LayoutStyle: Codable, Sendable, LayoutObject {
     public let font: LayoutFontName?
-    public let size: Double?
-    public let weight: LayoutFontWeight?
+    public let size: LayoutBindable<Double>?
+    public let weight: LayoutBindable<LayoutFontWeight>?
     public let design: LayoutFontDesign?
+    /// The PostScript or family name of a font that the widget extension bundles.
+    public let fontFamily: String?
     public let monospacedDigit: Bool?
-    public let color: LayoutColor?
+    public let color: LayoutBindable<LayoutColor>?
     public let lineLimit: Int?
     public let minimumScaleFactor: Double?
     public let alignment: LayoutHorizontalAlignment?
     public let padding: LayoutPadding?
     public let frame: LayoutFrame?
-    public let background: LayoutColor?
-    public let cornerRadius: Double?
-    public let opacity: Double?
-    public let tint: LayoutColor?
+    public let background: LayoutBindable<LayoutColor>?
+    public let cornerRadius: LayoutBindable<Double>?
+    public let opacity: LayoutBindable<Double>?
+    public let tint: LayoutBindable<LayoutColor>?
     public let buttonStyle: LayoutButtonStyle?
 
     public init(from decoder: Decoder) throws {
         var object = try LayoutReader(decoder)
         font = try object.take("font"); size = try object.take("size"); weight = try object.take("weight")
-        design = try object.take("design"); monospacedDigit = try object.take("monospacedDigit"); color = try object.take("color")
+        design = try object.take("design"); fontFamily = try object.take("fontFamily")
+        monospacedDigit = try object.take("monospacedDigit"); color = try object.take("color")
         lineLimit = try object.take("lineLimit"); minimumScaleFactor = try object.take("minimumScaleFactor")
         alignment = try object.take("alignment"); padding = try object.take("padding"); frame = try object.take("frame")
         background = try object.take("background"); cornerRadius = try object.take("cornerRadius"); opacity = try object.take("opacity")
@@ -206,8 +256,9 @@ public struct LayoutStyle: Codable, Sendable, LayoutObject {
     }
     public func encode(to encoder: Encoder) throws { try encodeMembers(to: encoder) }
     var members: LayoutMembers {
-        let text: LayoutMembers = [("font", font), ("size", size), ("weight", weight), ("design", design), ("monospacedDigit", monospacedDigit),
-                                   ("color", color), ("lineLimit", lineLimit), ("minimumScaleFactor", minimumScaleFactor), ("alignment", alignment)]
+        let text: LayoutMembers = [("font", font), ("size", size), ("weight", weight), ("design", design), ("fontFamily", fontFamily),
+                                   ("monospacedDigit", monospacedDigit), ("color", color), ("lineLimit", lineLimit),
+                                   ("minimumScaleFactor", minimumScaleFactor), ("alignment", alignment)]
         let box: LayoutMembers = [("padding", padding), ("frame", frame), ("background", background), ("cornerRadius", cornerRadius),
                                   ("opacity", opacity), ("tint", tint), ("buttonStyle", buttonStyle)]
         return text + box
@@ -235,27 +286,49 @@ public indirect enum LayoutContent: Sendable {
     case text(String)
     case boundText(String)
     case symbol(name: String, rendering: LayoutSymbolRendering?, variableBind: String?)
-    case image(asset: String, resizable: Bool?, contentMode: LayoutContentMode?)
+    case image(source: LayoutImageSource, resizable: Bool?, contentMode: LayoutContentMode?)
     case path(d: String, box: [Double], stroke: Double?)
     case progress(bind: String, kind: LayoutMeterKind?)
     case gauge(bind: String, min: Double?, max: Double?, kind: LayoutMeterKind?)
     case timerText(start: String, end: String, countsDown: Bool?)
     case button(actionId: String, child: LayoutNode)
+    /// A view the app registers under `name` in its widget extension. Each prop is a literal or bound to a value.
+    case custom(name: String, props: [String: LayoutBindable<LayoutValue>]?)
 }
 
 private enum LayoutNodeType: String, Decodable {
-    case vstack, hstack, zstack, spacer, divider, text, symbol, image, path, progress, gauge, timerText, button
+    case vstack, hstack, zstack, spacer, divider, text, symbol, image, path, progress, gauge, timerText, button, custom
 }
-private struct LayoutImageSource: Decodable, LayoutObject {
-    let asset: String
-    init(asset: String) { self.asset = asset }
-    init(from decoder: Decoder) throws {
+
+/// Where an image comes from: the asset catalog of the widget extension (`{"asset": name}`), or a PNG that the app
+/// wrote into the App Group container (`{"file": name}`).
+public enum LayoutImageSource: Codable, Sendable, Equatable, LayoutObject {
+    case asset(String)
+    case file(String)
+
+    public init(from decoder: Decoder) throws {
         var object = try LayoutReader(decoder)
-        asset = try object.need("asset")
+        let asset: String? = try object.take("asset"), file: String? = try object.take("file")
+        switch (asset, file) {
+        case let (asset?, nil): self = .asset(asset)
+        case let (nil, file?): self = .file(file)
+        default: throw LayoutReader.mismatch
+        }
         try object.finish()
     }
-    var members: LayoutMembers { [("asset", asset)] }
-    func encode(to encoder: Encoder) throws { try encodeMembers(to: encoder) }
+    public func encode(to encoder: Encoder) throws { try encodeMembers(to: encoder) }
+    /// The asset name or the file name.
+    public var name: String {
+        switch self {
+        case .asset(let name), .file(let name): return name
+        }
+    }
+    var members: LayoutMembers {
+        switch self {
+        case .asset(let name): return [("asset", name)]
+        case .file(let name): return [("file", name)]
+        }
+    }
 }
 
 /// One node of a layout tree.
@@ -289,13 +362,13 @@ public struct LayoutNode: Codable, Sendable, LayoutObject {
             }
         case .symbol: content = .symbol(name: try object.need("name"), rendering: try object.take("rendering"), variableBind: try object.take("variableBind"))
         case .image:
-            let source: LayoutImageSource = try object.need("source")
-            content = .image(asset: source.asset, resizable: try object.take("resizable"), contentMode: try object.take("contentMode"))
+            content = .image(source: try object.need("source"), resizable: try object.take("resizable"), contentMode: try object.take("contentMode"))
         case .path: content = .path(d: try object.need("d"), box: try object.need("box"), stroke: try object.take("stroke"))
         case .progress: content = .progress(bind: try object.need("bind"), kind: try object.take("kind"))
         case .gauge: content = .gauge(bind: try object.need("bind"), min: try object.take("min"), max: try object.take("max"), kind: try object.take("kind"))
         case .timerText: content = .timerText(start: try object.need("start"), end: try object.need("end"), countsDown: try object.take("countsDown"))
         case .button: content = .button(actionId: try object.need("actionId"), child: try object.need("child"))
+        case .custom: content = .custom(name: try object.need("name"), props: try object.take("props"))
         }
         try object.finish()
     }
@@ -322,13 +395,14 @@ public struct LayoutNode: Codable, Sendable, LayoutObject {
         case .text(let value): return ("text", [("value", value)])
         case .boundText(let bind): return ("text", [("bind", bind)])
         case let .symbol(name, rendering, variableBind): return ("symbol", [("name", name), ("rendering", rendering), ("variableBind", variableBind)])
-        case let .image(asset, resizable, contentMode):
-            return ("image", [("source", LayoutImageSource(asset: asset)), ("resizable", resizable), ("contentMode", contentMode)])
+        case let .image(source, resizable, contentMode):
+            return ("image", [("source", source), ("resizable", resizable), ("contentMode", contentMode)])
         case let .path(d, box, stroke): return ("path", [("d", d), ("box", box), ("stroke", stroke)])
         case let .progress(bind, kind): return ("progress", [("bind", bind), ("kind", kind)])
         case let .gauge(bind, min, max, kind): return ("gauge", [("bind", bind), ("min", min), ("max", max), ("kind", kind)])
         case let .timerText(start, end, countsDown): return ("timerText", [("start", start), ("end", end), ("countsDown", countsDown)])
         case let .button(actionId, child): return ("button", [("actionId", actionId), ("child", child)])
+        case let .custom(name, props): return ("custom", [("name", name), ("props", props)])
         }
     }
 }
@@ -366,7 +440,7 @@ public struct LayoutIsland: Codable, Sendable, LayoutObject {
 public struct LayoutRegions: Codable, Sendable, LayoutObject {
     public let lockScreen: LayoutNode
     public let island: LayoutIsland?
-    public let background: LayoutColor?, keyline: LayoutColor?
+    public let background: LayoutBindable<LayoutColor>?, keyline: LayoutBindable<LayoutColor>?
     public init(from decoder: Decoder) throws {
         var object = try LayoutReader(decoder)
         lockScreen = try object.need("lockScreen"); island = try object.take("island")

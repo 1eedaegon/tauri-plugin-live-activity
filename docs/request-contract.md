@@ -80,19 +80,24 @@ tests, and the coverage of each layer, are recorded separately in the
 
 ## Request contract v2 (layout)
 
-Status: released in 0.2.0. It follows the
-[layout DSL RFC](rfc-layout-dsl.md) with the differences listed at the end of this section.
-Contract v1 above is unchanged.
+Status: released in 0.2.0. Not released yet: [bound style members](#bound-style-members), the style
+member `fontFamily`, images from a `file`, [custom nodes](#custom-nodes) and
+[`write_image`](#images-the-app-writes). It follows the [layout DSL RFC](rfc-layout-dsl.md) with the
+differences listed at the end of this section. Contract v1 above is unchanged.
 
 In v2 the host sends a tree of nodes, and a widget extension that the host builds from the
 plugin's template (`templates/ios`) draws it. The tree is sent once, at start. An update sends
-values only.
+values only. A bound style member reads a value, so an update can change a color, a size or an
+opacity; the tree and every other member stay as they started.
 
 `contracts/request.schema.json` holds the shapes of both versions. Its envelope
 `{ "command", "input" }` takes the v1 and the v2 command names.
 `tests/fixtures/layout-requests.json` lists requests with the result every validator must give:
-a `valid` start or update states its weight, and an `invalid` case states its error code. Most
-cases use `start_layout`, `update_layout` or `end_layout`. A few invalid cases send a body to the
+a `valid` start or update states its weight, and an `invalid` case states its error code. A third
+list, `updates`, holds a `start` and the `update` after it, which a runner checks the way the native
+layer checks an update against the activity it started; a valid pair states the weight of the
+layout, the styles and the new values, and an invalid one its error code. Most cases use
+`start_layout`, `update_layout` or `end_layout`. A few invalid cases send a body to the
 v1 `start` or `update` command, and a runner passes those to its v1 validator. Two use command
 names that the envelope does not take: `startLayout`, the JavaScript function name, and
 `list_layout`, which takes no input. A runner answers both with `INVALID_INPUT`. An `input` that
@@ -106,10 +111,10 @@ The three Tauri commands take `{ input: ... }`; `list_layout` takes no input.
 
 | Layer | Names |
 | --- | --- |
-| Tauri commands | `start_layout`, `update_layout`, `end_layout`, `list_layout` |
-| JavaScript | `startLayout`, `updateLayout`, `endLayout`, `listLayout`, `onAction` |
-| Rust (`LiveActivity<R>`) | `start_layout`, `update_layout`, `end_layout`, `list_layout`, `on_action` |
-| Permissions | `allow-start-layout`, `allow-update-layout`, `allow-end-layout`, `allow-list-layout`, and the matching `deny-` entries |
+| Tauri commands | `start_layout`, `update_layout`, `end_layout`, `list_layout`, `write_image` |
+| JavaScript | `startLayout`, `updateLayout`, `endLayout`, `listLayout`, `onAction`, `writeImage` |
+| Rust (`LiveActivity<R>`) | `start_layout`, `update_layout`, `end_layout`, `list_layout`, `on_action`, `write_image` |
+| Permissions | `allow-start-layout`, `allow-update-layout`, `allow-end-layout`, `allow-list-layout`, `allow-write-image`, and the matching `deny-` entries |
 
 The default permission set gains `allow-list-layout` only. The commands that change an activity
 need an explicit grant, as in v1.
@@ -136,9 +141,10 @@ On Android a notification shows the layout in part. The plugin walks the lock sc
 document order with the values and conditions applied: the first `text` is the title, the second
 the body, the first `progress` and `timerText` drive the progress bar and the chronometer, and up
 to three `button`s become notification actions labelled with the first text inside them. Every
-other shown node is left out and named once in `degradedFeatures` as `layout.<type>`, followed by
-`layout.island`, `layout.styles`, `layout.background` and `layout.keyline` when the request has
-them. `android.visibility` sets the lock screen visibility, `private` when absent. A tap reaches
+other shown node is left out and named once in `degradedFeatures` as `layout.<type>` (a custom node
+as `layout.custom`), followed by `layout.island`, `layout.styles`, `layout.background` and
+`layout.keyline` when the request has them. The first shown `image` whose source is a `file` is the
+notification's large icon and is not listed. `android.visibility` sets the lock screen visibility, `private` when absent. A tap reaches
 `on_action` through the channel that Rust registers at plugin setup; a tap that started a killed
 process waits in memory until the Tauri runtime registers that channel in the same process, and
 is lost if it does not. Android reads a minus zero as 0, so a request with `-0.0`, as serde_json
@@ -243,8 +249,8 @@ The native layer checks this, because it holds the started activity.
     "compactTrailing": Node,
     "minimal": Node
   },
-  "background": Color,             // optional; tint of the activity background
-  "keyline": Color                 // optional; tint of the Dynamic Island keyline
+  "background": Color | Binding,   // optional; tint of the activity background
+  "keyline": Color | Binding       // optional; tint of the Dynamic Island keyline
 }
 ```
 
@@ -274,12 +280,13 @@ In the table, `?` marks an optional member and a value key is a key of `snapshot
 | `divider` | none |
 | `text` | exactly one of `value`: string of 0 to 200 code points, or `bind`: value key (any type) |
 | `symbol` | `name`: SF Symbol name, `^[a-z0-9]+(\.[a-z0-9]+)*$`, at most 64 characters; `rendering`?: `monochrome` `hierarchical` `palette` `multicolor`; `variableBind`?: value key (a number from 0 to 1, the variable value of the symbol) |
-| `image` | `source`: `{ "asset": "<name>" }`, an image in the asset catalog of the widget extension, name `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`; `resizable`?: boolean; `contentMode`?: `fit` `fill` |
+| `image` | `source`: exactly one of `{ "asset": "<name>" }`, an image in the asset catalog of the widget extension, and `{ "file": "<name>" }`, a PNG that the app wrote with [`write_image`](#images-the-app-writes); a name is `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`; `resizable`?: boolean; `contentMode`?: `fit` `fill` |
 | `path` | `d`: path data, see below; `box`: `[width, height]`, the coordinate space of `d`, each a number 1 to 1024; `stroke`?: number 0.5 to 16, the line width; without it the path is filled |
 | `progress` | `bind`: value key (number, shown clamped to 0..1); `kind`?: `linear` `circular` |
 | `gauge` | `bind`: value key (number); `min`?, `max`?: numbers, 0 and 1 when left out; `min` must be below `max`, and the check uses the default of a member that is left out; `kind`?: `linear` `circular` |
 | `timerText` | `start`, `end`: value keys (times as in v1: integers from 0 to 8640000000000000, in epoch milliseconds; the `end` value after the `start` value); `countsDown`?: boolean, true when left out |
 | `button` | `actionId`: `^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$`; `child`: Node |
+| `custom` | `name`: `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, a view the app registers; `props`?: 1 to 16 entries, see [Custom nodes](#custom-nodes) |
 
 `d` is SVG path data within these limits:
 
@@ -322,13 +329,19 @@ These rules need the layout, the styles and the values together, so they are che
 - the number that `variableBind` names is from 0 to 1;
 - the numbers that `timerText.start` and `timerText.end` name are integers from 0 to
   8640000000000000, and the `end` value is greater than the `start` value;
-- every `style` names a token of `styles`. A `style` in a request without `styles` is invalid.
+- every `style` names a token of `styles`. A `style` in a request without `styles` is invalid;
+- every [bound member](#bound-style-members), in every style whether a node uses it or not, names
+  a key of `snapshot.values` whose value the member takes;
+- every binding among the `props` of a `custom` node names a key of `snapshot.values`, of any type.
 
 A style that no node uses and a value that no node reads are allowed. The number that a
 `progress` or a `gauge` reads is not range-checked; a progress bar shows it clamped to 0..1.
 
-On update the native layer checks the rules that depend on values again, ranges included, against
-the layout it stored at start.
+On update the native layer checks the rules that depend on values again, ranges and bound members
+included, against the layout and styles it stored at start. Rust and the reference tool check an
+update alone, since they keep no activity; `LayoutStartInput::validate_update` in Rust and
+`validateLayoutUpdate` in `tools/validate-request.mjs` apply the native check to a start and an
+update that the caller passes, and run the `updates` fixtures.
 
 ### Styles
 
@@ -338,20 +351,21 @@ with at least one of these members:
 | Member | Value |
 | --- | --- |
 | `font` | `largeTitle` `title` `title2` `title3` `headline` `subheadline` `body` `callout` `footnote` `caption` `caption2`; not together with `size` |
-| `size` | number 6 to 96, in points |
-| `weight` | `ultraLight` `thin` `light` `regular` `medium` `semibold` `bold` `heavy` `black` |
-| `design` | `default` `rounded` `serif` `monospaced` |
+| `size` | number 6 to 96, in points; or a binding |
+| `weight` | `ultraLight` `thin` `light` `regular` `medium` `semibold` `bold` `heavy` `black`; or a binding |
+| `design` | `default` `rounded` `serif` `monospaced`; not together with `fontFamily` |
+| `fontFamily` | the PostScript or family name of a font that the widget extension bundles, `^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$` (a space is allowed after the first character); not together with `design` |
 | `monospacedDigit` | boolean |
-| `color` | Color, the foreground |
+| `color` | Color, the foreground; or a binding |
 | `lineLimit` | integer 1 to 10 |
 | `minimumScaleFactor` | number 0.1 to 1 |
 | `alignment` | `leading` `center` `trailing`, for text of several lines |
 | `padding` | number 0 to 64, or `[top, leading, bottom, trailing]`, four numbers 0 to 64 |
 | `frame` | object with at least one of `width`, `height`, `minWidth`, `minHeight` (numbers 0 to 1024), `maxWidth`, `maxHeight` (number 0 to 1024 or `"infinity"`), `alignment` (the nine `zstack` values) |
-| `background` | Color |
-| `cornerRadius` | number 0 to 64 |
-| `opacity` | number 0 to 1 |
-| `tint` | Color, for buttons, progress and gauges |
+| `background` | Color; or a binding |
+| `cornerRadius` | number 0 to 64; or a binding |
+| `opacity` | number 0 to 1; or a binding |
+| `tint` | Color, for buttons, progress and gauges; or a binding |
 | `buttonStyle` | `automatic` `bordered` `borderedProminent` `plain` |
 
 The members of a `frame` are checked one by one: a minimum above a maximum is accepted.
@@ -366,6 +380,101 @@ A Color is one of:
 
 A style is applied to its node in this order: font and text members, `color`, `tint` and
 `buttonStyle`, `padding`, `frame`, `background`, `cornerRadius`, `opacity`.
+
+With `fontFamily`, iOS draws the text in that font: with `font` at the text style's size at the
+default text size (`title3` is 20 points), scaled with Dynamic Type; with `size` at that size; alone at
+17 points, scaled like `body`. A name the extension lacks draws the system font at that size, and
+nothing reports it. `fontFamily` takes no binding.
+
+### Bound style members
+
+A Binding is `{ "bind": "<value key>" }` in place of a literal. The member reads that value each
+time the activity is drawn, so an update that sends a new value changes it. Seven style members and
+the two tints of the layout take a binding:
+
+| Member | The value it names |
+| --- | --- |
+| `color`, `background`, `tint`, `layout.background`, `layout.keyline` | a string: a color name or a hex color, `#RRGGBB` or `#RRGGBBAA` |
+| `size` | a number from 6 to 96 |
+| `opacity` | a number from 0 to 1 |
+| `cornerRadius` | a number from 0 to 64 |
+| `weight` | a string: one of the nine weight names |
+
+- A binding has one member, `bind`, and its value is a value key. Another member, a `bind` that is
+  not a string or a key that names no value is `INVALID_INPUT`.
+- A bound color cannot be a light and dark pair. A value is a string, a number or a boolean, and an
+  object is not a value. A color name follows the appearance on its own (`primary`, `secondary`,
+  `accent` and the system colors); a hex color looks the same in light and dark mode.
+- The value must be one the member takes as a literal. At start every layer checks it against
+  `snapshot.values`. On every update the native layer checks the new value the same way, because
+  it keeps the styles. A value that does not fit is `INVALID_INPUT`, like any other value error.
+- A style that no node uses is checked all the same. A bound `size` and a `font` exclude each other,
+  as a literal `size` does. A style whose only members are bound is not empty.
+- The other members take no binding: `font`, `design`, `monospacedDigit`, `lineLimit`,
+  `minimumScaleFactor`, `alignment`, `padding`, `frame` and `buttonStyle`. They decide the text
+  style, how text wraps, the space a node takes and the shape of a button, which belong to the tree
+  and are fixed with it. Members of nodes, such as `spacing` or a literal `value`, take no binding
+  either. To change any of these, end the activity and start a new one.
+- A bound `size` changes the space its text takes. Give the node a `frame` when the rest of the row
+  must not move.
+- A binding counts toward the weight as the object it is: `{ "bind": "tone" }` weighs
+  2 + (4 + 3 + 6 + 1) = 16.
+
+On iOS, `LiveActivityUI` reads a bound member from the snapshot's values every time it draws. The
+widget template passes the values to `LayoutDocument.background(values:)` and `keyline(values:)`;
+a widget copied from an earlier template still compiles and draws a bound tint as absent. Android
+draws no styles, bound or literal: `layout.styles`, `layout.background` and `layout.keyline` stay in
+`degradedFeatures` as before.
+
+The Rust crate carries the Rust validator and both native layers. A crate of 0.2.x rejects a binding
+with `INVALID_INPUT`, and the npm package of 0.2.x has no type or helper for it. Use the npm package
+and the crate of the same minor version. The same holds for `fontFamily`, `file` sources and `custom`
+nodes, which a crate of 0.2.x rejects.
+
+### Custom nodes
+
+```jsonc
+{ "type": "custom", "name": "ring", "props": { "level": { "bind": "done" }, "label": "Bowl", "width": 4, "pulse": false } }
+```
+
+A `custom` node draws a SwiftUI view that the app registers under `name` in the widget extension
+(`LiveActivityCustomViews.swift`, [Usage](usage.md#custom-swiftui-views)). It has no children and
+counts as one node; it may stand in any region and inside a button, and takes `style`, `if` and `unless`
+like any node.
+
+- `props`, when present, has 1 to 16 entries. A key follows the rule of value keys. A value is text of
+  0 to 200 code points, a number from -8640000000000000 to 8640000000000000, a boolean, or a binding
+  `{ "bind": "<value key>" }` that names a key of `snapshot.values`, of any type. `null`, arrays and
+  other objects are `INVALID_INPUT`.
+- The view gets the literal props as they are and each bound prop with the value of the current
+  snapshot, so an update redraws it with new values.
+- The validators check the name and the props only. Whether the app has a view of that name, and what
+  the view draws, they cannot check.
+- On iOS a node whose name has no view draws nothing, and the record lists `layout.custom.<name>` in
+  `degradedFeatures`, once for each such name of the layout in document order, region by region. The
+  plugin reads the names from the copy of `LiveActivityCustomViews.swift` in the app target; without it,
+  every name is listed. Android draws no custom node and lists `layout.custom`.
+- A binding weighs as the object it is, like a bound style member.
+
+### Images the app writes
+
+`write_image` takes `{ input: { name, png } }`, where `png` is the PNG file as an array of bytes
+(integers 0 to 255). `writeImage(name, png)` in JavaScript sends a `Uint8Array` or an `ArrayBuffer`
+this way; Rust's `write_image(name, &bytes)` and `check_image(name, &bytes)` take a byte slice.
+
+| Rule | Error |
+| --- | --- |
+| `name` follows the rule of a `file` source: `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$` | `INVALID_INPUT` |
+| an unknown member, or `png` that is not an array of bytes | `INVALID_INPUT` |
+| `png` starts with the PNG signature and an `IHDR` header of a width and a height of at least 1, and ends with the `IEND` chunk | `INVALID_INPUT` |
+| `png` has at most 1048576 bytes, a width of at most 1224 and a height of at most 480 pixels | `PAYLOAD_TOO_LARGE` |
+| iOS: the widget extension names an App Group (`TauriLiveActivityAppGroup`) and the app has its container | `CONFIGURATION_REQUIRED` |
+
+Rust checks the input, asks the native layer for the folder once and writes the file there, under a
+hidden name first and then renamed over the old file. The folder is `tauri-live-activity/images` in the
+App Group container on iOS and in the app's private files on Android. On desktop the input is checked
+and the answer is `UNSUPPORTED_PLATFORM`. The command answers `null`. The widget reads the file each
+time it draws, on start and on every update; a missing or unreadable file draws nothing.
 
 ### Payload weight
 
@@ -385,7 +494,8 @@ weight(object)  = 2 + sum over the members of (UTF-8 byte length of key + 3 + we
 At start, `weight(layout) + weight(styles) + weight(snapshot.values)` must be at most 3584. A
 request without `styles` counts `weight({})`, which is 2. On update the native layer checks the
 same sum with the stored layout and styles and the new values, and `weight(values)` alone must be
-at most 3584 in every layer. A request over the limit fails with `PAYLOAD_TOO_LARGE`. The
+at most 3584 in every layer. An update sends every value again, the bound ones included, so the
+values that a binding reads take room in every update. A request over the limit fails with `PAYLOAD_TOO_LARGE`. The
 fixtures state this sum for a start and `weight(values)` for an update.
 
 The byte length is that of the text as sent, without escapes. The weight is checked last: a
@@ -414,9 +524,11 @@ total  = 48 + 2 + 2                            = 52    layout, {} for styles, {}
 
 ### What the schema covers
 
-The JSON Schema checks shapes, ranges and patterns, including the characters allowed in `d`. It
-leaves the grammar of `d`, `min` below `max`, lone surrogates, the structural limits, the
-reference rules and the weight to `tools/validate-request.mjs`, which checks those as well and
+The JSON Schema checks shapes, ranges and patterns, including the characters allowed in `d`, the
+shape of a binding (`$defs/bound`), the props of a custom node and `fontFamily` beside `design`. It
+leaves the grammar of `d`, `min` below `max`, lone surrogates, the structural limits, the reference
+rules (the values of bound members and the bindings of props among them) and the weight to
+`tools/validate-request.mjs`, which checks those as well and
 gives the results the fixtures record. The tool checks a request against the definitions of its
 own contract version only, so a v1 request gets the same issues as before v2.
 
@@ -424,9 +536,12 @@ own contract version only, so a v1 request gets the same issues as before v2.
 
 - A start carries `snapshot` with the revision, as in v1, instead of top-level `values` and
   `staleAt`.
-- The layout is fixed at start: `update_layout` takes no `layout`.
-- Not part of 2.0: `layoutRef`, `image.source.appGroup`, gradients, borders, custom fonts and
-  `contentTransition`.
+- The layout is fixed at start: `update_layout` takes no `layout`. Not in the draft: seven style
+  members and the two tints can be bound to values, so an update changes them.
+- Not part of 2.0: `layoutRef`, gradients, borders and `contentTransition`. The draft's
+  `image.source.appGroup` became `{ "file": name }`, with the App Group configured once in the widget
+  extension instead of named in every request. Custom fonts came as the style member `fontFamily`, and
+  custom views as the `custom` node.
 - Member names: `timerText` takes the value keys `start` and `end` instead of `startedAt` and
   `endsAt`, `symbol` takes `variableBind` instead of `variableValue`, and `layout.background` and
   `layout.keyline` replace `activityBackgroundTint` and `keylineTint`. `rendering` and `design`

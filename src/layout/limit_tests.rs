@@ -211,3 +211,94 @@ fn typed_requests_meet_the_same_rules() {
     input.snapshot = update.snapshot;
     assert_eq!(input.validate(), Err(Error::payload_too_large()));
 }
+
+#[test]
+fn an_update_is_checked_against_its_start() {
+    let typed = |input: Json| serde_json::from_value::<LayoutStartInput>(input).unwrap();
+    let base = typed(start());
+    let values = start()["snapshot"]["values"].clone();
+    let update = |values: Json| LayoutUpdateInput {
+        id: "id".into(),
+        snapshot: serde_json::from_value(json!({"revision":2,"values":values})).unwrap(),
+    };
+    let with = |key: &str, value: Json| {
+        let mut values = values.clone();
+        values[key] = value;
+        update(values)
+    };
+    assert_eq!(base.validate_update(&update(values.clone())), Ok(()));
+    assert_eq!(base.validate_update(&with("title", json!(""))), Ok(()));
+    // The keys and the types of the start.
+    let mut fewer = values.clone();
+    fewer.as_object_mut().unwrap().remove("live");
+    assert_eq!(base.validate_update(&update(fewer)), Err(Error::invalid()));
+    assert_eq!(
+        base.validate_update(&with("extra", json!(1))),
+        Err(Error::invalid())
+    );
+    assert_eq!(
+        base.validate_update(&with("live", json!(1))),
+        Err(Error::invalid())
+    );
+    assert_eq!(
+        base.validate_update(&with("title", json!(1))),
+        Err(Error::invalid())
+    );
+    // The value rules of the stored layout.
+    assert_eq!(
+        base.validate_update(&with("level", json!(1.5))),
+        Err(Error::invalid())
+    );
+    assert_eq!(
+        base.validate_update(&with("to", json!(1000))),
+        Err(Error::invalid())
+    );
+    // Bound members of the stored styles and layout.
+    let bound = set(
+        set(start(), "/styles/card/color", json!({"bind":"title"})),
+        "/snapshot/values/title",
+        json!("red"),
+    );
+    let bound = typed(set(bound, "/layout/keyline", json!({"bind":"title"})));
+    assert_eq!(bound.validate(), Ok(()));
+    assert_eq!(
+        bound.validate_update(&with("title", json!("#C9654D"))),
+        Ok(())
+    );
+    assert_eq!(
+        bound.validate_update(&with("title", json!("Rec"))),
+        Err(Error::invalid())
+    );
+    // The weight of the stored layout and styles with the new values; the values alone fit.
+    let full = "x".repeat(1000);
+    let heavy = with("title", json!(full.clone()));
+    let mut heavier = values.clone();
+    heavier["title"] = json!(full);
+    for key in ["a", "b"] {
+        heavier[key] = json!("x".repeat(1000));
+    }
+    let crowded = update(heavier);
+    assert_eq!(crowded.validate(), Ok(()));
+    let roomy = |input: Json| {
+        let mut input = input;
+        for key in ["a", "b"] {
+            input["snapshot"]["values"][key] = json!("");
+        }
+        typed(input)
+    };
+    assert_eq!(
+        roomy(start()).validate_update(&crowded),
+        Err(Error::payload_too_large())
+    );
+    assert_eq!(base.validate_update(&heavy), Ok(()));
+    // An update or a start that fails on its own.
+    let mut nameless = update(values.clone());
+    nameless.id = String::new();
+    assert_eq!(base.validate_update(&nameless), Err(Error::invalid()));
+    let mut broken = typed(start());
+    broken.schema_version = 3;
+    assert_eq!(
+        broken.validate_update(&update(values)),
+        Err(Error::invalid())
+    );
+}

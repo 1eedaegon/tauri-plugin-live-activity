@@ -10,6 +10,8 @@ import LiveActivityCore
 @MainActor
 final class LayoutActivityKitBackend: LayoutActivityBackend {
     private let system = ActivityKitAdapter<LiveActivityLayoutAttributes>(schemaVersion: 2)
+    /// The names that LiveActivityCustomViews.swift registers in the app target, read once.
+    private let customViews = CustomViewCatalog.names()
 
     func preflightStart() throws { try system.preflightStart() }
 
@@ -27,16 +29,19 @@ final class LayoutActivityKitBackend: LayoutActivityBackend {
 
     func end(_ activity: LayoutActivity, policy: EndPolicy) async throws -> LayoutActivity {
         try await system.end(activity.id, state: activity.snapshot, policy: policy)
-        return LayoutActivity(id: activity.id, attributes: activity.attributes, snapshot: activity.snapshot, state: "ended")
+        return LayoutActivity(id: activity.id, attributes: activity.attributes, snapshot: activity.snapshot, state: "ended",
+                              degradedFeatures: activity.degradedFeatures)
     }
 
     func endKeepingContent(_ activity: LayoutActivity, policy: EndPolicy) async throws -> LayoutActivity {
         try await system.end(activity.id, state: nil, policy: policy)
-        return LayoutActivity(id: activity.id, attributes: activity.attributes, snapshot: activity.snapshot, state: "ended")
+        return LayoutActivity(id: activity.id, attributes: activity.attributes, snapshot: activity.snapshot, state: "ended",
+                              degradedFeatures: activity.degradedFeatures)
     }
 
     private func describe(_ activity: Activity<LiveActivityLayoutAttributes>) -> LayoutActivity {
         LayoutActivity(id: activity.attributes.instanceID, attributes: activity.attributes, snapshot: system.state(of: activity),
-                       state: system.lifecycle(of: activity))
+                       state: system.lifecycle(of: activity),
+                       degradedFeatures: activity.attributes.document.unknownCustomViews(registered: customViews))
     }
 }

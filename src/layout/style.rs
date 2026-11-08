@@ -1,8 +1,97 @@
-use super::{Alignment, HorizontalAlignment, non_null, none};
+use super::{Alignment, HorizontalAlignment, Value, non_null, none};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
 
+/// A value key in place of a literal: `{ "bind": "<key>" }` on the wire. The member reads the value
+/// on every render, so an update can change it. The value must be what the member takes as a literal:
+/// a color name or a hex color (never a light and dark pair), a weight name, or a number in the
+/// member's range.
+///
+/// ```
+/// use tauri_plugin_live_activity::{Bound, Style};
+///
+/// let status = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
+/// assert_eq!(serde_json::to_value(&status).unwrap(), serde_json::json!({ "color": { "bind": "tone" } }));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Bound {
+    pub bind: String,
+}
+
+impl Bound {
+    /// The member reads the value of `key`.
+    pub fn key(key: impl Into<String>) -> Self {
+        Self { bind: key.into() }
+    }
+}
+
+/// A member that is a literal or [`Bound`] to a value. Only `color`, `background`, `tint`,
+/// `opacity`, `size`, `weight` and `corner_radius` of a [`Style`], and the `background` and
+/// `keyline` of a layout, can be bound.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Bindable<T> {
+    Literal(T),
+    Bound(Bound),
+}
+
+impl<T> Bindable<T> {
+    /// The literal, or `None` when the member is bound.
+    pub fn literal(&self) -> Option<&T> {
+        match self {
+            Self::Literal(literal) => Some(literal),
+            Self::Bound(_) => None,
+        }
+    }
+
+    /// The value key, or `None` when the member is a literal.
+    pub fn bound(&self) -> Option<&str> {
+        match self {
+            Self::Literal(_) => None,
+            Self::Bound(bound) => Some(&bound.bind),
+        }
+    }
+}
+
+impl<T> From<Bound> for Bindable<T> {
+    fn from(bound: Bound) -> Self {
+        Self::Bound(bound)
+    }
+}
+
+impl From<f64> for Bindable<f64> {
+    fn from(number: f64) -> Self {
+        Self::Literal(number)
+    }
+}
+
+impl From<Color> for Bindable<Color> {
+    fn from(color: Color) -> Self {
+        Self::Literal(color)
+    }
+}
+
+impl From<ColorName> for Bindable<Color> {
+    fn from(name: ColorName) -> Self {
+        Self::Literal(Color::Named(name))
+    }
+}
+
+impl From<Value> for Bindable<Value> {
+    fn from(value: Value) -> Self {
+        Self::Literal(value)
+    }
+}
+
+impl From<FontWeight> for Bindable<FontWeight> {
+    fn from(weight: FontWeight) -> Self {
+        Self::Literal(weight)
+    }
+}
+
 /// Modifiers a node takes through its `style` token. At least one member; `font` and `size`
-/// exclude each other.
+/// exclude each other, and so do `font_family` and `design`. The [`Bindable`] members may name a value instead of a literal; the
+/// others are fixed at start.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Style {
@@ -10,16 +99,21 @@ pub struct Style {
     pub font: Option<Font>,
     /// Font size in points.
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
-    pub size: Option<f64>,
+    pub size: Option<Bindable<f64>>,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
-    pub weight: Option<FontWeight>,
+    pub weight: Option<Bindable<FontWeight>>,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
     pub design: Option<FontDesign>,
+    /// The PostScript or family name of a font that the widget extension bundles, such as one
+    /// that `setup --font` added. With `font` it takes that text style's size, with `size` that
+    /// size; not together with `design`. A name the extension lacks draws the system font.
+    #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
+    pub font_family: Option<String>,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
     pub monospaced_digit: Option<bool>,
     /// Foreground color.
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
-    pub color: Option<Color>,
+    pub color: Option<Bindable<Color>>,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
     pub line_limit: Option<u8>,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
@@ -32,14 +126,14 @@ pub struct Style {
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
     pub frame: Option<Frame>,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
-    pub background: Option<Color>,
+    pub background: Option<Bindable<Color>>,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
-    pub corner_radius: Option<f64>,
+    pub corner_radius: Option<Bindable<f64>>,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
-    pub opacity: Option<f64>,
+    pub opacity: Option<Bindable<f64>>,
     /// Tint of buttons, progress views and gauges.
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
-    pub tint: Option<Color>,
+    pub tint: Option<Bindable<Color>>,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
     pub button_style: Option<ButtonStyle>,
 }

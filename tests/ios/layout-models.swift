@@ -43,6 +43,37 @@ extension LifecycleTests {
         } catch { expect(error is DecodingError, "strict decoding rejects \(label)") }
     }
 
+    @MainActor private static func testBoundMembers() async throws {
+        let bound = ##"{"size":{"bind":"a"},"weight":{"bind":"b"},"color":{"bind":"c"},"background":{"bind":"d"},"cornerRadius":{"bind":"e"},"##
+            + ##""opacity":{"bind":"f"},"tint":{"bind":"g"}}"##
+        let json = layoutJSON(lockScreen: #"{"type":"text","value":"x","style":"s"}"#,
+                              values: ##"{"a":12,"b":"bold","c":"red","d":"#FFFFFF","e":4,"f":0.5,"g":"mint","p":"clear","k":"orange"}"##,
+                              layout: ##","background":{"bind":"p"},"keyline":{"bind":"k"}"##, rest: #","styles":{"s":\#(bound)}"#)
+        let request = try layoutRequest(json)
+        try request.validate()
+        try await verify(try canonical(JSONEncoder().encode(request)) == canonical(Data(json.utf8)), "bound members keep their wire shape")
+        let style = request.styles?["s"]
+        expect(style?.size == .bound("a") && style?.weight == .bound("b") && style?.color == .bound("c") && style?.background == .bound("d")
+            && style?.cornerRadius == .bound("e") && style?.opacity == .bound("f") && style?.tint == .bound("g")
+            && request.layout.background == .bound("p") && request.layout.keyline == .bound("k"), "bound members decode as bindings")
+        let literal = try layoutRequest(layoutJSON(rest: ##","styles":{"s":{"size":12,"weight":"bold","color":{"light":"#000000","dark":"#FFFFFF"}}}"##))
+        expect(literal.styles?["s"]?.size == .literal(12) && literal.styles?["s"]?.weight == .literal(.bold)
+            && literal.styles?["s"]?.color == .literal(.pair(light: "#000000", dark: "#FFFFFF")), "literal members stay literal")
+        // {"bind":"a"} weighs 2 + (4 + 3 + 3 + 1), like any object with one member.
+        expect(LayoutBindable<Double>.bound("a").wireWeight == 13 && LayoutBindable<Double>.literal(1).wireWeight == 8,
+               "a binding weighs as the object it is on the wire")
+        for (label, style) in [
+            ("a binding with a number key", #"{"size":{"bind":5}}"#), ("a binding with another member", ##"{"color":{"bind":"c","light":"#000000"}}"##),
+            ("a binding with a null key", #"{"weight":{"bind":null}}"#), ("an empty binding", #"{"opacity":{}}"#),
+            ("a binding inside a color pair", ##"{"color":{"light":{"bind":"a"},"dark":"#000000"}}"##), ("a bound font", #"{"font":{"bind":"a"}}"#),
+            ("a bound design", #"{"design":{"bind":"a"}}"#), ("a bound monospacedDigit", #"{"monospacedDigit":{"bind":"a"}}"#),
+            ("a bound line limit", #"{"lineLimit":{"bind":"a"}}"#), ("a bound scale factor", #"{"minimumScaleFactor":{"bind":"a"}}"#),
+            ("a bound alignment", #"{"alignment":{"bind":"a"}}"#), ("a bound padding", #"{"padding":{"bind":"a"}}"#),
+            ("a bound frame width", #"{"frame":{"width":{"bind":"a"}}}"#), ("a bound button style", #"{"buttonStyle":{"bind":"a"}}"#)
+        ] { expectUndecodable(layoutJSON(rest: #","styles":{"s":\#(style)}"#), label) }
+        expectUndecodable(layoutJSON(lockScreen: #"{"type":"vstack","spacing":{"bind":"a"},"children":[{"type":"divider"}]}"#), "a bound stack spacing")
+    }
+
     @MainActor static func testLayoutModels() async throws {
         let minimal = try layoutRequest(layoutJSON(lockScreen: #"{"type":"text","value":"Hello"}"#, values: "{}"))
         try minimal.validate()
@@ -90,6 +121,8 @@ extension LifecycleTests {
             ("a fractional line limit", layoutJSON(rest: #","styles":{"s":{"lineLimit":1.5}}"#)),
             ("a v1 start body", #"{"activityKey":"a","schemaVersion":1,"template":"progress","fallback":"none","snapshot":{"revision":0,"title":"a","status":"b","progress":0}}"#)
         ] { expectUndecodable(json, label) }
+
+        try await testBoundMembers()
 
         let composed = LayoutValue.string("Caf\u{00e9}"), decomposed = LayoutValue.string("Cafe\u{0301}")
         expect("Caf\u{00e9}" == "Cafe\u{0301}" && composed != decomposed, "string values compare by their UTF-8 bytes")

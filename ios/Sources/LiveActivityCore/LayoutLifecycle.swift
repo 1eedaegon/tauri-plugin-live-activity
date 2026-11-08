@@ -9,11 +9,14 @@ public struct LayoutActivity: Sendable {
     public let attributes: LiveActivityLayoutAttributes
     public let snapshot: LayoutSnapshot
     public let state: String
-    public init(id: String, attributes: LiveActivityLayoutAttributes, snapshot: LayoutSnapshot, state: String) {
-        self.id = id; self.attributes = attributes; self.snapshot = snapshot; self.state = state
+    /// What the widget leaves out, such as `layout.custom.<name>` for a custom view the app does not register.
+    public let degradedFeatures: [String]
+    public init(id: String, attributes: LiveActivityLayoutAttributes, snapshot: LayoutSnapshot, state: String, degradedFeatures: [String] = []) {
+        self.id = id; self.attributes = attributes; self.snapshot = snapshot; self.state = state; self.degradedFeatures = degradedFeatures
     }
     public var record: LayoutActivityRecord {
-        LayoutActivityRecord(id: id, activityKey: attributes.activityKey, schemaVersion: attributes.schemaVersion, snapshot: snapshot, state: state)
+        LayoutActivityRecord(id: id, activityKey: attributes.activityKey, schemaVersion: attributes.schemaVersion, snapshot: snapshot, state: state,
+                             degradedFeatures: degradedFeatures)
     }
 }
 
@@ -26,11 +29,12 @@ public struct LayoutActivityRecord: Encodable, Sendable {
     public let backend = "activityKit"
     public let state: String
     public let visibility = "unknown"
-    public let degradedFeatures: [String] = []
+    public let degradedFeatures: [String]
     public let promotionRequested = false
     public let promotionState = "notApplicable"
-    init(id: String, activityKey: String, schemaVersion: Int, snapshot: LayoutSnapshot, state: String) {
+    init(id: String, activityKey: String, schemaVersion: Int, snapshot: LayoutSnapshot, state: String, degradedFeatures: [String] = []) {
         self.id = id; self.activityKey = activityKey; self.schemaVersion = schemaVersion; self.snapshot = snapshot; self.state = state
+        self.degradedFeatures = degradedFeatures
     }
 }
 
@@ -69,10 +73,46 @@ public enum LayoutWidgetPreflight {
         }
     }
 
-    private static func isLayoutWidget(_ bundle: URL) -> Bool {
-        guard bundle.pathExtension == "appex", let data = try? Data(contentsOf: bundle.appendingPathComponent("Info.plist")),
-              let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else { return false }
-        return info[infoKey] as? Int == version
+    /// The Info.plist of every embedded layout widget extension.
+    private static func layoutWidgets(plugIns: URL?) -> [[String: Any]] {
+        let bundles = plugIns.flatMap { try? FileManager.default.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil) } ?? []
+        return bundles.compactMap(info).filter { $0[infoKey] as? Int == version }
+    }
+
+    private static func isLayoutWidget(_ bundle: URL) -> Bool { info(bundle)?[infoKey] as? Int == version }
+
+    private static func info(_ bundle: URL) -> [String: Any]? {
+        guard bundle.pathExtension == "appex", let data = try? Data(contentsOf: bundle.appendingPathComponent("Info.plist")) else { return nil }
+        return try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+    }
+
+    /// The folder for `writeImage`, created when missing: `tauri-live-activity/images` in the container of the App Group
+    /// that the layout widget's Info.plist names. `container` is `FileManager.containerURL(forSecurityApplicationGroupIdentifier:)`.
+    public static func imageFolder(plugIns: URL?, container: (String) -> URL?) throws -> URL {
+        guard let group = layoutWidgets(plugIns: plugIns).lazy.compactMap({ $0[LayoutImageFolder.infoKey] as? String }).first, !group.isEmpty else {
+            throw ActivityFailure("CONFIGURATION_REQUIRED", "The widget extension names no App Group: run setup with --app-group.")
+        }
+        guard let folder = LayoutImageFolder.url(group: group, container: container) else {
+            throw ActivityFailure("CONFIGURATION_REQUIRED", "The app has no container for the App Group of the widget extension.")
+        }
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        } catch { throw ActivityFailure("NATIVE_ERROR", "The image folder could not be created.") }
+        return folder
+    }
+}
+
+/// The custom views that the app registers in `LiveActivityCustomViews.swift`, which `setup` puts in the app target as well
+/// as in the widget extension. The plugin reads the names from the Objective-C class `TauriLiveActivityCustomViews`.
+public enum CustomViewCatalog {
+    public static let className = "TauriLiveActivityCustomViews"
+
+    /// The registered names, or nil when the app has no such class.
+    public static func names(className: String = className) -> Set<String>? {
+        guard let registry = NSClassFromString(className) as? NSObject.Type else { return nil }
+        let selector = NSSelectorFromString("viewNames")
+        guard registry.responds(to: selector), let names = registry.perform(selector)?.takeUnretainedValue() as? [String] else { return nil }
+        return Set(names)
     }
 }
 
@@ -94,7 +134,7 @@ extension LayoutActivity: LifecycleActivity {
                        fingerprint: attributes.initialFingerprint)
     }
     func with(snapshot: LayoutSnapshot, state: String) -> LayoutActivity {
-        LayoutActivity(id: id, attributes: attributes, snapshot: snapshot, state: state)
+        LayoutActivity(id: id, attributes: attributes, snapshot: snapshot, state: state, degradedFeatures: degradedFeatures)
     }
 }
 

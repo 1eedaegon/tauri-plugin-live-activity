@@ -21,7 +21,7 @@ be checked in the app that actually asks and on the connected device.
 | Tauri | A permission for each command; a capability that lists only the commands needed | The host app's developer chooses what to allow |
 | iOS Live Activity (basic) | NSSupportsLiveActivities in the host Info.plist; the widget target and signing | Read the current permission state with ActivityAuthorizationInfo; system settings cannot be forced |
 | iOS ordinary notification fallback | UserNotifications integration | Ordinary notification permission is separate from Live Activity permission; the user makes the actual choice |
-| App Groups | When the design needs shared files, register the same group for the app and the extension | Needs an eligible developer team and provisioning; the default design does not need it |
+| App Groups | When the design needs shared files, register the same group for the app and the extension; `setup --app-group` does this for images that `writeImage` writes | Needs an eligible developer team and provisioning for device builds (automatic signing registers the group); the default design does not need it |
 | APNs | The Push Notifications capability, server integration, token handling | Developer account, key and environment setup. The private key stays on the server only |
 | Frequent Live Activity updates | Declare NSSupportsFrequentLiveActivityUpdates when needed | Depends on what the user allowed and on the OS budget |
 | Android 13+ notifications | Declare POST_NOTIFICATIONS in the manifest | User consent at runtime; handle denial, revocation and blocked channels |

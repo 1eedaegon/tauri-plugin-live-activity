@@ -164,10 +164,33 @@ extension LifecycleTests {
         try await verify(try await afterRestart.end(layoutEnd(terminal.id, "default")).state == "ended", "OS terminal layout activity end is idempotent without receipts")
         try await verify(try await afterRestart.list().first?.state == "ended", "a terminal receipt wins over the OS state")
 
+        try await testBoundStyleUpdates()
         try await testContractIsolation()
         try testLayoutWidgetPreflight()
         try await testActionRelay()
         try await testNativeSizeCheck()
+    }
+
+    /// An update re-checks the values that bound style members name, against the stored styles.
+    @MainActor private static func testBoundStyleUpdates() async throws {
+        let backend = FakeLayoutBackend()
+        let controller = LayoutActivityController(backend: backend)
+        func bound(_ key: String, tone: String) throws -> LayoutRequest {
+            try layoutRequest(layoutJSON(key: key, lockScreen: #"{"type":"text","bind":"title","style":"s"}"#, values: #"{"title":"On time","tone":"\#(tone)"}"#,
+                                         rest: #","styles":{"s":{"color":{"bind":"tone"}}}"#))
+        }
+        let started = try await controller.start(bound("bound", tone: "green"))
+        let late = LayoutSnapshot(revision: 1, values: ["title": .string("Running late"), "tone": .string("red")])
+        try await verify(try await controller.update(layoutUpdate(started.id, late)).snapshot == late, "an update changes a bound color")
+        await expectError("INVALID_INPUT") {
+            _ = try await controller.update(layoutUpdate(started.id, LayoutSnapshot(revision: 2, values: ["title": .string("Late"), "tone": .string("crimson")])))
+        }
+        await expectError("INVALID_INPUT") {
+            _ = try await controller.update(layoutUpdate(started.id, LayoutSnapshot(revision: 2, values: ["title": .string("Late"), "tone": .number(1)])))
+        }
+        expect(backend.updates == 1, "an update with a value that a bound member cannot take never reaches the backend")
+        await expectError("INVALID_INPUT") { _ = try await controller.start(bound("unbound", tone: "Green")) }
+        expect(backend.starts == 1, "a start with such a value never reaches the backend")
     }
 
     /// The weight is an estimate in front of the encoded 4096-byte check. Escapes take more bytes than they weigh, so a

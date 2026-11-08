@@ -1,8 +1,8 @@
 # Usage
 
 This guide has the parts that the [README](../README.md) leaves out: what `setup` does, the
-same steps by hand, every layout node with captures from iOS and Android, the progress and
-timer templates, and the plugin configuration.
+same steps by hand, every layout node with captures from iOS and Android, fonts, drawn images
+and custom views, the progress and timer templates, and the plugin configuration.
 
 The plugin shows state that the app sends. The app still owns the task, background work and
 how often it updates. OS permissions, Focus and promotion rules decide where the activity
@@ -36,8 +36,9 @@ asks for too.
 `cargo metadata` and takes the iOS templates from it, so they always match the crate's version.
 
 - **Permissions.** It adds `live-activity:default` and the `allow-` permissions of
-  `request_permissions`, `start`, `update`, `end`, `start_layout`, `update_layout` and
-  `end_layout` to `src-tauri/capabilities/default.json`, or to the only capability file there.
+  `request_permissions`, `start`, `update`, `end`, `start_layout`, `update_layout`,
+  `end_layout` and `write_image` to `src-tauri/capabilities/default.json`, or to the only
+  capability file there.
   `onAction` also needs `core:event:default`, which `core:default` in a new app includes.
 - **Android.** The plugin needs Android 8 (API 26); a new Tauri app starts at 24. It sets
   `bundle.android.minSdkVersion` to 26 in `tauri.conf.json`, which `tauri android init` reads,
@@ -46,13 +47,18 @@ asks for too.
 - **iOS**, on a Mac, once `src-tauri/gen/apple` exists:
   - adds `NSSupportsLiveActivities` = true to `src-tauri/Info.ios.plist`, which Tauri merges into
     the app's Info.plist when it builds;
-  - copies `LiveActivityWidget.swift`, `LiveActivityActionIntent.swift` and the extension's
-    `Info.plist` from the crate's `templates/ios` to `src-tauri/gen/apple/LiveActivityWidget`;
+  - copies `LiveActivityWidget.swift`, `LiveActivityActionIntent.swift`,
+    `LiveActivityCustomRegistry.swift` and the extension's `Info.plist` from the crate's
+    `templates/ios` to `src-tauri/gen/apple/LiveActivityWidget`, and creates
+    `LiveActivityCustomViews.swift` there once, for [custom views](#custom-swiftui-views);
+  - with `--font` and `--asset`, copies [fonts and pictures](#fonts-and-pictures-of-the-widget)
+    into that folder;
   - writes `src-tauri/gen/apple/live-activity.yml`, an XcodeGen spec with the
     `LiveActivityWidget` app extension (iOS 16.1, the `LiveActivityShared` and `LiveActivityUI`
     products of the crate's Swift package, `TauriLiveActivityLayout` = 2, the bundle identifier
-    `<app identifier>.widget` and the app's version), and adds the intent file and the extension
-    to the app target;
+    `<app identifier>.widget`, the app's version, the bundled fonts and, with `--app-group`, the
+    [App Group](#pictures-the-app-draws)), and adds the intent file, the two custom view files and
+    the extension to the app target;
   - adds `live-activity.yml` to the `include` list of `src-tauri/gen/apple/project.yml`;
   - copies Tauri's Swift API next to the crate's Swift package (`.tauri/tauri-api` in the crate's
     folder) when it is not there yet, as the plugin's iOS build does. Xcode resolves that package
@@ -81,9 +87,13 @@ Run it again:
 | --- | --- |
 | `--dry-run` | Shows what would change and writes nothing |
 | `--ios-only` | Does the iOS part only; leaves the capabilities and `tauri.conf.json` alone |
+| `--font <file>` | Bundles a `.ttf`, `.otf` or `.ttc` font in the widget extension and prints its names; repeatable |
+| `--asset <file>` | Puts a `.png`, `.jpg`, `.jpeg`, `.pdf` or `.svg` image in the widget's asset catalog; repeatable |
+| `--app-group[=<id>]` | Gives both targets an App Group for `writeImage`, `group.<app identifier>` unless named; kept on later runs |
 
 It exits with 0 when everything is set up, 1 when something is left to do (listed under
-"To do") or it could not start, and 2 for an unknown option. It reads `tauri.conf.json`, not
+"To do") or it could not start, such as a `--font` file that does not exist, and 2 for an
+unknown option or an option without its file. It reads `tauri.conf.json`, not
 `tauri.conf.json5` or `Tauri.toml`, and uses `$CARGO` when that is set.
 
 ### Set up by hand
@@ -93,7 +103,7 @@ These steps do what `setup` does. Run them from the app's folder.
 Grant the permissions:
 
 ```sh
-for p in default allow-request-permissions allow-start allow-update allow-end allow-start-layout allow-update-layout allow-end-layout; do npx tauri permission add live-activity:$p; done
+for p in default allow-request-permissions allow-start allow-update allow-end allow-start-layout allow-update-layout allow-end-layout allow-write-image; do npx tauri permission add live-activity:$p; done
 ```
 
 Raise the Android minimum: set `bundle.android.minSdkVersion` to `26` in
@@ -103,7 +113,7 @@ Raise the Android minimum: set `bundle.android.minSdkVersion` to `26` in
 On iOS, after `tauri ios init`, in one shell:
 
 1. find the plugin's folder (`jq` comes with macOS 15 and later);
-2. copy the widget, the button intent and the extension's Info.plist;
+2. copy the widget, the button intent, the custom view files and the extension's Info.plist;
 3. add `NSSupportsLiveActivities` to `src-tauri/Info.ios.plist`;
 4. prepare the Tauri dependency of the plugin's Swift package. On an Intel Mac, use
    `--target x86_64-apple-ios`.
@@ -111,6 +121,7 @@ On iOS, after `tauri ios init`, in one shell:
 ```sh
 LA=$(cargo metadata --format-version 1 --manifest-path src-tauri/Cargo.toml | jq -r '.packages[] | select(.name == "tauri-plugin-live-activity") | .manifest_path | rtrimstr("Cargo.toml")')
 mkdir -p src-tauri/gen/apple/LiveActivityWidget && cp "$LA"templates/ios/* src-tauri/gen/apple/LiveActivityWidget/
+# Once: LiveActivityCustomViews.swift is yours from now on; do not copy it over your edits again.
 /usr/libexec/PlistBuddy -c 'Add :NSSupportsLiveActivities bool true' src-tauri/Info.ios.plist
 IPHONEOS_DEPLOYMENT_TARGET=16.1 cargo check --manifest-path src-tauri/Cargo.toml --target aarch64-apple-ios-sim
 ```
@@ -125,7 +136,7 @@ packages:
     path: "/path/to/tauri-plugin-live-activity-0.2.1/ios"
 targets:
   app_iOS:
-    sources: [LiveActivityWidget/LiveActivityActionIntent.swift]
+    sources: [LiveActivityWidget/LiveActivityActionIntent.swift, LiveActivityWidget/LiveActivityCustomRegistry.swift, LiveActivityWidget/LiveActivityCustomViews.swift]
     dependencies: [{ target: LiveActivityWidget }]
     settings:
       base:
@@ -158,15 +169,27 @@ targets:
         SKIP_INSTALL: YES
 ```
 
-`groups: [app]` gives the extension the signing team of Tauri's `app` setting group. Include
-the file and regenerate the Xcode project:
+`groups: [app]` gives the extension the signing team of Tauri's `app` setting group. For bundled
+fonts, add `UIAppFonts` with the file names under `properties`, and put the files in
+`LiveActivityWidget/Fonts`. For drawn images, add `TauriLiveActivityAppGroup: "group.com.example.app"`
+under `properties`, and to both targets:
+
+```yaml
+    entitlements:
+      path: LiveActivityWidget.entitlements   # app_iOS/app_iOS.entitlements in the app target
+      properties:
+        com.apple.security.application-groups: ["group.com.example.app"]
+```
+
+Include the file and regenerate the Xcode project:
 
 ```sh
 printf '\ninclude:\n  - live-activity.yml\n' >> src-tauri/gen/apple/project.yml && xcodegen generate --spec src-tauri/gen/apple/project.yml
 ```
 
 The intent file goes into both targets: the widget builds its buttons from it, and the system
-runs it in the app. A `src-tauri/gen/apple` made from scratch has a new `project.yml`; run the
+runs it in the app. So do the two custom view files: the widget draws the views, and the plugin
+in the app reads which names have one. A `src-tauri/gen/apple` made from scratch has a new `project.yml`; run the
 last line again then.
 
 ## Layouts
@@ -177,7 +200,8 @@ Mochi's colors and padding to the code shown here.
 With a layout the app designs the activity itself: a tree of nodes, a table of styles and a
 map of values. On iOS the plugin's widget template draws it, with no SwiftUI in the app.
 Android shows part of it as a notification. The tree is fixed at start; an update sends new
-values with the same keys and types. Layout, styles and values share ActivityKit's 4 KiB
+values with the same keys and types, and a few style members can read values
+([Changing styles](#changing-styles)). Layout, styles and values share ActivityKit's 4 KiB
 limit.
 
 ### Text, values and styles
@@ -234,6 +258,113 @@ builders are all in `layout`.
 
 Android drops styles: the first text is the title and the second the body.
 
+### Changing styles
+
+A style member can name a value with `bind` instead of holding a literal. The member reads
+the value each time the activity is drawn, so an update changes it:
+
+```ts
+import { layout, startLayout, updateLayout } from 'tauri-plugin-live-activity';
+
+const { vstack, hstack, symbol, bound, progress, bind } = layout;
+
+const values = { title: 'Mochi’s snack', status: 'On time', tone: 'green', weight: 'regular', done: 0.3 };
+const delivery = await startLayout({
+  activityKey: 'mochi:styles',
+  schemaVersion: 2,
+  fallback: 'notification',
+  layout: {
+    lockScreen: vstack([
+      hstack([symbol('clock.fill', { style: 'badge' }), bound('title')], { spacing: 8 }),
+      bound('status', { style: 'status' }),
+      progress('done', { style: 'meter' }),
+    ], { alignment: 'leading' }),
+  },
+  styles: {
+    badge: { color: bind('tone') },
+    status: { font: 'subheadline', weight: bind('weight'), color: bind('tone') },
+    meter: { tint: bind('tone') },
+  },
+  snapshot: { revision: 0, values },
+});
+
+// The snack runs late: the badge, the status and the bar turn red, and the status bold.
+await updateLayout({
+  id: delivery.id,
+  snapshot: { revision: 1, values: { ...values, status: 'Running 5 min late', tone: 'red', weight: 'bold', done: 0.5 } },
+});
+```
+
+`bind('tone')` writes `{ "bind": "tone" }`. In Rust, `Bound::key("tone")` writes the same, and
+`.into()` turns it, or a literal, into the member's `Bindable`:
+
+```rust
+use std::collections::BTreeMap;
+use tauri::{AppHandle, Runtime};
+use tauri_plugin_live_activity::{
+    Bound, Element, Fallback, Layout, LayoutSnapshot, LayoutStartInput, LayoutUpdateInput,
+    LiveActivityExt, Node, Result, Style, Value,
+};
+
+fn delivery(revision: u64, status: &str, tone: &str) -> LayoutSnapshot {
+    let values = [("status", status), ("tone", tone)]
+        .map(|(key, text)| (key.to_string(), Value::Text(text.into())));
+    LayoutSnapshot { revision, values: BTreeMap::from(values), stale_at: None }
+}
+
+fn start_input() -> LayoutStartInput {
+    let text = Element::Text { value: None, bind: Some("status".into()) };
+    let status = Node { style: Some("status".into()), ..text.into() };
+    let style = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
+    LayoutStartInput {
+        activity_key: "mochi:snack".into(),
+        schema_version: 2,
+        fallback: Fallback::Notification,
+        layout: Layout { lock_screen: status, island: None, background: None, keyline: None },
+        styles: Some(BTreeMap::from([("status".to_string(), style)])),
+        snapshot: delivery(0, "On time", "green"),
+        android: None,
+    }
+}
+
+fn run_late<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
+    let record = app.live_activity().start_layout(start_input())?;
+    // Later: every value again, with a higher revision. The status turns red.
+    let snapshot = delivery(1, "Running late", "red");
+    let update = LayoutUpdateInput { id: record.id, snapshot };
+    app.live_activity().update_layout(update)?;
+    Ok(())
+}
+```
+
+`LayoutStartInput::validate_update` checks an update against a start the way the native
+layer does, before anything is sent.
+
+The limits:
+
+- Only these members can be bound: `color`, `background` and `tint` (a color name or a hex
+  color), `size` (a number from 6 to 96), `opacity` (0 to 1), `cornerRadius` (0 to 64),
+  `weight` (a weight name), and the layout's `background` and `keyline` (a color).
+- A bound color cannot be a light and dark pair, because a value is a string, a number or a
+  boolean. Color names such as `primary` or `red` follow the appearance; a hex color does not.
+- The tree and every other member are fixed after start: `font`, `design`, `monospacedDigit`,
+  `lineLimit`, `minimumScaleFactor`, `alignment`, `padding`, `frame`, `buttonStyle` and the
+  members of nodes. To change them, end the activity and start it again.
+- The value must exist at start and fit the member. Every update is checked again; a value
+  that does not fit fails with `INVALID_INPUT`, and the activity keeps what it showed.
+- Every update sends all values again. Layout, styles and values share the weight limit of
+  3584, and each binding counts toward it.
+- Android draws no styles: the status text changes, its color does not.
+- A crate of 0.2.x rejects bindings with `INVALID_INPUT`. Keep the npm package and the crate on
+  the same minor version.
+- The iOS widget template passes the values to the background and keyline tints. A widget
+  copied from an earlier template draws a bound `background` or `keyline` as absent. `setup`
+  keeps a copy that differs; delete `LiveActivityWidget.swift` and run `setup` again.
+
+The demo's **Changing styles** example cycles through on time (green), late (red and bold) and
+home (a teal hex color). The full rules are in the
+[request contract](request-contract.md#bound-style-members).
+
 ### SF Symbols
 
 ```ts
@@ -264,10 +395,12 @@ styles: { portrait: { frame: { width: 56, height: 56 } } },
 snapshot: { revision: 0, values: { title: 'Mochi’s portrait' } },
 ```
 
-`image` names a picture in the widget extension's asset catalog. Put an `Assets.xcassets`
-folder in `src-tauri/gen/apple/LiveActivityWidget` and run
-`xcodegen generate --spec src-tauri/gen/apple/project.yml`; the widget target picks it up. The
-demo's `mochi` is a PNG drawn from an SVG file.
+`image` names a picture in the widget extension's asset catalog; `setup --asset` puts one there
+([Fonts and pictures](#fonts-and-pictures-of-the-widget)). An `Assets.xcassets` folder made by hand
+in `src-tauri/gen/apple/LiveActivityWidget` works too: run
+`xcodegen generate --spec src-tauri/gen/apple/project.yml` and the widget target picks it up. The
+demo's `mochi` is a PNG drawn from an SVG file. `image({ file: 'badge.png' })` shows a picture the
+app drew instead ([Pictures the app draws](#pictures-the-app-draws)).
 
 | iOS 26.3 simulator | Android |
 | --- | --- |
@@ -544,6 +677,253 @@ also needs this entry in the `<application>` of
 ```
 
 What was found about the Now Bar on One UI 9 is in [Android setup](android-integration.md#samsung-now-bar).
+
+## Beyond the built-in parts
+
+The nodes above draw with system fonts, SF Symbols, the widget's asset catalog, SVG path data, progress views,
+gauges and timers. Four ways go further. The first two need no Swift:
+
+| You want | How | Swift |
+| --- | --- | --- |
+| your fonts, your pictures | `setup --font`, `setup --asset`; a style's `fontFamily`, `image(name)` | no |
+| pictures the app draws while it runs | `setup --app-group`; `writeImage`, `image({ file })` | no |
+| a view of your own | `custom(name)` and a SwiftUI view in `LiveActivityCustomViews.swift` | yes, that view |
+| everything | edit the copied `LiveActivityWidget.swift` | yes, all of it |
+
+The captures were made with a scratch Tauri app on the iOS 26.3 simulator (iPhone 17 Pro), with the plugin added
+by path.
+
+### Fonts and pictures of the widget
+
+```sh
+npx tauri-plugin-live-activity setup --font fonts/Pacifico-Regular.ttf --asset art/paw@2x.png --asset art/paw@3x.png
+```
+
+`--font` copies a `.ttf`, `.otf` or `.ttc` file to `src-tauri/gen/apple/LiveActivityWidget/Fonts` and lists every
+font of that folder under `UIAppFonts` in the extension's Info.plist, through `live-activity.yml`. It prints the
+names the font answers to, for example `fontFamily: "Pacifico-Regular" or "Pacifico"`: the PostScript name and the
+family name from the font's name table. A style takes either:
+
+```ts
+styles: {
+  title: { fontFamily: 'Pacifico-Regular', font: 'title3' }, // the size of title3, scaled with Dynamic Type
+  price: { fontFamily: 'Pacifico', size: 18, weight: 'bold' }, // 18 points, not scaled
+}
+```
+
+- With `font`, the custom font takes that text style's size (title3 is 20 points at the default text size) and
+  scales with Dynamic Type. With `size`, it has that size. Alone it takes the size of `body`, 17 points.
+- `weight` picks another face of the family when the extension bundles one; a family of one face draws that face.
+- `fontFamily` and `design` exclude each other, as `font` and `size` do: `design` chooses a design of the system
+  font. `fontFamily` is fixed at start, like `font`.
+- A name the extension does not have draws the system font at the same size. Nothing reports it, so check the
+  names that `setup` prints.
+
+`--asset` copies a `.png`, `.jpg`, `.jpeg`, `.pdf` or `.svg` file into the extension's asset catalog,
+`LiveActivityWidget/Assets.xcassets`. The file name is the asset name, without the extension and a `@2x` or `@3x`
+scale: `paw@2x.png` and `paw@3x.png` become the two scales of `paw`, which `image('paw')` shows. A PDF or SVG is kept
+as vector data. The name must follow the asset rule (1 to 64 ASCII letters, digits, `.`, `_` and `-`). An image set
+that you edited in Xcode keeps its entries; setup only adds the file it copies.
+
+Both options copy a file again when it changed, and leave it alone otherwise. The fonts in the folder stay listed
+on later runs without `--font`. Both files and folders live in `gen/apple`; keep that folder in version control, and
+restore `LiveActivityWidget` with it if you ever make it from scratch.
+
+<img src="images/ios-custom-before.png" width="400" alt="A drawn coral badge with 1, a title in the BM Hanna font, a ring at 35% and Mochi's portrait on the iOS Lock Screen">
+
+The title uses a bundled font by its PostScript name, the line below it the same font by its family name; Mochi's
+portrait on the right is an asset that `--asset` added.
+
+### Pictures the app draws
+
+The widget extension runs in a process of its own and cannot read the app's files. An App Group gives both a shared
+container:
+
+```sh
+npx tauri-plugin-live-activity setup --app-group                 # group.<app identifier>
+npx tauri-plugin-live-activity setup --app-group=group.com.example.shared
+```
+
+Setup writes the group into `live-activity.yml`: into the entitlements of the app target and of the extension, and
+under `TauriLiveActivityAppGroup` into the extension's Info.plist, where the plugin and the widget read it. Later runs
+keep the group without the option. XcodeGen writes both entitlements files from the spec each time it generates the
+project, and it did so before this option too: with Tauri's `project.yml` it writes the app's file empty. An
+entitlement the app needs, such as `aps-environment`, belongs under `entitlements.properties` of the app target in
+`project.yml`; XcodeGen merges it with the App Group of `live-activity.yml`. In the simulator nothing
+more is needed. For a device the group has to exist in your Apple Developer account and in the provisioning profiles
+of both targets: with automatic signing, Xcode registers it the first time it builds for a device, which needs your
+account signed in to Xcode; with manual signing, add the group to both App IDs and download the profiles again.
+
+Then write a PNG and point an `image` at it:
+
+```ts
+import { layout, startLayout, updateLayout, writeImage } from 'tauri-plugin-live-activity';
+
+const { hstack, image, bound } = layout;
+
+async function badge(color: string, label: string): Promise<Uint8Array> {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 168; // 56 points at @3x
+  const context = canvas.getContext('2d')!;
+  context.fillStyle = color;
+  context.beginPath();
+  context.arc(84, 84, 80, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = '#FFFFFF';
+  context.font = 'bold 96px -apple-system';
+  context.textAlign = 'center';
+  context.fillText(label, 84, 118);
+  const blob = await new Promise<Blob>(resolve => canvas.toBlob(png => resolve(png!), 'image/png'));
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+await writeImage('badge.png', await badge('#C9654D', '1'));
+const card = await startLayout({
+  activityKey: 'mochi:badge',
+  schemaVersion: 2,
+  fallback: 'none',
+  layout: { lockScreen: hstack([image({ file: 'badge.png' }, { resizable: true, style: 'badge' }), bound('title')]) },
+  styles: { badge: { frame: { width: 52, height: 52 } } },
+  snapshot: { revision: 0, values: { title: 'Mochi’s snack' } },
+});
+
+// Later: a new picture under the same name, then an update.
+await writeImage('badge.png', await badge('#2E8B7A', '2'));
+await updateLayout({ id: card.id, snapshot: { revision: 1, values: { title: 'Mochi is home' } } });
+```
+
+In Rust, `write_image` takes the bytes, for example from a PNG encoder such as the `png` or `image` crate:
+
+```rust
+app.live_activity().write_image("badge.png", &png_bytes)?;
+```
+
+- The name follows the rule of a `file` source, the same as an asset name: 1 to 64 ASCII letters, digits, `.`, `_`
+  and `-`, starting with a letter or digit. No folders, so a name cannot leave the image folder.
+  `INVALID_INPUT` otherwise.
+- The bytes are a PNG file, from its signature and image header to its end chunk (`INVALID_INPUT` otherwise), of at
+  most 1 MiB and 1224 × 480 pixels (`PAYLOAD_TOO_LARGE` beyond). Apple requires an image of a Live Activity to be no
+  larger than its presentation and says that a larger one may keep the activity from starting; 1224 × 480 is the
+  largest Lock Screen presentation, 408 × 160 points, at @3x. Draw at the size the frame shows at @3x: 56 points are
+  168 pixels.
+- On iOS the file goes to `tauri-live-activity/images` in the App Group container, replacing an earlier file of that
+  name as a whole: the widget reads the old picture or the new one, never part of one. Without an App Group in the
+  extension the call fails with `CONFIGURATION_REQUIRED`. On desktop it checks the PNG and returns
+  `UNSUPPORTED_PLATFORM`.
+- The widget reads the file each time it draws the activity, which it does on start and on every update. Writing
+  alone draws nothing new: write first, then update. The update may keep every value; its higher revision is new
+  content. A missing or unreadable file draws nothing and is not reported.
+- The name is fixed in the tree at start, so a new picture takes the same name. Files stay until the app writes them
+  again; the plugin removes none, so reuse a few names.
+- Files get the app's default data protection, readable after the first unlock, so the Lock Screen can draw them.
+
+<img src="images/ios-custom-after.png" width="400" alt="The same activity after an update: a teal badge with 2, Mochi is home, the ring at 80%">
+
+The same activity after an update: the app wrote a teal badge under the same name, then sent new values. A
+later update that kept every value and only raised the revision, sent after a third badge was written, drew the
+third badge too.
+
+On Android, `writeImage` writes to the app's private files. The notification shows the first image of the lock
+screen tree whose source is a file, in document order with the conditions applied, as its large icon, scaled to at
+most 256 pixels. Google's requirements for a Live Update do not name the large icon, so it keeps promotion; One UI's
+Now Bar was not checked with one. Asset images and further file images are listed as `layout.image`.
+
+### Custom SwiftUI views
+
+A `custom` node draws a SwiftUI view that the app registers under a name:
+
+```ts
+const { custom, bind } = layout;
+
+lockScreen: hstack([bound('title'), custom('ring', { props: { level: bind('done'), label: bind('percent'), width: 5 }, style: 'ring' })]),
+styles: { ring: { frame: { width: 46, height: 46 }, color: 'mint' } },
+snapshot: { revision: 0, values: { title: 'Mochi’s snack', done: 0.35, percent: '35%' } },
+```
+
+`setup` creates `src-tauri/gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift` once and never writes it again.
+Fill in its table:
+
+```swift
+import SwiftUI
+
+@available(iOS 16.1, *)
+@objc(TauriLiveActivityCustomViews)
+final class LiveActivityCustomViews: LiveActivityCustomViewRegistry {
+    override class var views: [String: LiveActivityCustomView] {
+        [
+            "ring": LiveActivityCustomView { props in
+                Ring(level: props.number("level") ?? 0, label: props.string("label") ?? "", width: props.number("width") ?? 4)
+            },
+        ]
+    }
+}
+
+@available(iOS 16.1, *)
+struct Ring: View {
+    let level: Double
+    let label: String
+    let width: Double
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(lineWidth: width).opacity(0.25)
+            Circle().trim(from: 0, to: level).stroke(style: StrokeStyle(lineWidth: width, lineCap: .round)).rotationEffect(.degrees(-90))
+            Text(label).font(.system(size: 11, weight: .bold))
+        }
+    }
+}
+```
+
+- `props` holds 1 to 16 inputs under value-key names. A literal is text of at most 200 code points, a number or a
+  boolean; `bind(key)` reads a value, so each update can change it. In Swift, `props.number`, `props.string` and
+  `props.bool` read them, and `props["key"]` gives the value as it is. A prop the node does not set is absent.
+- The node's `style` and conditions work as on any node: the style sets the frame, padding, colors and font around
+  the view, which inherits the foreground color and the tint.
+- The file is compiled into the widget extension, which draws the views, and into the app, so the plugin can tell
+  which names have a view. Keep the class name and `@objc(TauriLiveActivityCustomViews)`: the widget and the plugin
+  find the table by it. Mark your views `@available(iOS 16.1, *)` when they use newer SwiftUI, because the app target
+  may support an older iOS than the extension.
+- The plugin's half, `LiveActivityCustomRegistry.swift`, and `LiveActivityWidget.swift` stay templates of the plugin,
+  so a plugin update replaces them while your views stay.
+- A node whose name has no view draws nothing. On iOS the record names it in `degradedFeatures` as
+  `layout.custom.<name>`, for every such name of the layout, as long as ActivityKit reports the activity. Android
+  draws no custom view and lists `layout.custom`.
+- The validators check the name (the asset name rule) and the props, not the view: what it draws, how much memory it
+  takes and whether it compiles are yours to test. A Live Activity has no network; draw with shapes, text and images
+  of the extension, and leave out timers and animations of your own.
+
+The ring in the captures is this view, with `level` bound to a value: 35% at start, 80% after the update.
+
+### The whole widget
+
+The last resort is to edit `src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift`, the copy of the
+plugin's template, and draw `context.state.values` your own way. Keep `ActivityConfiguration(for:
+LiveActivityLayoutAttributes.self)` and the extension's `TauriLiveActivityLayout` = 2. What you give up:
+
+- `setup` keeps a file that differs from the template and says so on every run; fixes and features of later
+  templates, such as the bound tints of 0.3.0 or custom views, are yours to merge by hand.
+- The plugin draws nothing of the layout any more: the validators still check every request, but what the widget
+  shows for it is your code, outside the shared fixtures and the plugin's tests.
+- `degradedFeatures` describes the plugin's widget, not yours.
+
+### Limits
+
+- A Live Activity runs in a sandbox of its own with no network and no location (Apple: "unlike a widget, a Live
+  Activity can't access the network or receive location updates"). Everything it shows must be in the extension,
+  in the payload, or in the App Group container.
+- Apple does not publish the memory limit of the widget extension. A decoded image takes 4 bytes per pixel, so a
+  picture of 1224 × 480 takes about 2.3 MB; keep few of them on screen.
+- Images of a Live Activity must be no larger than the presentation (Apple); `writeImage` holds to 1 MiB and
+  1224 × 480 pixels, the largest Lock Screen presentation at @3x. The Lock Screen is 160 points high at most and a
+  compact island part about 36 points.
+- Fonts must be bundled in the extension; the extension cannot load the app's fonts or download one.
+- Drawn images need the App Group, configured in both targets, which a device build registers with your Apple
+  account once.
+- The validators check a custom node's name and props; the view itself is not checked.
+- Android shows a standard notification for a Live Update: no fonts, no styles, no custom views and no asset
+  images. A drawn image becomes the large icon.
+- Layout, styles and values share the weight limit of 3584, custom props and font names included; each update sends
+  every value again.
 
 ## Templates: progress and timer
 

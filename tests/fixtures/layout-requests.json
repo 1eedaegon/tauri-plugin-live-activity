@@ -1062,6 +1062,222 @@
       "name": "ends a layout activity after the largest time",
       "command": "end_layout",
       "input": { "id": "opaque-handle-1", "policy": { "kind": "after", "at": 8640000000000000 } }
+    },
+    {
+      "name": "accepts a style color bound to a color name value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green" } } },
+      "weight": 130
+    },
+    {
+      "name": "accepts bound colors whose values are hex colors of 6 and 8 digits in either case",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "ink" }, "background": { "bind": "paper" }, "tint": { "bind": "mark" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "ink": "#1A2B3C", "paper": "#ffffff80", "mark": "#AbCdEf" } } },
+      "weight": 222
+    },
+    {
+      "name": "accepts every bindable style member bound at once",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "size" }, "weight": { "bind": "weight" }, "color": { "bind": "tone" }, "background": { "bind": "fill" }, "cornerRadius": { "bind": "radius" }, "opacity": { "bind": "alpha" }, "tint": { "bind": "accent" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "size": 17, "weight": "semibold", "tone": "red", "fill": "#FFF4E5", "radius": 8, "alpha": 0.9, "accent": "#0A84FF80" } } },
+      "weight": 407
+    },
+    {
+      "name": "accepts bound numbers at both ends of their ranges",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "hstack", "children": [{ "type": "text", "value": "a", "style": "low" }, { "type": "text", "value": "b", "style": "high" }] } }, "styles": { "low": { "size": { "bind": "smallest" }, "opacity": { "bind": "clear" }, "cornerRadius": { "bind": "square" } }, "high": { "size": { "bind": "largest" }, "opacity": { "bind": "solid" }, "cornerRadius": { "bind": "round" } } }, "snapshot": { "revision": 0, "values": { "smallest": 6, "clear": 0, "square": 0, "largest": 96, "solid": 1, "round": 64 } } },
+      "weight": 444
+    },
+    {
+      "name": "accepts every font weight name as a bound value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "children": [{ "type": "hstack", "children": [{ "type": "text", "value": "a", "style": "w0" }, { "type": "text", "value": "a", "style": "w1" }, { "type": "text", "value": "a", "style": "w2" }, { "type": "text", "value": "a", "style": "w3" }, { "type": "text", "value": "a", "style": "w4" }, { "type": "text", "value": "a", "style": "w5" }, { "type": "text", "value": "a", "style": "w6" }, { "type": "text", "value": "a", "style": "w7" }, { "type": "text", "value": "a", "style": "w8" }] }] } }, "styles": { "w0": { "weight": { "bind": "w0" } }, "w1": { "weight": { "bind": "w1" } }, "w2": { "weight": { "bind": "w2" } }, "w3": { "weight": { "bind": "w3" } }, "w4": { "weight": { "bind": "w4" } }, "w5": { "weight": { "bind": "w5" } }, "w6": { "weight": { "bind": "w6" } }, "w7": { "weight": { "bind": "w7" } }, "w8": { "weight": { "bind": "w8" } } }, "snapshot": { "revision": 0, "values": { "w0": "ultraLight", "w1": "thin", "w2": "light", "w3": "regular", "w4": "medium", "w5": "semibold", "w6": "bold", "w7": "heavy", "w8": "black" } } },
+      "weight": 877
+    },
+    {
+      "name": "accepts every semantic color name as a bound value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "children": [{ "type": "hstack", "children": [{ "type": "text", "value": "a", "style": "c0" }, { "type": "text", "value": "a", "style": "c1" }, { "type": "text", "value": "a", "style": "c2" }, { "type": "text", "value": "a", "style": "c3" }, { "type": "text", "value": "a", "style": "c4" }, { "type": "text", "value": "a", "style": "c5" }, { "type": "text", "value": "a", "style": "c6" }, { "type": "text", "value": "a", "style": "c7" }, { "type": "text", "value": "a", "style": "c8" }, { "type": "text", "value": "a", "style": "c9" }, { "type": "text", "value": "a", "style": "c10" }, { "type": "text", "value": "a", "style": "c11" }] }, { "type": "hstack", "children": [{ "type": "text", "value": "a", "style": "c12" }, { "type": "text", "value": "a", "style": "c13" }, { "type": "text", "value": "a", "style": "c14" }, { "type": "text", "value": "a", "style": "c15" }, { "type": "text", "value": "a", "style": "c16" }, { "type": "text", "value": "a", "style": "c17" }, { "type": "text", "value": "a", "style": "c18" }] }] } }, "styles": { "c0": { "color": { "bind": "c0" } }, "c1": { "color": { "bind": "c1" } }, "c2": { "color": { "bind": "c2" } }, "c3": { "color": { "bind": "c3" } }, "c4": { "color": { "bind": "c4" } }, "c5": { "color": { "bind": "c5" } }, "c6": { "color": { "bind": "c6" } }, "c7": { "color": { "bind": "c7" } }, "c8": { "color": { "bind": "c8" } }, "c9": { "color": { "bind": "c9" } }, "c10": { "color": { "bind": "c10" } }, "c11": { "color": { "bind": "c11" } }, "c12": { "color": { "bind": "c12" } }, "c13": { "color": { "bind": "c13" } }, "c14": { "color": { "bind": "c14" } }, "c15": { "color": { "bind": "c15" } }, "c16": { "color": { "bind": "c16" } }, "c17": { "color": { "bind": "c17" } }, "c18": { "color": { "bind": "c18" } } }, "snapshot": { "revision": 0, "values": { "c0": "primary", "c1": "secondary", "c2": "accent", "c3": "red", "c4": "orange", "c5": "yellow", "c6": "green", "c7": "mint", "c8": "teal", "c9": "cyan", "c10": "blue", "c11": "indigo", "c12": "purple", "c13": "pink", "c14": "brown", "c15": "white", "c16": "black", "c17": "gray", "c18": "clear" } } },
+      "weight": 1791
+    },
+    {
+      "name": "accepts a bound layout background and keyline",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status" }, "background": { "bind": "paper" }, "keyline": { "bind": "edge" } }, "snapshot": { "revision": 0, "values": { "status": "On time", "paper": "#FAF7EF", "edge": "mint" } } },
+      "weight": 161
+    },
+    {
+      "name": "accepts a bound member next to literal members of the same style",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "font": "headline", "weight": { "bind": "weight" }, "color": "secondary", "padding": 8, "opacity": { "bind": "alpha" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "weight": "bold", "alpha": 0.5 } } },
+      "weight": 236
+    },
+    {
+      "name": "accepts a bound size next to a literal weight",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "points" }, "weight": "bold" } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 22 } } },
+      "weight": 150
+    },
+    {
+      "name": "accepts one value bound by several members and shown as text",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "hstack", "children": [{ "type": "text", "bind": "tone", "style": "s" }, { "type": "progress", "bind": "done", "style": "s" }] }, "keyline": { "bind": "tone" } }, "styles": { "s": { "color": { "bind": "tone" }, "tint": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "tone": "orange", "done": 0.5 } } },
+      "weight": 257
+    },
+    {
+      "name": "accepts a bound style that no node uses",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "value": "a", "style": "used" } }, "styles": { "used": { "size": 12 }, "unused": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "tone": "blue" } } },
+      "weight": 140
+    },
+    {
+      "name": "accepts a bound value key of 32 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk": "teal" } } },
+      "weight": 185
+    },
+    {
+      "name": "accepts a start with bound styles that weighs exactly 3584",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green", "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "c": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "d": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } } },
+      "weight": 3584
+    },
+    {
+      "name": "accepts a fontFamily alone",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 107
+    },
+    {
+      "name": "accepts a fontFamily with a text style and a weight",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter", "font": "headline", "weight": "bold" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 141
+    },
+    {
+      "name": "accepts a fontFamily with a literal size",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter-Bold", "size": 22 } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 128
+    },
+    {
+      "name": "accepts a fontFamily with a bound size, color and weight",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Avenir Next", "size": { "bind": "points" }, "color": { "bind": "tone" }, "weight": { "bind": "heft" } } }, "snapshot": { "revision": 0, "values": { "title": "Mochi", "points": 18, "tone": "red", "heft": "semibold" } } },
+      "weight": 239
+    },
+    {
+      "name": "accepts a fontFamily with spaces, dots, hyphens and underscores",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "My Font_2.0-Regular" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 121
+    },
+    {
+      "name": "accepts a fontFamily of 64 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 166
+    },
+    {
+      "name": "accepts a fontFamily that starts with a digit",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "3270 Condensed" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "weight": 116
+    },
+    {
+      "name": "accepts an image drawn from a file",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "badge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 68
+    },
+    {
+      "name": "accepts a resizable file image that fills its frame, with a style",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "badge.png" }, "resizable": true, "contentMode": "fill", "style": "art" } }, "styles": { "art": { "frame": { "width": 48, "height": 48 }, "cornerRadius": 8 } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 200
+    },
+    {
+      "name": "accepts a file name without an extension",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "badge" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 64
+    },
+    {
+      "name": "accepts a file name of 64 characters with dots, hyphens and underscores",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb_x-2.v9.pngab" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 123
+    },
+    {
+      "name": "accepts file and asset images side by side and in the island",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "hstack", "children": [{ "type": "image", "source": { "asset": "mochi" } }, { "type": "image", "source": { "file": "mochi.png" } }] }, "island": { "compactLeading": { "type": "image", "source": { "file": "dot.png" }, "resizable": true }, "expanded": { "leading": { "type": "image", "source": { "file": "badge.png" } } } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 314
+    },
+    {
+      "name": "accepts a custom node with only a name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 52
+    },
+    {
+      "name": "accepts a custom node with literal props of every type",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "label": "Bowl", "empty": "", "level": 0.8, "rings": 3, "animated": false } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 140
+    },
+    {
+      "name": "accepts a custom node with props bound to values of every type",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl" }, "label": { "bind": "title" }, "full": { "bind": "isFull" }, "thickness": 4 } } }, "snapshot": { "revision": 0, "values": { "bowl": 0.8, "title": "Bowl", "isFull": false } } },
+      "weight": 207
+    },
+    {
+      "name": "accepts a custom node with a style and an if condition",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "style": "s", "if": "shown" } }, "styles": { "s": { "frame": { "width": 40, "height": 40 }, "color": "mint" } }, "snapshot": { "revision": 0, "values": { "shown": true } } },
+      "weight": 159
+    },
+    {
+      "name": "accepts a custom node with an unless condition",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "unless": "hidden" } }, "snapshot": { "revision": 0, "values": { "hidden": false } } },
+      "weight": 85
+    },
+    {
+      "name": "accepts custom nodes in every island region and inside a button",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "button", "actionId": "pet", "child": { "type": "custom", "name": "paw.button" } }, "island": { "expanded": { "leading": { "type": "custom", "name": "ring" }, "trailing": { "type": "custom", "name": "ring" }, "center": { "type": "custom", "name": "title-art" }, "bottom": { "type": "custom", "name": "bar_2" } }, "compactLeading": { "type": "custom", "name": "dot" }, "compactTrailing": { "type": "custom", "name": "dot" }, "minimal": { "type": "custom", "name": "3dots" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 448
+    },
+    {
+      "name": "accepts a custom node with 16 props",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "p0": 0, "p1": 1, "p2": 2, "p3": 3, "p4": 4, "p5": 5, "p6": 6, "p7": 7, "p8": 8, "p9": 9, "p10": 10, "p11": 11, "p12": 12, "p13": 13, "p14": 14, "p15": 15 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 293
+    },
+    {
+      "name": "accepts a custom name of 64 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "raaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaax" } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 112
+    },
+    {
+      "name": "accepts a custom prop string of 200 code points",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "label": "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 674
+    },
+    {
+      "name": "accepts custom prop numbers at both ends of the value range",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "low": -8640000000000000, "high": 8640000000000000 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "weight": 94
+    },
+    {
+      "name": "accepts a custom node beside text, a progress bar and a symbol",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "children": [{ "type": "text", "bind": "title" }, { "type": "hstack", "children": [{ "type": "custom", "name": "ring", "props": { "level": { "bind": "done" } } }, { "type": "progress", "bind": "done" }] }, { "type": "symbol", "name": "pawprint.fill" }] } }, "snapshot": { "revision": 0, "values": { "title": "Mochi", "done": 0.4 } } },
+      "weight": 295
     }
   ],
   "invalid": [
@@ -5359,6 +5575,920 @@
       "name": "rejects a start that is too heavy and names a missing value as INVALID_INPUT",
       "command": "start_layout",
       "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "children": [{ "type": "text", "bind": "absent" }, { "type": "text", "bind": "b" }, { "type": "text", "bind": "c" }, { "type": "text", "bind": "d" }] } }, "snapshot": { "revision": 0, "values": { "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "c": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "d": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound color that names no value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound color that names a number value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": 1 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound color that names a boolean value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": true } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound color whose value is not a color name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "crimson" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound color whose value is a capitalized color name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "Red" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound color whose value is a hex color of 3 digits",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "#FFF" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound color whose value is a hex color without its hash",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "FF0000" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound color whose value is a hex color with a trailing line break",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "#FF0000\n" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound color whose value is a light and dark pair written as text",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "{\"light\":\"#000000\",\"dark\":\"#FFFFFF\"}" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound color whose value is empty",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound style background that names no value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "background": { "bind": "fill" } } }, "snapshot": { "revision": 0, "values": { "status": "On time" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound style background whose value is not a color",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "background": { "bind": "fill" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "fill": "paper" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound tint whose value is not a color",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "tint": { "bind": "accent" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "accent": "sky" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound opacity below 0",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "opacity": { "bind": "alpha" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "alpha": -0.01 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound opacity above 1",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "opacity": { "bind": "alpha" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "alpha": 1.01 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound opacity that names a string value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "opacity": { "bind": "alpha" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "alpha": "0.5" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound opacity that names no value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "opacity": { "bind": "alpha" } } }, "snapshot": { "revision": 0, "values": { "status": "On time" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound size below 6",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "points" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 5.9 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound size above 96",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "points" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 96.5 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound size that names a boolean value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "points" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": true } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound corner radius below 0",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "cornerRadius": { "bind": "radius" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "radius": -1 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound corner radius above 64",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "cornerRadius": { "bind": "radius" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "radius": 64.5 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound corner radius that names a string value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "cornerRadius": { "bind": "radius" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "radius": "8" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound weight whose value is not a weight name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "weight": { "bind": "weight" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "weight": "Bold" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound weight that names a number value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "weight": { "bind": "weight" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "weight": 700 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound weight whose value is a font name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "weight": { "bind": "weight" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "weight": "headline" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound layout background that names no value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "value": "a" }, "background": { "bind": "paper" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound layout background that names a number value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "value": "a" }, "background": { "bind": "paper" } }, "snapshot": { "revision": 0, "values": { "paper": 0 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound keyline whose value is not a color",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "value": "a" }, "keyline": { "bind": "edge" } }, "snapshot": { "revision": 0, "values": { "edge": "sky" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound value outside its range in a style that no node uses",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "value": "a", "style": "used" } }, "styles": { "used": { "size": 12 }, "unused": { "opacity": { "bind": "alpha" } } }, "snapshot": { "revision": 0, "values": { "alpha": 2 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound size together with a font",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "font": "body", "size": { "bind": "points" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 12 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a binding with a member besides bind",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone", "light": "#000000" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "red" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a binding with an unknown member",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "opacity": { "bind": "alpha", "default": 1 } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "alpha": 0.5 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an empty object as a bound opacity",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "opacity": {} } }, "snapshot": { "revision": 0, "values": { "status": "On time", "alpha": 0.5 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a binding whose key is a number",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": 5 } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 12 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects null as a binding key",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": null } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "red" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a binding whose key is an array",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "tint": { "bind": ["accent"] } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "accent": "red" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a binding whose key starts with a digit",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "1tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "red" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a binding whose key is empty",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "red" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a binding inside a light and dark pair",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "light": { "bind": "tone" }, "dark": "#000000" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "#FFFFFF" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound font",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "font": { "bind": "font" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "font": "headline" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound design",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "design": { "bind": "design" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "design": "rounded" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound monospacedDigit",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "monospacedDigit": { "bind": "digits" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "digits": true } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound line limit",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "lineLimit": { "bind": "lines" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "lines": 2 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound minimum scale factor",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "minimumScaleFactor": { "bind": "scale" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "scale": 0.5 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound text alignment",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "alignment": { "bind": "align" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "align": "center" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound padding",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "padding": { "bind": "inset" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "inset": 8 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound padding edge",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "padding": [0, { "bind": "inset" }, 0, 0] } }, "snapshot": { "revision": 0, "values": { "status": "On time", "inset": 8 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound frame",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "frame": { "bind": "box" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "box": 40 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound frame width",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "frame": { "width": { "bind": "wide" } } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "wide": 40 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound button style",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "buttonStyle": { "bind": "kind" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "kind": "bordered" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound stack spacing",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "spacing": { "bind": "gap" }, "children": [{ "type": "text", "value": "a" }] } }, "snapshot": { "revision": 0, "values": { "gap": 4 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound literal text value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "value": { "bind": "status" } } }, "snapshot": { "revision": 0, "values": { "status": "On time" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound symbol name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "symbol", "name": { "bind": "icon" } } }, "snapshot": { "revision": 0, "values": { "icon": "star" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a start with bound styles that weighs 3585",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green", "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "c": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "d": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } } },
+      "code": "PAYLOAD_TOO_LARGE"
+    },
+    {
+      "name": "rejects a start that is too heavy and binds a missing value as INVALID_INPUT",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" }, "tint": { "bind": "absent" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green", "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "c": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "d": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an empty fontFamily",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily of 65 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbc" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily that starts with a space",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": " Inter" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily that starts with a hyphen",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "-Inter" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily that starts with a dot",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": ".SFUI" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily with a slash",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Fonts/Inter" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily with a comma",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter,Arial" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily with a non-ASCII letter",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Pretendardé" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily with a trailing line break",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter\n" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily with a tab",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter\tBold" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects null as a fontFamily",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": null } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a number as a fontFamily",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": 12 } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a list of fontFamily names",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": ["Inter"] } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound fontFamily",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": { "bind": "face" } } }, "snapshot": { "revision": 0, "values": { "title": "Mochi", "face": "Inter" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a fontFamily together with a design",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontFamily": "Inter", "design": "rounded" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects fontfamily in lower case",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "s" } }, "styles": { "s": { "fontfamily": "Inter" } }, "snapshot": { "revision": 0, "values": { "title": "Mochi" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an image source with both an asset and a file",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "asset": "mochi", "file": "mochi.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an empty image source",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": {} } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an empty file name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name of 65 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name that starts with a dot",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": ".badge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name of two dots",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": ".." } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name with a slash",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "images/badge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name with a backslash",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "images\\badge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name with a space",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "my badge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file name with a non-ASCII letter",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "bädge.png" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects null as a file name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": null } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a number as a file name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": 7 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a bound file name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": { "bind": "art" } } } }, "snapshot": { "revision": 0, "values": { "art": "badge.png" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file source with another member",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "badge.png", "scale": 3 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a file image with an unknown content mode",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "image", "source": { "file": "badge.png" }, "contentMode": "stretch" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom node without a name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an empty custom name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name of 65 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "raaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxy" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name that starts with a dot",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": ".ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name with a slash",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "views/ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name with a space",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "my ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name with a colon",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "mochi:ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom name with a non-ASCII letter",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "rìng" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects null as a custom name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": null } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a number as a custom name",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": 1 } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom node type in upper case",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "Custom", "name": "ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects children on a custom node",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "children": [{ "type": "divider" }] } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an unknown member on a custom node",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "view": "ring" } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects empty custom props",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": {} } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects 17 custom props",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "p0": 0, "p1": 1, "p2": 2, "p3": 3, "p4": 4, "p5": 5, "p6": 6, "p7": 7, "p8": 8, "p9": 9, "p10": 10, "p11": 11, "p12": 12, "p13": 13, "p14": 14, "p15": 15, "p16": 16 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects custom props that are a list",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": [1, 2] } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects null as custom props",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": null } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop key that starts with a digit",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "1st": 1 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop key with a hyphen",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "line-width": 1 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop key of 33 characters",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk": 1 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects null as a custom prop",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": null } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a list as a custom prop",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "levels": [0.1, 0.2] } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an object custom prop that is not a binding",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "color": { "light": "#FFFFFF", "dark": "#000000" } } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop binding with another member",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl", "scale": 2 } } } }, "snapshot": { "revision": 0, "values": { "bowl": 1 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop binding that names no value",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl" } } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop binding whose key is not a value key",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": { "bind": "2bowl" } } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop binding to null",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "level": { "bind": null } } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop string of 201 code points",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "label": "한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한한" } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop number above the value range",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "high": 8640000000000001 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom prop number below the value range",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "custom", "name": "ring", "props": { "low": -8640000000000001 } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects a custom node that is the fourth node of a compact region",
+      "command": "start_layout",
+      "input": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "value": "a" }, "island": { "compactTrailing": { "type": "hstack", "children": [{ "type": "custom", "name": "a" }, { "type": "custom", "name": "b" }, { "type": "custom", "name": "c" }] } } }, "snapshot": { "revision": 0, "values": {} } },
+      "code": "INVALID_INPUT"
+    }
+  ],
+  "updates": [
+    {
+      "name": "updates a bound color from one color name to another",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "Running late", "tone": "red" } } },
+      "weight": 133
+    },
+    {
+      "name": "updates a bound color from a color name to a hex color",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "tone": "#C9654D" } } },
+      "weight": 132
+    },
+    {
+      "name": "updates every bindable member at once",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "size" }, "weight": { "bind": "weight" }, "color": { "bind": "tone" }, "background": { "bind": "fill" }, "cornerRadius": { "bind": "radius" }, "opacity": { "bind": "alpha" }, "tint": { "bind": "accent" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "size": 17, "weight": "semibold", "tone": "red", "fill": "#FFF4E5", "radius": 8, "alpha": 0.9, "accent": "#0A84FF80" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "size": 22, "weight": "heavy", "tone": "#00000080", "fill": "clear", "radius": 0, "alpha": 0, "accent": "mint" } } },
+      "weight": 403
+    },
+    {
+      "name": "updates bound numbers to the low ends of their ranges",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "points" }, "opacity": { "bind": "alpha" }, "cornerRadius": { "bind": "radius" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 17, "alpha": 0.5, "radius": 8 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "points": 6, "alpha": 0, "radius": 0 } } },
+      "weight": 231
+    },
+    {
+      "name": "updates bound numbers to the high ends of their ranges",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "points" }, "opacity": { "bind": "alpha" }, "cornerRadius": { "bind": "radius" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 17, "alpha": 0.5, "radius": 8 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "points": 96, "alpha": 1, "radius": 64 } } },
+      "weight": 231
+    },
+    {
+      "name": "updates a bound layout background and keyline",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status" }, "background": { "bind": "paper" }, "keyline": { "bind": "edge" } }, "snapshot": { "revision": 0, "values": { "status": "On time", "paper": "#FAF7EF", "edge": "mint" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "paper": "black", "edge": "#A3D9C2" } } },
+      "weight": 162
+    },
+    {
+      "name": "updates the values of a style that no node uses",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "value": "a", "style": "used" } }, "styles": { "used": { "size": 12 }, "unused": { "opacity": { "bind": "alpha" } } }, "snapshot": { "revision": 0, "values": { "alpha": 0.5 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "alpha": 1 } } },
+      "weight": 146
+    },
+    {
+      "name": "updates a timer to new times after its start",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "timerText", "start": "from", "end": "to" } }, "snapshot": { "revision": 0, "values": { "from": 1000, "to": 2000 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "from": 5000, "to": 9000 } } },
+      "weight": 97
+    },
+    {
+      "name": "updates values that weigh exactly 3584 with the stored layout and styles",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green", "a": "", "b": "", "c": "", "d": "" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "tone": "red", "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "c": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "d": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } } },
+      "weight": 3584
+    },
+    {
+      "name": "rejects an update that sets a bound color to a name outside the contract",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "tone": "crimson" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a bound color to a hex color of 3 digits",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "tone": "#F00" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a bound color to an empty string",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "tone": "" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a bound opacity above 1",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "points" }, "opacity": { "bind": "alpha" }, "cornerRadius": { "bind": "radius" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 17, "alpha": 0.5, "radius": 8 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "points": 17, "alpha": 1.5, "radius": 8 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a bound opacity below 0",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "points" }, "opacity": { "bind": "alpha" }, "cornerRadius": { "bind": "radius" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 17, "alpha": 0.5, "radius": 8 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "points": 17, "alpha": -0.5, "radius": 8 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a bound size below 6",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "points" }, "opacity": { "bind": "alpha" }, "cornerRadius": { "bind": "radius" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 17, "alpha": 0.5, "radius": 8 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "points": 4, "alpha": 0.5, "radius": 8 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a bound size above 96",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "points" }, "opacity": { "bind": "alpha" }, "cornerRadius": { "bind": "radius" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 17, "alpha": 0.5, "radius": 8 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "points": 120, "alpha": 0.5, "radius": 8 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a bound corner radius above 64",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "points" }, "opacity": { "bind": "alpha" }, "cornerRadius": { "bind": "radius" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "points": 17, "alpha": 0.5, "radius": 8 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "points": 17, "alpha": 0.5, "radius": 100 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a bound weight to a name outside the contract",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "size" }, "weight": { "bind": "weight" }, "color": { "bind": "tone" }, "background": { "bind": "fill" }, "cornerRadius": { "bind": "radius" }, "opacity": { "bind": "alpha" }, "tint": { "bind": "accent" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "size": 17, "weight": "semibold", "tone": "red", "fill": "#FFF4E5", "radius": 8, "alpha": 0.9, "accent": "#0A84FF80" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "size": 17, "weight": "extraBold", "tone": "red", "fill": "#FFF4E5", "radius": 8, "alpha": 0.9, "accent": "#0A84FF80" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a bound tint to a name outside the contract",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "size": { "bind": "size" }, "weight": { "bind": "weight" }, "color": { "bind": "tone" }, "background": { "bind": "fill" }, "cornerRadius": { "bind": "radius" }, "opacity": { "bind": "alpha" }, "tint": { "bind": "accent" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "size": 17, "weight": "semibold", "tone": "red", "fill": "#FFF4E5", "radius": 8, "alpha": 0.9, "accent": "#0A84FF80" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "size": 17, "weight": "semibold", "tone": "red", "fill": "#FFF4E5", "radius": 8, "alpha": 0.9, "accent": "sky" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a bound layout background to a name outside the contract",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status" }, "background": { "bind": "paper" }, "keyline": { "bind": "edge" } }, "snapshot": { "revision": 0, "values": { "status": "On time", "paper": "#FAF7EF", "edge": "mint" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "paper": "paper", "edge": "mint" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a bound keyline to a hex color without its hash",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status" }, "background": { "bind": "paper" }, "keyline": { "bind": "edge" } }, "snapshot": { "revision": 0, "values": { "status": "On time", "paper": "#FAF7EF", "edge": "mint" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "paper": "#FAF7EF", "edge": "A3D9C2" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that sets a value of an unused style outside its range",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "value": "a", "style": "used" } }, "styles": { "used": { "size": 12 }, "unused": { "opacity": { "bind": "alpha" } } }, "snapshot": { "revision": 0, "values": { "alpha": 0.5 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "alpha": 2 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that turns a bound color into a number",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "tone": 0 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that drops a bound value",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that adds a value",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "tone": "green", "extra": "red" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update whose value breaks a rule of its own",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "tone": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update whose timer ends at its start",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "timerText", "start": "from", "end": "to" } }, "snapshot": { "revision": 0, "values": { "from": 1000, "to": 2000 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "from": 2000, "to": 2000 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update with a symbol variable above 1",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "symbol", "name": "speaker.wave.3.fill", "variableBind": "level" } }, "snapshot": { "revision": 0, "values": { "level": 0.5 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "level": 1.5 } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update whose values weigh 3585 with the stored layout and styles",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "text", "bind": "status", "style": "s" } }, "styles": { "s": { "color": { "bind": "tone" } } }, "snapshot": { "revision": 0, "values": { "status": "On time", "tone": "green", "a": "", "b": "", "c": "", "d": "" } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "status": "On time", "tone": "red", "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "b": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "c": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "d": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } } },
+      "code": "PAYLOAD_TOO_LARGE"
+    },
+    {
+      "name": "updates the value that a custom prop binds",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "children": [{ "type": "text", "bind": "title" }, { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl" }, "width": 3 } }] } }, "snapshot": { "revision": 0, "values": { "title": "Bowl", "bowl": 0.25 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "title": "Bowl", "bowl": 0.75 } } },
+      "weight": 201
+    },
+    {
+      "name": "updates a value beside a file image and a custom font",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "hstack", "children": [{ "type": "image", "source": { "file": "badge.png" } }, { "type": "text", "bind": "title", "style": "face" }] } }, "styles": { "face": { "fontFamily": "Pacifico", "size": { "bind": "points" } } }, "snapshot": { "revision": 0, "values": { "title": "Mochi", "points": 20, "badge": 1 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "title": "Mochi", "points": 24, "badge": 2 } } },
+      "weight": 259
+    },
+    {
+      "name": "rejects an update that drops the value a custom prop binds",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "children": [{ "type": "text", "bind": "title" }, { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl" }, "width": 3 } }] } }, "snapshot": { "revision": 0, "values": { "title": "Bowl", "bowl": 0.25 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "title": "Bowl" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update that turns the value of a custom prop into text",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "vstack", "children": [{ "type": "text", "bind": "title" }, { "type": "custom", "name": "ring", "props": { "level": { "bind": "bowl" }, "width": 3 } }] } }, "snapshot": { "revision": 0, "values": { "title": "Bowl", "bowl": 0.25 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "title": "Bowl", "bowl": "full" } } },
+      "code": "INVALID_INPUT"
+    },
+    {
+      "name": "rejects an update whose size for a custom font is out of range",
+      "start": { "activityKey": "demo:1", "schemaVersion": 2, "fallback": "none", "layout": { "lockScreen": { "type": "hstack", "children": [{ "type": "image", "source": { "file": "badge.png" } }, { "type": "text", "bind": "title", "style": "face" }] } }, "styles": { "face": { "fontFamily": "Pacifico", "size": { "bind": "points" } } }, "snapshot": { "revision": 0, "values": { "title": "Mochi", "points": 20, "badge": 1 } } },
+      "update": { "id": "opaque-handle-1", "snapshot": { "revision": 1, "values": { "title": "Mochi", "points": 97, "badge": 1 } } },
       "code": "INVALID_INPUT"
     }
   ]

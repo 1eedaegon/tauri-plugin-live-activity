@@ -91,5 +91,32 @@ class LayoutProjectionTest {
             "island":{"compactLeading":{"type":"text","value":"x"}},"keyline":"red"},"snapshot":{"revision":0,"values":{"g":1}}}"""))
         val spec = LayoutProjection.project(origin, origin.snapshot.values)
         assertEquals(listOf("layout.image", "layout.gauge", "layout.path", "layout.divider", "layout.island", "layout.styles", "layout.keyline"), spec.ignored)
+        assertNull(spec.largeIcon)
+    }
+
+    /** Google's Live Update requirements do not name the large icon, so a drawn image may be one and keep promotion. */
+    @Test fun theFirstShownFileImageIsTheLargeIcon() {
+        val spec = project("""{"type":"vstack","children":[{"type":"image","source":{"file":"hidden.png"},"if":"off"},
+            {"type":"image","source":{"asset":"logo"}},{"type":"image","source":{"file":"badge.png"}},{"type":"image","source":{"file":"second.png"}},
+            {"type":"button","actionId":"go","child":{"type":"hstack","children":[{"type":"image","source":{"file":"inner.png"}},{"type":"text","value":"Go"}]}}]}""",
+            """{"off":false}""")
+        assertEquals("badge.png", spec.largeIcon)
+        assertEquals(listOf("layout.image"), spec.ignored)
+        assertEquals(listOf(ActionSpec("go", "Go")), spec.actions)
+    }
+
+    @Test fun largeIconsAreScaledDownByPowersOfTwo() {
+        assertEquals(1, LayoutImages.sampleSize(256, 100))
+        assertEquals(2, LayoutImages.sampleSize(257, 10))
+        assertEquals(8, LayoutImages.sampleSize(480, 1224))
+    }
+
+    /** A notification draws no SwiftUI view: every shown custom node is named once. */
+    @Test fun customViewsAreLeftOut() {
+        val spec = project("""{"type":"vstack","children":[{"type":"custom","name":"ring","props":{"level":{"bind":"done"}}},
+            {"type":"text","value":"Title"},{"type":"custom","name":"other"},{"type":"custom","name":"hidden","unless":"done"}]}""",
+            """{"done":0.5}""")
+        assertEquals("Title", spec.title)
+        assertEquals(listOf("layout.custom"), spec.ignored)
     }
 }

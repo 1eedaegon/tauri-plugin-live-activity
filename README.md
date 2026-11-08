@@ -69,6 +69,30 @@ await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 
 The layout stays as it started. Each update sends every value again, with a higher revision.
 
+## Changing styles
+
+The tree is fixed at start, but a few style members can name a value. An update then changes them:
+
+```ts
+const { bind } = layout;
+// styles: { status: { color: bind('tone'), weight: bind('weight') } }, values: { tone: 'green', weight: 'regular', … }
+await updateLayout({ id, snapshot: { revision: 2, values: { ...values, tone: 'red', weight: 'bold' } } });
+```
+
+```rust
+let status = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
+// Later: every value again, with the new color.
+values.insert("tone".into(), Value::Text("red".into()));
+app.live_activity().update_layout(LayoutUpdateInput { id, snapshot: LayoutSnapshot { revision: 2, values, stale_at: None } })?;
+```
+
+Only `color`, `background`, `tint`, `opacity`, `size`, `weight`, `cornerRadius` and the layout's
+`background` and `keyline` can be bound. A bound color is a name or a hex color, not a light and
+dark pair. Everything else stays as started; end the activity and start it again to change it.
+Each update sends all values again, and layout, styles and values share the weight limit of 3584.
+Android draws no styles. A 0.2.x crate rejects bindings, so keep the npm package and the crate on
+the same minor version. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#changing-styles)
+
 ## What a layout can hold
 
 Layouts are built from `text`/`bound`, `path` (SVG path data) and `vstack`, `hstack`, `zstack`,
@@ -173,6 +197,49 @@ keyline: '#A3D9C2', // the island's edge color
 Put `island` next to `lockScreen` in the layout. A part you leave out shows the lock screen tree (expanded) or its first symbol (compact leading, minimal).
 
 Android shows a layout as a notification: the first two texts as title and body, the first progress bar and timer, and up to three buttons. `degradedFeatures` names what it left out.
+
+## Beyond the built-in parts
+
+Most customizing needs no Swift. Bundle your fonts and pictures in the widget extension, and name them:
+
+```sh
+npx tauri-plugin-live-activity setup --font fonts/Pacifico-Regular.ttf --asset art/paw@3x.png
+```
+
+```ts
+styles: { title: { fontFamily: 'Pacifico-Regular', size: 22 } }, // setup prints the names a font answers to
+lockScreen: hstack([image('paw'), bound('title', { style: 'title' })]),
+```
+
+Pictures the app draws, on a canvas or in Rust, go through an App Group (`setup --app-group`). Write the PNG,
+then start or update, and the widget draws it:
+
+```ts
+await writeImage('badge.png', png); // Rust: app.live_activity().write_image("badge.png", &png)
+lockScreen: image({ file: 'badge.png' }, { resizable: true }),
+```
+
+For a view of your own, write it in SwiftUI in `gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift`, which
+`setup` creates once and never overwrites, and place it with `custom`:
+
+```ts
+custom('ring', { props: { level: bind('done'), width: 4 } }),
+```
+
+```swift
+"ring": LiveActivityCustomView { props in Ring(level: props.number("level") ?? 0) },
+```
+
+A name without a view draws nothing and is reported in `degradedFeatures` as `layout.custom.ring`. The last
+resort is to edit the copied `LiveActivityWidget.swift`; `setup` then keeps your copy, and template updates are
+yours to merge.
+
+Limits: a Live Activity has no network and little memory. A drawn PNG is at most 1 MiB and 1224 × 480 pixels,
+Apple's largest Lock Screen presentation at @3x. Fonts must be in the extension. On a device the App Group is
+registered with your Apple account once; automatic signing does that. The validators check a custom view's name
+and props, not the view. Android draws none of these, except that the first drawn image becomes the
+notification's large icon. Layout, styles and values still share 3584.
+[More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#beyond-the-built-in-parts)
 
 ## Samsung Now Bar
 

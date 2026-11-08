@@ -19,6 +19,7 @@ extension LifecycleTests {
         try testRenderContent()
         try testRenderPaths()
         try testRenderStyles()
+        try testRenderBoundStyles()
         try testIslandDefaults()
     }
 
@@ -86,8 +87,8 @@ extension LifecycleTests {
             && symbols([:]).last == .symbol(name: "wifi", rendering: .palette, variableValue: nil), "symbol variable value is clamped to 0...1")
 
         let image = try layoutDocument(#"{"type":"hstack","children":[{"type":"image","source":{"asset":"logo"}},{"type":"image","source":{"asset":"logo.dark"},"resizable":true,"contentMode":"fill"}]}"#)
-        expect(children(image.render(.lockScreen, values: [:])).map(\.content) == [.image(asset: "logo", resizable: false, contentMode: nil),
-            .image(asset: "logo.dark", resizable: true, contentMode: .fill)], "image asset, resizable and content mode")
+        expect(children(image.render(.lockScreen, values: [:])).map(\.content) == [.image(source: .asset("logo"), resizable: false, contentMode: nil),
+            .image(source: .asset("logo.dark"), resizable: true, contentMode: .fill)], "image asset, resizable and content mode")
 
         let stacks = try layoutDocument(#"{"type":"vstack","spacing":6,"alignment":"leading","children":[{"type":"hstack","alignment":"firstTextBaseline","children":[{"type":"spacer"},{"type":"spacer","minLength":4}]},"#
             + #"{"type":"zstack","alignment":"bottomTrailing","children":[{"type":"divider"}]},{"type":"hstack","children":[{"type":"text","value":"x","if":"off"}]},{"type":"zstack","children":[{"type":"divider"}]}]}"#)
@@ -203,6 +204,38 @@ extension LifecycleTests {
             && tinted.keyline == .semantic(.accent), "layout background and keyline")
         let untinted = try layoutDocument(#"{"type":"divider"}"#)
         expect(untinted.background == nil && untinted.keyline == nil, "absent tints stay absent")
+    }
+
+    @MainActor private static func testRenderBoundStyles() throws {
+        let styles = ##"{"live":{"size":{"bind":"points"},"weight":{"bind":"weight"},"color":{"bind":"tone"},"background":{"bind":"fill"},"##
+            + ##""cornerRadius":{"bind":"radius"},"opacity":{"bind":"alpha"},"tint":{"bind":"accent"}}}"##
+        let document = try layoutDocument(#"{"type":"text","value":"a","style":"live"}"#, layout: ##","background":{"bind":"paper"},"keyline":{"bind":"edge"}"##,
+                                          styles: styles)
+        let values: [String: LayoutValue] = ["points": .number(17), "weight": .string("bold"), "tone": .string("red"), "fill": .string("#00000080"),
+                                             "radius": .number(8), "alpha": .number(0.5), "accent": .string("mint"), "paper": .string("#FAF7EF"), "edge": .string("orange")]
+        let style = document.style("live", values: values)
+        expect(style.font == .size(17) && style.weight == .bold && style.color == .semantic(.red)
+            && style.background == .fixed(LayoutRGBA(red: 0, green: 0, blue: 0, alpha: 128.0 / 255)) && style.cornerRadius == 8 && style.opacity == 0.5
+            && style.tint == .semantic(.mint), "bound members resolve from the values")
+        expect(document.render(.lockScreen, values: values)?.style == style, "a node resolves its bound members from the values it is drawn with")
+        var later = values
+        later["tone"] = .string("#2E8B7A"); later["alpha"] = .number(1); later["weight"] = .string("regular"); later["points"] = .number(96)
+        let changed = document.render(.lockScreen, values: later)?.style
+        expect(changed?.color == LayoutRGBA(hex: "#2E8B7A").map(LayoutColorSpec.fixed) && changed?.opacity == 1 && changed?.weight == .regular
+            && changed?.font == .size(96), "the same node draws the values of the next update")
+        expect(document.background(values: values) == LayoutRGBA(hex: "#FAF7EF").map(LayoutColorSpec.fixed)
+            && document.keyline(values: values) == .semantic(.orange), "bound tints resolve from the values")
+        expect(document.background == nil && document.keyline == nil && document.style("live") == .plain, "without values a bound member is left out")
+        let odd: [String: LayoutValue] = ["points": .number(200), "weight": .string("Bold"), "tone": .number(1), "fill": .string("paper"),
+                                          "radius": .number(-1), "alpha": .bool(true), "accent": .string(""), "paper": .bool(false), "edge": .string("#FFF")]
+        expect(document.style("live", values: odd) == .plain && document.background(values: odd) == nil && document.keyline(values: odd) == nil,
+               "a value that a member cannot take leaves the member out")
+        expect(document.style("live", values: ["tone": .string("{\"light\":\"#000000\",\"dark\":\"#FFFFFF\"}")]).color == nil,
+               "a bound color is never a light and dark pair")
+        let literal = try layoutDocument(#"{"type":"text","value":"a","style":"s"}"#, layout: #","keyline":"accent""#, styles: #"{"s":{"opacity":0.25,"color":"red"}}"#)
+        expect(literal.keyline(values: [:]) == .semantic(.accent) && literal.keyline == .semantic(.accent) && literal.background(values: values) == nil,
+               "a literal tint does not depend on the values")
+        expect(literal.style("s", values: values) == literal.style("s") && literal.style("s").opacity == 0.25, "literal members do not depend on the values")
     }
 
     @MainActor private static func testIslandDefaults() throws {

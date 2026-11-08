@@ -280,6 +280,105 @@ fn rejects_each_reference_rule() {
     );
 }
 
+/// The base request with `member` of the card style bound to the value `v`.
+fn bound(member: &str, value: Json) -> Result<()> {
+    let input = set(start(), &format!("{CARD}/{member}"), json!({"bind":"v"}));
+    verdict(set(input, "/snapshot/values/v", value))
+}
+
+#[test]
+fn a_bound_member_takes_what_its_literal_takes() {
+    for (member, value) in [
+        ("color", json!("red")),
+        ("color", json!("#ABCDEF")),
+        ("color", json!("#abcdef80")),
+        ("background", json!("clear")),
+        ("tint", json!("accent")),
+        ("size", json!(6)),
+        ("size", json!(96)),
+        ("opacity", json!(0)),
+        ("opacity", json!(1)),
+        ("cornerRadius", json!(0)),
+        ("cornerRadius", json!(64)),
+        ("weight", json!("ultraLight")),
+        ("weight", json!("black")),
+    ] {
+        assert_eq!(bound(member, value.clone()), Ok(()), "{member} {value}");
+    }
+    let tint = |member: &str, value: Json| {
+        let input = set(start(), &format!("/layout/{member}"), json!({"bind":"v"}));
+        verdict(set(input, "/snapshot/values/v", value))
+    };
+    assert_eq!(tint("background", json!("#FAF7EF")), Ok(()));
+    assert_eq!(tint("keyline", json!("mint")), Ok(()));
+    for (member, value) in [
+        ("background", json!("paper")),
+        ("background", json!(1)),
+        ("keyline", json!({"light":"#000000","dark":"#FFFFFF"})),
+        ("keyline", json!("#FFF")),
+    ] {
+        assert_eq!(
+            tint(member, value.clone()),
+            Err(Error::invalid()),
+            "{member} {value}"
+        );
+    }
+}
+
+#[test]
+fn rejects_a_bound_member_whose_value_does_not_fit() {
+    for (member, value) in [
+        ("color", json!("crimson")),
+        ("color", json!("Red")),
+        ("color", json!("#FFF")),
+        ("color", json!("#FF0000\n")),
+        ("color", json!("")),
+        ("color", json!(1)),
+        ("color", json!(true)),
+        ("background", json!("FF0000")),
+        ("tint", json!("sky")),
+        ("size", json!(5.9)),
+        ("size", json!(96.5)),
+        ("size", json!("12")),
+        ("opacity", json!(-0.01)),
+        ("opacity", json!(1.01)),
+        ("opacity", json!(false)),
+        ("cornerRadius", json!(-1)),
+        ("cornerRadius", json!(64.5)),
+        ("weight", json!("Bold")),
+        ("weight", json!(700)),
+    ] {
+        assert_eq!(
+            bound(member, value.clone()),
+            Err(Error::invalid()),
+            "{member} {value}"
+        );
+    }
+    // A bound member names a value, and a bound size still excludes a font.
+    let missing = set(start(), &format!("{CARD}/color"), json!({"bind":"absent"}));
+    assert_eq!(verdict(missing), Err(Error::invalid()));
+    let sized = set(start(), &format!("{CARD}/size"), json!({"bind":"level"}));
+    assert_eq!(
+        verdict(set(sized.clone(), &format!("{CARD}/font"), json!("body"))),
+        Err(Error::invalid())
+    );
+    // A style that no node uses is checked all the same.
+    let unused = set(
+        start(),
+        "/styles/spare",
+        json!({"opacity":{"bind":"level"}}),
+    );
+    assert_eq!(verdict(unused.clone()), Ok(()));
+    assert_eq!(
+        verdict(set(unused, "/snapshot/values/level", json!(1.5))),
+        Err(Error::invalid())
+    );
+    assert_eq!(
+        verdict(set(sized, "/snapshot/values/level", json!(7))),
+        Err(Error::invalid())
+    );
+}
+
 #[test]
 fn accepts_the_limits_of_each_rule() {
     let long = "a".repeat(32);

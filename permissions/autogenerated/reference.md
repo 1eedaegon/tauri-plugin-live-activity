@@ -303,4 +303,30 @@ Denies the update_layout command without any pre-configured scope.
 
 </td>
 </tr>
+
+<tr>
+<td>
+
+`live-activity:allow-write-image`
+
+</td>
+<td>
+
+Enables the write_image command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:deny-write-image`
+
+</td>
+<td>
+
+Denies the write_image command without any pre-configured scope.
+
+</td>
+</tr>
 </table>

@@ -69,6 +69,30 @@ await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 레이아웃은 시작할 때 모습 그대로 유지됩니다. 갱신할 때는 모든 값을 더 높은 revision과 함께 다시
 보냅니다.
 
+## 스타일 바꾸기
+
+트리는 시작할 때 정해지지만, 몇몇 스타일 멤버는 값을 가리킬 수 있습니다. 그러면 갱신으로 바꿀 수 있습니다.
+
+```ts
+const { bind } = layout;
+// styles: { status: { color: bind('tone'), weight: bind('weight') } }, values: { tone: 'green', weight: 'regular', … }
+await updateLayout({ id, snapshot: { revision: 2, values: { ...values, tone: 'red', weight: 'bold' } } });
+```
+
+```rust
+let status = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
+// 나중에: 값을 모두 다시 보내면서 색만 바꿉니다.
+values.insert("tone".into(), Value::Text("red".into()));
+app.live_activity().update_layout(LayoutUpdateInput { id, snapshot: LayoutSnapshot { revision: 2, values, stale_at: None } })?;
+```
+
+값을 가리킬 수 있는 것은 `color`, `background`, `tint`, `opacity`, `size`, `weight`, `cornerRadius`와
+레이아웃의 `background`, `keyline`뿐입니다. 색은 이름이나 hex 색만 되고, 라이트·다크 쌍은 쓸 수 없습니다.
+나머지는 시작한 그대로 남으니, 바꾸려면 활동을 끝내고 다시 시작하세요. 갱신마다 값을 전부 다시 보내고,
+레이아웃·스타일·값을 합친 weight는 3584를 넘을 수 없습니다. Android는 스타일을 그리지 않습니다.
+0.2.x 크레이트는 바인딩을 거부하므로 npm 패키지와 크레이트의 마이너 버전을 맞추세요.
+[자세히](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#changing-styles)
+
 ## 레이아웃에 넣을 수 있는 것
 
 레이아웃은 `text`/`bound`, `path`(SVG path 데이터), `vstack`·`hstack`·`zstack`·`spacer`·`divider`와
@@ -173,6 +197,49 @@ keyline: '#A3D9C2', // 아일랜드 테두리 색
 레이아웃에서 `lockScreen` 옆에 `island`를 둡니다. 빠진 부분은 잠금화면 트리(확장)나 그 첫 심볼(컴팩트 왼쪽, 미니멀)을 보여 줍니다.
 
 Android는 레이아웃을 알림으로 보여 줍니다. 첫 두 텍스트가 제목과 본문이 되고, 첫 진행률 막대와 타이머, 버튼 최대 세 개가 들어갑니다. 빠진 것은 `degradedFeatures`에 이름이 남습니다.
+
+## 기본 부품 너머
+
+대부분은 Swift 없이 바꿀 수 있습니다. 글꼴과 그림을 위젯 확장에 넣고 이름으로 부르면 됩니다.
+
+```sh
+npx tauri-plugin-live-activity setup --font fonts/Pacifico-Regular.ttf --asset art/paw@3x.png
+```
+
+```ts
+styles: { title: { fontFamily: 'Pacifico-Regular', size: 22 } }, // 글꼴을 부르는 이름은 setup이 알려 줍니다
+lockScreen: hstack([image('paw'), bound('title', { style: 'title' })]),
+```
+
+앱이 캔버스나 Rust로 직접 그린 그림은 App Group을 거칩니다(`setup --app-group`). PNG를 쓴 다음 시작하거나
+갱신하면 위젯이 그 그림을 그립니다.
+
+```ts
+await writeImage('badge.png', png); // Rust: app.live_activity().write_image("badge.png", &png)
+lockScreen: image({ file: 'badge.png' }, { resizable: true }),
+```
+
+직접 만든 뷰가 필요하면 `gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift`에 SwiftUI로 쓰고 `custom`으로
+놓습니다. 이 파일은 `setup`이 한 번 만들고 다시는 덮어쓰지 않습니다.
+
+```ts
+custom('ring', { props: { level: bind('done'), width: 4 } }),
+```
+
+```swift
+"ring": LiveActivityCustomView { props in Ring(level: props.number("level") ?? 0) },
+```
+
+뷰가 없는 이름은 아무것도 그리지 않고 `degradedFeatures`에 `layout.custom.ring`으로 남습니다. 마지막 수단은
+복사된 `LiveActivityWidget.swift`를 직접 고치는 것입니다. 그러면 `setup`은 그 파일을 그대로 두고, 템플릿이
+바뀐 부분은 직접 합쳐야 합니다.
+
+제한: Live Activity는 네트워크를 쓸 수 없고 메모리도 적습니다. 그린 PNG는 1 MiB, 1224 × 480 픽셀까지이고,
+이는 Apple의 가장 큰 잠금화면 크기를 @3x로 잰 값입니다. 글꼴은 확장 안에 있어야 합니다. 기기에서는 App
+Group을 Apple 계정에 한 번 등록해야 하는데, 자동 서명이 대신 해 줍니다. 검증기는 커스텀 뷰의 이름과 props만
+보고 뷰 자체는 보지 않습니다. Android는 이 가운데 아무것도 그리지 않고, 처음 나오는 그린 그림만 알림의 큰
+아이콘이 됩니다. 레이아웃, 스타일, 값은 여전히 3584를 나눠 씁니다.
+[자세히](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#beyond-the-built-in-parts)
 
 ## Samsung Now Bar
 

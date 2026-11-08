@@ -26,7 +26,15 @@ that `setup` leaves alone, such as one that already has a widget extension.
    so the same file is a member of both targets. Link no package product to the
    app target: the package's objects are already in the Rust static library, and
    a second copy would duplicate symbols.
-5. Give the extension an identifier under the app identifier, embed it in the
+5. For custom views, add `templates/ios/LiveActivityCustomRegistry.swift` and a copy of
+   `templates/ios/LiveActivityCustomViews.swift`, which is yours from then on, to both
+   targets as well. The widget draws the views; the plugin in the app reads which names have
+   one. Neither file imports the package. Without them the template does not compile.
+6. For fonts, add the files to the extension and list them under `UIAppFonts` in its
+   Info.plist. For images the app draws, give both targets the same App Group in
+   `com.apple.security.application-groups` and set `TauriLiveActivityAppGroup` to that group
+   in the extension's Info.plist.
+7. Give the extension an identifier under the app identifier, embed it in the
    host, and use the same signing team for device builds.
 
 The template bundle contains two widgets: `LiveActivityWidget` draws v1
@@ -59,8 +67,9 @@ Regenerating the entire Tauri iOS project can replace manual
 Xcode changes. Keep the widget target, package reference, intent file membership
 and Info.plist properties in the source XcodeGen specification used for your app.
 
-No App Group, push token, or remote notification entitlement is needed for this
-local progress/timer implementation. The plugin does not request ordinary
+No push token or remote notification entitlement is needed. An App Group is
+needed only for images that the app draws and writes with `writeImage`: the
+extension runs in its own sandbox and reads them from the group's container. The plugin does not request ordinary
 notification permission on iOS. If Live Activities are disabled,
 `requestPermissions('liveActivities')` returns `settingsRequired`;
 there is no repeated permission prompt or automatic settings redirect.
@@ -76,11 +85,21 @@ embed `LiveActivityLayoutWidget` there. `getCapabilities()` reports
 `layout: 'supported'` on every device that supports Live Activities.
 
 `LayoutView` (product `LiveActivityUI`) draws one region of the layout with the
-current values. Absent island parts get the defaults of the contract: the
+current values. Its `button` and `custom` builders let the widget wrap buttons in
+`Button(intent:)` and draw custom views, so the package names neither an intent
+type nor a view of the app. Absent island parts get the defaults of the contract: the
 expanded island shows the lock screen tree in its bottom region, the compact
 leading and minimal parts show the lock screen's first `symbol` (or
 `circle.fill`), and the compact trailing part is empty. `background` becomes
 `activityBackgroundTint` and `keyline` becomes `keylineTint`.
+
+A bound style member reads the snapshot's values each time the view is drawn, so an update
+redraws it with the new color or size. `LayoutView` does this for the members of styles. The
+two tints are applied outside it, so the template passes the values to
+`LayoutDocument.background(values:)` and `keyline(values:)`. The properties `background` and
+`keyline` give the literal tints only; a widget copied from an earlier template uses them, still
+compiles, and draws a bound tint as absent. A value that a member cannot take, which validation
+prevents, leaves the member out.
 
 Rendering notes:
 
@@ -88,8 +107,18 @@ Rendering notes:
   `buttonStyle`, `padding`, `frame`, `background`, `cornerRadius`, `opacity`.
   Members a style leaves out keep the values inherited from the parent.
 - `text` shows its string as given, without localization or Markdown.
-- `image` names an image in the widget extension's asset catalog; an unknown
-  name draws nothing.
+- `image` with an `asset` names an image in the widget extension's asset
+  catalog; an unknown name draws nothing. With a `file`, the widget reads
+  `tauri-live-activity/images/<name>` in the container of the App Group that its
+  Info.plist names under `TauriLiveActivityAppGroup`, with `UIImage(contentsOfFile:)`,
+  each time it draws. A missing file draws nothing.
+- `fontFamily` draws with `Font.custom`: `custom(_:size:relativeTo:)` with `font`,
+  at the text style's default size, `custom(_:fixedSize:)` with `size`, and the size
+  of `body` alone. The font must be in the extension, listed under `UIAppFonts`.
+- A `custom` node calls the `custom` builder of `LayoutView` with its name and its
+  props, the bound ones read from the values. The template looks the name up in
+  the `TauriLiveActivityCustomViews` class of `LiveActivityCustomViews.swift`; an
+  unknown name, or no such class, draws nothing.
 - `timerText` uses `Text(timerInterval:countsDown:)`. In a widget it is
   horizontally flexible; give it a `frame` when it shares a row.
 - `progress` is a linear or circular `ProgressView`; `gauge` uses the accessory
@@ -181,7 +210,10 @@ away. Immediate and default dismissal are also available. Layout activities
 follow the same rules.
 
 A successful native request does not prove that the UI is visible. All results
-retain `visibility: 'unknown'`. Listing does not report locally saved activities
+retain `visibility: 'unknown'`. The `degradedFeatures` of a layout record lists
+`layout.custom.<name>` for each custom node whose name the app's copy of
+`LiveActivityCustomViews.swift` does not register, while ActivityKit reports the
+activity; a record that only the receipts know lists nothing. Listing does not report locally saved activities
 as active when ActivityKit no longer reports them. Repeating `end` is idempotent
 while the terminal receipt is retained or the OS still reports that terminal
 activity. Evicted or unknown IDs return `NOT_FOUND`. A new start after completion

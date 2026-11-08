@@ -19,6 +19,8 @@ internal data class NotificationSpec(
     val actions: List<ActionSpec>,
     /** `layout.<type>` once per node type that is shown on iOS and not here, then the ignored layout parts. */
     val ignored: List<String>,
+    /** The file name of the first shown image that the app wrote with `writeImage`: the large icon. */
+    val largeIcon: String? = null,
 ) {
     /**
      * The status chip text. A timer has none, so the chip shows its chronometer; otherwise a
@@ -30,8 +32,10 @@ internal data class NotificationSpec(
 /**
  * Projects the lock screen tree onto a notification, in document order (`children` order, depth
  * first) with the conditions applied: the first text is the title, the second the body, the first
- * progress and timer drive the progress bar and the chronometer, and up to three buttons become
- * actions labelled with the first text inside them. Texts inside a button only label it.
+ * progress and timer drive the progress bar and the chronometer, the first image drawn from a file
+ * is the large icon, and up to three buttons become actions labelled with the first text inside
+ * them. Texts inside a button only label it. Android's Live Update requirements do not name the
+ * large icon, so it keeps promotion.
  */
 internal object LayoutProjection {
     const val MAX_ACTIONS = 3
@@ -46,7 +50,10 @@ internal object LayoutProjection {
             "layout.background".takeIf { "background" in origin.layout },
             "layout.keyline".takeIf { "keyline" in origin.layout },
         )
-        return NotificationSpec(walk.texts.getOrNull(0), walk.texts.getOrNull(1), walk.progress, walk.timer, walk.actions.toList(), walk.ignored.toList() + parts)
+        return NotificationSpec(
+            walk.texts.getOrNull(0), walk.texts.getOrNull(1), walk.progress, walk.timer, walk.actions.toList(), walk.ignored.toList() + parts,
+            walk.largeIcon,
+        )
     }
 
     /** Every action id of the lock screen tree, whatever the conditions. */
@@ -67,6 +74,7 @@ internal object LayoutProjection {
         val texts = mutableListOf<String>()
         var progress: Double? = null
         var timer: TimerSpec? = null
+        var largeIcon: String? = null
         val actions = mutableListOf<ActionSpec>()
         val ignored = LinkedHashSet<String>()
 
@@ -78,6 +86,10 @@ internal object LayoutProjection {
                 "text" -> if (texts.size < 2) texts += text(node) else ignored += "layout.$type"
                 "progress" -> if (progress == null) progress = number(node["bind"]).coerceIn(0.0, 1.0) else ignored += "layout.$type"
                 "timerText" -> if (timer == null) timer = timer(node) else ignored += "layout.$type"
+                "image" -> {
+                    val file = node.getValue("source").members()["file"] as? String
+                    if (file != null && largeIcon == null) largeIcon = file else ignored += "layout.$type"
+                }
                 "button" -> button(node)
                 else -> ignored += "layout.$type"
             }

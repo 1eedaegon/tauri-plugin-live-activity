@@ -92,6 +92,30 @@ class LayoutInputTest {
         assertEquals("PAYLOAD_TOO_LARGE", code { LayoutRules.checkReplacement(wide, wide.snapshot.values, heavy.values) })
     }
 
+    @Test fun boundStyleMembersReadTheirValuesAtStartAndOnEveryUpdate() {
+        val start = JSONObject("""{"activityKey":"a","schemaVersion":2,"fallback":"none",
+            "layout":{"lockScreen":{"type":"text","bind":"status","style":"s"},"background":{"bind":"paper"},"keyline":"mint"},
+            "styles":{"s":{"color":{"bind":"tone"},"size":{"bind":"points"},"weight":{"bind":"weight"},"opacity":{"bind":"alpha"}},
+            "spare":{"cornerRadius":{"bind":"radius"},"tint":{"bind":"tone"}}},
+            "snapshot":{"revision":0,"values":{"status":"On time","tone":"green","points":17,"weight":"bold","alpha":1,"radius":8,"paper":"#FAF7EF"}}}""")
+        val origin = LayoutInput.start(start)
+        assertEquals(mapOf("bind" to "tone"), origin.styles?.getValue("s")?.members()?.get("color"))
+        fun replace(key: String, value: Any) {
+            val values = JSONObject(start.getJSONObject("snapshot").getJSONObject("values").toString()).put(key, value)
+            val snapshot = LayoutInput.snapshot(JSONObject().put("revision", 1).put("values", values))
+            LayoutRules.checkReplacement(origin, origin.snapshot.values, snapshot.values)
+        }
+        replace("tone", "#C9654D")
+        replace("points", 96)
+        replace("radius", 0)
+        replace("paper", "black")
+        for ((key, value) in listOf("tone" to "crimson", "tone" to "#FFF", "points" to 5, "alpha" to 1.5, "radius" to 65, "weight" to "Bold", "paper" to "paper", "tone" to 1)) {
+            assertEquals("$key $value", "INVALID_INPUT", code { replace(key, value) })
+        }
+        // Android draws no styles: the bound members are reported like literal ones.
+        assertEquals(listOf("layout.styles", "layout.background", "layout.keyline"), LayoutProjection.project(origin, origin.snapshot.values).ignored)
+    }
+
     @Test fun endTakesTheV1PolicyShapes() {
         assertEquals("handle" to "immediate", LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":"immediate"}}""")))
         assertEquals("handle" to "after", LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":"after","at":0}}""")))

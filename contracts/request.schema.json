@@ -163,15 +163,15 @@
             "minimal": { "$ref": "#/$defs/node" }
           }
         },
-        "background": { "$ref": "#/$defs/color" },
-        "keyline": { "$ref": "#/$defs/color" }
+        "background": { "$ref": "#/$defs/bindableColor" },
+        "keyline": { "$ref": "#/$defs/bindableColor" }
       }
     },
     "node": {
       "type": "object",
       "required": ["type"],
       "properties": {
-        "type": { "enum": ["vstack", "hstack", "zstack", "spacer", "divider", "text", "symbol", "image", "path", "progress", "gauge", "timerText", "button"] }
+        "type": { "enum": ["vstack", "hstack", "zstack", "spacer", "divider", "text", "symbol", "image", "path", "progress", "gauge", "timerText", "button", "custom"] }
       },
       "not": { "required": ["if", "unless"], "properties": { "if": true, "unless": true } },
       "allOf": [
@@ -187,7 +187,8 @@
         { "if": { "required": ["type"], "properties": { "type": { "const": "progress" } } }, "then": { "$ref": "#/$defs/progressNode" } },
         { "if": { "required": ["type"], "properties": { "type": { "const": "gauge" } } }, "then": { "$ref": "#/$defs/gauge" } },
         { "if": { "required": ["type"], "properties": { "type": { "const": "timerText" } } }, "then": { "$ref": "#/$defs/timerText" } },
-        { "if": { "required": ["type"], "properties": { "type": { "const": "button" } } }, "then": { "$ref": "#/$defs/button" } }
+        { "if": { "required": ["type"], "properties": { "type": { "const": "button" } } }, "then": { "$ref": "#/$defs/button" } },
+        { "if": { "required": ["type"], "properties": { "type": { "const": "custom" } } }, "then": { "$ref": "#/$defs/custom" } }
       ]
     },
     "children": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "$ref": "#/$defs/node" } },
@@ -272,8 +273,18 @@
       "properties": {
         "type": { "const": "image" }, "style": { "$ref": "#/$defs/name" }, "if": { "$ref": "#/$defs/name" }, "unless": { "$ref": "#/$defs/name" },
         "source": {
-          "type": "object", "additionalProperties": false, "required": ["asset"],
-          "properties": { "asset": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" } }
+          "oneOf": [
+            {
+              "description": "An image in the asset catalog of the widget extension.",
+              "type": "object", "additionalProperties": false, "required": ["asset"],
+              "properties": { "asset": { "$ref": "#/$defs/fileName" } }
+            },
+            {
+              "description": "A PNG that the app wrote with writeImage into the App Group container.",
+              "type": "object", "additionalProperties": false, "required": ["file"],
+              "properties": { "file": { "$ref": "#/$defs/fileName" } }
+            }
+          ]
         },
         "resizable": { "type": "boolean" },
         "contentMode": { "enum": ["fit", "fill"] }
@@ -333,17 +344,40 @@
         "child": { "$ref": "#/$defs/node" }
       }
     },
+    "custom": {
+      "description": "A SwiftUI view that the app registers by name in its widget extension.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "name"],
+      "properties": {
+        "type": { "const": "custom" }, "style": { "$ref": "#/$defs/name" }, "if": { "$ref": "#/$defs/name" }, "unless": { "$ref": "#/$defs/name" },
+        "name": { "$ref": "#/$defs/fileName" },
+        "props": {
+          "type": "object", "minProperties": 1, "maxProperties": 16,
+          "propertyNames": { "$ref": "#/$defs/name" },
+          "additionalProperties": {
+            "anyOf": [
+              { "type": "string", "maxLength": 200 },
+              { "type": "number", "minimum": -8640000000000000, "maximum": 8640000000000000 },
+              { "type": "boolean" },
+              { "$ref": "#/$defs/bound" }
+            ]
+          }
+        }
+      }
+    },
     "style": {
       "type": "object",
       "additionalProperties": false,
       "minProperties": 1,
       "properties": {
         "font": { "enum": ["largeTitle", "title", "title2", "title3", "headline", "subheadline", "body", "callout", "footnote", "caption", "caption2"] },
-        "size": { "type": "number", "minimum": 6, "maximum": 96 },
-        "weight": { "enum": ["ultraLight", "thin", "light", "regular", "medium", "semibold", "bold", "heavy", "black"] },
+        "size": { "anyOf": [{ "type": "number", "minimum": 6, "maximum": 96 }, { "$ref": "#/$defs/bound" }] },
+        "weight": { "anyOf": [{ "$ref": "#/$defs/fontWeight" }, { "$ref": "#/$defs/bound" }] },
         "design": { "enum": ["default", "rounded", "serif", "monospaced"] },
+        "fontFamily": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$" },
         "monospacedDigit": { "type": "boolean" },
-        "color": { "$ref": "#/$defs/color" },
+        "color": { "$ref": "#/$defs/bindableColor" },
         "lineLimit": { "type": "integer", "minimum": 1, "maximum": 10 },
         "minimumScaleFactor": { "type": "number", "minimum": 0.1, "maximum": 1 },
         "alignment": { "enum": ["leading", "center", "trailing"] },
@@ -365,20 +399,32 @@
             "alignment": { "$ref": "#/$defs/anchor" }
           }
         },
-        "background": { "$ref": "#/$defs/color" },
-        "cornerRadius": { "type": "number", "minimum": 0, "maximum": 64 },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "tint": { "$ref": "#/$defs/color" },
+        "background": { "$ref": "#/$defs/bindableColor" },
+        "cornerRadius": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 64 }, { "$ref": "#/$defs/bound" }] },
+        "opacity": { "anyOf": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "$ref": "#/$defs/bound" }] },
+        "tint": { "$ref": "#/$defs/bindableColor" },
         "buttonStyle": { "enum": ["automatic", "bordered", "borderedProminent", "plain"] }
       },
-      "not": { "required": ["font", "size"], "properties": { "font": true, "size": true } }
+      "allOf": [
+        { "not": { "required": ["font", "size"], "properties": { "font": true, "size": true } } },
+        { "not": { "required": ["fontFamily", "design"], "properties": { "fontFamily": true, "design": true } } }
+      ]
     },
     "length": { "type": "number", "minimum": 0, "maximum": 1024 },
+    "fileName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
     "anchor": { "enum": ["center", "leading", "trailing", "top", "bottom", "topLeading", "topTrailing", "bottomLeading", "bottomTrailing"] },
+    "fontWeight": { "enum": ["ultraLight", "thin", "light", "regular", "medium", "semibold", "bold", "heavy", "black"] },
+    "colorName": { "enum": ["primary", "secondary", "accent", "red", "orange", "yellow", "green", "mint", "teal", "cyan", "blue", "indigo", "purple", "pink", "brown", "white", "black", "gray", "clear"] },
     "hex": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$" },
+    "bound": {
+      "description": "A value key in place of a literal; the member reads that value on every render.",
+      "type": "object", "additionalProperties": false, "required": ["bind"],
+      "properties": { "bind": { "$ref": "#/$defs/name" } }
+    },
+    "bindableColor": { "anyOf": [{ "$ref": "#/$defs/color" }, { "$ref": "#/$defs/bound" }] },
     "color": {
       "anyOf": [
-        { "enum": ["primary", "secondary", "accent", "red", "orange", "yellow", "green", "mint", "teal", "cyan", "blue", "indigo", "purple", "pink", "brown", "white", "black", "gray", "clear"] },
+        { "$ref": "#/$defs/colorName" },
         { "$ref": "#/$defs/hex" },
         {
           "type": "object", "additionalProperties": false, "required": ["light", "dark"],

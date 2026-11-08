@@ -88,6 +88,12 @@ impl<R: Runtime> LiveActivity<R> {
         Err(Error::unsupported())
     }
 
+    /// Checks the PNG as on mobile, then returns `UNSUPPORTED_PLATFORM`.
+    pub fn write_image(&self, name: &str, png: &[u8]) -> Result<()> {
+        crate::image::check_image(name, png)?;
+        Err(Error::unsupported())
+    }
+
     /// Desktop shows no activity, so no button is ever tapped and the handler is dropped. On
     /// mobile, register handlers on the built `App` before `App::run` or in the setup of a
     /// plugin, not in `Builder::setup`, which may never run when the system launches the app

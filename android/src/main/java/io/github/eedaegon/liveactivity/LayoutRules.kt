@@ -8,11 +8,15 @@ internal object LayoutRules {
     const val MAX_REVISION = 9007199254740991.0
     private const val MAX_DEPTH = 8
     private const val MAX_BUTTONS = 4
+    private const val MAX_PROPS = 16
 
     private val NAME = Regex("[A-Za-z][A-Za-z0-9_]{0,31}")
     private val ACTIVITY_KEY = Regex("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
     private val ACTION_ID = Regex("[A-Za-z0-9][A-Za-z0-9._:-]{0,63}")
+    /** An asset name, an image file name or the name of a custom view. */
     private val ASSET = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+    /** The PostScript or family name of a font of the widget extension. */
+    private val FONT_FAMILY = Regex("[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}")
     private val SYMBOL = Regex("[a-z0-9]+(\\.[a-z0-9]+)*")
     private val HEX = Regex("#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})")
 
@@ -27,9 +31,12 @@ internal object LayoutRules {
     private val FONTS = setOf("largeTitle", "title", "title2", "title3", "headline", "subheadline", "body", "callout", "footnote", "caption", "caption2")
     private val WEIGHTS = setOf("ultraLight", "thin", "light", "regular", "medium", "semibold", "bold", "heavy", "black")
     private val STYLE_MEMBERS = setOf(
-        "font", "size", "weight", "design", "monospacedDigit", "color", "lineLimit", "minimumScaleFactor", "alignment",
+        "font", "size", "weight", "design", "fontFamily", "monospacedDigit", "color", "lineLimit", "minimumScaleFactor", "alignment",
         "padding", "frame", "background", "cornerRadius", "opacity", "tint", "buttonStyle",
     )
+    /** The members that may name a value, and what that value must be: what the member takes as a literal. */
+    private val BOUND_NUMBERS = mapOf("size" to 6.0..96.0, "opacity" to 0.0..1.0, "cornerRadius" to 0.0..64.0)
+    private val BOUND_COLORS = setOf("color", "background", "tint")
     private val FRAME_LENGTHS = listOf("width", "height", "minWidth", "minHeight")
     private val FRAME_EXTENTS = listOf("maxWidth", "maxHeight")
 
@@ -49,6 +56,7 @@ internal object LayoutRules {
         "gauge" to Shape(setOf("bind"), setOf("min", "max", "kind")),
         "timerText" to Shape(setOf("start", "end"), setOf("countsDown")),
         "button" to Shape(setOf("actionId", "child")),
+        "custom" to Shape(setOf("name"), setOf("props")),
     )
 
     fun isName(text: String) = NAME.matches(text)
@@ -74,6 +82,20 @@ internal object LayoutRules {
         if (origin.documentWeight + weigh(values) > MAX_WEIGHT) tooLarge()
     }
 
+    /** `{"bind": key}`: a member that reads the value of `key` on every render. */
+    private fun bound(raw: Any): String? {
+        if (raw !is Map<*, *> || "bind" !in raw) return null
+        return raw.members().only(setOf("bind"))["bind"].text()
+    }
+
+    /** A literal color, or a binding whose value is checked with the values. */
+    private fun bindableColor(raw: Any) {
+        if (bound(raw) == null) color(raw)
+    }
+
+    /** A value that a bound color takes: a color name or a hex color, never a light and dark pair. */
+    private fun isColor(value: Any?) = value is String && (value in COLORS || HEX.matches(value))
+
     fun color(raw: Any) {
         when (raw) {
             is String -> if (raw !in COLORS && !HEX.matches(raw)) invalidLayout()
@@ -89,19 +111,18 @@ internal object LayoutRules {
         val style = raw.members().only(emptySet(), STYLE_MEMBERS)
         if (style.isEmpty() || ("font" in style && "size" in style)) invalidLayout()
         style["font"]?.oneOf(FONTS)
-        style["size"]?.within(6.0, 96.0)
-        style["weight"]?.oneOf(WEIGHTS)
+        BOUND_NUMBERS.forEach { (key, range) -> style[key]?.let { if (bound(it) == null) it.within(range.start, range.endInclusive) } }
+        style["weight"]?.let { if (bound(it) == null) it.oneOf(WEIGHTS) }
         style["design"]?.oneOf(setOf("default", "rounded", "serif", "monospaced"))
+        style["fontFamily"]?.let { if (!FONT_FAMILY.matches(it.text()) || "design" in style) invalidLayout() }
         style["monospacedDigit"]?.flag()
         style["lineLimit"]?.let { if (it.integer(10.0) < 1) invalidLayout() }
         style["minimumScaleFactor"]?.within(0.1, 1.0)
         style["alignment"]?.oneOf(HORIZONTAL)
         style["padding"]?.let { padding -> if (padding is List<*>) edges(padding) else padding.within(0.0, 64.0) }
         style["frame"]?.let(::frame)
-        style["cornerRadius"]?.within(0.0, 64.0)
-        style["opacity"]?.within(0.0, 1.0)
         style["buttonStyle"]?.oneOf(setOf("automatic", "bordered", "borderedProminent", "plain"))
-        listOf("color", "background", "tint").forEach { key -> style[key]?.let(::color) }
+        BOUND_COLORS.forEach { key -> style[key]?.let(::bindableColor) }
     }
 
     private fun edges(edges: List<*>) {
@@ -124,8 +145,9 @@ internal object LayoutRules {
 
         fun layout(layout: Map<String, Any>) {
             layout.only(setOf("lockScreen"), setOf("island", "background", "keyline"))
-            layout["background"]?.let(::color)
-            layout["keyline"]?.let(::color)
+            layout["background"]?.let(::bindableColor)
+            layout["keyline"]?.let(::bindableColor)
+            bindings(layout)
             region(layout["lockScreen"], 40, true)
             val island = layout["island"]?.members()?.only(emptySet(), setOf("expanded", "compactLeading", "compactTrailing", "minimal")) ?: return
             if (island.isEmpty()) invalidLayout()
@@ -135,6 +157,21 @@ internal object LayoutRules {
                 expanded.values.forEach { region(it, 12, true) }
             }
             listOf("compactLeading", "compactTrailing", "minimal").forEach { key -> island[key]?.let { region(it, 3, false) } }
+        }
+
+        /** Every bound member, in every style whether a node uses it or not, names a value that the member takes. */
+        private fun bindings(layout: Map<String, Any>) {
+            fun check(raw: Any?, fits: (Any?) -> Boolean) {
+                val key = raw?.let(::bound) ?: return
+                if (!fits(values[key])) invalidLayout()
+            }
+            listOf("background", "keyline").forEach { check(layout[it], ::isColor) }
+            styles?.values?.forEach { raw ->
+                val style = raw.members()
+                BOUND_COLORS.forEach { check(style[it], ::isColor) }
+                BOUND_NUMBERS.forEach { (key, range) -> check(style[key]) { value -> value is Double && value in range } }
+                check(style["weight"]) { value -> value is String && value in WEIGHTS }
+            }
         }
 
         private fun region(root: Any?, mostNodes: Int, buttonsAllowed: Boolean) {
@@ -191,7 +228,8 @@ internal object LayoutRules {
                     node["variableBind"]?.let { if (number(it) !in 0.0..1.0) invalidLayout() }
                 }
                 "image" -> {
-                    if (!ASSET.matches(node["source"].members().only(setOf("asset"))["asset"].text())) invalidLayout()
+                    val source = node["source"].members().only(emptySet(), setOf("asset", "file"))
+                    if (source.size != 1 || !ASSET.matches(source.values.single().text())) invalidLayout()
                     node["resizable"]?.flag()
                     node["contentMode"]?.oneOf(setOf("fit", "fill"))
                 }
@@ -205,6 +243,25 @@ internal object LayoutRules {
                 "timerText" -> {
                     if (time(node["end"]) <= time(node["start"])) invalidLayout()
                     node["countsDown"]?.flag()
+                }
+                "custom" -> {
+                    if (!ASSET.matches(node["name"].text())) invalidLayout()
+                    node["props"]?.let(::props)
+                }
+            }
+        }
+
+        /** 1 to 16 props under value-key names, each a literal that a value could be or bound to a value. */
+        private fun props(raw: Any) {
+            val props = raw.members()
+            if (props.size !in 1..MAX_PROPS) invalidLayout()
+            props.forEach { (key, prop) ->
+                if (!isName(key)) invalidLayout()
+                when (prop) {
+                    is String -> if (prop.codePointLength() > 200) invalidLayout()
+                    is Double -> prop.within(-MAX_NUMBER, MAX_NUMBER)
+                    is Boolean -> Unit
+                    else -> known(bound(prop) ?: invalidLayout())
                 }
             }
         }
