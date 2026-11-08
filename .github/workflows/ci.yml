@@ -3,7 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+    # A change to docs alone builds nothing; run the workflow by hand when a release needs a run.
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE*']
   pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE*']
   workflow_dispatch:
 
 permissions:

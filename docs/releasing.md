@@ -9,6 +9,10 @@ Both registries use `tauri-plugin-live-activity` and the same version. The
 3. Wait for the CI run of that commit on `main`. It must succeed.
 4. Push the matching tag on that commit, for example `v0.2.0`.
 
+CI skips commits that change only Markdown, `docs/` or the licences. When the commit to tag is
+such a commit, run CI on it by hand first (Actions > CI > Run workflow on `main`); the release guard
+accepts that run.
+
 A published version cannot be replaced, so a bug found after step 4 needs a new version.
 Each commit on `main` gets its own CI run, and a later push does not cancel it. If that
 run fails for a reason outside the code, rerun it with `gh run rerun <run id>`: the
