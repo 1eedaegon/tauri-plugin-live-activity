@@ -1,4 +1,23 @@
-# 0.2.1 validation
+# 0.3.0 validation
+
+0.3.0 lets apps change styles with an update (bound style members), use their own fonts and
+asset images, show images they draw (through the App Group) and register custom SwiftUI views.
+Rust and Swift types change, so it is a minor release. Checked before the tag:
+
+- Shared fixtures, 214 valid, 834 invalid and 34 update cases: Rust, the TypeScript reference
+  validator, Swift and Kotlin agree on verdict, error code and weight; every new rule was shown
+  failing before its code, and mutation checks caught a widened range and a removed rule.
+- A fresh Tauri 2 app on an iOS Simulator: a bound color turning from green to red on update,
+  and a bundled font, a drawn image, a custom view and an asset image on the Lock Screen,
+  updated again.
+- CI of the pull requests (#7 and this release) and the main run of the release commit.
+
+Not checked: the App Group on a physical iPhone, and a drawn image as an Android notification's
+large icon on a device.
+
+The record of 0.2.1 follows.
+
+# 0.2.1 validation (earlier)
 
 0.2.1 adds the `npx tauri-plugin-live-activity setup` command and a short README; the plugin's
 Rust, Swift, Kotlin and TypeScript code is the same as in 0.2.0. Checked before the tag:
