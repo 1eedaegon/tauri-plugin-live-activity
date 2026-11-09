@@ -294,6 +294,10 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
 - `BUILD_DIR=<folder>` keeps the built demo and UI tests, and `BUILD_KEY=<name>` marks a complete build: a later run
   with the same key tests those products without building, as CI does on a cache hit (`tests/ci/cache.sh` makes the
   key from the tracked files, Xcode and the pinned tools). The simulator destination names its architecture.
+- CI does not run the two simulator suites on a push or a pull request: a hosted runner rebuilds the demo whenever
+  their inputs change, which takes 30 to 50 minutes. Run `tests/ios/run.sh` and `MODE=dev tests/ios/run.sh` on a Mac
+  before pushing a change to what they read. A run of CI started by hand with `simulator` on runs both
+  (`gh workflow run ci.yml -f simulator=true`).
 
 The Swift layer's own tests (its validators, the lifecycle and receipts, the C bridge and a test host on a simulator)
 are activitykit's ([testing](https://github.com/1eedaegon/activitykit-rs/blob/main/docs/testing.md)). 0.3's

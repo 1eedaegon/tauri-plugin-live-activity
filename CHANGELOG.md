@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- CI runs the two simulator suites only when started by hand (`gh workflow run ci.yml -f simulator=true`); a push or
+  a pull request no longer waits 30 to 50 minutes for a hosted runner to rebuild the demo. They run on a Mac before
+  the push.
+
 ## 0.4.0
 
 iOS moves onto the [activitykit](https://crates.io/crates/activitykit) crate, which was split out of this plugin's iOS

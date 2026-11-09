@@ -79,8 +79,11 @@ test('the changes job starts each job for its paths, and the ios area is what th
   const { found } = areas();
   for (const path of git('ls-files')) assert.equal(found.ios.test(path), read_by_the_suites.has(path), path);
   assert.match(workflow, /if: needs\.changes\.outputs\.rust == 'true' \|\| needs\.changes\.outputs\.js == 'true' \|\| needs\.changes\.outputs\.ios == 'true'\n\s+runs-on: macos-/);
-  assert.match(workflow, /\n  e2e:\n    name: Demo on the iOS Simulator\n    needs: changes\n    if: needs\.changes\.outputs\.ios == 'true'\n    runs-on: macos-/);
-  assert.match(workflow, /\n  e2e-dev:\n    name: Demo in tauri ios dev on the iOS Simulator\n    needs: changes\n    if: needs\.changes\.outputs\.ios == 'true'\n    runs-on: macos-/);
+  // The simulator jobs run only in a run started by hand with `simulator` on: a push or a pull request never starts them.
+  const byHand = "if: github.event_name == 'workflow_dispatch' && inputs.simulator && needs.changes.outputs.ios == 'true'";
+  assert.ok(workflow.includes(`\n  e2e:\n    name: Demo on the iOS Simulator\n    needs: changes\n    ${byHand}\n    runs-on: macos-`), 'e2e');
+  assert.ok(workflow.includes(`\n  e2e-dev:\n    name: Demo in tauri ios dev on the iOS Simulator\n    needs: changes\n    ${byHand}\n    runs-on: macos-`), 'e2e-dev');
+  assert.match(workflow, /\n      simulator:\n        description: [^\n]+\n        type: boolean\n        default: false\n/);
   // The demo's Rust embeds its page (frontendDist), so the macOS job builds the page before the demo's Rust tests,
   // also when only the Rust changed.
   const contracts = job('contracts');
