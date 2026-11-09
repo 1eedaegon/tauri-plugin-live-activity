@@ -290,6 +290,34 @@ mod tests {
 
     // TP-ANDROID-4
     #[test]
+    fn a_core_snapshot_with_a_presentation_is_not_guessed_into_the_v1_plugin_contract() {
+        let presentation =
+            serde_json::from_value(serde_json::json!({ "style": { "kind": "standard" } })).unwrap();
+        let record = activity_record(liveupdate::ActivityRecord {
+            id: "handle".into(),
+            activity_key: "delivery:1".into(),
+            schema_version: 1,
+            template: liveupdate::Template::Progress,
+            snapshot: liveupdate::Snapshot {
+                revision: 2,
+                title: "Delivery".into(),
+                status: "Arriving".into(),
+                progress: Some(0.75),
+                timer: None,
+                stale_at: None,
+                presentation: Some(presentation),
+            },
+            state: liveupdate::ActivityState::Active,
+            visibility: liveupdate::Visibility::Unknown,
+            degraded_features: Vec::new(),
+            promotion_requested: false,
+            promotion_state: liveupdate::PromotionState::NotApplicable,
+        });
+        assert_eq!(record.unwrap_err().code, "NATIVE_ERROR");
+    }
+
+    // TP-ANDROID-4
+    #[test]
     fn capabilities_and_errors_keep_stable_public_values() {
         let converted = capabilities(liveupdate::Capabilities {
             supported: true,
