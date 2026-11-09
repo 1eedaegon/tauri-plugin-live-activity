@@ -76,3 +76,4 @@ tests/ios/DemoUITests/*.xcodeproj/
 *.pem
 *.key
 *.mobileprovision
+tests/jsx/out/

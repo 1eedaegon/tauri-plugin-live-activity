@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `tauri-plugin-live-activity/jsx`: layouts in TSX. The entry is a JSX import source of its own, with one component per
+  node that returns the node of its builder, so TSX needs no React. It imports neither Tauri nor React, so a server
+  can build the same layout. There are no HTML elements and no fragments.
+- `tauri-plugin-live-activity/react`: `useLiveActivity` starts a layout activity on mount, sends changed values as
+  updates one at a time, and ends it on unmount or when `enabled` turns false; `onAction` gets this activity's taps.
+  React 18 or later is an optional peer dependency.
 - CI runs the two simulator suites only when started by hand (`gh workflow run ci.yml -f simulator=true`); a push or
   a pull request no longer waits 30 to 50 minutes for a hosted runner to rebuild the demo. They run on a Mac before
   the push.

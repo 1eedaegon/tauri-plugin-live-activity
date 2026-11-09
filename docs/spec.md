@@ -1,6 +1,6 @@
 # Feature specification
 
-What tauri-plugin-live-activity 0.4 promises, one requirement per row. Each ID is named by the tests that prove it, and
+What tauri-plugin-live-activity 0.5 promises, one requirement per row. Each ID is named by the tests that prove it, and
 `tools/spec-coverage.sh` fails when a requirement has no test, a listed test does not exist or does not name it right
 above its declaration, or a test names an ID this file lacks.
 
@@ -23,6 +23,33 @@ Android runs every activity on the liveupdate crate, the layouts projected by th
 | TP-JS-5 | The types follow the contract of 0.4: `LayoutSnapshot` has an optional `timestamp`, `ActivityState` includes `pending`, `ErrorCode` includes `NOT_FOREGROUND`, and no comment says that iOS numbers the revisions itself (it sends the caller's, TP-IOS-3). | The declarations in `dist-js/types.d.ts`. | — | all |
 | TP-JS-6 | The `layout` builders return plain node objects without undefined members, and `bind(key)` writes `{ bind }`. | `text('a', {style: undefined})` → `{type: 'text', value: 'a'}`. | — | all |
 | TP-JS-7 | The TypeScript declarations are the plugin's models: `ErrorCode` is the 12 codes that the Rust side, the liveupdate crate and the Kotlin backend raise and no other; `Capabilities`, `Permissions`, `ActivityRecord`, `LayoutActivityRecord`, `LayoutSnapshot` and `ActionEvent` have the members that the Rust models write, optional where Rust leaves them out; the unions of feature support, backend, permission, activity and promotion states are the values the Rust enums write. | A Rust code that TypeScript lacks → failure. | — | all |
+
+## The JSX entry
+
+`tauri-plugin-live-activity/jsx` writes layouts as TSX. It is a JSX import source of its own (`jsxImportSource`), so a
+`.tsx` file needs no React; its components return the same plain node objects as the `layout` builders.
+
+| ID | Behavior | Input → result | Errors | Platform |
+| --- | --- | --- | --- | --- |
+| TP-JSX-1 | With `jsxImportSource` set to `tauri-plugin-live-activity/jsx`, TypeScript compiles TSX, and each element is the node that the `layout` builder of that node returns for the same arguments. `SFSymbol` is the `symbol` node. | `<VStack spacing={4}><Text>Mochi</Text></VStack>` → `vstack([text('Mochi')], {spacing: 4})`. | — | all |
+| TP-JSX-2 | The entry and its runtime import nothing but each other and the `layout` builders: no `@tauri-apps` module and no React, so a server builds the same layout, for a push payload too. | The imports of `dist-js/jsx` → only `dist-js/jsx/*` and `dist-js/layout.js`. | — | all |
+| TP-JSX-3 | Children: a stack takes nodes, arrays of them and booleans, `null` or `undefined`, which are left out, as React leaves them out; `Text` joins strings and numbers; `Button` takes exactly one node. | `<HStack>{[a, b]}{false}</HStack>` → children `[a, b]`; `<Text>{3} of {5}</Text>` → value `3 of 5`. | `TypeError` for a stack without a child, a `Button` without exactly one child, a `Text` with both children and `bind` or with neither, and an `Image` without exactly one of `asset` and `file`. | all |
+| TP-JSX-4 | There are no intrinsic elements and no fragments: a lowercase tag does not compile, the runtime refuses a tag that is not a component, and the runtime has no `Fragment`, so a `<>` that TypeScript compiles neither loads nor bundles. | `jsx('div', {})` → `TypeError`; `<>…</>` → Node `SyntaxError`, esbuild `No matching export`. | `TypeError` | all |
+| TP-JSX-5 | A layout written in TSX is a valid request like the builders' one: the reference validator accepts it with the same weight. | The demo's buttons example in TSX → equal to the builders', accepted. | — | all |
+
+## The React entry
+
+`tauri-plugin-live-activity/react` has `useLiveActivity`, which keeps one layout activity in step with a component.
+React is an optional peer dependency that only this entry imports.
+
+| ID | Behavior | Input → result | Errors | Platform |
+| --- | --- | --- | --- | --- |
+| TP-REACT-1 | On mount, with `enabled` absent or true, the hook starts a layout activity with the options' `activityKey`, `layout`, `styles`, `fallback` (default `notification`), `android` and a snapshot of `values` at revision 0, and returns `{ status, record, error }`: `starting`, then `active` with the record. | mount → one `startLayout`; status `starting` → `active`. | — | all |
+| TP-REACT-2 | A render whose `values` differ from the last sent (a shallow comparison) sends `updateLayout` with the complete values at the next revision; equal values send nothing. One request is in flight at a time: values that change meanwhile go out once it has answered, as one update with the newest values. | values `a` → `b` → `c` while `b` is in flight → updates `b` (revision 1), `c` (revision 2). | — | all |
+| TP-REACT-3 | Unmount, or `enabled` turning false, ends the activity with `endPolicy` (default `immediate`); a start still in flight is ended once it answers. The unmount and remount of React's Strict Mode neither ends nor starts again. | unmount → one `endLayout` with `{kind: 'immediate'}`; status `ended`. | — | all |
+| TP-REACT-4 | A refused start sets `status: 'failed'` and `error` to the plugin's `{ code, message }`; a refused update keeps the activity `active` and sets `error`, which the next accepted request clears, and the same values are not sent again; a refused end sets `status: 'failed'` and is not tried again. `enabled` turning off and on again, or another `activityKey`, starts again. | `startLayout` rejects `PERMISSION_DENIED` → `{status: 'failed', error: {code: 'PERMISSION_DENIED', ...}}`. | the command's | all |
+| TP-REACT-5 | `onAction` gets the taps of this activity only, those whose `activityId` is the record's `id`, and the hook stops listening on unmount. | a tap of another activity → not passed on. | — | all |
+| TP-REACT-6 | `layout`, `styles`, `fallback` and `android` are read when the activity starts: a change while it runs neither restarts nor updates it, since the layout is fixed for a generation. | a new `layout` while active → no request. | — | all |
 
 ## The Rust API
 
@@ -177,6 +204,17 @@ Android runs every activity on the liveupdate crate, the layouts projected by th
 | TP-JS-5 | `tests/api.test.mjs::the declarations follow the contract of 0.4` (node) |
 | TP-JS-6 | `tests/api.test.mjs::layout.bind writes the binding of a style member and nothing else` (node)<br>`tests/api.test.mjs::layout builders omit options that were not given or are undefined` (node) |
 | TP-JS-7 | `src/types_tests.rs::the_error_codes_of_typescript_are_those_that_rust_and_kotlin_raise` (unit)<br>`src/types_tests.rs::the_typescript_records_have_the_members_that_the_rust_models_write` (unit) |
+| TP-JSX-1 | `tests/jsx.test.mjs::each component returns the node of its layout builder` (node)<br>`tests/jsx.test.mjs::TSX compiled with the package as its JSX import source gives the builders' nodes` (node) |
+| TP-JSX-2 | `tests/jsx.test.mjs::the JSX entry imports nothing but its own files and the layout builders` (node) |
+| TP-JSX-3 | `tests/jsx.test.mjs::stacks flatten arrays and leave out booleans, null and undefined` (node)<br>`tests/jsx.test.mjs::Text joins strings and numbers and takes bind instead` (node)<br>`tests/jsx.test.mjs::wrong children are a TypeError that names the component` (node) |
+| TP-JSX-4 | `tests/jsx.test.mjs::the runtime refuses a tag that is not a component` (node)<br>`tests/jsx.test.mjs::a lowercase tag does not compile` (node)<br>`tests/jsx.test.mjs::a fragment neither loads nor bundles` (node) |
+| TP-JSX-5 | `tests/jsx.test.mjs::the demo's buttons example in TSX is the builders' request and passes the reference validator` (node) |
+| TP-REACT-1 | `tests/react.test.mjs::mounting starts the activity at revision 0 and reports it active` (node) |
+| TP-REACT-2 | `tests/react.test.mjs::changed values go out as one update at the next revision and equal values send nothing` (node)<br>`tests/react.test.mjs::values that change during a request go out once it answers, the newest only` (node) |
+| TP-REACT-3 | `tests/react.test.mjs::unmounting ends the activity with the end policy` (node)<br>`tests/react.test.mjs::a start still in flight is ended once it answers` (node)<br>`tests/react.test.mjs::strict mode neither ends nor starts the activity again` (node)<br>`tests/react.test.mjs::enabled false ends the activity and true starts it again` (node) |
+| TP-REACT-4 | `tests/react.test.mjs::a refused start is failed with the plugin's error` (node)<br>`tests/react.test.mjs::a refused update keeps the activity and the next accepted one clears the error` (node)<br>`tests/react.test.mjs::another activity key starts again` (node)<br>`tests/react.test.mjs::a refused end is failed and not tried again` (node) |
+| TP-REACT-5 | `tests/react.test.mjs::onAction gets the taps of this activity only, until unmount` (node) |
+| TP-REACT-6 | `tests/react.test.mjs::a new layout while the activity runs sends nothing` (node) |
 | TP-RUST-1 | `src/apple/tests.rs::block_on_drives_a_future_that_another_thread_completes` (unit)<br>`tests/contract.rs::the_changing_styles_example_binds_a_color_that_an_update_changes` (unit)<br>`src/apple/tests.rs::a_blocking_call_on_the_main_thread_answers_at_once_instead_of_waiting_forever` (unit) |
 | TP-RUST-2 | `src/layout.rs::a_request_reads_into_the_plugins_types_and_writes_back_the_same_json` (unit)<br>`src/layout.rs::parse_is_activitykits_strict_check_and_the_types_validate_the_same` (unit)<br>`tests/contract.rs::layout_fixtures_keep_their_verdict_and_weight_through_the_typed_models` (unit) |
 | TP-RUST-3 | `src/layout.rs::parse_is_activitykits_strict_check_and_the_types_validate_the_same` (unit)<br>`tests/contract.rs::layout_fixtures_match_reference_validator` (unit)<br>`tests/contract.rs::layout_update_fixtures_match_the_check_against_the_start` (unit)<br>`tests/contract.rs::layout_end_fixtures_match_the_check_against_the_start` (unit)<br>`tests/contract.rs::layout_commands_do_not_mix_with_contract_v1` (unit) |

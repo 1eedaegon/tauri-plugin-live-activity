@@ -103,6 +103,8 @@ app.live_activity().update_layout(LayoutUpdateInput { id, snapshot: LayoutSnapsh
 레이아웃은 `text`/`bound`, `path`(SVG path 데이터), `vstack`·`hstack`·`zstack`·`spacer`·`divider`와
 아래 여섯 가지로 만듭니다. 그림은 모두 iOS 잠금화면입니다. 예시의 빌더는 `layout`에서 꺼내 씁니다
 (`const { vstack, hstack, text, bound, symbol, image, gauge, progress, timerText, button } = layout;`).
+같은 레이아웃을 TSX로 쓸 수 있고, React 훅으로 컴포넌트와 액티비티를 함께 움직일 수도 있습니다
+([TSX and React](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#tsx-and-react)).
 
 ### 심볼
 

@@ -760,6 +760,77 @@ On iOS a start needs the app in the foreground and fails with `NOT_FOREGROUND` o
 activity after 8 hours and removes it from the Lock Screen after 12. [iOS integration](ios-integration.md) has the
 details.
 
+## TSX and React
+
+### Layouts in TSX
+
+`tauri-plugin-live-activity/jsx` is a JSX import source of its own. Its components return the same node objects as the
+builders, so TSX needs no React. Name it in `tsconfig.json` (`"jsx": "react-jsx"`, `"jsxImportSource":
+"tauri-plugin-live-activity/jsx"`), or per file:
+
+```tsx
+/** @jsxImportSource tauri-plugin-live-activity/jsx */
+import { Button, HStack, SFSymbol, Text, VStack } from 'tauri-plugin-live-activity/jsx';
+
+const lockScreen = (
+  <VStack alignment="leading" spacing={8}>
+    <HStack spacing={8}>
+      <SFSymbol name="cat.fill" />
+      <Text bind="title" />
+    </HStack>
+    <Text bind="status" />
+    <HStack spacing={8}>
+      <Button actionId="pet"><Text>Pet Mochi</Text></Button>
+      <Button actionId="done"><Text>All done</Text></Button>
+    </HStack>
+  </VStack>
+);
+```
+
+There is one component per node: `VStack`, `HStack`, `ZStack`, `Spacer`, `Divider`, `Text`, `SFSymbol`, `Image`, `Path`,
+`Progress`, `Gauge`, `TimerText`, `Button` and `Custom`. Their props are the node's members, and `bind` comes from the
+same entry. `Text` shows its children, strings and numbers joined, or with `bind` the value of a key. A stack takes
+nodes and arrays of them and leaves out booleans, `null` and `undefined`, so `{late && <Text>Late</Text>}` and `.map`
+work. A `Button` holds exactly one node; an `Image` takes `asset` or `file`. Wrong children are a `TypeError` that
+names the component. There are no HTML elements and no fragments: `<div>` does not compile, and `<>` neither loads nor
+bundles. Put the children in a stack.
+
+The entry imports neither Tauri nor React. A server can build the same layout, for example for a push payload.
+
+### React
+
+`tauri-plugin-live-activity/react` keeps one layout activity in step with a component. React (18 or later) is an
+optional peer dependency; only this entry imports it.
+
+```tsx
+import { useLiveActivity } from 'tauri-plugin-live-activity/react';
+
+function Delivery({ order }: { order: Order }) {
+  const { status, error } = useLiveActivity({
+    activityKey: `delivery:${order.id}`,
+    layout: { lockScreen },
+    values: { title: order.title, status: order.status },
+    enabled: order.open,
+    onAction: ({ actionId }) => { if (actionId === 'done') closeOrder(order.id); },
+  });
+  return <p>{status}{error ? `: ${error.message}` : ''}</p>;
+}
+```
+
+- The activity starts on mount at revision 0, with `fallback: 'notification'` unless the options name another.
+  `status` goes from `idle` to `starting` and `active`; `record` is the plugin's newest record.
+- A render whose `values` differ from the last sent ones sends them all as an update at the next revision. One request
+  is in flight at a time; values that change meanwhile go out once it answers, the newest only.
+- `layout`, `styles`, `fallback` and `android` are read at start. To change them, end the activity and start it
+  again, for example with another `activityKey`, which ends the running activity and starts one for the new key.
+- Unmount, or `enabled: false`, ends the activity with `endPolicy` (`immediate` unless given). React's Strict Mode
+  neither ends nor restarts it.
+- A refused request sets `error` to the plugin's `{ code, message }`. After a refused start `status` is `failed`, until
+  `enabled` turns off and on again or the key changes; after a refused update the activity stays `active`, and the
+  same values are not sent again.
+- `onAction` gets the taps of this activity only. It runs while the web view does; taps that must work in the
+  background belong in Rust ([Buttons](#buttons)).
+
 ## Beyond the built-in parts
 
 The nodes above draw with system fonts, SF Symbols, the widget's asset catalog, SVG path data, progress views,

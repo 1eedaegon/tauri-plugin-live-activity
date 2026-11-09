@@ -102,6 +102,8 @@ the same minor version. [More](https://github.com/1eedaegon/tauri-plugin-live-ac
 Layouts are built from `text`/`bound`, `path` (SVG path data) and `vstack`, `hstack`, `zstack`,
 `spacer`, `divider`, plus the six below. Each picture is the iOS Lock Screen. The snippets take
 the builders from `layout` (`const { vstack, hstack, text, bound, symbol, image, gauge, progress, timerText, button } = layout;`).
+The same layouts can be written in TSX, and a React hook keeps an activity in step with a component
+([TSX and React](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#tsx-and-react)).
 
 ### Symbols
 
