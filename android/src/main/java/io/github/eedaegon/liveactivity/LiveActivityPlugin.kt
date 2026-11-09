@@ -14,27 +14,27 @@ import app.tauri.plugin.Channel
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
-import org.json.JSONArray
+import io.github.eedaegon.liveupdate.LiveUpdateBridge
+import io.github.eedaegon.liveupdate.LiveUpdateEvents
 import org.json.JSONException
 import org.json.JSONObject
+import java.io.File
 
-/** The argument of `registerActions`: the channel that carries button taps to Rust. */
+/** The argument of `registerEvents`: the channel that tells Rust that liveupdate stored an event. */
 @InvokeArg
-class ActionRegistration {
+class EventRegistration {
     lateinit var channel: Channel
 }
 
+/**
+ * The Android side of the plugin: notification permissions, and liveupdate's Android adapter, which the plugin's
+ * Rust drives for templates and layouts alike. liveupdate's receivers store taps and dismissals; this plugin only
+ * tells Rust to drain them.
+ */
 @TauriPlugin(permissions = [Permission(strings = [Manifest.permission.POST_NOTIFICATIONS], alias = "notifications")])
 class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
     private val notifications = AndroidNotifications(activity)
-    private val liveUpdates = LiveUpdateAdapter(activity)
     private val preferences = activity.getSharedPreferences(PLUGIN_PREFERENCES, Context.MODE_PRIVATE)
-    // The configuration arrives with the plugin handle, after construction.
-    private val samsungNowBar by lazy { PluginSettings.samsungNowBar(handle?.config) }
-    private val layouts = LayoutEngine(
-        LayoutPreferencesStore(activity.applicationContext),
-        LayoutNotifications(activity.applicationContext, { samsungNowBar }),
-    )
 
     @Command
     override fun checkPermissions(invoke: Invoke) = respond(invoke) { permissions() }
@@ -66,57 +66,36 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
         permissions()
     }
 
+    /** One command of liveupdate's driver, answered by liveupdate's own Android adapter. */
     @Command
     fun liveUpdate(invoke: Invoke) = respond(invoke) {
         val args = invoke.getArgs()
         Input.keys(args, setOf("command", "payload"))
-        LiveUpdateProtocol.dispatch(
-            liveUpdates,
-            args.getString("command"),
-            args.getString("payload"),
-        )
+        LiveUpdateBridge.invoke(activity, args.getString("command"), args.getString("payload"))
     }
 
-    @Command
-    fun startLayout(invoke: Invoke) = respond(invoke) { layouts.start(LayoutInput.start(invoke.getArgs())).json() }
-
-    @Command
-    fun updateLayout(invoke: Invoke) = respond(invoke) {
-        val (id, snapshot) = LayoutInput.update(invoke.getArgs())
-        layouts.update(id, snapshot).json()
-    }
-
-    @Command
-    fun endLayout(invoke: Invoke) = respond(invoke) {
-        val end = LayoutInput.end(invoke.getArgs())
-        layouts.end(end.id, end.policy, end.snapshot).json()
-    }
-
-    @Command
-    fun listLayout(invoke: Invoke) = respond(invoke) { JSONArray(layouts.list().map { it.json() }) }
-
-    /** Where Rust writes the PNGs of `writeImage`: the app's private files. */
+    /** Where Rust writes the PNGs of `writeImage`: the app's private files, where liveupdate reads large icons. */
     @Command
     fun imageDirectory(invoke: Invoke) = respond(invoke) {
         Input.keys(invoke.getArgs(), emptySet())
-        JSONObject().put("path", LayoutImages.directory(activity.applicationContext).absolutePath)
+        JSONObject().put("path", File(activity.applicationContext.filesDir, IMAGE_FOLDER).absolutePath)
     }
 
     /**
-     * Takes the channel of button taps. Rust sends it once, from plugin setup, and waits for this
-     * reply; taps are sent on the relay's thread, never here on the main thread.
+     * Takes the channel that tells Rust to drain liveupdate's events. Rust sends it once, from plugin setup; the
+     * channel then hears an empty message each time a receiver stored a tap or a dismissal.
      */
     @Command
-    fun registerActions(invoke: Invoke) = respond(invoke) {
+    fun registerEvents(invoke: Invoke) = respond(invoke) {
         Input.keys(invoke.getArgs(), setOf("channel"))
-        val channel = try { invoke.parseArgs(ActionRegistration::class.java).channel } catch (_: Exception) {
-            throw ActivityFailure("INVALID_INPUT", "Invalid action channel.")
+        val channel = try { invoke.parseArgs(EventRegistration::class.java).channel } catch (_: Exception) {
+            throw ActivityFailure("INVALID_INPUT", "Invalid event channel.")
         }
-        registerActionSink { tap -> channel.send(JSObject(tap.json().toString())) }
+        registerEventSink { channel.send(JSObject()) }
         JSONObject()
     }
 
-    internal fun registerActionSink(sink: (ActionTap) -> Unit) = ActionHub.register(sink)
+    internal fun registerEventSink(sink: () -> Unit) = LiveUpdateEvents.setListener { sink() }
 
     private fun permissions(): JSONObject = JSONObject().put("notifications", notificationPermission())
         .put("liveActivities", "notApplicable")
@@ -151,5 +130,10 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
         }
         val json = JSONObject().put("code", failure.code).put("message", failure.message)
         invoke.resolve(JSObject().put("ok", false).put("error", json) as JSObject)
+    }
+
+    private companion object {
+        /** Under the app's files: the pictures of `writeImage`, which liveupdate takes as app files. */
+        const val IMAGE_FOLDER = "tauri-live-activity/images"
     }
 }

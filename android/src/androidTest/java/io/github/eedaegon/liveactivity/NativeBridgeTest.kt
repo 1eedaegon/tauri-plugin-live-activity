@@ -2,12 +2,16 @@ package io.github.eedaegon.liveactivity
 
 import android.Manifest
 import android.app.Activity
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.tauri.plugin.Invoke
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.github.eedaegon.liveupdate.LiveUpdateEvents
+import java.util.concurrent.atomic.AtomicInteger
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
@@ -80,6 +84,34 @@ class NativeBridgeTest {
         assertEquals("INVALID_INPUT", outer.getJSONObject("error").getString("code"))
     }
 
+    // TP-ANDROID-10
+    @Test
+    fun aStoredTapWakesTheEventSinkAndDrainsThroughTheBridge() {
+        val heard = AtomicInteger()
+        plugin.registerEventSink { heard.incrementAndGet() }
+        try {
+            liveUpdate("events")
+            liveUpdate("post", JSONObject().put("record", layoutRecord()))
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            var notification: android.app.Notification? = null
+            repeat(40) {
+                notification = notification ?: manager.activeNotifications
+                    .firstOrNull { it.tag == "liveupdate-rs:$ACTIVITY_ID" }?.notification
+                if (notification == null) Thread.sleep(50)
+            }
+            requireNotNull(notification).actions[0].actionIntent.send()
+            repeat(100) { if (heard.get() == 0) Thread.sleep(50) }
+            assertEquals(1, heard.get())
+
+            val events = liveUpdate("events").getJSONObject("data").getJSONArray("events")
+            assertEquals(1, events.length())
+            assertEquals(ACTIVITY_ID, events.getJSONObject(0).getString("activityId"))
+            assertEquals("pet", events.getJSONObject(0).getJSONObject("kind").getString("actionId"))
+        } finally {
+            LiveUpdateEvents.setListener(null)
+        }
+    }
+
     private fun awaitObservation(present: Boolean): JSONArray {
         repeat(40) {
             val observations = liveUpdate("observe").getJSONArray("data")
@@ -125,6 +157,34 @@ class NativeBridgeTest {
             .put("activityKey", "delivery:instrumentation")
             .put("schemaVersion", 1)
             .put("template", "progress")
+            .put("fallback", "notification")
+            .put("visibility", "private")
+            .put("snapshot", snapshot)
+        return JSONObject()
+            .put("id", ACTIVITY_ID)
+            .put("origin", origin)
+            .put("snapshot", snapshot)
+            .put("state", "unknown")
+            .put("promotionRequested", false)
+            .put("promotionState", "notApplicable")
+            .put("awaitingObservation", true)
+            .put("postFailed", false)
+    }
+
+    /** A schema-v2 record with one action, as the plugin's Rust posts a layout. */
+    private fun layoutRecord(): JSONObject {
+        val action = JSONObject().put("id", "pet").put("title", "Pet Mochi").put("authenticationRequired", false)
+        val snapshot = JSONObject()
+            .put("revision", 0)
+            .put("title", "Mochi wants attention")
+            .put("status", "No pets yet")
+            .put("presentation", JSONObject()
+                .put("style", JSONObject().put("kind", "standard"))
+                .put("actions", JSONArray().put(action)))
+        val origin = JSONObject()
+            .put("activityKey", "mochi:instrumentation")
+            .put("schemaVersion", 2)
+            .put("template", "standard")
             .put("fallback", "notification")
             .put("visibility", "private")
             .put("snapshot", snapshot)

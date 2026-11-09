@@ -191,9 +191,15 @@ fn the_error_codes_of_typescript_are_those_that_rust_and_kotlin_raise() {
     assert_eq!(codes.len(), 12);
     assert_eq!(union(&types(), "ErrorCode"), codes);
     let rust = raised("src", ".rs", &["Error::new(", "Self::new(", "code: "]);
-    let kotlin = raised("android/src/main", ".kt", &["ActivityFailure(", "fail("]);
-    for (side, raised) in [("Rust", rust), ("Kotlin", kotlin)] {
-        assert!(raised.len() >= 5, "{side}: {raised:?}");
+    // The plugin's Kotlin and liveupdate's adapter, which the plugin's Android library carries.
+    let kotlin = raised(
+        "android/src/main",
+        ".kt",
+        &["ActivityFailure(", "AdapterFailure(", "fail("],
+    );
+    // The Kotlin side raises the few codes of its own commands; liveupdate's codes come through its Rust.
+    for (side, raised, least) in [("Rust", rust, 5), ("Kotlin", kotlin, 3)] {
+        assert!(raised.len() >= least, "{side}: {raised:?}");
         let unknown: Vec<_> = raised.difference(&codes).collect();
         assert!(unknown.is_empty(), "{side} raises {unknown:?}");
     }

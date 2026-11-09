@@ -72,6 +72,17 @@ pub(crate) fn activity_record(record: liveupdate::ActivityRecord) -> crate::Resu
     })
 }
 
+/// The schema-v1 records of `list`; layout activities share liveupdate's list.
+pub(crate) fn v1_records(
+    records: Vec<liveupdate::ActivityRecord>,
+) -> crate::Result<Vec<ActivityRecord>> {
+    records
+        .into_iter()
+        .filter(|record| record.schema_version == 1)
+        .map(activity_record)
+        .collect()
+}
+
 pub(crate) fn capabilities(value: liveupdate::Capabilities) -> Capabilities {
     let supported = FeatureSupport::Supported;
     Capabilities {
@@ -180,14 +191,14 @@ fn non_v1_record() -> Error {
     )
 }
 
-fn fallback(value: Fallback) -> liveupdate::Fallback {
+pub(crate) fn fallback(value: Fallback) -> liveupdate::Fallback {
     match value {
         Fallback::None => liveupdate::Fallback::None,
         Fallback::Notification => liveupdate::Fallback::Notification,
     }
 }
 
-fn activity_state(value: liveupdate::ActivityState) -> ActivityState {
+pub(crate) fn activity_state(value: liveupdate::ActivityState) -> ActivityState {
     match value {
         liveupdate::ActivityState::Active => ActivityState::Active,
         liveupdate::ActivityState::Stale => ActivityState::Stale,
@@ -198,7 +209,7 @@ fn activity_state(value: liveupdate::ActivityState) -> ActivityState {
     }
 }
 
-fn promotion_state(value: liveupdate::PromotionState) -> PromotionState {
+pub(crate) fn promotion_state(value: liveupdate::PromotionState) -> PromotionState {
     match value {
         liveupdate::PromotionState::Promoted => PromotionState::Promoted,
         liveupdate::PromotionState::NotPromoted => PromotionState::NotPromoted,

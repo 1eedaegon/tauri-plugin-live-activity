@@ -289,12 +289,8 @@ fn plugin_accepts_an_absent_null_or_redacted_configuration() {
 // TP-ACTION-1
 #[test]
 fn taps_reach_tauri_listeners_as_the_action_event() {
-    use crate::actions::{ACTION_EVENT, start};
-    use std::sync::{Arc, Mutex};
-    use tauri::{
-        Emitter, Listener,
-        ipc::{Channel, InvokeResponseBody},
-    };
+    use crate::actions::{ACTION_EVENT, spawn};
+    use tauri::{Emitter, Listener};
     let app = mock_builder()
         .plugin(crate::init())
         .build(mock_context(noop_assets()))
@@ -303,21 +299,10 @@ fn taps_reach_tauri_listeners_as_the_action_event() {
     app.listen(ACTION_EVENT, move |event| {
         let _ = sender.send(event.payload().to_owned());
     });
-    let source = Arc::new(Mutex::new(None::<Channel>));
-    let registered = source.clone();
     let handle = app.handle().clone();
-    let register = move |channel| {
-        *registered.lock().unwrap() = Some(channel);
-        true
-    };
-    let _actions = start(register, move |event| {
-        handle.emit(ACTION_EVENT, event).unwrap()
-    });
+    let actions = spawn(move |event| handle.emit(ACTION_EVENT, event).unwrap()).unwrap();
     let tap = json!({"actionId":"stop","activityId":"la-1","activityKey":"job:1"});
-    let channel = source.lock().unwrap().take().unwrap();
-    channel
-        .send(InvokeResponseBody::Json(tap.to_string()))
-        .unwrap();
+    actions.tap(serde_json::from_value(tap.clone()).unwrap(), ());
     let payload = heard
         .recv_timeout(std::time::Duration::from_secs(10))
         .unwrap();

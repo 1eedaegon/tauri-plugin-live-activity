@@ -4,17 +4,19 @@ The Android adapter requires API 26 (Android 8) or newer and compile SDK 37. The
 its own target SDK and supplies its usual Tauri Android project. Register the Rust
 plugin and grant the Tauri command permissions, as the [usage guide](usage.md#install) shows.
 The plugin manifest merges `POST_NOTIFICATIONS` and `POST_PROMOTED_NOTIFICATIONS` and
-two receivers that are not exported: one for dismissals and one for button taps.
-No foreground service, network client, custom `RemoteViews`, or background task
+liveupdate's two receivers, which are not exported: one for button taps and one for
+dismissals. No foreground service, network client, custom `RemoteViews`, or background task
 scheduler is installed.
 
-Template activities use [`1eedaegon/liveupdate-rs`](https://github.com/1eedaegon/liveupdate-rs).
-Rust owns request validation, fallback selection, idempotency, revisions, limits, retry,
-terminal states and reconciliation. The Android side is a framework adapter with only six
-bounded operations: capabilities, read receipts, replace receipts, observe notifications,
-post and cancel. Kotlin does not implement `start`, `update`, `end` or `list` for contract v1.
-It stores Rust's receipt without interpreting lifecycle policy and projects an accepted receipt
-onto `NotificationManager`.
+Every activity, template or layout, runs on the [`liveupdate`](https://crates.io/crates/liveupdate)
+crate. Rust owns request validation, fallback selection, idempotency, revisions, limits, retry,
+terminal states and reconciliation. The plugin's Android library carries liveupdate's own
+Android adapter, copied from the crate (`node tools/sync-liveupdate.mjs`, which a test checks;
+the copy only renames liveupdate's `R` to the plugin's): a framework adapter with seven bounded operations, which stores Rust's receipts,
+posts and cancels notifications, observes them, and drains the taps and dismissals its
+receivers stored. The plugin's own Kotlin is the permission commands, the image folder and a
+channel that wakes Rust when an event is stored. Kotlin implements no lifecycle and draws no
+layout of its own.
 
 Set `bundle.android.minSdkVersion` to `26` or higher in `tauri.conf.json`;
 `npx tauri-plugin-live-activity setup` does this, and sets `minSdk` in an existing
@@ -94,101 +96,79 @@ Android can otherwise leave an old notification posted. Layout receipts are unch
 ## Layout activities (contract v2)
 
 `startLayout`, `updateLayout`, `endLayout` and `listLayout` work on Android with the
-rules of the [request contract](request-contract.md#request-contract-v2-layout). The
-Kotlin side parses every request again with the same strict rules and weight as the
-other layers; its unit tests run every case of `tests/fixtures/layout-requests.json`.
-Contract v2 remains a Kotlin layout engine because it interprets the custom layout tree,
-styles, images and actions; `liveupdate-rs` currently covers the fixed progress/timer templates.
-Its lifecycle has the same public guarantees as v1: an idempotent start compares the whole start request
-(`android` included), `CONFLICT`, `STALE_REVISION`, `NOT_FOUND`, tombstones after a
-swipe or an end, and at most 32 active and 128 ended records per contract version. An
-update must keep the keys and value types of the start, the stored layout's value rules
-are checked again (the values of bound style members included), and the stored layout and
-styles plus the new values must weigh at most 3584 (`PAYLOAD_TOO_LARGE`). The two versions do not see each other: layout records
-live under their own preferences key (`layoutRecords`), and layout notifications use the
-tag prefix `tauri.live-activity.layout:`, so template code never reads them. Stored layout
-records are unchanged by the Rust template integration. The notification carries the handle, the
-snapshot and the promotion request, not the layout.
+rules of the [request contract](request-contract.md#request-contract-v2-layout), checked
+in Rust as on every platform. A notification cannot draw a layout, so the plugin's Rust
+projects the lock screen tree onto one of liveupdate's schema-v2 presentations
+(`src/android_layout.rs`), and liveupdate keeps the lifecycle, the receipts and the
+notification. What liveupdate does not keep, the layout request and its latest values, the
+plugin stores under liveupdate's id in `tauri-live-activity/layouts.json` of the app's
+private files; it forgets an activity once liveupdate no longer lists it.
 
-A live layout record keeps its whole start request, so a retried start can be compared
-with it. An ended or dismissed record keeps only what its record shows (key, snapshot,
-state, promotion and `degradedFeatures`) and the action ids of its buttons, not the
-layout, the styles or the start values, so 128 tombstones stay small. The plugin parses
-the stored records once per process and then reads its own writes back from memory. A
-post writes the file twice: once before posting, and once with the post confirmed and
-what the system shows by then. A command writes once more first when the system's
-notifications changed since the last write. A minus zero (`-0.0`, as Rust's
-serde_json writes an f64 minus zero) is read as 0, as `JSON.stringify` writes it, so a
-retry of the same request through Rust is idempotent.
+The lifecycle has the public guarantees of v1: an idempotent start compares the whole start
+request (`android` included) and answers `CONFLICT` for another request under a running
+key, `STALE_REVISION` for a lower revision, `CONFLICT` for the same revision with other
+values, `NOT_FOUND` for an unknown, ended or dismissed id, tombstones after a swipe or an
+end, `UNSUPPORTED_FEATURE` for `after`, and liveupdate's limits (32 active records and 128
+tombstones, templates and layouts together). An update must keep the keys and value types
+of the start. The record carries the layout snapshot the app sent, not the projection.
 
-A notification cannot draw a layout, so the plugin projects the lock screen tree onto
-one. It walks the tree in document order (`children` order, depth first) with the
-current values and the `if`/`unless` conditions applied:
+The template of a notification is fixed when it is posted, so the plugin chooses it from
+the tree, conditions aside, and keeps it for the generation: the first `progress` gives
+liveupdate's Progress style, else the first `timerText` Timer, else two or more texts
+BigText, else Standard. It walks the tree in document order (`children` order, depth
+first) with the current values and the `if`/`unless` conditions applied:
 
 | Layout | Notification |
 | --- | --- |
-| first `text` | title; the app's name when the layout shows no text, because a notification without a title cannot be promoted |
-| second `text` | text, with `BigTextStyle` (the width of a line is not known before posting, so every body gets it; a short body looks the same) |
-| first `progress` | progress bar, clamped to 0..1 |
-| first `timerText` | chronometer: counting down to `end`, or up from `start` with `countsDown: false` |
-| up to three `button`s | actions, labelled with the first text inside the button |
-| first `image` with a `file` source | large icon: the PNG that `writeImage` wrote, scaled down by powers of two to at most 256 pixels; nothing when the file is missing |
+| first shown `text` | title, cut to 120 code points; the app's name when the layout shows no text, because a notification without a title cannot be promoted |
+| second shown `text` | the status line, cut to 240; with `BigTextStyle` for a BigText template. Without a second text the status is the chip text, then the title |
+| first shown `progress` | the progress bar, clamped to 0..1; 0 while the node is hidden |
+| first shown `timerText` | the chronometer: counting down to `end`, or up from `start` with `countsDown: false`; the tree's first timer while it is hidden |
+| up to three `button`s | actions, titled with the first shown text inside the button (cut to 64), without an icon or authentication |
+| first `image` with a `file` source | large icon: the PNG that `writeImage` wrote, when it is at most 1024 pixels a side and 1 MiB; nothing when it is missing |
 | `android.visibility` | lock screen visibility: `public`, `private` (also when absent) or `secret` |
 
-Texts inside a button only label it. A button without a shown text, a fourth button and
-every other shown node are left out and named once in `degradedFeatures` as
-`layout.<type>` (for example `layout.symbol`, `layout.spacer`, a third text as
-`layout.text`, an asset image or a second file image as `layout.image`, a custom view
-as `layout.custom`). A style's `fontFamily` is one of the styles, which a notification
-does not draw. `layout.island`, `layout.styles`, `layout.background` and
-`layout.keyline` are added when the request has them, bound or literal: a notification
-draws no styles, so a bound color changes nothing on Android. A node hidden by its condition is
-not listed. `nativeLiveActivity` follows the v1 rule. The list is computed from the
-current values, so it can change with an update.
+Texts inside a button only label it. A button without a shown text, a fourth button, a
+second progress or timer, a timer under a Progress template and every other shown node
+are left out and named once in `degradedFeatures` as `layout.<type>` (for example
+`layout.symbol`, `layout.spacer`, a third text as `layout.text`, an asset image or a second
+file image as `layout.image`, a custom view as `layout.custom`). `layout.island`,
+`layout.styles`, `layout.background` and `layout.keyline` are added when the request has
+them: a notification draws no styles, so a bound color changes nothing on Android. A node
+hidden by its condition is not listed. liveupdate's own `nativeLiveActivity` comes first.
+The list is computed from the current values, so it can change with an update.
 
-The large icon is the one picture a notification takes from a layout. Google's
-[Live Update requirements](https://developer.android.com/develop/ui/views/notifications/live-update) list the
-styles, the title, no custom views, not colorized, not a group summary and the channel importance; they do not
-name the large icon, so a drawn image keeps promotion. OEMs can add rules of their own, and One UI was not
-checked with a large icon. `writeImage` writes to `tauri-live-activity/images` in the app's private files
-(`filesDir`): Android has no App Group, and the app posts the notification itself. Nothing on Android draws a
-custom font, an asset image or a custom view.
+The status chip text (`setShortCriticalText`, API 36+) is the percentage (`65%`) when a
+progress shows and no timer. With a timer it is left out so that the chip shows the
+chronometer, and text alone gives none. `writeImage` writes to `tauri-live-activity/images`
+in the app's private files (`filesDir`); liveupdate reads the icon from there. Nothing on
+Android draws a custom font, an asset image or a custom view.
 
-The status chip text (`setShortCriticalText`, API 36+) is set only when the layout gives
-one: with a progress bar and no timer it is the percentage (`65%`). With a timer it is
-left out so that the chip shows the chronometer, and text alone gives none.
-
-The notification keeps what a Live Update needs: ongoing, a title, the standard or
-BigText style, no custom views, not colorized, not a group summary, the low-importance
-channel and a content intent that opens the app. Promotion is requested as for v1.
+The notification keeps what a Live Update needs, as liveupdate posts it: ongoing, a title,
+a system style, no custom views, not colorized, not a group summary, liveupdate's
+low-importance channel (`liveupdate-rs.v1`) and a content intent that opens the app.
+Promotion is requested when the settings allow it; `fallback: 'none'` fails the start with
+`UNSUPPORTED_FEATURE` otherwise.
 
 ## Buttons
 
-Each projected button becomes a notification action. Its `PendingIntent` is explicit
-and immutable and goes to the plugin's `ActionReceiver`, which is not exported; the
-intent carries the activity handle and the action id. Actions call
-`setAuthenticationRequired(false)` on API 31+. Android then decides whether a locked
-phone asks for the keyguard; the plugin cannot force it.
+Each projected button becomes a notification action whose immutable `PendingIntent` goes
+to liveupdate's `LiveUpdateActionReceiver`, which is not exported. The receiver stores the
+tap in liveupdate's durable event queue (the newest 128) and calls the listener that the
+plugin registered (`LiveUpdateEvents.setListener`), which wakes a thread of the plugin
+(`live-activity-events`). That thread drains `LiveUpdate::events()`, adds the `activityKey`
+of a known activity, drops a tap on an action id that the activity's layout never declared,
+and hands each tap to the handlers of `on_action` on the plugin's actions thread, never the
+main thread, so a handler may call the plugin. The thread drains once more when the plugin
+starts, so a tap stored while the app did not run arrives when it does. Dismissals need no
+event: `listLayout` reconciles with the notifications Android shows.
 
-The receiver reads the stored layout record. A known activity adds its `activityKey`
-and must have a button with that action id, otherwise the tap is dropped; this holds for
-an ended activity too. An unknown or evicted handle is sent without a key. Rust passes the channel to the native
-`registerActions` command once, during plugin setup. Taps go to it on the plugin's own
-thread (`live-activity-actions`), never the main thread, so an `on_action` handler may
-call the plugin. Each tap waits there until Rust's handlers have run (at most 4 s), one
-tap at a time. A tap that arrives before the channel is registered is kept in memory,
-the newest 16, and sent when it is.
-
-When the app's process was killed, a tap starts the process and runs the receiver, but
-Android starts no activity for it, so the Tauri runtime and the plugin are not loaded.
-The tap then waits in memory. It reaches `on_action` if the Tauri runtime starts in that
-process, for example because the user opens the app; it is lost when the process ends.
-Taps are never written to disk, so an old tap cannot fire in a later process. An action
-that must work without the app's UI, such as a recording toggle handled by a foreground
-service, needs a native target in the host app; the plugin does not provide one.
-While the process lives without an activity (exit prevented, for example by a
-foreground service), the tap still reaches Rust, but a handler cannot call the plugin:
-Tauri needs an activity for every call into Kotlin.
+When the app's process was killed, a tap starts the process and runs liveupdate's receiver,
+which stores the tap; Android starts no activity for it, so the Tauri runtime is not
+loaded. The tap reaches `on_action` when the Tauri runtime starts in a later process, for
+example because the user opens the app. An action that must work without the app's UI,
+such as a recording toggle handled by a foreground service, needs a native target in the
+host app; the plugin does not provide one.
 
 ## Samsung Now Bar
 
@@ -215,10 +195,11 @@ What the app can do:
   { "plugins": { "live-activity": { "android": { "samsungNowBar": true } } } }
   ```
 
-  Layout notifications then carry `android.ongoingActivityNoti.style` = 1 (an `Int`),
-  `primaryInfo` (`CharSequence`) and `nowbarPrimaryInfo` (`String`) with the title, and
-  `secondaryInfo` and `nowbarSecondaryInfo` with the body, or with the status chip text
-  when there is no body. With the developer option on, the pill then shows the body
+  Layout notifications then carry, through liveupdate's Samsung mapping,
+  `android.ongoingActivityNoti.style` = 1 (an `Int`), `primaryInfo` (`CharSequence`) and
+  `nowbarPrimaryInfo` (`String`) with the title, and `secondaryInfo` and
+  `nowbarSecondaryInfo` with the status line, or with the status chip text when there is no
+  second text. With the developer option on, the pill then shows the body
   instead of the chip text. On One UI 9 the style extra does not cancel the developer
   option. Reports from One UI 8.5 (Android 16) say that it does there; that was not
   checked in code or on a device, so the plugin sends the extras on Android 17 (API 37)
@@ -255,8 +236,8 @@ and does not read them.
 ## Plugin configuration on Android
 
 `android.samsungNowBar` is the only option that Android reads. `receipts` has no effect
-on Android yet: records, layouts and values are stored in full in the app-private
-preferences file.
+on Android yet: liveupdate stores its records in full in an app-private preferences file,
+and the plugin its layouts and values in `tauri-live-activity/layouts.json`.
 
 ## Reproduce validation
 
