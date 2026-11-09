@@ -16,8 +16,8 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-/// 9999-12-31T23:59:59.999Z in epoch milliseconds: the latest time every platform's `SystemTime` holds. On Windows a
-/// later one overflows.
+/// 9999-12-31T23:59:59.999Z in epoch milliseconds: a cap every platform's `SystemTime` holds. On Windows a much later
+/// one overflows.
 pub(crate) const LATEST_MILLIS: u64 = 253_402_300_799_999;
 
 /// The time of `millis` epoch milliseconds, clamped to [`LATEST_MILLIS`].

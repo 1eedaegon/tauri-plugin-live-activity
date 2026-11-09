@@ -28,7 +28,7 @@ class NativeNotificationTest {
             // Reading the output to its end waits for the grant; closing at once can let a post race it.
             instrumentation.uiAutomation.executeShellCommand(
                 "pm grant ${context.packageName} ${Manifest.permission.POST_NOTIFICATIONS}",
-            ).use { descriptor -> java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() } }
+            ).let { descriptor -> android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() } }
         }
         adapter.cancel(PROGRESS_ID)
         adapter.cancel(TIMER_ID)

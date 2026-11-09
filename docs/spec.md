@@ -10,7 +10,7 @@ Errors are the codes of the plugin's `Error { code, message }`, which JavaScript
 
 On iOS the plugin has no Swift of its own: its Rust commands call the [`activitykit`](https://github.com/1eedaegon/activitykit-rs)
 crate, whose Swift layer talks to ActivityKit, and the app's widget extension links activitykit's Swift products.
-Android keeps the plugin's Kotlin backend. Desktop has no backend.
+Android runs the progress and timer templates on the liveupdate crate; layouts keep the plugin's Kotlin. Desktop has no backend.
 
 ## The JavaScript API
 
@@ -65,7 +65,7 @@ Android keeps the plugin's Kotlin backend. Desktop has no backend.
 | TP-IOS-13 | With `receipts: "redacted"` in the plugin configuration the plugin builds activitykit's kit with redacted receipts, which keep a digest instead of the values: starts, updates and ends work, and after a relaunch a list gives the values that ActivityKit shows. A kit that already runs in the process with other settings makes the plugin's setup fail with the kit's error. The kit's settings come from the configuration alone. | Redacted → `Receipts::Redacted`; absent or `full` → `Receipts::Full`. | setup error (`CONFLICT`) | iOS |
 | TP-IOS-14 | `write_image` checks the PNG, then activitykit writes it to `activitykit/images` in the App Group that the widget extension names under `ActivityKitAppGroup`. | A valid PNG → written. | `INVALID_INPUT`, `PAYLOAD_TOO_LARGE`, `CONFIGURATION_REQUIRED`, `NATIVE_ERROR` | iOS |
 | TP-IOS-15 | Live Activities need iOS 16.2 on an iPhone, iPadOS 17 on an iPad; below that every command but the reads fails. | — | `UNSUPPORTED_PLATFORM` | iOS |
-| TP-IOS-16 | The plugin's requests become activitykit's field by field: a start its layout, values, key and revision, and its stale date and timestamp when given; an update its values and revision, and its stale date and timestamp when given; an end its policy (`immediate`, `default`, `after` a time) and, when given, its final values, revision, stale date and timestamp. Times are epoch milliseconds; a time after 9999-12-31T23:59:59.999Z, the latest every platform's `SystemTime` holds, is that time (a later one overflows on Windows). | `{policy: after 8640000000000000}` → `End::after(9999-12-31T23:59:59.999Z)`; a start's `staleAt` of the same → that time, never a panic. | — | iOS |
+| TP-IOS-16 | The plugin's requests become activitykit's field by field: a start its layout, values, key and revision, and its stale date and timestamp when given; an update its values and revision, and its stale date and timestamp when given; an end its policy (`immediate`, `default`, `after` a time) and, when given, its final values, revision, stale date and timestamp. Times are epoch milliseconds; a time after 9999-12-31T23:59:59.999Z, a cap every platform's `SystemTime` holds, is that time (a later one overflows on Windows), so an iOS record reports the capped time where Android echoes the request. | `{policy: after 8640000000000000}` → `End::after(9999-12-31T23:59:59.999Z)`; a start's `staleAt` of the same → that time, never a panic. | — | iOS |
 | TP-IOS-17 | Ending again reaches an activity that ended at once and that the system no longer lists through a handle the plugin keeps: one for each of the last 64 activities that ended in this launch, in the order of their first end, however often each is ended. An older one, and any one after a relaunch, is `NOT_FOUND`. | 64 more activities ended after it → its second end is `NOT_FOUND`. | `NOT_FOUND` | iOS |
 
 ## The progress and timer templates (contract v1) on iOS

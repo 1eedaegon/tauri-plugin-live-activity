@@ -63,7 +63,7 @@ jobs:
           # (Cargo.lock holds activitykit's version), the TypeScript API, setup, the tools of the demo's build, the demo,
           # the UI tests and the CI scripts.
           area ios '^(src/|build\.rs$|Cargo\.(toml|lock)$|permissions/|guest-js/|cli/|tools/|package(-lock)?\.json$|tsconfig\.json$|examples/demo/|tests/ios/|tests/ci/)'
-          area android '^(android/|tests/android/|Cargo\.(toml|lock)$)'
+          area android '^(android/|tests/android/|src/|build\.rs$|Cargo\.(toml|lock)$)'
           cat "$GITHUB_OUTPUT"
   # The specification against the tests, for every change: docs/spec.md may change alone.
   spec:
@@ -338,7 +338,10 @@ jobs:
       - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           log-accepted-android-sdk-licenses: false
+      - run: rustup toolchain install "$TOOLCHAIN" --profile minimal --component clippy --target aarch64-linux-android && rustup default "$TOOLCHAIN"
       - run: cargo fetch --locked
+      # src/android.rs is compiled only for Android; nothing else in CI builds it.
+      - run: cargo clippy --locked --target aarch64-linux-android --lib -- -D warnings
       - run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
       # Caches Gradle's distribution and dependencies, so a slow download (a socket timeout once) is rarely needed.
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1

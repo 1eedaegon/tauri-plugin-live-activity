@@ -58,13 +58,13 @@ test('the changes job starts each job for its paths, and the ios area is what th
       'tools/sync-contract.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/link-activitykit.mjs',
       'tests/ios/run.sh', 'tests/ci/cache.sh'],
     android: ['android/src/main/java/io/github/eedaegon/liveactivity/Lifecycle.kt', 'tests/android/settings.gradle.kts',
-      'Cargo.toml', 'Cargo.lock'],
+      'Cargo.toml', 'Cargo.lock', 'src/android.rs', 'src/android_liveupdate.rs', 'src/lib.rs', 'build.rs'],
   };
   const not = {
     rust: ['cli/setup.mjs', 'guest-js/index.ts', 'tests/api.test.mjs', 'tests/ios/run.sh', 'docs/spec.md'],
     js: ['src/lib.rs', 'tests/contract.rs', 'tests/ios/run.sh', 'tests/ci/cache.sh', 'android/build.gradle.kts'],
     ios: ['tests/api.test.mjs', 'tests/contract.rs', 'tests/ci.test.mjs', 'android/build.gradle.kts', 'docs/spec.md', 'README.md'],
-    android: ['src/lib.rs', 'guest-js/index.ts', 'tests/ios/run.sh'],
+    android: ['guest-js/index.ts', 'tests/ios/run.sh', 'tests/api.test.mjs'],
   };
   for (const [area, paths] of Object.entries(starts)) for (const path of paths) assert.ok(started(path).includes(area), `${path} → ${area}`);
   for (const [area, paths] of Object.entries(not)) for (const path of paths) assert.ok(!started(path).includes(area), `${path} ↛ ${area}`);
@@ -127,6 +127,8 @@ test('CI caches the Rust builds and the built demo, pins its tools, and skips a 
   for (const name of ['contracts', 'desktop', 'e2e', 'e2e-dev']) assert.ok(job(name).includes(rustCache), name);
   assert.match(job('contracts'), /taiki-e\/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2\.90\.3\n\s+if: env\.RUST == 'true'\n\s+with:\n\s+tool: cargo-llvm-cov@0\.9\.1/);
   assert.doesNotMatch(workflow, /cargo install cargo-llvm-cov/);
+  // src/android.rs is compiled only for Android: the android job checks it, since nothing else builds it.
+  assert.match(job('android'), /rustup toolchain install "\$TOOLCHAIN" --profile minimal --component clippy --target aarch64-linux-android[\s\S]*?- run: cargo clippy --locked --target aarch64-linux-android --lib -- -D warnings\n/);
   assert.match(job('android'), /gradle\/actions\/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6\.4\.1\n[\s\S]*?- name: Fetch Gradle\n\s+working-directory: tests\/android\n\s+run: for attempt in 1 2 3; do \.\/gradlew --version --no-daemon[^\n]*\n\s+- run: \.\/gradlew /);
   assert.match(read('tests/android/gradle/wrapper/gradle-wrapper.properties'), /^networkTimeout=60000$/m);
   const upload = 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7';

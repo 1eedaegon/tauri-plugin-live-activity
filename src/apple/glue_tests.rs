@@ -79,6 +79,22 @@ fn times_are_epoch_milliseconds_both_ways() {
 
 // TP-IOS-16
 #[test]
+fn a_far_future_time_reaches_activitykit_capped() {
+    let spec = StartSpec {
+        stale_at: Some(8_640_000_000_000_000),
+        timestamp: Some(u64::MAX),
+        ..spec()
+    };
+    let capped = Start::new(spec.layout.clone(), spec.values.clone())
+        .key("demo:1")
+        .revision(5)
+        .stale_at(time(LATEST_MILLIS))
+        .timestamp(time(LATEST_MILLIS));
+    assert_eq!(debug(start_of(spec)), debug(capped));
+}
+
+// TP-IOS-16
+#[test]
 fn an_update_goes_to_activitykit_at_its_revision_with_its_stale_date_and_timestamp() {
     let full = UpdateSpec {
         values: values("Late"),
