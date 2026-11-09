@@ -121,12 +121,13 @@ test('CI caches the Rust builds and the built demo, pins its tools, and skips a 
   assert.doesNotMatch(workflow, /rustup (toolchain install|default) 1\./);
   assert.doesNotMatch(workflow, /brew install xcodegen|hashFiles|env\.ImageOS|env\.ImageVersion/);
   for (const name of ['contracts', 'desktop', 'e2e', 'e2e-dev']) assert.match(job(name), /rustup toolchain install "\$TOOLCHAIN"/, name);
-  const install = 'curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"\n'
+  const install = 'curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"\n'
     + '          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -';
   const rustCache = 'Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3';
   for (const name of ['contracts', 'desktop', 'e2e', 'e2e-dev']) assert.ok(job(name).includes(rustCache), name);
   assert.match(job('contracts'), /taiki-e\/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2\.90\.3\n\s+if: env\.RUST == 'true'\n\s+with:\n\s+tool: cargo-llvm-cov@0\.9\.1/);
   assert.doesNotMatch(workflow, /cargo install cargo-llvm-cov/);
+  assert.match(job('android'), /gradle\/actions\/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6\.4\.1\n\s+- run: \.\/gradlew /);
   const upload = 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7';
   for (const [name, suite, output] of [['e2e', 'simulator', 'ios-simulator'], ['e2e-dev', 'dev', 'ios-dev']]) {
     const steps = job(name);

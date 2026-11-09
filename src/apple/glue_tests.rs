@@ -4,7 +4,10 @@
 use super::{
     EndSpec, StartSpec, UpdateSpec, action_event,
     fake::{FakeAck, FakeKit, Log},
-    glue::{builder, end_of, millis, setup, setup_with, start_of, taps_of, time, update_of},
+    glue::{
+        LATEST_MILLIS, builder, end_of, millis, setup, setup_with, start_of, taps_of, time,
+        update_of,
+    },
     start_spec,
 };
 use crate::{
@@ -63,8 +66,13 @@ fn a_start_goes_to_activitykit_with_its_key_revision_stale_date_and_timestamp() 
 // TP-IOS-16
 #[test]
 fn times_are_epoch_milliseconds_both_ways() {
-    for at in [0, 1_790_000_000_000, 8_640_000_000_000_000] {
+    for at in [0, 1_790_000_000_000, LATEST_MILLIS] {
         assert_eq!(millis(time(at)), Some(at));
+    }
+    // Later times, the contract's largest included, clamp to the latest time every platform's SystemTime holds: on
+    // Windows a later one overflows.
+    for later in [LATEST_MILLIS + 1, 8_640_000_000_000_000, u64::MAX] {
+        assert_eq!(millis(time(later)), Some(LATEST_MILLIS));
     }
     assert_eq!(millis(UNIX_EPOCH - Duration::from_millis(1)), None);
 }
@@ -110,7 +118,7 @@ fn an_end_goes_to_activitykit_with_its_policy_and_its_final_content() {
     let latest = 8_640_000_000_000_000;
     assert_eq!(
         end_of(end(EndPolicy::After { at: latest })),
-        End::after(time(latest))
+        End::after(time(LATEST_MILLIS))
     );
     assert_ne!(
         end_of(end(EndPolicy::After { at: latest })),

@@ -195,7 +195,7 @@ jobs:
       - name: Install XcodeGen
         if: steps.passed.outputs.found != 'true'
         run: |
-          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"
           echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
@@ -291,7 +291,7 @@ jobs:
       - name: Install XcodeGen
         if: steps.passed.outputs.found != 'true'
         run: |
-          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"
           echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
@@ -340,6 +340,8 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - run: cargo fetch --locked
       - run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
+      # Caches Gradle's distribution and dependencies, so a slow download (a socket timeout once) is rarely needed.
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       - run: ./gradlew :live-activity:testDebugUnitTest :live-activity:lintDebug :live-activity:assembleDebugAndroidTest --no-daemon
         working-directory: tests/android
       - name: Verify Android minimum in the merged APK

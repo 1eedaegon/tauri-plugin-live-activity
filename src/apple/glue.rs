@@ -16,9 +16,13 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-/// The time of `millis` epoch milliseconds.
+/// 9999-12-31T23:59:59.999Z in epoch milliseconds: the latest time every platform's `SystemTime` holds. On Windows a
+/// later one overflows.
+pub(crate) const LATEST_MILLIS: u64 = 253_402_300_799_999;
+
+/// The time of `millis` epoch milliseconds, clamped to [`LATEST_MILLIS`].
 pub(crate) fn time(millis: u64) -> SystemTime {
-    UNIX_EPOCH + Duration::from_millis(millis)
+    UNIX_EPOCH + Duration::from_millis(millis.min(LATEST_MILLIS))
 }
 
 /// `at` in epoch milliseconds, when it is after the epoch and fits.
