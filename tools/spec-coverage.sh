@@ -37,7 +37,7 @@ def test_text(path):
     return text
 
 files = {}
-roots = ["tests", "src", "android/src/test", "examples/demo/tests", "examples/demo/src-tauri/src"]
+roots = ["tests", "src", "android/src/test", "android/src/androidTest", "examples/demo/tests", "examples/demo/src-tauri/src"]
 for folder in roots:
     for path in sorted((root / folder).rglob("*")):
         relative = path.relative_to(root).as_posix()

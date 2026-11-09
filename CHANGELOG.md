@@ -79,11 +79,15 @@ on a locked phone that Face ID has not matched waits for an unlock, as a native 
   are its files, which `node tools/sync-contract.mjs --write` copies and a test compares. They add `timestamp` to
   snapshots, final content to `end_layout` and the `ends` fixtures. The reference validator adds
   `validateLayoutEnd`.
-- Android: the progress and timer templates of contract v1 run on the liveupdate crate (0.1.1, exactly), which
-  the plugin's Rust calls. Rust checks the requests and owns the fallback, repeated starts, revisions, limits, retries,
-  the lifecycle and the reconciliation with the posted notifications; the Kotlin side keeps six bounded operations
-  (capabilities, reading and replacing the receipts, observing, posting and cancelling notifications). Layout
-  activities keep their Kotlin renderer and lifecycle.
+- Android: every activity runs on the liveupdate crate (0.1.2). The progress and timer templates of contract v1
+  become its schema-v1 requests. Layouts become its schema-v2 presentations: the plugin's Rust chooses a template from
+  the tree (Progress, Timer, BigText or Standard), projects the shown texts, progress, timer, up to three buttons, the
+  first file image and the Samsung Now Bar lines, and keeps the layout request and its values in a file of its own;
+  liveupdate keeps the lifecycle, the receipts and the notification. The plugin's Android library carries liveupdate's
+  Android adapter, copied from the crate (`node tools/sync-liveupdate.mjs --write`); its own Kotlin lifecycle,
+  renderer, receivers and validator are gone, with the notification channel `tauri.live-activity.v1` and the tag
+  prefixes. Taps come from liveupdate's durable event queue: a tap stored while the app did not run arrives when the
+  plugin starts, and the native side no longer waits for the handlers.
 - Breaking: on Android, end running template activities before the update. 0.4 does not read the receipts that 0.3's
   Kotlin lifecycle stored, and a notification of 0.3 may stay posted.
 - Android takes a snapshot's `timestamp` and keeps it in the record, and ends a layout activity with the final
