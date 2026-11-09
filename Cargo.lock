@@ -1643,7 +1643,8 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 [[package]]
 name = "liveupdate"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/1eedaegon/liveupdate-rs?rev=3b797bbfeb7aef29253ff0cb017bb7b07ee0bd46#3b797bbfeb7aef29253ff0cb017bb7b07ee0bd46"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0274e023c4a7f79987e41351ac33f5b860b4a0b8504aa35efb98b0aae4c20a53"
 dependencies = [
  "serde",
  "serde_json",
@@ -3085,7 +3086,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-live-activity"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "activitykit",
  "liveupdate",
