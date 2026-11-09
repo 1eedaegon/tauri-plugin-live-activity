@@ -4,7 +4,7 @@
 use super::{
     EndSpec, StartSpec, UpdateSpec, action_event,
     fake::{FakeAck, FakeKit, Log},
-    glue::{builder, end_of, millis, setup, start_of, time, update_of},
+    glue::{builder, end_of, millis, setup, setup_with, start_of, taps_of, time, update_of},
     start_spec,
 };
 use crate::{
@@ -207,4 +207,58 @@ fn a_tap_from_activitykit_is_released_only_after_a_slow_handler_and_the_event() 
     kit.close_taps();
     thread::sleep(Duration::from_millis(50));
     actions.subscribe(|_| {});
+}
+
+// TP-ACTION-3
+#[test]
+fn setup_subscribes_to_the_kits_events_before_it_starts_the_handlers_thread() {
+    let kit = FakeKit::default();
+    let spawned = kit.clone();
+    let (_apple, _actions) = setup_with(Ok(kit.clone()), move || {
+        spawned.book().calls.push("spawn".into());
+        crate::actions::spawn(|_| {})
+    })
+    .unwrap();
+    // A tap that launched the app waits for the first subscriber: the plugin subscribes before anything else.
+    assert_eq!(kit.calls(), ["taps", "spawn"]);
+}
+
+// TP-ACTION-1, TP-ACTION-3
+#[test]
+fn the_kits_events_become_taps_until_they_end_and_other_events_pass() {
+    // What activitykit's events are to the plugin: taps with what holds them, among other events.
+    enum Seen {
+        Started,
+        Tapped(&'static str),
+        Ended,
+    }
+    let log = Log::default();
+    let events = vec![
+        Seen::Started,
+        Seen::Tapped("pet"),
+        Seen::Ended,
+        Seen::Tapped("done"),
+    ];
+    let mut stream = events.into_iter();
+    let held = log.clone();
+    let kit = FakeKit::default();
+    let handle = kit.handle("la-1", "demo:1");
+    let taps: Vec<_> = taps_of(
+        move || stream.next(),
+        move |event| match event {
+            Seen::Tapped(action) => {
+                Some((action_event(&handle, action.into()), FakeAck(held.clone())))
+            }
+            Seen::Started | Seen::Ended => None,
+        },
+    )
+    .collect();
+    let actions: Vec<_> = taps
+        .iter()
+        .map(|(event, _)| event.action_id.as_str())
+        .collect();
+    assert_eq!(actions, ["pet", "done"]);
+    assert_eq!(taps[0].0.activity_key.as_deref(), Some("demo:1"));
+    // Nothing is let go while the plugin holds the taps.
+    assert!(log.lock().unwrap().is_empty());
 }

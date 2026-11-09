@@ -64,13 +64,16 @@ tests cover the lifecycle.
 ## Who checks what
 
 JSON Schema checks shape, length, range and the template match. The reference tool also
-checks the order of the timer times. The Rust and Kotlin fixture tests apply the same rules.
+checks the order of the timer times. The Rust fixture tests apply the same rules.
 On iOS the plugin's Rust checks a v1 request, turns it into a layout activity
 ([below](#the-templates-on-ios)) and checks that as a v2 request; activitykit's Swift layer
 then checks the final encoded size of state and attributes and reports the real OS
 capabilities and permissions. The plugin's Rust and activitykit find the activity by its id and
-compare with the previous revision. On Android the Kotlin layer does all of this. Character
-limits do not replace the 4 KB check.
+compare with the previous revision. On Android the plugin's Rust checks a v1 request and the
+[liveupdate](https://github.com/1eedaegon/liveupdate-rs) crate checks it again, keeps its
+revisions and receipts and finds the activity by its id; the Kotlin side only posts, observes
+and cancels the notification and stores the receipts. Character limits do not replace the 4 KB
+check.
 
 ```sh
 npm ci

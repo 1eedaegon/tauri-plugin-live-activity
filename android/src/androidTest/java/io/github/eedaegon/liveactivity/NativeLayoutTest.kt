@@ -124,22 +124,19 @@ class NativeLayoutTest {
         Intent(context, ActionReceiver::class.java).setAction(action).putExtra("id", id).putExtra("actionId", actionId),
     )
 
-    @Test fun aDismissedLayoutIsATombstoneAndV1NeverSeesIt() {
+    @Test fun aDismissedLayoutIsATombstone() {
         val record = engine.start(LayoutInput.start(JSONObject(request)))
         await { engine.list().any { it.id == record.id && it.state == "active" } }
         posted(record.id).deleteIntent.send()
         await { store.read().any { it.id == record.id && it.state == "dismissed" } }
         try { engine.update(record.id, record.snapshot.copy(revision = 1)); fail("A dismissed layout must not be reposted") }
         catch (failure: ActivityFailure) { assertEquals("NOT_FOUND", failure.code) }
-        assertTrue(ActivityEngine(PreferencesStore(context), AndroidNotifications(context)).list().none { it.id == record.id })
     }
 
     @Test fun theBridgeAnswersTheLayoutCommands() {
         val activity = instrumentation.startActivitySync(Intent(context, TestHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         try {
             val plugin = LiveActivityPlugin(activity)
-            val capabilities = call(plugin, "getCapabilities").getJSONObject("data")
-            assertEquals("supported" to "supported", capabilities.getString("layout") to capabilities.getString("actions"))
             val started = call(plugin, "startLayout", request)
             assertTrue(started.toString(), started.getBoolean("ok"))
             val id = started.getJSONObject("data").getString("id")
@@ -147,7 +144,6 @@ class NativeLayoutTest {
             assertTrue(call(plugin, "updateLayout", update).getBoolean("ok"))
             assertEquals("INVALID_INPUT", call(plugin, "updateLayout", update.replace("\"done\":0.5", "\"done\":\"half\"")).getJSONObject("error").getString("code"))
             assertEquals(1, call(plugin, "listLayout").getJSONArray("data").length())
-            assertEquals("NOT_FOUND", call(plugin, "end", """{"id":"$id","policy":{"kind":"immediate"}}""").getJSONObject("error").getString("code"))
             assertTrue(call(plugin, "endLayout", """{"id":"$id","policy":{"kind":"immediate"}}""").getBoolean("ok"))
             assertEquals("INVALID_INPUT", call(plugin, "startLayout", "{}").getJSONObject("error").getString("code"))
             assertEquals("INVALID_INPUT", call(plugin, "registerActions", """{"channel":"nope","extra":1}""").getJSONObject("error").getString("code"))
@@ -158,12 +154,10 @@ class NativeLayoutTest {
         var response: String? = null
         val invoke = Invoke(1, command, 1, 2, { _, json -> response = json }, args, ObjectMapper())
         when (command) {
-            "getCapabilities" -> plugin.getCapabilities(invoke)
             "startLayout" -> plugin.startLayout(invoke)
             "updateLayout" -> plugin.updateLayout(invoke)
             "endLayout" -> plugin.endLayout(invoke)
             "listLayout" -> plugin.listLayout(invoke)
-            "end" -> plugin.end(invoke)
             "registerActions" -> plugin.registerActions(invoke)
         }
         return JSONObject(requireNotNull(response))

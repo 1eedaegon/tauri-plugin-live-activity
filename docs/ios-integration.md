@@ -245,10 +245,11 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
 
 - `cargo test` runs the plugin's iOS logic on the host, against a fake of activitykit: what each command sends, the
   records, the templates, the receipts setting, and a tap held until a slow handler has run. `src/apple/glue.rs` maps
-  the plugin's requests to activitykit's `Start`, `Update` and `End`, builds the kit's settings and runs the taps; its
-  tests compare them with activitykit's own types. Only `src/ios.rs`, which hands activitykit's types to that code, is
-  compiled for iOS alone: no host test runs it, the coverage gate (`cargo llvm-cov`, 80 % of lines) leaves it out, and
-  the simulator suite drives it.
+  the plugin's requests to activitykit's `Start`, `Update` and `End`, builds the kit's settings, reads the taps from the
+  kit's events and holds each until the handlers have run; its tests compare them with activitykit's own types. Only
+  `src/ios.rs`, which hands activitykit's types to that code, is compiled for iOS alone: no host test runs it, the
+  coverage gate (`cargo llvm-cov`, 80 % of lines) leaves it out, and the simulator suite drives it. activitykit makes
+  no event or acknowledgement outside its crate, so its `match` on `Event::Action` cannot run on the host.
 - `ACTIVITYKIT_SKIP_SWIFT=1 cargo clippy --target aarch64-apple-ios --lib` checks the iOS code without building
   activitykit's Swift. `cargo build --target x86_64-apple-ios --lib` builds it with the Swift bridge, which needs
   Xcode. CI runs both.

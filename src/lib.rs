@@ -14,6 +14,8 @@ use tauri::{
 mod actions;
 #[cfg(target_os = "android")]
 mod android;
+#[cfg(any(target_os = "android", test))]
+mod android_liveupdate;
 #[cfg(any(target_os = "ios", test))]
 mod apple;
 #[cfg(any(target_os = "android", test))]

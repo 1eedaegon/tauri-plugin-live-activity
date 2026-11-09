@@ -158,7 +158,10 @@ test('CI caches the Rust builds and the built demo, pins its tools, and skips a 
 // TP-E2E-6
 test('CI runs the demo of tauri ios dev on the simulator in a job of its own', () => {
   const dev = job('e2e-dev');
-  assert.ok(dev.includes("name: End to end on the simulator\n        if: steps.passed.outputs.found != 'true'\n        env:\n          MODE: dev\n"));
+  // The job sets the mode, so that the keys name the mode the suite runs in.
+  assert.ok(dev.includes("    env:\n      MODE: dev\n    steps:\n"));
+  assert.ok(dev.includes("name: End to end on the simulator\n        if: steps.passed.outputs.found != 'true'\n"));
+  assert.doesNotMatch(job('e2e'), /\n\s+MODE: /);
   assert.ok(dev.includes('run: sh tests/ios/run.sh\n'));
   assert.doesNotMatch(dev, /BUILD_KEY/);
 });

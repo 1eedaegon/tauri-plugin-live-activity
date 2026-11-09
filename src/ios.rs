@@ -6,24 +6,15 @@
 use crate::{
     Config, Result,
     actions::{ACTION_EVENT, Actions},
-    apple::{
-        self, Apple, Authorization, EndSpec, Handle, Kit, StartSpec, UpdateSpec,
-        glue::{self, Acknowledge},
-    },
+    apple::{self, Apple, Authorization, EndSpec, Handle, Kit, StartSpec, UpdateSpec, glue},
     layout::{
         ActionEvent, LayoutActivityRecord, LayoutEndInput, LayoutStartInput, LayoutUpdateInput,
     },
     models::*,
 };
 use activitykit::{Acknowledgement, Activity, ActivityKit, Event, State, Values};
-use std::{future::Future, iter, marker::PhantomData, sync::Arc};
+use std::{future::Future, marker::PhantomData, sync::Arc};
 use tauri::{AppHandle, Emitter, Runtime, plugin::PluginApi};
-
-impl Acknowledge for Acknowledgement {
-    fn acknowledge(&self) {
-        Acknowledgement::acknowledge(self);
-    }
-}
 
 impl Kit for ActivityKit {
     type Handle = Activity;
@@ -31,20 +22,18 @@ impl Kit for ActivityKit {
 
     fn taps(&self) -> Box<dyn Iterator<Item = (ActionEvent, Acknowledgement)> + Send> {
         let events = self.events();
-        Box::new(iter::from_fn(move || {
-            loop {
-                match events.recv_blocking() {
-                    Ok(Event::Action {
-                        activity,
-                        action,
-                        acknowledgement,
-                        ..
-                    }) => return Some((apple::action_event(&activity, action), acknowledgement)),
-                    Ok(_) => {}
-                    Err(_) => return None,
-                }
-            }
-        }))
+        Box::new(glue::taps_of(
+            move || events.recv_blocking().ok(),
+            |event| match event {
+                Event::Action {
+                    activity,
+                    action,
+                    acknowledgement,
+                    ..
+                } => Some((apple::action_event(&activity, action), acknowledgement)),
+                _ => None,
+            },
+        ))
     }
 
     fn authorization(&self) -> Authorization {

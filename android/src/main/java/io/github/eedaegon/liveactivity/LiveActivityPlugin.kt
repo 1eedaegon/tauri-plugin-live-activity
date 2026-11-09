@@ -27,24 +27,14 @@ class ActionRegistration {
 @TauriPlugin(permissions = [Permission(strings = [Manifest.permission.POST_NOTIFICATIONS], alias = "notifications")])
 class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
     private val notifications = AndroidNotifications(activity)
-    private val engine = ActivityEngine(PreferencesStore(activity), notifications)
-    private val preferences = activity.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    private val liveUpdates = LiveUpdateAdapter(activity)
+    private val preferences = activity.getSharedPreferences(PLUGIN_PREFERENCES, Context.MODE_PRIVATE)
     // The configuration arrives with the plugin handle, after construction.
     private val samsungNowBar by lazy { PluginSettings.samsungNowBar(handle?.config) }
     private val layouts = LayoutEngine(
         LayoutPreferencesStore(activity.applicationContext),
         LayoutNotifications(activity.applicationContext, { samsungNowBar }),
     )
-
-    @Command
-    fun getCapabilities(invoke: Invoke) = respond(invoke) {
-        JSONObject().put("platform", "android").put("backend", "androidNotification")
-            .put("start", "supported").put("update", "supported").put("end", "supported")
-            .put("progress", "supported").put("timer", "supported").put("actions", "supported")
-            .put("stateObservation", "supported").put("silentUpdate", "supported")
-            .put("nativeLiveActivity", if (notifications.promotionAllowed()) "supported" else "unsupported")
-            .put("maxPayloadBytes", 4096).put("layout", "supported")
-    }
 
     @Command
     override fun checkPermissions(invoke: Invoke) = respond(invoke) { permissions() }
@@ -77,23 +67,15 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
-    fun start(invoke: Invoke) = respond(invoke) { engine.start(Input.start(invoke.getArgs())).json() }
-
-    @Command
-    fun update(invoke: Invoke) = respond(invoke) {
+    fun liveUpdate(invoke: Invoke) = respond(invoke) {
         val args = invoke.getArgs()
-        Input.keys(args, setOf("id", "snapshot"))
-        engine.update(Input.id(args.get("id")), Input.snapshot(args.getJSONObject("snapshot"))).json()
+        Input.keys(args, setOf("command", "payload"))
+        LiveUpdateProtocol.dispatch(
+            liveUpdates,
+            args.getString("command"),
+            args.getString("payload"),
+        )
     }
-
-    @Command
-    fun end(invoke: Invoke) = respond(invoke) {
-        val (id, policy) = Input.end(invoke.getArgs())
-        engine.end(id, policy).json()
-    }
-
-    @Command
-    fun list(invoke: Invoke) = respond(invoke) { JSONArray(engine.list().map { it.json() }) }
 
     @Command
     fun startLayout(invoke: Invoke) = respond(invoke) { layouts.start(LayoutInput.start(invoke.getArgs())).json() }

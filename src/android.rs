@@ -1,6 +1,10 @@
+//! Android: the layout commands, permissions, images and taps go to the plugin's Kotlin side; the progress and timer
+//! templates of contract v1 run on the liveupdate crate, whose six operations the Kotlin side answers.
+
 use crate::{
     Error, Result,
     actions::{self, ACTION_EVENT, Actions},
+    android_liveupdate,
     image::{self, ImageFolder},
     layout::{
         ActionEvent, LayoutActivityRecord, LayoutEndInput, LayoutStartInput, LayoutUpdateInput,
@@ -39,6 +43,7 @@ pub(crate) fn init<R: Runtime, C: DeserializeOwned>(
         let _ = app.emit(ACTION_EVENT, event);
     })?;
     Ok(LiveActivity {
+        updates: android_liveupdate::client(handle.clone()),
         handle,
         actions,
         images: OnceLock::new(),
@@ -46,6 +51,8 @@ pub(crate) fn init<R: Runtime, C: DeserializeOwned>(
 }
 
 pub struct LiveActivity<R: Runtime> {
+    /// The progress and timer templates of contract v1.
+    updates: android_liveupdate::Client<R>,
     handle: PluginHandle<R>,
     actions: Actions,
     /// The folder of `write_image`, once the native layer has named it.
@@ -62,7 +69,10 @@ impl<R: Runtime> LiveActivity<R> {
     }
 
     pub fn get_capabilities(&self) -> Result<Capabilities> {
-        self.call("getCapabilities", serde_json::json!({}))
+        self.updates
+            .capabilities()
+            .map(android_liveupdate::capabilities)
+            .map_err(android_liveupdate::error)
     }
     pub fn check_permissions(&self) -> Result<Permissions> {
         self.call("checkPermissions", serde_json::json!({}))
@@ -72,18 +82,35 @@ impl<R: Runtime> LiveActivity<R> {
     }
     pub fn start(&self, input: StartInput) -> Result<ActivityRecord> {
         input.validate()?;
-        self.call("start", input)
+        self.updates
+            .start(android_liveupdate::start_request(input))
+            .map(android_liveupdate::activity_record)
+            .map_err(android_liveupdate::error)
     }
     pub fn update(&self, input: UpdateInput) -> Result<ActivityRecord> {
         input.validate()?;
-        self.call("update", input)
+        self.updates
+            .update(&input.id, android_liveupdate::live_snapshot(input.snapshot))
+            .map(android_liveupdate::activity_record)
+            .map_err(android_liveupdate::error)
     }
     pub fn end(&self, input: EndInput) -> Result<ActivityRecord> {
         input.validate()?;
-        self.call("end", input)
+        self.updates
+            .end(&input.id, android_liveupdate::end_policy(input.policy))
+            .map(android_liveupdate::activity_record)
+            .map_err(android_liveupdate::error)
     }
     pub fn list(&self) -> Result<Vec<ActivityRecord>> {
-        self.call("list", serde_json::json!({}))
+        self.updates
+            .list()
+            .map(|records| {
+                records
+                    .into_iter()
+                    .map(android_liveupdate::activity_record)
+                    .collect()
+            })
+            .map_err(android_liveupdate::error)
     }
     pub fn start_layout(&self, input: LayoutStartInput) -> Result<LayoutActivityRecord> {
         input.validate()?;
@@ -125,9 +152,9 @@ impl<R: Runtime> LiveActivity<R> {
     ///
     /// Register handlers on the built `App`, before `App::run`, or in the setup of a plugin,
     /// and not in `Builder::setup`: when the system launches the app in the background for a
-    /// tap, `Builder::setup` may never run. On iOS the tap's intent waits, for up to 4 seconds,
-    /// until the handlers registered at the time of the tap have run, which keeps such an app
-    /// running meanwhile.
+    /// tap, `Builder::setup` may never run. The native side waits, for up to 4 seconds, until the
+    /// handlers registered at the time of the tap have run, which keeps such an app running
+    /// meanwhile. JavaScript listeners are not awaited.
     pub fn on_action(&self, handler: impl Fn(ActionEvent) + Send + Sync + 'static) {
         self.actions.subscribe(handler);
     }

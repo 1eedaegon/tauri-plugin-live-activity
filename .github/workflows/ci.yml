@@ -253,6 +253,9 @@ jobs:
     permissions:
       contents: read
       actions: read
+    # For the keys and the run alike: the record names the mode.
+    env:
+      MODE: dev
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -295,7 +298,6 @@ jobs:
       - name: End to end on the simulator
         if: steps.passed.outputs.found != 'true'
         env:
-          MODE: dev
           RUNTIME: ${{ steps.keys.outputs.runtime }}
           OUTPUT: ${{ runner.temp }}/ios-dev
         run: sh tests/ios/run.sh

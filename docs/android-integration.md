@@ -8,6 +8,14 @@ two receivers that are not exported: one for dismissals and one for button taps.
 No foreground service, network client, custom `RemoteViews`, or background task
 scheduler is installed.
 
+Template activities use [`1eedaegon/liveupdate-rs`](https://github.com/1eedaegon/liveupdate-rs).
+Rust owns request validation, fallback selection, idempotency, revisions, limits, retry,
+terminal states and reconciliation. The Android side is a framework adapter with only six
+bounded operations: capabilities, read receipts, replace receipts, observe notifications,
+post and cancel. Kotlin does not implement `start`, `update`, `end` or `list` for contract v1.
+It stores Rust's receipt without interpreting lifecycle policy and projects an accepted receipt
+onto `NotificationManager`.
+
 Set `bundle.android.minSdkVersion` to `26` or higher in `tauri.conf.json`;
 `npx tauri-plugin-live-activity setup` does this, and sets `minSdk` in an existing
 `gen/android` project. Tauri's Jackson dependency fails before plugin initialization
@@ -49,7 +57,7 @@ The `after` policy returns `UNSUPPORTED_FEATURE` before removal.
 
 ## Ordering, dismissal, and recovery
 
-Commands and dismissal handling share a process lock. Each activity has a random
+Rust serializes commands with a process lock. Each activity has a random
 UUID handle and dedicated `(tag, id)` pair. No hash-based notification identifier
 allocation or `cancelAll()` is used. A duplicate start compares the original start
 request, even after later updates. Revisions increase monotonically; equal content
@@ -59,14 +67,14 @@ a replacement activity with the same application key.
 Notification posting is asynchronous. An accepted request is persisted before
 posting with `awaitingObservation`; its returned state can be `unknown`. Ordered
 subsequent updates are allowed, but an older OS snapshot cannot overwrite the
-accepted revision. `list()` reconciles the OS snapshot. Once observed, removal
-becomes `dismissed`; the explicit non-exported deletion receiver also records
-user dismissal. A missed native notification query is not treated as confirmation
+accepted revision. `list()` reconciles the OS snapshot. Once observed, removal becomes
+`dismissed`. Template activities need no Kotlin deletion receiver: Rust derives dismissal
+from the adapter's current notification observations. A missed native notification query is not treated as confirmation
 that a pending request was shown. Native visibility remains `unknown`, because
 posting cannot prove that the user saw the notification.
 
-Metadata is stored in app-private SharedPreferences, including the original
-request and last accepted snapshot so idempotence survives process recreation.
+The thin adapter stores Rust's receipts verbatim in app-private SharedPreferences, including
+the original request and last accepted snapshot so idempotence survives process recreation.
 Do not put credentials or secrets in activity text. At most 32 nonterminal records
 and the latest 128 terminal records are retained. An evicted terminal handle
 returns `NOT_FOUND`. Corrupted stored or owned notification metadata returns a
@@ -79,21 +87,27 @@ A crash between persisting and posting can leave a pending `unknown` receipt;
 explicitly end that
 handle before restarting if it never becomes observable.
 
+This storage key is new in 0.4.0. End running template activities before upgrading from a
+release that used the former Kotlin lifecycle (0.3 and earlier); old receipts are not imported, and
+Android can otherwise leave an old notification posted. Layout receipts are unchanged.
+
 ## Layout activities (contract v2)
 
 `startLayout`, `updateLayout`, `endLayout` and `listLayout` work on Android with the
 rules of the [request contract](request-contract.md#request-contract-v2-layout). The
 Kotlin side parses every request again with the same strict rules and weight as the
 other layers; its unit tests run every case of `tests/fixtures/layout-requests.json`.
-The lifecycle is the v1 one: an idempotent start compares the whole start request
+Contract v2 remains a Kotlin layout engine because it interprets the custom layout tree,
+styles, images and actions; `liveupdate-rs` currently covers the fixed progress/timer templates.
+Its lifecycle has the same public guarantees as v1: an idempotent start compares the whole start request
 (`android` included), `CONFLICT`, `STALE_REVISION`, `NOT_FOUND`, tombstones after a
 swipe or an end, and at most 32 active and 128 ended records per contract version. An
 update must keep the keys and value types of the start, the stored layout's value rules
 are checked again (the values of bound style members included), and the stored layout and
 styles plus the new values must weigh at most 3584 (`PAYLOAD_TOO_LARGE`). The two versions do not see each other: layout records
 live under their own preferences key (`layoutRecords`), and layout notifications use the
-tag prefix `tauri.live-activity.layout:`, so v1 code and earlier plugin versions never
-read them. Stored v1 records are unchanged. The notification carries the handle, the
+tag prefix `tauri.live-activity.layout:`, so template code never reads them. Stored layout
+records are unchanged by the Rust template integration. The notification carries the handle, the
 snapshot and the promotion request, not the layout.
 
 A live layout record keeps its whole start request, so a retried start can be compared

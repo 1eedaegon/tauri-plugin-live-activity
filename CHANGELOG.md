@@ -5,7 +5,9 @@
 iOS moves onto the [activitykit](https://crates.io/crates/activitykit) crate, which was split out of this plugin's iOS
 code. The plugin has no Swift of its own any more: its Rust commands call activitykit, whose build script builds its
 Swift bridge into the app's Rust library, and the widget extension links activitykit's Swift products. Requests,
-records, revisions and taps keep the behaviour of 0.3. Android and desktop work as before.
+records, revisions and taps keep the behaviour of 0.3. On Android the progress and timer templates move onto the
+[liveupdate](https://github.com/1eedaegon/liveupdate-rs) crate, run from the plugin's Rust; layouts keep their Kotlin
+side. Desktop works as before.
 
 - iOS: the commands call activitykit 0.1 directly. The Tauri Swift plugin and the copied Swift packages (`ios/`,
   `LiveActivityShared`, `LiveActivityCore`, `LiveActivityUI`, `LiveActivityPlugin`) and the templates under
@@ -67,8 +69,15 @@ records, revisions and taps keep the behaviour of 0.3. Android and desktop work 
   are its files, which `node tools/sync-contract.mjs --write` copies and a test compares. They add `timestamp` to
   snapshots, final content to `end_layout` and the `ends` fixtures. The reference validator adds
   `validateLayoutEnd`.
+- Android: the progress and timer templates of contract v1 run on the liveupdate crate (git revision 3b797bb), which
+  the plugin's Rust calls. Rust checks the requests and owns the fallback, repeated starts, revisions, limits, retries,
+  the lifecycle and the reconciliation with the posted notifications; the Kotlin side keeps six bounded operations
+  (capabilities, reading and replacing the receipts, observing, posting and cancelling notifications). Layout
+  activities keep their Kotlin renderer and lifecycle.
+- Breaking: on Android, end running template activities before the update. 0.4 does not read the receipts that 0.3's
+  Kotlin lifecycle stored, and a notification of 0.3 may stay posted.
 - Android takes a snapshot's `timestamp` and keeps it in the record, and ends a layout activity with the final
-  content of `end_layout`, checked as an update. Everything else on Android is unchanged.
+  content of `end_layout`, checked as an update.
 - The demo's widget is activitykit's template, its own Mochi widget for the templates is gone, and its Rust handler
   takes a second to count a pet, which the tap waits for. Launched with `--start-buttons`, it starts the Buttons
   example from Rust. The debug build of `tauri ios dev` on a simulator works as the build of `tauri ios build`: the
@@ -80,8 +89,9 @@ records, revisions and taps keep the behaviour of 0.3. Android and desktop work 
   release checked against its SHA-256). Two new macOS jobs run the simulator suite, on the demo of `tauri ios build`
   and on the demo of `tauri ios dev`. The built demo and UI tests are cached under a key of the tracked files they are
   built from, Xcode and the tools. A suite that passed in full is recorded as an artifact named after its inputs, the
-  runner image and the simulator runtime (`tests/ci/cache.sh`, as in activitykit), and a later run with the same
-  inputs, the push to main that merges a tested pull request included, skips it.
+  workflow file, what selects the suite (its mode, `ONLY` and the retries), the runner image and the simulator runtime
+  (`tests/ci/cache.sh`, as in activitykit), and a later run with the same inputs, the push to main that merges a tested
+  pull request included, skips it.
 
 ## 0.3.0
 

@@ -14,10 +14,12 @@
 #                                 nothing is written. Writes recorded=true or false.
 #
 # Outputs go to $GITHUB_OUTPUT (standard output when it is not set). The inputs of a suite are the files it reads as git
-# tracks them (nothing generated or ignored counts), the Xcode version, the runner's system, architecture and image
-# ($ImageOS, $ImageVersion), the Rust toolchain ($TOOLCHAIN), XcodeGen ($XCODEGEN), Node ($NODE) and the simulator
-# runtime. The products key leaves out the image and the runtime: Xcode and the tools decide what is built. XCODE and
-# RUNTIME, when set, stand for what this Mac has.
+# tracks them (nothing generated or ignored counts), the workflow file, what selects the suite (MODE, which must be the
+# suite's own, ONLY, and the retries that CI turns on, as tests/ios/run.sh reads them), the Xcode version, the runner's
+# system, architecture and image ($ImageOS, $ImageVersion), the Rust toolchain ($TOOLCHAIN), XcodeGen ($XCODEGEN), Node
+# ($NODE) and the simulator runtime: a narrower or differently run suite never stands for a full one. The products key
+# leaves out the workflow, the selection, the image and the runtime: Xcode and the tools decide what is built. XCODE
+# and RUNTIME, when set, stand for what this Mac has.
 #
 # A record is an artifact, not a cache: a push to main cannot restore the caches of a pull request, but it can find the
 # artifact that the pull request's run left. Only runs of this repository's ci.yml count, not runs of a fork.
@@ -73,15 +75,20 @@ node ${NODE:?NODE names the Node version}"
   runtime=${RUNTIME:-$(newest_runtime)}
   [ -n "$runtime" ] || { echo "no iOS simulator runtime" >&2; exit 1; }
   hash=$(files)
+  workflow=$(git -C "$root" ls-files --stage -- .github/workflows/ci.yml | git hash-object --stdin)
+  # run.sh runs a failed test again, up to three times in all, under CI.
+  if [ -n "${CI:-}" ]; then iterations=3; else iterations=1; fi
   products=$(printf 'version %s\nfiles %s\nxcode %s\nsystem %s\n%s\n' "$version" "$hash" "$xcode" "$system" "$tools" \
     | git hash-object --stdin)
   # CI passes them on to tests/ios/run.sh as RUNTIME and BUILD_KEY.
   put "runtime=$runtime"
   put "products=ios-build-v$version-$system-xcode$xcode-$products"
   for suite in "$@"; do
-    case $suite in simulator | dev) ;; *) echo "unknown suite: $suite" >&2; exit 2 ;; esac
-    printf 'version %s\nsuite %s\nfiles %s\nxcode %s\nrunner %s %s %s\n%s\nruntime %s\n' "$version" "$suite" "$hash" \
-      "$xcode" "$system" "${ImageOS:-local}" "${ImageVersion:-local}" "$tools" "$runtime" >"$temp/inputs-$suite.txt"
+    case $suite in simulator) mode=build ;; dev) mode=dev ;; *) echo "unknown suite: $suite" >&2; exit 2 ;; esac
+    [ "${MODE:-build}" = "$mode" ] || { echo "the $suite suite runs with MODE=$mode, not ${MODE:-build}" >&2; exit 2; }
+    printf 'version %s\nsuite %s\nfiles %s\nworkflow %s\nselection mode %s only %s iterations %s\nxcode %s\nrunner %s %s %s\n%s\nruntime %s\n' \
+      "$version" "$suite" "$hash" "$workflow" "$mode" "${ONLY:--}" "$iterations" "$xcode" "$system" "${ImageOS:-local}" \
+      "${ImageVersion:-local}" "$tools" "$runtime" >"$temp/inputs-$suite.txt"
     name=passed-$suite-$(git hash-object --stdin <"$temp/inputs-$suite.txt")
     printf '%s, from:\n%s\n' "$name" "$(cat "$temp/inputs-$suite.txt")" >&2
     put "$suite=$name"

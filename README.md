@@ -25,8 +25,10 @@ an ongoing notification on Android. You describe the layout in TypeScript; the p
 All four come from the [demo app](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo),
 which follows a cat named Mochi. The plugin runs on iOS 16.2+ and Android 8+; on desktop, its
 activity commands return `UNSUPPORTED_PLATFORM`. On iOS it is built on the
-[activitykit](https://github.com/1eedaegon/activitykit-rs) crate and has no Swift of its own. Before 1.0, a minor
-version may change the API.
+[activitykit](https://github.com/1eedaegon/activitykit-rs) crate and has no Swift of its own. On Android the progress
+and timer templates run their lifecycle in Rust, on the [liveupdate](https://github.com/1eedaegon/liveupdate-rs)
+crate, and Kotlin only calls the notification framework and stores the app's receipts; layout activities keep their
+Kotlin renderer. Before 1.0, a minor version may change the API.
 
 ## Install
 

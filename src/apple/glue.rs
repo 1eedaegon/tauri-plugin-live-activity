@@ -82,6 +82,31 @@ pub(crate) trait Acknowledge: Send + 'static {
     fn acknowledge(&self);
 }
 
+impl Acknowledge for activitykit::Acknowledgement {
+    fn acknowledge(&self) {
+        activitykit::Acknowledgement::acknowledge(self);
+    }
+}
+
+/// The taps among a kit's events: each event that `tap` turns into a tap with what holds it, in order, until `next`
+/// ends; the other events pass. `crate::ios` reads activitykit's events with it.
+pub(crate) fn taps_of<E, A>(
+    mut next: impl FnMut() -> Option<E> + Send + 'static,
+    tap: impl Fn(E) -> Option<(ActionEvent, A)> + Send + 'static,
+) -> impl Iterator<Item = (ActionEvent, A)> + Send + 'static
+where
+    E: 'static,
+    A: 'static,
+{
+    std::iter::from_fn(move || {
+        loop {
+            if let Some(found) = tap(next()?) {
+                return Some(found);
+            }
+        }
+    })
+}
+
 /// Lets a tap's intent go when dropped. The dispatcher of [`Actions`] drops it once the `on_action` handlers have run
 /// and the tap went to JavaScript.
 pub(crate) struct Release<A: Acknowledge>(A);
@@ -107,9 +132,17 @@ pub(crate) fn setup<K: Kit>(
     built: activitykit::Result<K>,
     emit: impl Fn(&ActionEvent) + Send + 'static,
 ) -> Result<(Arc<Apple<K>>, Actions)> {
+    setup_with(built, || actions::spawn(emit))
+}
+
+/// [`setup`] with the start of the handlers' thread given, so that a test sees what comes first.
+pub(crate) fn setup_with<K: Kit>(
+    built: activitykit::Result<K>,
+    spawn: impl FnOnce() -> Result<Actions>,
+) -> Result<(Arc<Apple<K>>, Actions)> {
     let kit = built?;
     let taps = kit.taps();
-    let actions = actions::spawn(emit)?;
+    let actions = spawn()?;
     let forwarding = actions.clone();
     thread::Builder::new()
         .name("live-activity-events".into())
