@@ -1770,9 +1770,9 @@ dependencies = [
 
 [[package]]
 name = "liveupdate"
-version = "0.1.0-alpha.1"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0274e023c4a7f79987e41351ac33f5b860b4a0b8504aa35efb98b0aae4c20a53"
+checksum = "2992af34259c637fc961f0a57fada3a7765b8d3824ffc2de1029c1b09430e2e8"
 dependencies = [
  "serde",
  "serde_json",

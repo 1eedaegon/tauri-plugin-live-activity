@@ -84,33 +84,30 @@ impl<R: Runtime> LiveActivity<R> {
         input.validate()?;
         self.updates
             .start(android_liveupdate::start_request(input))
-            .map(android_liveupdate::activity_record)
             .map_err(android_liveupdate::error)
+            .and_then(android_liveupdate::activity_record)
     }
     pub fn update(&self, input: UpdateInput) -> Result<ActivityRecord> {
         input.validate()?;
         self.updates
             .update(&input.id, android_liveupdate::live_snapshot(input.snapshot))
-            .map(android_liveupdate::activity_record)
             .map_err(android_liveupdate::error)
+            .and_then(android_liveupdate::activity_record)
     }
     pub fn end(&self, input: EndInput) -> Result<ActivityRecord> {
         input.validate()?;
         self.updates
             .end(&input.id, android_liveupdate::end_policy(input.policy))
-            .map(android_liveupdate::activity_record)
             .map_err(android_liveupdate::error)
+            .and_then(android_liveupdate::activity_record)
     }
     pub fn list(&self) -> Result<Vec<ActivityRecord>> {
         self.updates
             .list()
-            .map(|records| {
-                records
-                    .into_iter()
-                    .map(android_liveupdate::activity_record)
-                    .collect()
-            })
-            .map_err(android_liveupdate::error)
+            .map_err(android_liveupdate::error)?
+            .into_iter()
+            .map(android_liveupdate::activity_record)
+            .collect()
     }
     pub fn start_layout(&self, input: LayoutStartInput) -> Result<LayoutActivityRecord> {
         input.validate()?;

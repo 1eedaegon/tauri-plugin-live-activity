@@ -73,7 +73,7 @@ on a locked phone that Face ID has not matched waits for an unlock, as a native 
   are its files, which `node tools/sync-contract.mjs --write` copies and a test compares. They add `timestamp` to
   snapshots, final content to `end_layout` and the `ends` fixtures. The reference validator adds
   `validateLayoutEnd`.
-- Android: the progress and timer templates of contract v1 run on the liveupdate crate (0.1.0-alpha.1, exactly), which
+- Android: the progress and timer templates of contract v1 run on the liveupdate crate (0.1.1, exactly), which
   the plugin's Rust calls. Rust checks the requests and owns the fallback, repeated starts, revisions, limits, retries,
   the lifecycle and the reconciliation with the posted notifications; the Kotlin side keeps six bounded operations
   (capabilities, reading and replacing the receipts, observing, posting and cancelling notifications). Layout

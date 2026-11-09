@@ -54,20 +54,22 @@ pub(crate) fn start_request(input: StartInput) -> liveupdate::StartRequest {
     }
 }
 
-pub(crate) fn activity_record(record: liveupdate::ActivityRecord) -> ActivityRecord {
-    ActivityRecord {
+pub(crate) fn activity_record(record: liveupdate::ActivityRecord) -> crate::Result<ActivityRecord> {
+    let template = plugin_template(record.template)?;
+    let snapshot = plugin_snapshot(record.snapshot)?;
+    Ok(ActivityRecord {
         id: record.id,
         activity_key: record.activity_key,
         schema_version: record.schema_version,
-        template: plugin_template(record.template),
-        snapshot: plugin_snapshot(record.snapshot),
+        template,
+        snapshot,
         backend: Backend::AndroidNotification,
         state: activity_state(record.state),
         visibility: Visibility::Unknown,
         degraded_features: record.degraded_features,
         promotion_requested: record.promotion_requested,
         promotion_state: promotion_state(record.promotion_state),
-    }
+    })
 }
 
 pub(crate) fn capabilities(value: liveupdate::Capabilities) -> Capabilities {
@@ -125,6 +127,7 @@ pub(crate) fn live_snapshot(value: Snapshot) -> liveupdate::Snapshot {
             ends_at: timer.ends_at,
         }),
         stale_at: value.stale_at,
+        presentation: None,
     }
 }
 
@@ -136,8 +139,11 @@ pub(crate) fn end_policy(value: crate::EndPolicy) -> liveupdate::EndPolicy {
     }
 }
 
-fn plugin_snapshot(value: liveupdate::Snapshot) -> Snapshot {
-    Snapshot {
+fn plugin_snapshot(value: liveupdate::Snapshot) -> crate::Result<Snapshot> {
+    if value.presentation.is_some() {
+        return Err(non_v1_record());
+    }
+    Ok(Snapshot {
         revision: value.revision,
         title: value.title,
         status: value.status,
@@ -147,7 +153,7 @@ fn plugin_snapshot(value: liveupdate::Snapshot) -> Snapshot {
             ends_at: timer.ends_at,
         }),
         stale_at: value.stale_at,
-    }
+    })
 }
 
 fn template(value: Template) -> liveupdate::Template {
@@ -157,11 +163,21 @@ fn template(value: Template) -> liveupdate::Template {
     }
 }
 
-fn plugin_template(value: liveupdate::Template) -> Template {
+fn plugin_template(value: liveupdate::Template) -> crate::Result<Template> {
     match value {
-        liveupdate::Template::Progress => Template::Progress,
-        liveupdate::Template::Timer => Template::Timer,
+        liveupdate::Template::Progress => Ok(Template::Progress),
+        liveupdate::Template::Timer => Ok(Template::Timer),
+        liveupdate::Template::Standard
+        | liveupdate::Template::BigText
+        | liveupdate::Template::Metric => Err(non_v1_record()),
     }
+}
+
+fn non_v1_record() -> Error {
+    Error::new(
+        "NATIVE_ERROR",
+        "Android core returned a record outside the plugin's progress and timer contract",
+    )
 }
 
 fn fallback(value: Fallback) -> liveupdate::Fallback {
@@ -224,11 +240,12 @@ mod tests {
         assert_eq!(request.visibility, liveupdate::Visibility::Private);
         assert_eq!(request.template, liveupdate::Template::Progress);
         assert_eq!(request.snapshot.progress, Some(0.25));
+        assert!(request.snapshot.presentation.is_none());
     }
 
     // TP-ANDROID-4
     #[test]
-    fn liveupdate_records_keep_the_existing_plugin_contract() {
+    fn the_android_boundary_adds_the_plugin_backend_to_liveupdate_records() {
         let record = activity_record(liveupdate::ActivityRecord {
             id: "handle".into(),
             activity_key: "delivery:1".into(),
@@ -241,14 +258,15 @@ mod tests {
                 progress: Some(0.75),
                 timer: None,
                 stale_at: None,
+                presentation: None,
             },
-            backend: liveupdate::Backend::AndroidNotification,
             state: liveupdate::ActivityState::Active,
             visibility: liveupdate::Visibility::Unknown,
             degraded_features: vec!["nativeLiveActivity".into()],
             promotion_requested: true,
             promotion_state: liveupdate::PromotionState::NotPromoted,
-        });
+        })
+        .unwrap();
 
         assert_eq!(record.backend, Backend::AndroidNotification);
         assert_eq!(record.state, ActivityState::Active);
@@ -259,11 +277,25 @@ mod tests {
 
     // TP-ANDROID-4
     #[test]
+    fn rich_core_templates_are_not_guessed_into_the_v1_plugin_contract() {
+        for template in [
+            liveupdate::Template::Standard,
+            liveupdate::Template::BigText,
+            liveupdate::Template::Metric,
+        ] {
+            let error = plugin_template(template).unwrap_err();
+            assert_eq!(error.code, "NATIVE_ERROR");
+        }
+    }
+
+    // TP-ANDROID-4
+    #[test]
     fn capabilities_and_errors_keep_stable_public_values() {
         let converted = capabilities(liveupdate::Capabilities {
             supported: true,
             notifications_enabled: true,
             promotion_enabled: false,
+            presentation: liveupdate::PresentationCapabilities::default(),
         });
         assert_eq!(converted.backend, Backend::AndroidNotification);
         assert_eq!(converted.start, FeatureSupport::Supported);
