@@ -64,7 +64,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: env.JS == 'true'
+        if: env.JS == 'true' || env.RUST == 'true'
         with:
           node-version: '24'
           cache: npm
@@ -72,10 +72,12 @@ jobs:
         run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt,clippy,llvm-tools-preview
       - if: env.RUST == 'true'
         run: rustup default 1.99.1
-      - if: env.JS == 'true'
+      - if: env.JS == 'true' || env.RUST == 'true'
         run: npm ci
       - if: env.JS == 'true'
         run: npm test && npm run typecheck && npm run build:demo
+      - if: env.RUST == 'true' && env.JS != 'true'
+        run: npm run build:demo
       - name: Test release guards
         if: env.JS == 'true'
         run: node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.mjs --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/release/release-guard.test.mjs

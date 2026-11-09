@@ -2,16 +2,18 @@ package io.github.eedaegon.liveactivity
 
 import android.Manifest
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.tauri.plugin.Invoke
 import com.fasterxml.jackson.databind.ObjectMapper
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,76 +26,126 @@ class NativeBridgeTest {
     private val context = instrumentation.targetContext
     private lateinit var activity: Activity
     private lateinit var plugin: LiveActivityPlugin
-    private val request = """{"activityKey":"bridge:download","schemaVersion":1,"template":"progress","fallback":"notification","snapshot":{"revision":0,"title":"Downloading files","status":"65 of 100 files","progress":0.65}}"""
 
-    @Before fun prepare() {
-        if (Build.VERSION.SDK_INT >= 33) shell("pm grant ${context.packageName} ${Manifest.permission.POST_NOTIFICATIONS}")
-        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit().clear().commit()
-        activity = instrumentation.startActivitySync(Intent(context, TestHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    @Before
+    fun prepare() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            shell("pm grant ${context.packageName} ${Manifest.permission.POST_NOTIFICATIONS}")
+        }
+        activity = instrumentation.startActivitySync(
+            Intent(context, TestHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
         plugin = LiveActivityPlugin(activity)
+        liveUpdate("write", JSONObject().put("records", JSONArray()))
+        liveUpdate("cancel", JSONObject().put("id", ACTIVITY_ID))
     }
 
-    @After fun cleanup() {
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-        manager.activeNotifications.filter { it.tag?.startsWith(TAG_PREFIX) == true }.forEach { manager.cancel(it.tag, it.id) }
+    @After
+    fun cleanup() {
+        liveUpdate("cancel", JSONObject().put("id", ACTIVITY_ID))
+        liveUpdate("write", JSONObject().put("records", JSONArray()))
         instrumentation.runOnMainSync { activity.finish() }
     }
 
-    @Test fun bridgeReturnsStableEnvelopesAcrossACompleteLifecycle() {
-        assertEquals("android", call("capabilities").getJSONObject("data").getString("platform"))
-        assertEquals("granted", call("checkPermissions").getJSONObject("data").getString("notifications"))
-        listOf("notifications", "promotion", "liveActivities").forEach {
-            assertTrue(call("requestPermissions", """{"kind":"$it"}""").getBoolean("ok"))
+    @Test
+    fun pluginExposesOnlyTheBoundedAdapterProtocol() {
+        val capabilities = liveUpdate("capabilities").getJSONObject("data")
+        assertTrue(capabilities.getBoolean("notificationsEnabled"))
+        assertEquals(Build.VERSION.SDK_INT >= 36, capabilities.getBoolean("supported"))
+
+        val record = record()
+        liveUpdate("write", JSONObject().put("records", JSONArray().put(record)))
+        assertEquals(ACTIVITY_ID, liveUpdate("read").getJSONArray("data").getJSONObject(0).getString("id"))
+
+        liveUpdate("post", JSONObject().put("record", record))
+        val observation = awaitObservation(true).getJSONObject(0)
+        assertEquals(ACTIVITY_ID, observation.getString("id"))
+        assertEquals("active", observation.getString("state"))
+        assertEquals("notApplicable", observation.getString("promotionState"))
+
+        liveUpdate("cancel", JSONObject().put("id", ACTIVITY_ID))
+        assertEquals(0, awaitObservation(false).length())
+    }
+
+    @Test
+    fun pluginKeepsProtocolFailuresInsideTheInnerEnvelope() {
+        val unknown = liveUpdateFailure("start", JSONObject())
+        assertEquals("INVALID_INPUT", unknown.getJSONObject("error").getString("code"))
+
+        val malformed = liveUpdateFailure("post", JSONObject().put("record", JSONObject()))
+        assertEquals("INVALID_INPUT", malformed.getJSONObject("error").getString("code"))
+
+        val outer = callLiveUpdate(JSONObject().put("command", "read"))
+        assertFalse(outer.getBoolean("ok"))
+        assertEquals("INVALID_INPUT", outer.getJSONObject("error").getString("code"))
+    }
+
+    private fun awaitObservation(present: Boolean): JSONArray {
+        repeat(40) {
+            val observations = liveUpdate("observe").getJSONArray("data")
+            if ((observations.length() > 0) == present) return observations
+            Thread.sleep(50)
         }
-        val started = call("start", request)
-        assertTrue(started.toString(), started.getBoolean("ok"))
-        val id = started.getJSONObject("data").getString("id")
-        val update = JSONObject().put("id", id).put("snapshot", JSONObject(request).getJSONObject("snapshot").put("revision", 1).put("progress", 0.9))
-        assertTrue(call("update", update.toString()).getBoolean("ok"))
-        val listed = call("list").getJSONArray("data")
-        assertTrue(listed.length() > 0)
-        assertTrue(call("end", JSONObject().put("id", id).put("policy", JSONObject().put("kind", "immediate")).toString()).getBoolean("ok"))
+        throw AssertionError("Notification observation did not become $present")
     }
 
-    @Test fun bridgeRejectsInvalidInputsAndReportsCorruptStorage() {
-        assertEquals("INVALID_INPUT", call("start", "{}").getJSONObject("error").getString("code"))
-        assertEquals("INVALID_INPUT", call("start", JSONObject(request).put("snapshot", "invalid").toString()).getJSONObject("error").getString("code"))
-        assertEquals("INVALID_INPUT", call("requestPermissions", """{"kind":"invalid"}""").getJSONObject("error").getString("code"))
-        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit().putString("records", "broken-json").commit()
-        assertEquals("NATIVE_ERROR", call("list").getJSONObject("error").getString("code"))
+    private fun liveUpdate(command: String, payload: JSONObject = JSONObject()): JSONObject {
+        val response = innerResponse(command, payload)
+        assertEquals(response.toString(), "ok", response.getString("status"))
+        return response
     }
 
-    @Test fun explicitDismissReceiverOnlyTouchesTheMatchingRecord() {
-        val original = Input.start(JSONObject(request))
-        val store = PreferencesStore(context)
-        store.write(listOf(ActivityRecord("one", original), ActivityRecord("two", original.copy(activityKey = "other"))))
-        val receiver = DismissReceiver()
-        receiver.onReceive(context, Intent("unrelated").putExtra("id", "one"))
-        assertEquals("unknown", store.read().first().state)
-        receiver.onReceive(context, Intent(DISMISS_ACTION))
-        receiver.onReceive(context, Intent(DISMISS_ACTION).putExtra("id", "one"))
-        assertEquals("dismissed", store.read().first().state)
-        assertEquals("unknown", store.read()[1].state)
+    private fun liveUpdateFailure(command: String, payload: JSONObject): JSONObject {
+        val response = innerResponse(command, payload)
+        assertEquals(response.toString(), "error", response.getString("status"))
+        return response
     }
 
-    private fun call(command: String, args: String = "{}"): JSONObject {
+    private fun innerResponse(command: String, payload: JSONObject): JSONObject {
+        val args = JSONObject().put("command", command).put("payload", payload.toString())
+        val outer = callLiveUpdate(args)
+        assertTrue(outer.toString(), outer.getBoolean("ok"))
+        return JSONObject(outer.getString("data"))
+    }
+
+    private fun callLiveUpdate(args: JSONObject): JSONObject {
         var response: String? = null
-        val invoke = Invoke(1, command, 1, 2, { _, json -> response = json }, args, ObjectMapper())
-        when (command) {
-            "capabilities" -> plugin.getCapabilities(invoke)
-            "checkPermissions" -> plugin.checkPermissions(invoke)
-            "requestPermissions" -> plugin.requestPermissions(invoke)
-            "start" -> plugin.start(invoke)
-            "update" -> plugin.update(invoke)
-            "end" -> plugin.end(invoke)
-            "list" -> plugin.list(invoke)
-        }
+        val invoke = Invoke(1, "liveUpdate", 1, 2, { _, json -> response = json }, args.toString(), ObjectMapper())
+        plugin.liveUpdate(invoke)
         return JSONObject(requireNotNull(response))
+    }
+
+    private fun record(): JSONObject {
+        val snapshot = JSONObject()
+            .put("revision", 0)
+            .put("title", "Mochi's snack delivery")
+            .put("status", "Preparing")
+            .put("progress", 0.25)
+        val origin = JSONObject()
+            .put("activityKey", "delivery:instrumentation")
+            .put("schemaVersion", 1)
+            .put("template", "progress")
+            .put("fallback", "notification")
+            .put("visibility", "private")
+            .put("snapshot", snapshot)
+        return JSONObject()
+            .put("id", ACTIVITY_ID)
+            .put("origin", origin)
+            .put("snapshot", snapshot)
+            .put("state", "unknown")
+            .put("promotionRequested", false)
+            .put("promotionState", "notApplicable")
+            .put("awaitingObservation", true)
+            .put("postFailed", false)
     }
 
     private fun shell(command: String) {
         instrumentation.uiAutomation.executeShellCommand(command).use { descriptor ->
             java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() }
         }
+    }
+
+    private companion object {
+        const val ACTIVITY_ID = "plugin-instrumentation-activity"
     }
 }

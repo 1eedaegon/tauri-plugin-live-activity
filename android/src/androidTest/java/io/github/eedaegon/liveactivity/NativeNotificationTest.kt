@@ -2,135 +2,116 @@ package io.github.eedaegon.liveactivity
 
 import android.Manifest
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.content.Context
 import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.json.JSONObject
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.Assume.assumeTrue
-import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class NativeNotificationTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
-    private val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    private val port = AndroidNotifications(context)
-    private val store = PreferencesStore(context)
-    private val engine = ActivityEngine(store, port)
-    private val request = StartRequest("emulator:delivery", 1, "progress", "notification", Snapshot(0, "Dinner delivery", "Your rider is on the way", 0.4, null, null))
+    private val manager = context.getSystemService(NotificationManager::class.java)
+    private val adapter = LiveUpdateAdapter(context)
 
-    @Before fun prepare() {
-        if (Build.VERSION.SDK_INT >= 33) shell("pm grant ${context.packageName} ${Manifest.permission.POST_NOTIFICATIONS}")
-        manager.activeNotifications.filter { it.tag?.startsWith(TAG_PREFIX) == true }.forEach { manager.cancel(it.tag, it.id) }
-        store.write(emptyList())
-    }
-
-    @After fun cleanup() {
-        engine.list().filter { !it.terminal }.forEach { engine.end(it.id, "immediate") }
-        manager.cancel("unrelated", 77)
-    }
-
-    @Test fun nativeProgressUpdateRestartAndRemovalPreserveOtherNotifications() {
-        val record = engine.start(request)
-        val initial = awaitRecord(record.id)
-        assertEquals("active", initial.state)
-        val unrelated = Notification.Builder(context, CHANNEL_ID).setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle("Unrelated notification").build()
-        manager.notify("unrelated", 77, unrelated)
-        engine.update(record.id, request.snapshot.copy(revision = 1, progress = 0.8, status = "Arriving soon"))
-        val updated = awaitRecord(record.id, 1)
-        assertEquals(0.8, updated.snapshot.progress!!, 0.0)
-        assertEquals(record.id, ActivityEngine(PreferencesStore(context), AndroidNotifications(context)).list().first { it.id == record.id }.id)
-        val native = manager.activeNotifications.first { it.tag == TAG_PREFIX + record.id }
-        assertEquals(800, native.notification.extras.getInt(Notification.EXTRA_PROGRESS))
-        assertTrue(native.notification.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
-        assertTrue(native.notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
-        if (Build.VERSION.SDK_INT >= 36) {
-            assertEquals(native.notification.flags and Notification.FLAG_PROMOTED_ONGOING != 0, updated.promotionState == "promoted")
+    @Before
+    fun prepare() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            instrumentation.uiAutomation.executeShellCommand(
+                "pm grant ${context.packageName} ${Manifest.permission.POST_NOTIFICATIONS}",
+            ).close()
         }
-        engine.end(record.id, "immediate")
-        await { manager.activeNotifications.none { it.tag == TAG_PREFIX + record.id } }
-        assertTrue(manager.activeNotifications.any { it.tag == "unrelated" })
+        adapter.cancel(PROGRESS_ID)
+        adapter.cancel(TIMER_ID)
     }
 
-    @Test fun nativeDismissalCannotBeResurrectedAndTimerUsesChronometer() {
+    @After
+    fun cleanup() {
+        adapter.cancel(PROGRESS_ID)
+        adapter.cancel(TIMER_ID)
+    }
+
+    @Test
+    fun adapterProjectsRustRecordsOntoFrameworkNotifications() {
+        val progress = record(PROGRESS_ID, progressSnapshot())
+        adapter.post(progress)
+        val posted = notification(PROGRESS_ID)
+
+        assertEquals("Dinner delivery", posted.extras.getString(Notification.EXTRA_TITLE))
+        assertEquals("Your rider is on the way", posted.extras.getString(Notification.EXTRA_TEXT))
+        assertEquals(400, posted.extras.getInt(Notification.EXTRA_PROGRESS))
+        assertEquals(Notification.VISIBILITY_PRIVATE, posted.visibility)
+        assertTrue(posted.flags and Notification.FLAG_ONGOING_EVENT != 0)
+        assertTrue(posted.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+        assertFalse(posted.extras.getString(RECORD_EXTRA).isNullOrBlank())
+
+        val observation = adapter.observe().getJSONObject(0)
+        assertEquals(PROGRESS_ID, observation.getString("id"))
+        assertEquals("active", observation.getString("state"))
+        assertEquals("notApplicable", observation.getString("promotionState"))
+    }
+
+    @Test
+    fun timerProjectionUsesTheSystemChronometer() {
         val now = System.currentTimeMillis()
-        val timer = request.copy(activityKey = "emulator:timer", template = "timer", snapshot = request.snapshot.copy(progress = null, timer = Timer(now, now + 300000)))
-        val record = engine.start(timer)
-        awaitRecord(record.id)
-        val native = manager.activeNotifications.first { it.tag == TAG_PREFIX + record.id }
-        assertTrue(native.notification.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
-        assertTrue(native.notification.extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN))
-        manager.cancel(TAG_PREFIX + record.id, native.id)
-        await { manager.activeNotifications.none { it.tag == TAG_PREFIX + record.id } }
-        assertEquals("dismissed", engine.list().first { it.id == record.id }.state)
-        try { engine.update(record.id, timer.snapshot.copy(revision = 1)); fail("Dismissed activity must not be reposted") }
-        catch (failure: ActivityFailure) { assertEquals("NOT_FOUND", failure.code) }
+        val timer = JSONObject()
+            .put("revision", 0)
+            .put("title", "Break")
+            .put("status", "Back soon")
+            .put("timer", JSONObject().put("startedAt", now).put("endsAt", now + 300_000))
+        adapter.post(record(TIMER_ID, timer, template = "timer"))
+
+        val posted = notification(TIMER_ID)
+        assertTrue(posted.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
+        assertTrue(posted.extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN))
+        assertEquals(now + 300_000, posted.`when`)
     }
 
-    @Test fun minimumImportanceCannotSatisfyStrictPromotionAndBlockedChannelRejectsStart() {
-        assumeTrue(Build.VERSION.SDK_INT >= 26)
-        val channelId = "live-activity-test-${UUID.randomUUID()}"
-        val blockedChannelId = "$channelId-blocked"
-        val channelPort = AndroidNotifications(context, channelId)
-        try {
-            manager.createNotificationChannel(NotificationChannel(channelId, "Test channel", NotificationManager.IMPORTANCE_MIN))
-            assertTrue(channelPort.notificationsAllowed())
-            assertFalse("Android excludes IMPORTANCE_MIN from Live Updates", channelPort.promotionAllowed())
-            try { ActivityEngine(store, channelPort).start(request.copy(fallback = "none")); fail("Strict promotion must fail") }
-            catch (failure: ActivityFailure) { assertEquals("UNSUPPORTED_FEATURE", failure.code) }
-            // API 26 ignores an app's attempt to lower an existing channel to NONE.
-            manager.createNotificationChannel(NotificationChannel(blockedChannelId, "Blocked test channel", NotificationManager.IMPORTANCE_NONE))
-            val blockedPort = AndroidNotifications(context, blockedChannelId)
-            assertFalse(blockedPort.notificationsAllowed())
-            try { ActivityEngine(store, blockedPort).start(request); fail("Blocked channel must reject posting") }
-            catch (failure: ActivityFailure) { assertEquals("PERMISSION_DENIED", failure.code) }
-        } finally {
-            manager.deleteNotificationChannel(channelId)
-            manager.deleteNotificationChannel(blockedChannelId)
+    private fun notification(id: String): Notification {
+        repeat(40) {
+            manager.activeNotifications.firstOrNull { it.tag == TAG_PREFIX + id }?.let {
+                return it.notification
+            }
+            Thread.sleep(50)
         }
+        throw AssertionError("Notification $id was not posted")
     }
 
-    @Test fun staleDeadlineUsesObservedStateAndAnUpdateCanRefreshIt() {
-        val staleRequest = request.copy(snapshot = request.snapshot.copy(staleAt = System.currentTimeMillis() - 1))
-        val record = engine.start(staleRequest)
-        await { engine.list().any { it.id == record.id && it.state == "stale" } }
-        engine.update(record.id, request.snapshot.copy(revision = 1, staleAt = System.currentTimeMillis() + 60000))
-        assertEquals("active", awaitRecord(record.id, 1).state)
+    private fun progressSnapshot(): JSONObject = JSONObject()
+        .put("revision", 0)
+        .put("title", "Dinner delivery")
+        .put("status", "Your rider is on the way")
+        .put("progress", 0.4)
+
+    private fun record(id: String, snapshot: JSONObject, template: String = "progress"): JSONObject {
+        val origin = JSONObject()
+            .put("activityKey", "instrumentation:$id")
+            .put("schemaVersion", 1)
+            .put("template", template)
+            .put("fallback", "notification")
+            .put("visibility", "private")
+            .put("snapshot", snapshot)
+        return JSONObject()
+            .put("id", id)
+            .put("origin", origin)
+            .put("snapshot", snapshot)
+            .put("state", "unknown")
+            .put("promotionRequested", false)
+            .put("promotionState", "notApplicable")
+            .put("awaitingObservation", true)
+            .put("postFailed", false)
     }
 
-    @Test fun nativeDeleteIntentPersistsDismissalAndBlocksFutureUpdates() {
-        val record = engine.start(request)
-        awaitRecord(record.id)
-        val native = manager.activeNotifications.first { it.tag == TAG_PREFIX + record.id }
-        if (Build.VERSION.SDK_INT >= 31) assertTrue(native.notification.deleteIntent.isImmutable)
-        native.notification.deleteIntent.send()
-        await { store.read().any { it.id == record.id && it.state == "dismissed" } }
-        try { engine.update(record.id, request.snapshot.copy(revision = 1)); fail("User dismissal must remain terminal") }
-        catch (failure: ActivityFailure) { assertEquals("NOT_FOUND", failure.code) }
-        await { manager.activeNotifications.none { it.tag == TAG_PREFIX + record.id } }
-    }
-
-    private fun awaitRecord(id: String, revision: Long = 0): ActivityRecord {
-        await { engine.list().any { it.id == id && it.state == "active" && it.snapshot.revision == revision } }
-        return engine.list().first { it.id == id }
-    }
-
-    private fun await(condition: () -> Boolean) {
-        // Cold API 26 boot/package broadcasts can delay a deletion intent beyond five seconds.
-        repeat(150) { if (condition()) return; Thread.sleep(100) }
-        assertTrue("Native notification state did not converge", condition())
-    }
-
-    private fun shell(command: String) {
-        instrumentation.uiAutomation.executeShellCommand(command).use { descriptor ->
-            java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() }
-        }
+    private companion object {
+        const val PROGRESS_ID = "plugin-progress"
+        const val TIMER_ID = "plugin-timer"
     }
 }

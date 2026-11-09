@@ -1,3 +1,5 @@
+#[cfg(target_os = "android")]
+use crate::android_liveupdate;
 use crate::{
     Error, Result,
     actions::{self, ACTION_EVENT, Actions},
@@ -43,6 +45,8 @@ pub(crate) fn init<R: Runtime, C: DeserializeOwned>(
         let _ = app.emit(ACTION_EVENT, event);
     })?;
     Ok(LiveActivity {
+        #[cfg(target_os = "android")]
+        updates: android_liveupdate::client(handle.clone()),
         handle,
         actions,
         images: OnceLock::new(),
@@ -50,6 +54,8 @@ pub(crate) fn init<R: Runtime, C: DeserializeOwned>(
 }
 
 pub struct LiveActivity<R: Runtime> {
+    #[cfg(target_os = "android")]
+    updates: android_liveupdate::Client<R>,
     handle: PluginHandle<R>,
     actions: Actions,
     /// The folder of `write_image`, once the native layer has named it.
@@ -66,6 +72,15 @@ impl<R: Runtime> LiveActivity<R> {
     }
 
     pub fn get_capabilities(&self) -> Result<Capabilities> {
+        #[cfg(target_os = "android")]
+        {
+            return self
+                .updates
+                .capabilities()
+                .map(android_liveupdate::capabilities)
+                .map_err(android_liveupdate::error);
+        }
+        #[cfg(target_os = "ios")]
         self.call("getCapabilities", serde_json::json!({}))
     }
     pub fn check_permissions(&self) -> Result<Permissions> {
@@ -76,17 +91,58 @@ impl<R: Runtime> LiveActivity<R> {
     }
     pub fn start(&self, input: StartInput) -> Result<ActivityRecord> {
         input.validate()?;
+        #[cfg(target_os = "android")]
+        {
+            return self
+                .updates
+                .start(android_liveupdate::start_request(input))
+                .map(android_liveupdate::activity_record)
+                .map_err(android_liveupdate::error);
+        }
+        #[cfg(target_os = "ios")]
         self.call("start", input)
     }
     pub fn update(&self, input: UpdateInput) -> Result<ActivityRecord> {
         input.validate()?;
+        #[cfg(target_os = "android")]
+        {
+            return self
+                .updates
+                .update(&input.id, android_liveupdate::live_snapshot(input.snapshot))
+                .map(android_liveupdate::activity_record)
+                .map_err(android_liveupdate::error);
+        }
+        #[cfg(target_os = "ios")]
         self.call("update", input)
     }
     pub fn end(&self, input: EndInput) -> Result<ActivityRecord> {
         input.validate()?;
+        #[cfg(target_os = "android")]
+        {
+            return self
+                .updates
+                .end(&input.id, android_liveupdate::end_policy(input.policy))
+                .map(android_liveupdate::activity_record)
+                .map_err(android_liveupdate::error);
+        }
+        #[cfg(target_os = "ios")]
         self.call("end", input)
     }
     pub fn list(&self) -> Result<Vec<ActivityRecord>> {
+        #[cfg(target_os = "android")]
+        {
+            return self
+                .updates
+                .list()
+                .map(|records| {
+                    records
+                        .into_iter()
+                        .map(android_liveupdate::activity_record)
+                        .collect()
+                })
+                .map_err(android_liveupdate::error);
+        }
+        #[cfg(target_os = "ios")]
         self.call("list", serde_json::json!({}))
     }
     pub fn start_layout(&self, input: LayoutStartInput) -> Result<LayoutActivityRecord> {
