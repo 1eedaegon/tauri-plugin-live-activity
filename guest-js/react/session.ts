@@ -106,17 +106,19 @@ export class Session {
       return;
     }
     if (!sameValues(wanted.values, running.values) && !sameValues(wanted.values, this.refused)) {
-      this.update(running, wanted.values);
+      this.update(running, { ...wanted.values });
     }
   }
 
   private start(options: SessionOptions): void {
+    // A copy: values that the caller changes in place are compared with what was sent, not with themselves.
+    const values = { ...options.values };
     const input: LayoutStartInput = {
       activityKey: options.activityKey,
       schemaVersion: 2,
       fallback: options.fallback ?? 'notification',
       layout: options.layout,
-      snapshot: { revision: 0, values: options.values },
+      snapshot: { revision: 0, values },
       ...(options.styles === undefined ? {} : { styles: options.styles }),
       ...(options.android === undefined ? {} : { android: options.android }),
     };
@@ -124,10 +126,11 @@ export class Session {
     this.refused = undefined;
     this.set({ status: 'starting', record: undefined, error: undefined });
     this.send(this.commands.startLayout(input), (record) => {
-      this.running = { record, values: options.values, revision: 0 };
+      this.running = { record, values, revision: 0 };
       this.set({ status: 'active', record, error: undefined });
     }, (error) => {
-      this.failedKey = options.activityKey;
+      // Blocks only the key still wanted: `enabled` off meanwhile, or another key, starts again.
+      if (this.wanted?.activityKey === options.activityKey) this.failedKey = options.activityKey;
       this.set({ status: 'failed', record: undefined, error });
     });
   }

@@ -5,11 +5,16 @@ import TestRenderer from 'react-test-renderer';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { emit } from '@tauri-apps/api/event';
 import { useLiveActivity } from '../dist-js/react/index.js';
+import { Session } from '../dist-js/react/session.js';
 
 // The event mock draws its listener ids from window.crypto.
 globalThis.window = { crypto: globalThis.crypto };
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-afterEach(() => clearMocks());
+const mounted = [];
+afterEach(async () => {
+  for (const view of mounted.splice(0)) await view.unmount();
+  clearMocks();
+});
 
 const PREFIX = 'plugin:live-activity|';
 const layout = { lockScreen: { type: 'text', bind: 'status' } };
@@ -77,12 +82,19 @@ async function mount(options, { strict = false } = {}) {
   await act(async () => {
     renderer = TestRenderer.create(tree(options));
   });
-  return {
+  let gone = false;
+  const view = {
     seen,
     get state() { return seen.at(-1); },
     rerender: (next) => act(async () => renderer.update(tree(next))),
-    unmount: () => act(async () => renderer.unmount()),
+    unmount: async () => {
+      if (gone) return;
+      gone = true;
+      await act(async () => renderer.unmount());
+    },
   };
+  mounted.push(view);
+  return view;
 }
 
 const options = (more = {}) => ({ activityKey: 'delivery:42', layout, values, ...more });
@@ -126,6 +138,25 @@ test('changed values go out as one update at the next revision and equal values 
   ]);
   assert.equal(view.state.status, 'active');
   assert.deepEqual(view.state.record.snapshot, { revision: 2, values: { status: 'On the way', done: 0.5 } });
+});
+
+// TP-REACT-2
+test('values changed in place or with a key added or removed go out as an update', async () => {
+  const native = plugin();
+  const shown = { status: 'a', done: 0.1 };
+  const view = await mount(options({ values: shown }));
+  shown.status = 'b';
+  await view.rerender(options({ values: shown }));
+  await view.rerender(options({ values: { status: 'b', done: 0.1, extra: true } }));
+  await view.rerender(options({ values: { status: 'b' } }));
+  assert.deepEqual(native.named('update_layout').map(({ snapshot }) => snapshot), [
+    { revision: 1, values: { status: 'b', done: 0.1 } },
+    { revision: 2, values: { status: 'b', done: 0.1, extra: true } },
+    { revision: 3, values: { status: 'b' } },
+  ]);
+  // What went out is a copy: changing the caller's object later does not change it.
+  shown.status = 'c';
+  assert.equal(native.named('start_layout')[0].snapshot.values.status, 'a');
 });
 
 // TP-REACT-2
@@ -188,6 +219,44 @@ test('strict mode neither ends nor starts the activity again', async () => {
   assert.equal(view.state.status, 'active');
   await view.unmount();
   assert.equal(native.named('end_layout').length, 1);
+});
+
+// TP-REACT-3
+test('enabled false during an update ends the activity once the update answers', async () => {
+  const native = plugin({ hold: ['update_layout'] });
+  const view = await mount(options());
+  await view.rerender(options({ values: { status: 'b', done: 0.2 } }));
+  await view.rerender(options({ enabled: false, values: { status: 'b', done: 0.2 }, endPolicy: { kind: 'default' } }));
+  assert.deepEqual(native.named('end_layout'), []);
+  await native.release('update_layout');
+  assert.deepEqual(native.named('end_layout'), [{ id: 'activity-1', policy: { kind: 'default' } }]);
+  assert.equal(view.state.status, 'ended');
+});
+
+// TP-REACT-3
+test('a release ends the activity unless a mount follows within the microtask', async () => {
+  const sent = [];
+  const record = { id: 'a1', activityKey: 'k', snapshot: { revision: 0, values: {} }, state: 'active' };
+  const commands = {
+    startLayout: async (input) => { sent.push('start'); return { ...record, snapshot: input.snapshot }; },
+    updateLayout: async () => { sent.push('update'); return record; },
+    endLayout: async () => { sent.push('end'); return { ...record, state: 'ended' }; },
+  };
+  const states = [];
+  const session = new Session(commands, (state) => states.push(state.status));
+  session.keep();
+  session.sync({ activityKey: 'k', layout, values: {} });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(states, ['starting', 'active']);
+  // Strict Mode: the unmount and the mount come before the microtask.
+  session.release();
+  session.keep();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(sent, ['start']);
+  session.release();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(sent, ['start', 'end']);
+  assert.deepEqual(states, ['starting', 'active', 'ending', 'ended']);
 });
 
 // TP-REACT-3
@@ -254,6 +323,56 @@ test('a refused update keeps the activity and the next accepted one clears the e
 });
 
 // TP-REACT-4
+test('a start refused after enabled turned off starts again when it turns on', async () => {
+  const native = plugin({ hold: ['start_layout'] });
+  const view = await mount(options());
+  await view.rerender(options({ enabled: false }));
+  await native.refuse('start_layout', { code: 'NOT_FOREGROUND', message: 'in the background' });
+  assert.equal(view.state.status, 'failed');
+  await view.rerender(options());
+  assert.equal(native.named('start_layout').length, 2);
+  await native.release('start_layout');
+  assert.equal(view.state.status, 'active');
+});
+
+// TP-REACT-4
+test('a session whose start is refused after enabled turned off starts again when it turns on', async () => {
+  const starts = [];
+  const commands = {
+    startLayout: (input) => new Promise((resolve, reject) => starts.push({ input, resolve, reject })),
+    updateLayout: async () => assert.fail('no update'),
+    endLayout: async () => assert.fail('no end'),
+  };
+  const session = new Session(commands, () => {});
+  const wanted = { activityKey: 'k', layout, values: {} };
+  session.sync(wanted);
+  session.sync({ ...wanted, enabled: false });
+  starts[0].reject({ code: 'NOT_FOREGROUND', message: 'in the background' });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  session.sync(wanted);
+  assert.equal(starts.length, 2);
+  // A refusal of the key still wanted blocks it until enabled turns off.
+  starts[1].reject({ code: 'NOT_FOREGROUND', message: 'in the background' });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  session.sync(wanted);
+  assert.equal(starts.length, 2);
+});
+
+// TP-REACT-4
+test('a key change during a start ends the activity of the old key and starts the new one', async () => {
+  const native = plugin({ hold: ['start_layout'] });
+  const view = await mount(options());
+  await view.rerender(options({ activityKey: 'delivery:43' }));
+  assert.equal(native.named('start_layout').length, 1);
+  await native.release('start_layout');
+  assert.deepEqual(native.calls.map(({ name, input }) => `${name} ${input.activityKey ?? input.id}`),
+    ['start_layout delivery:42', 'end_layout activity-1', 'start_layout delivery:43']);
+  await native.release('start_layout');
+  assert.equal(view.state.record.activityKey, 'delivery:43');
+  assert.equal(view.state.status, 'active');
+});
+
+// TP-REACT-4
 test('another activity key starts again', async () => {
   const native = plugin({ refusing: { start_layout: { code: 'SYSTEM_LIMIT', message: 'too many' } } });
   const view = await mount(options());
@@ -300,6 +419,30 @@ test('onAction gets the taps of this activity only, until unmount', async (t) =>
   await view.unmount();
   await act(async () => emit('live-activity://action', { actionId: 'late', activityId: 'activity-1' }));
   assert.deepEqual(taps, ['pet', 'new done']);
+});
+
+// TP-REACT-5
+test('no tap is passed on while no activity of this hook runs', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const native = plugin({ hold: ['start_layout', 'end_layout'] });
+  const taps = [];
+  const view = await mount(options({ onAction: (event) => taps.push(event.actionId) }));
+  // Starting: no id yet, and a tap without an activity id is not this activity's.
+  await act(async () => {
+    await emit('live-activity://action', { actionId: 'early' });
+    await emit('live-activity://action', { actionId: 'early', activityId: 'activity-1' });
+  });
+  await native.release('start_layout');
+  // Another key: the old activity's taps are not passed on once it ends.
+  await view.rerender(options({ activityKey: 'delivery:43', onAction: (event) => taps.push(event.actionId) }));
+  await native.release('end_layout');
+  await act(async () => emit('live-activity://action', { actionId: 'old', activityId: 'activity-1' }));
+  await native.release('start_layout');
+  // Unmounted while the end is in flight: the activity still runs, but the hook no longer listens.
+  await view.unmount();
+  await act(async () => emit('live-activity://action', { actionId: 'after unmount', activityId: 'activity-2' }));
+  assert.deepEqual(taps, []);
+  assert.deepEqual(native.named('end_layout').map(({ id }) => id), ['activity-1', 'activity-2']);
 });
 
 // TP-REACT-6

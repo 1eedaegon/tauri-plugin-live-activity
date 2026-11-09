@@ -40,7 +40,8 @@ export function useLiveActivity(options: UseLiveActivityOptions): LiveActivitySt
     if (!listening) return undefined;
     let open = true;
     const stop = onAction((event) => {
-      if (open && event.activityId === session.current?.activityId) handler.current?.(event);
+      const running = session.current?.activityId;
+      if (open && running !== undefined && event.activityId === running) handler.current?.(event);
     });
     return () => {
       open = false;

@@ -83,21 +83,37 @@ test("TSX compiled with the package as its JSX import source gives the builders'
 // TP-JSX-2
 test('the JSX entry imports nothing but its own files and the layout builders', () => {
   const dist = join(root, 'dist-js');
+  // The package's own exports lead to the built files.
+  for (const [entry, file] of [
+    ['tauri-plugin-live-activity/jsx', 'jsx/index.js'],
+    ['tauri-plugin-live-activity/jsx/jsx-runtime', 'jsx/jsx-runtime.js'],
+    ['tauri-plugin-live-activity/jsx/jsx-dev-runtime', 'jsx/jsx-dev-runtime.js'],
+    ['tauri-plugin-live-activity/react', 'react/index.js'],
+  ]) {
+    assert.equal(fileURLToPath(import.meta.resolve(entry)), join(dist, file), entry);
+  }
+  const imports = /(?:^|[;\s])(?:import|export)\s+(?:[^'";]*?\sfrom\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]/g;
   const seen = new Set();
   const pending = ['jsx/index.js', 'jsx/jsx-runtime.js', 'jsx/jsx-dev-runtime.js'];
   while (pending.length > 0) {
     const file = pending.pop();
     if (seen.has(file)) continue;
     seen.add(file);
-    const source = readFileSync(join(dist, file), 'utf8');
-    for (const [, written, dynamic] of source.matchAll(/(?:import|export)\s[^'"]*?from\s+['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]/g)) {
-      const specifier = written ?? dynamic;
-      assert.ok(specifier.startsWith('.'), `${file} imports ${specifier}`);
-      pending.push(relative(dist, resolve(dirname(join(dist, file)), specifier)));
+    for (const built of [file, file.replace(/\.js$/, '.d.ts')]) {
+      const source = readFileSync(join(dist, built), 'utf8');
+      for (const [, written, dynamic] of source.matchAll(imports)) {
+        const specifier = written ?? dynamic;
+        assert.ok(specifier.startsWith('.'), `${built} imports ${specifier}`);
+        const target = relative(dist, resolve(dirname(join(dist, built)), specifier)).replace(/\.d\.ts$/, '.js');
+        if (built.endsWith('.js')) pending.push(target);
+        else assert.ok(['jsx/index.js', 'jsx/jsx-runtime.js', 'jsx/jsx-dev-runtime.js', 'layout.js', 'types.js'].includes(target), `${built} imports ${specifier}`);
+      }
+      assert.doesNotMatch(source, /@tauri-apps|['"]react['"]/, built);
     }
-    assert.doesNotMatch(source, /@tauri-apps|from ['"]react/, file);
   }
   assert.deepEqual([...seen].sort(), ['jsx/index.js', 'jsx/jsx-dev-runtime.js', 'jsx/jsx-runtime.js', 'layout.js']);
+  // The scan sees a bare import too.
+  assert.deepEqual([...`import 'x';\nimport y from "./y.js";`.matchAll(imports)].map(([, a, b]) => a ?? b), ['x', './y.js']);
 });
 
 // TP-JSX-3
@@ -109,6 +125,8 @@ test('stacks flatten arrays and leave out booleans, null and undefined', () => {
     assert.deepEqual(node.children, [a, b]);
   }
   assert.deepEqual(HStack({ children: a }).children, [a]);
+  // A button's one child may come as an array of one, as JSX passes a lone expression in some compilers.
+  assert.deepEqual(Button({ actionId: 'pet', children: [a] }), button('pet', a));
 });
 
 // TP-JSX-3
@@ -133,6 +151,8 @@ test('wrong children are a TypeError that names the component', () => {
     [() => Text({}), 'Text'],
     [() => Text({ bind: 'title', children: 'a' }), 'Text'],
     [() => Text({ children: [a] }), 'Text'],
+    [() => Button({ actionId: 'pet', children: [] }), 'Button'],
+    [() => Button({ actionId: 'pet', children: 'Pet' }), 'Button'],
     [() => Image({}), 'Image'],
     [() => Image({ asset: 'badge', file: 'badge.png' }), 'Image'],
     [() => VStack({ children: ['loose text'] }), 'VStack'],
