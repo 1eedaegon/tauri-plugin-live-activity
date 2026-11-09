@@ -11,6 +11,9 @@ final class DemoTests: XCTestCase {
     /// A shared Intel runner is slower than a Mac at hand.
     private let page: TimeInterval = 30
     private let system: TimeInterval = 30
+    /// How long a Lock Screen tap may take to come back as an update: the intent wakes the app, Rust's handler updates
+    /// the activity and the Lock Screen redraws. A debug build (`tauri ios dev`) on a shared runner took over 30 s.
+    private let reaction: TimeInterval = 90
     /// How long the Lock Screen may take to draw content that it already reports.
     private let redraw: TimeInterval = 15
     /// How long the demo's lifecycle test may take: its 19 checks go through Tauri and activitykit.
@@ -75,11 +78,41 @@ final class DemoTests: XCTestCase {
         tap(example)
     }
 
+    /// Ends a Buttons activity that an earlier attempt left, so a retry finds the example stopped. Its All done button
+    /// reaches Rust, which ends it; a Rust start would otherwise return that activity, and the page a running example.
+    private func endLeftoverButtons() {
+        app.terminate()
+        XCUIDevice.shared.press(.home)
+        let top = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01))
+        top.press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)))
+        let done = springboard.buttons["All done"].firstMatch
+        if done.waitForExistence(timeout: prompt) {
+            done.tap()
+            XCTAssertTrue(done.waitForNonExistence(timeout: reaction))
+        }
+        XCUIDevice.shared.press(.home)
+    }
+
     /// Pulls the Lock Screen over the app, from a fixed point at the top of the screen.
     private func pullLockScreen() {
         let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01))
         let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8))
         top.press(forDuration: 0.1, thenDragTo: bottom)
+    }
+
+    /// Pulls the Lock Screen until `element` shows, at most three times: a pull that lands while the app's window still
+    /// moves can leave the Lock Screen without its cards (seen once on a fresh simulator).
+    private func pullLockScreen(until element: XCUIElement) -> Bool {
+        for attempt in 0..<3 {
+            if attempt > 0 {
+                XCUIDevice.shared.press(.home)
+                app.activate()
+                _ = app.wait(for: .runningForeground, timeout: system)
+            }
+            pullLockScreen()
+            if element.waitForExistence(timeout: system) { return true }
+        }
+        return false
     }
 
     private func leaveLockScreen() {
@@ -97,8 +130,7 @@ final class DemoTests: XCTestCase {
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
         tap("Send new values")
         XCTAssertTrue(webText("New values sent at revision 1").waitForExistence(timeout: page))
-        pullLockScreen()
-        XCTAssertTrue(springboard.staticTexts["Running 5 min late"].waitForExistence(timeout: system))
+        XCTAssertTrue(pullLockScreen(until: springboard.staticTexts["Running 5 min late"]))
         capture("e2e-1-bound-style-lock-screen")
         // The system asks on the Lock Screen card whether the app may keep showing Live Activities.
         allow()
@@ -109,17 +141,17 @@ final class DemoTests: XCTestCase {
 
     // TP-E2E-2, TP-E2E-6, TP-ACTION-1
     func test2LockScreenButtonReachesRustAndJavaScript() {
+        endLeftoverButtons()
         launch()
         openLayouts("Buttons")
         tap("Start this example")
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
-        pullLockScreen()
         let pet = springboard.buttons["Pet Mochi"].firstMatch
-        XCTAssertTrue(pet.waitForExistence(timeout: system))
+        XCTAssertTrue(pullLockScreen(until: pet))
         capture("e2e-2-buttons-before")
         pet.tap()
         // Rust's on_action handler (examples/demo/src-tauri/src/actions.rs) counts the pet with an update.
-        XCTAssertTrue(springboard.staticTexts["Purring. 1 pet so far"].waitForExistence(timeout: system))
+        XCTAssertTrue(springboard.staticTexts["Purring. 1 pet so far"].waitForExistence(timeout: reaction))
         // The Lock Screen draws the new content a moment after it reports it.
         XCTAssertTrue(springboard.staticTexts["No pets yet"].waitForNonExistence(timeout: redraw))
         capture("e2e-2-buttons-after-rust")
@@ -135,16 +167,16 @@ final class DemoTests: XCTestCase {
 
     // TP-E2E-3, TP-E2E-6, TP-IOS-6
     func test3ListAfterARelaunchFindsTheActivity() {
+        endLeftoverButtons()
         launch()
         openLayouts("Buttons")
         tap("Start this example")
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
         // Rust's handler sends revision 1 for the pet.
-        pullLockScreen()
         let pet = springboard.buttons["Pet Mochi"].firstMatch
-        XCTAssertTrue(pet.waitForExistence(timeout: system))
+        XCTAssertTrue(pullLockScreen(until: pet))
         pet.tap()
-        XCTAssertTrue(springboard.staticTexts["Purring. 1 pet so far"].waitForExistence(timeout: system))
+        XCTAssertTrue(springboard.staticTexts["Purring. 1 pet so far"].waitForExistence(timeout: reaction))
         leaveLockScreen()
         app.terminate()
         launch()
@@ -173,8 +205,7 @@ final class DemoTests: XCTestCase {
         launch()
         tap("Snack delivery")
         tap("Start snack delivery")
-        pullLockScreen()
-        XCTAssertTrue(springboard.staticTexts["Mochi’s snack delivery"].waitForExistence(timeout: system))
+        XCTAssertTrue(pullLockScreen(until: springboard.staticTexts["Mochi’s snack delivery"]))
         allow()
         XCTAssertTrue(springboard.staticTexts["Mochi’s snack delivery"].waitForExistence(timeout: system))
         capture("e2e-5-v1-progress")
@@ -182,8 +213,7 @@ final class DemoTests: XCTestCase {
         tap("Finish delivery")
         tap("Nap timer")
         tap("Start a little nap")
-        pullLockScreen()
-        XCTAssertTrue(springboard.staticTexts["Mochi’s nap"].waitForExistence(timeout: system))
+        XCTAssertTrue(pullLockScreen(until: springboard.staticTexts["Mochi’s nap"]))
         capture("e2e-5-v1-timer")
         leaveLockScreen()
         tap("Wake up, sleepyhead")
@@ -206,7 +236,7 @@ final class DemoTests: XCTestCase {
         XCTAssertTrue(springboard.staticTexts["No pets yet"].waitForExistence(timeout: redraw))
         pet.tap()
         // The handler takes a second (COUNTING in examples/demo/src-tauri/src/actions.rs), then updates the activity.
-        XCTAssertTrue(springboard.staticTexts["Purring. 1 pet so far"].waitForExistence(timeout: system))
+        XCTAssertTrue(springboard.staticTexts["Purring. 1 pet so far"].waitForExistence(timeout: reaction))
         XCTAssertTrue(springboard.staticTexts["No pets yet"].waitForNonExistence(timeout: redraw))
         capture("e2e-6-background-tap-after-slow-handler")
         XCTAssertNotEqual(app.state, .runningForeground)
@@ -221,19 +251,9 @@ final class DemoTests: XCTestCase {
     /// Rust starts the Buttons example (`--start-buttons`), so the test needs no page: in the build of `tauri ios dev`
     /// the page comes from Tauri's server. The widget draws the layout and a tap reaches the Rust handler.
     func test7RustStartsALayoutWhoseButtonReachesRust() {
-        app.terminate()
-        XCUIDevice.shared.press(.home)
+        endLeftoverButtons()
         let top = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01))
         let pull = { top.press(forDuration: 0.1, thenDragTo: self.springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8))) }
-        // A Buttons activity that an earlier attempt left would be the one Rust's start returns: its All done button
-        // reaches Rust, which ends it.
-        pull()
-        let done = springboard.buttons["All done"].firstMatch
-        if done.waitForExistence(timeout: prompt) {
-            done.tap()
-            XCTAssertTrue(done.waitForNonExistence(timeout: system))
-        }
-        XCUIDevice.shared.press(.home)
         app.launchArguments = ["--start-buttons"]
         app.launch()
         XCUIDevice.shared.press(.home)
@@ -243,7 +263,7 @@ final class DemoTests: XCTestCase {
         XCTAssertTrue(springboard.staticTexts["No pets yet"].waitForExistence(timeout: redraw))
         allow()
         pet.tap()
-        XCTAssertTrue(springboard.staticTexts["Purring. 1 pet so far"].waitForExistence(timeout: system))
+        XCTAssertTrue(springboard.staticTexts["Purring. 1 pet so far"].waitForExistence(timeout: reaction))
         XCTAssertTrue(springboard.staticTexts["No pets yet"].waitForNonExistence(timeout: redraw))
         capture("e2e-7-rust-start-and-button")
         springboard.buttons["All done"].firstMatch.tap()
