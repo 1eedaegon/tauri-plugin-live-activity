@@ -115,14 +115,18 @@ seconds. The plugin creates its `ActivityKit` at plugin setup and reads its even
 on. It calls every `on_action` handler on a plugin thread, one tap after another, emits `live-activity://action` with
 `{ actionId, activityId, activityKey? }` for `onAction` listeners, and only then lets go of the tap's acknowledgement:
 the intent, and so an app that the system launched for the tap, waits for the Rust handlers, at most 4 seconds after
-the tap. `onAction` listeners are not awaited; a webview handler is asynchronous and may not run at all while the web
-view is suspended. Taps that come before the first handler wait for it, the newest 16, but their intent does not.
+the tap. Taps go through the handlers one after another, and each tap's 4 seconds run from its own tap, so a slow
+handler uses up the time of the taps behind it. `onAction` listeners are not awaited; a webview handler is asynchronous
+and may not run at all while the web view is suspended. Taps that come before the first handler wait for it, the newest
+16, but their intent does not.
 
 - Register `on_action` handlers on the built `App` before `App::run`, or in the setup of a plugin, and not in
   `Builder::setup`: when the system launches the app for a tap, Tauri may never run it, and may create no web view
   for `onAction`.
-- The intent's `authenticationPolicy` is `.alwaysAllowed`. Whether a locked iPhone runs a button without unlocking
-  has not been checked on a device.
+- The intent's `authenticationPolicy` is `.alwaysAllowed`, yet on an iPhone 16 with iOS 27.2 a tap on a locked phone
+  that Face ID has not matched makes the system ask to unlock first; the intent runs once the owner is authenticated.
+  With Face ID matched and the Lock Screen still up it runs at once. A native app's own `.alwaysAllowed` intent
+  behaved the same ([Validation record](#validation-record)).
 - A tap does not change the activity. Update it from the handler if the button should change.
 
 ## Permissions
@@ -297,9 +301,29 @@ are activitykit's ([testing](https://github.com/1eedaegon/activitykit-rs/blob/ma
 
 ## Validation record
 
+### 0.4
+
+On 2026-11-09 the simulator suite (`tests/ios/run.sh`) passed its seven tests on this Mac (Intel, Xcode 26.3, an
+iPhone 17 Pro simulator with iOS 26.3), and `MODE=dev` its four, without a retry; CI passed both on the merged branch.
+
+On 2026-11-09 and 10 an app on the plugin at `0b3f6ff` ran on an iPhone 16 with iOS 27.2, built with Xcode 26.3 and
+linking `ActivityKitWidget` in its extension and `ActivityKitIntent` in the app:
+
+- A start from Rust showed the layout on the Lock Screen, and updates sent while the phone was locked showed there
+  within seconds.
+- With Face ID matched and the Lock Screen still up, a tap on a layout button ran `ActivityKitActionIntent` in the app
+  (the system log shows `Started executing LNAction ActivityKitActionIntent`), and the app's `on_action` handler had
+  the tap 0.27 s later.
+- With Face ID unable to see the owner, the same tap brought up the passcode, and the intent ran only once the owner
+  was authenticated. The intent's metadata in both bundles says `.alwaysAllowed` (`authenticationPolicy` 0,
+  explicit). A native build of the same app, whose own parameterless `LiveActivityIntent` is `.alwaysAllowed` and
+  compiled into both targets, waited for the unlock in the same way.
+
 The records below describe 0.3 and earlier: the plugin's own Swift package (`LiveActivityShared`, `LiveActivityCore`,
 `LiveActivityUI`, `LiveActivityPlugin`), its 16.1 availability gates and the native harness `tests/ios/SimulatorHost`,
-none of which exist in 0.4. No 0.4 run is recorded here yet.
+none of which exist in 0.4.
+
+### 0.3 and earlier
 
 On 2026-11-04, Xcode 27.2 built the full Tauri Swift plugin package for arm64 and
 x86_64 iOS simulators with the package's iOS 15 deployment target and runtime

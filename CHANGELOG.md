@@ -1,13 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 iOS moves onto the [activitykit](https://crates.io/crates/activitykit) crate, which was split out of this plugin's iOS
 code. The plugin has no Swift of its own any more: its Rust commands call activitykit, whose build script builds its
 Swift bridge into the app's Rust library, and the widget extension links activitykit's Swift products. Requests,
 records, revisions and taps keep the behaviour of 0.3. On Android the progress and timer templates move onto the
-[liveupdate](https://github.com/1eedaegon/liveupdate-rs) crate, run from the plugin's Rust; layouts keep their Kotlin
+[liveupdate](https://crates.io/crates/liveupdate) crate, run from the plugin's Rust; layouts keep their Kotlin
 side. Desktop works as before.
+
+On an iPhone 16 with iOS 27.2 the layouts, updates while locked and buttons ran from an app on this release. A button
+on a locked phone that Face ID has not matched waits for an unlock, as a native app's `.alwaysAllowed` intent does
+([iOS integration](docs/ios-integration.md#buttons)).
 
 - iOS: the commands call activitykit 0.1 directly. The Tauri Swift plugin and the copied Swift packages (`ios/`,
   `LiveActivityShared`, `LiveActivityCore`, `LiveActivityUI`, `LiveActivityPlugin`) and the templates under
@@ -69,7 +73,7 @@ side. Desktop works as before.
   are its files, which `node tools/sync-contract.mjs --write` copies and a test compares. They add `timestamp` to
   snapshots, final content to `end_layout` and the `ends` fixtures. The reference validator adds
   `validateLayoutEnd`.
-- Android: the progress and timer templates of contract v1 run on the liveupdate crate (git revision 3b797bb), which
+- Android: the progress and timer templates of contract v1 run on the liveupdate crate (0.1.1, exactly), which
   the plugin's Rust calls. Rust checks the requests and owns the fallback, repeated starts, revisions, limits, retries,
   the lifecycle and the reconciliation with the posted notifications; the Kotlin side keeps six bounded operations
   (capabilities, reading and replacing the receipts, observing, posting and cancelling notifications). Layout
