@@ -184,12 +184,24 @@ for test in $only; do set -- "$@" "-only-testing:DemoUITests/$test"; done
 # A shared runner's simulator sometimes loses a tap or its accessibility server.
 if [ -n "${CI:-}" ]; then set -- "$@" -retry-tests-on-failure -test-iterations 3; fi
 # The status goes through a file: the group runs in a subshell of the pipe, where `set -e` would end it at a failing
-# xcodebuild before the status is written.
-{ tested=0
-  xcodebuild -project "$tests" -scheme DemoUITests -destination "$destination" -derivedDataPath "$build/tests" \
-    -resultBundlePath "$work/result.xcresult" test-without-building "$@" 2>&1 || tested=$?
-  echo "$tested" >"$work/status"; } | tee "$work/xcodebuild.log"
-status=$(cat "$work/status")
+# xcodebuild before the status is written. A shared runner's test runner sometimes cannot start ("failed to initialize
+# for UI testing", waiting for the accessibility server): then no test ran, and the tests run once more.
+attempt=1
+while :; do
+  { tested=0
+    xcodebuild -project "$tests" -scheme DemoUITests -destination "$destination" -derivedDataPath "$build/tests" \
+      -resultBundlePath "$work/result.xcresult" test-without-building "$@" 2>&1 || tested=$?
+    echo "$tested" >"$work/status"; } | tee "$work/xcodebuild-$attempt.log"
+  status=$(cat "$work/status")
+  if [ "$status" -ne 0 ] && [ "$attempt" -eq 1 ] && grep -q 'failed to initialize for UI testing' "$work/xcodebuild-$attempt.log"; then
+    echo "::warning title=UI test runner::the test runner could not start; the tests run once more"
+    rm -rf -- "${work:?}/result.xcresult"
+    attempt=2
+    continue
+  fi
+  break
+done
+cat "$work"/xcodebuild-*.log >"$work/xcodebuild.log"
 retried=$(sed -n "s/^Test Case '-\[DemoUITests\.\([^ ]*\) \([^]]*\)\]' failed.*/\1\/\2/p" "$work/xcodebuild.log" | sort -u)
 # What the demo logged while a test failed, read before the simulator goes.
 if [ -n "$retried" ]; then
