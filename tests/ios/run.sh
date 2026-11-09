@@ -209,7 +209,7 @@ cp "$work/xcodebuild.log" "$output/xcodebuild.log"
 xcrun xcresulttool export attachments --path "$work/result.xcresult" --output-path "$work/attachments" >/dev/null 2>&1 || true
 # The manifest names each attachment; a screenshot keeps the name its test gave it.
 python3 -I - "$work/attachments" "$output" <<'PYTHON' || true
-import json, pathlib, shutil, sys
+import json, pathlib, re, shutil, sys
 found, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
 manifest = found / "manifest.json"
 if manifest.exists():
@@ -217,6 +217,9 @@ if manifest.exists():
         for item in test.get("attachments", []):
             source = found / item["exportedFileName"]
             name = item.get("suggestedHumanReadableName", source.name).split("_0_")[0]
+            # XCTest names some attachments after an element ("Debug description for `"Pet Mochi" Button`"); CI's
+            # artifact upload refuses quotes, backticks and the like in a path.
+            name = re.sub(r'[\\/"`:<>|*?\r\n]', "_", name)
             if source.exists():
                 shutil.copyfile(source, out / f"{name}{source.suffix}")
 PYTHON

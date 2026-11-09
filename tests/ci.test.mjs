@@ -127,7 +127,8 @@ test('CI caches the Rust builds and the built demo, pins its tools, and skips a 
   for (const name of ['contracts', 'desktop', 'e2e', 'e2e-dev']) assert.ok(job(name).includes(rustCache), name);
   assert.match(job('contracts'), /taiki-e\/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2\.90\.3\n\s+if: env\.RUST == 'true'\n\s+with:\n\s+tool: cargo-llvm-cov@0\.9\.1/);
   assert.doesNotMatch(workflow, /cargo install cargo-llvm-cov/);
-  assert.match(job('android'), /gradle\/actions\/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6\.4\.1\n\s+- run: \.\/gradlew /);
+  assert.match(job('android'), /gradle\/actions\/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6\.4\.1\n[\s\S]*?- name: Fetch Gradle\n\s+working-directory: tests\/android\n\s+run: for attempt in 1 2 3; do \.\/gradlew --version --no-daemon[^\n]*\n\s+- run: \.\/gradlew /);
+  assert.match(read('tests/android/gradle/wrapper/gradle-wrapper.properties'), /^networkTimeout=60000$/m);
   const upload = 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7';
   for (const [name, suite, output] of [['e2e', 'simulator', 'ios-simulator'], ['e2e-dev', 'dev', 'ios-dev']]) {
     const steps = job(name);

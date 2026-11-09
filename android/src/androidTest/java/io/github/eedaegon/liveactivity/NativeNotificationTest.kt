@@ -25,9 +25,10 @@ class NativeNotificationTest {
     @Before
     fun prepare() {
         if (Build.VERSION.SDK_INT >= 33) {
+            // Reading the output to its end waits for the grant; closing at once can let a post race it.
             instrumentation.uiAutomation.executeShellCommand(
                 "pm grant ${context.packageName} ${Manifest.permission.POST_NOTIFICATIONS}",
-            ).close()
+            ).use { descriptor -> java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() } }
         }
         adapter.cancel(PROGRESS_ID)
         adapter.cancel(TIMER_ID)
