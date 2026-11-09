@@ -10,6 +10,12 @@ on:
         description: Run the simulator suites even when they passed for the same inputs
         type: boolean
         default: false
+      # A hosted runner rebuilds the demo whenever the suites' inputs change (30 to 50 minutes), so a push or a pull
+      # request does not run them: tests/ios/run.sh runs them on a Mac before the push.
+      simulator:
+        description: Run the two simulator suites
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -143,7 +149,7 @@ jobs:
   e2e:
     name: Demo on the iOS Simulator
     needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.simulator && needs.changes.outputs.ios == 'true'
     runs-on: macos-15-intel
     timeout-minutes: 90
     permissions:
@@ -247,7 +253,7 @@ jobs:
   e2e-dev:
     name: Demo in tauri ios dev on the iOS Simulator
     needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.simulator && needs.changes.outputs.ios == 'true'
     runs-on: macos-15-intel
     timeout-minutes: 90
     permissions:
