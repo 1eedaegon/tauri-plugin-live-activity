@@ -1,12 +1,13 @@
 #!/bin/sh
 # Checks that docs/spec.md and the tests agree. It fails when
 #   - a requirement has no row in the spec's test table, or the row names no test;
-#   - a test in the table does not exist (file and test), or its file does not name the requirement;
+#   - a test in the table does not exist (file and test), or does not name the requirement right above its declaration:
+#     in the comment lines directly above it, with attributes and annotations between, or in its own line (a node:test
+#     title, a Kotlin `@Test fun` with its comment above);
 #   - a requirement is named by no test file, or a test file names an ID the spec does not define.
-# A test is `file::name` (level): a Rust `fn`, a Kotlin `fun`, a Swift `func`, the title of a node:test `test(...)`,
-# or, for a shell script, the script's own file name. Test files: tests/, src/**/tests.rs and src/**/*_tests.rs, the
-# `mod tests` part of other Rust sources, android/src/test, examples/demo/tests and the demo's Rust tests.
-# TP-CI-2
+# A test is `file::name` (level): a Rust `fn`, a Kotlin `fun`, a Swift `func` or the title of a node:test `test(...)`.
+# A script is no test. Test files: tests/, src/**/tests.rs and src/**/*_tests.rs, the `mod tests` part of other Rust
+# sources, android/src/test, examples/demo/tests and the demo's Rust tests. tests/spec-coverage.test.mjs tests this.
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 exec python3 -I - "$root" <<'PYTHON'
@@ -36,15 +37,13 @@ def test_text(path):
     return text
 
 files = {}
-roots = ["tests", "src", "android/src/test", "examples/demo/tests", "examples/demo/src-tauri/src", "tools"]
+roots = ["tests", "src", "android/src/test", "examples/demo/tests", "examples/demo/src-tauri/src"]
 for folder in roots:
     for path in sorted((root / folder).rglob("*")):
         relative = path.relative_to(root).as_posix()
-        if not path.is_file() or path.suffix not in {".rs", ".mjs", ".kt", ".swift", ".sh"}:
+        if not path.is_file() or path.suffix not in {".rs", ".mjs", ".kt", ".swift"}:
             continue
         if any(part in {"target", "node_modules", "build", "output"} for part in path.parts):
-            continue
-        if folder == "tools" and path.suffix != ".sh":
             continue
         files[relative] = test_text(path)
 
@@ -53,14 +52,26 @@ for relative, text in files.items():
     for name in ID.findall(text):
         named.setdefault(name, set()).add(relative)
 
-def exists(relative, name, text):
+# What may stand between a test's comment and its declaration, or hold the comment itself.
+PREAMBLE = re.compile(r"^\s*(//|#\[|@)")
+
+def declaration(relative, name, text):
+    """The declaration of test `name` with the comment, attribute and annotation lines directly above it, or None."""
     suffix = pathlib.PurePosixPath(relative).suffix
-    if suffix == ".sh":
-        return name == pathlib.PurePosixPath(relative).name
     if suffix == ".mjs":
-        return any(f"test({quote}{name}{quote}" in text for quote in "'\"`")
-    keyword = {".rs": "fn", ".kt": "fun", ".swift": "func"}[suffix]
-    return re.search(rf"\b{keyword}\s+{re.escape(name)}\b", text) is not None
+        found = lambda line: any(f"test({quote}{name}{quote}" in line for quote in "'\"`")
+    else:
+        keyword = {".rs": "fn", ".kt": "fun", ".swift": "func"}[suffix]
+        pattern = re.compile(rf"\b{keyword}\s+{re.escape(name)}\b")
+        found = lambda line: pattern.search(line) is not None
+    lines = text.split("\n")
+    for index, line in enumerate(lines):
+        if found(line):
+            start = index
+            while start > 0 and PREAMBLE.match(lines[start - 1]):
+                start -= 1
+            return "\n".join(lines[start:index + 1])
+    return None
 
 traced = {}
 for line in table.splitlines():
@@ -70,7 +81,7 @@ for line in table.splitlines():
     requirement, cell = match.groups()
     if requirement in traced:
         problems.append(f"{requirement} has two rows in the test table")
-    tests = re.findall(r"`([^`:]+)::([^`]+)` \((unit|node|kotlin|simulator|build)\)", cell)
+    tests = re.findall(r"`([^`:]+)::([^`]+)` \((unit|node|kotlin|simulator)\)", cell)
     traced[requirement] = tests
     if requirement not in defined_set:
         problems.append(f"the test table names {requirement}, which the spec does not define")
@@ -79,10 +90,11 @@ for line in table.splitlines():
         if text is None:
             problems.append(f"{requirement}: {relative} is not a test file")
             continue
-        if not exists(relative, name, text):
+        declared = declaration(relative, name, text)
+        if declared is None:
             problems.append(f"{requirement}: {relative} has no test {name}")
-        if requirement not in ID.findall(text):
-            problems.append(f"{requirement}: {relative} does not name it")
+        elif requirement not in ID.findall(declared):
+            problems.append(f"{requirement}: {relative}::{name} does not name it above its declaration")
 
 for requirement in defined:
     if not traced.get(requirement):

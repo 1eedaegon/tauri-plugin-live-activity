@@ -70,7 +70,8 @@ builds and native tests that came later ran on JDK 21.
 - The first Android ARM64 shared library check passed with the NDK's API 24 linker. Running
   a real app later showed that a Tauri dependency needs API 26, so the minimum for the app
   and the plugin was changed to 26.
-- A Rust dynamic library compiled and linked for iOS ARM64, with deployment target 16.1.
+- A Rust dynamic library compiled and linked for iOS ARM64, with deployment target 16.1, the minimum before 0.4.
+  Since 0.4, Live Activities need iOS 16.2, activitykit's minimum.
 - Swift code using ActivityKit's ActivityAttributes and ContentState typechecked against
   the iOS 27.2 SDK.
 - The environment script passed sh and zsh syntax checks, and sourcing it again adds no

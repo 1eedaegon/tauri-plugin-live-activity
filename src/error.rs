@@ -2,6 +2,22 @@ use serde::{Deserialize, Serialize};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Every code that the plugin answers, on every platform. guest-js/types.ts declares the same as `ErrorCode`.
+pub(crate) const ERROR_CODES: [&str; 12] = [
+    "UNSUPPORTED_PLATFORM",
+    "UNSUPPORTED_FEATURE",
+    "PERMISSION_DENIED",
+    "NOT_FOREGROUND",
+    "CONFIGURATION_REQUIRED",
+    "INVALID_INPUT",
+    "PAYLOAD_TOO_LARGE",
+    "NOT_FOUND",
+    "STALE_REVISION",
+    "CONFLICT",
+    "SYSTEM_LIMIT",
+    "NATIVE_ERROR",
+];
+
 /// Stable errors shared by the Rust, JavaScript, and native interfaces.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
 #[error("{code}: {message}")]
@@ -41,6 +57,7 @@ impl Error {
     }
 
     pub(crate) fn new(code: &str, message: &str) -> Self {
+        debug_assert!(ERROR_CODES.contains(&code), "no error code: {code}");
         Self {
             code: code.into(),
             message: message.into(),

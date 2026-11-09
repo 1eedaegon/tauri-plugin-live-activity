@@ -70,9 +70,7 @@ src/
   mobile.rs              # Tauri mobile bridge
   desktop/               # macOS, Windows, Linux adapters
 permissions/             # Generated command permissions and defaults
-ios/                     # Swift plugin and shared ActivityAttributes model
 android/                 # Kotlin plugin and standard notification renderer
-templates/ios/           # Host Widget Extension integration template
 examples/demo/           # Tauri host app and native integration fixtures
 tests/                   # Contract and cross-backend fixtures
 docs/

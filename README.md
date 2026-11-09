@@ -251,6 +251,8 @@ notification's large icon. Layout, styles and values still share 3584.
 - iOS keeps each activity's last values in plain text in the app's Application Support, unless the plugin
   configuration sets `"receipts": "redacted"`.
 - A button's tap waits for your Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.
+- The Rust methods of `app.live_activity()` block until the answer: call them off the main thread. On iOS a call on
+  the main thread answers `NATIVE_ERROR` at once. The commands from JavaScript never block.
 - No push updates. Android shows an ongoing notification, promoted to a Live Update where the system allows it.
 
 ## Samsung Now Bar

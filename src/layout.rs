@@ -183,29 +183,58 @@ impl Validate for LayoutSnapshot {
     }
 }
 
+/// The value key that marks contract v1's template activities on iOS: a layout request may not use it, or its activity
+/// would pass for a template and leave the layout commands.
+pub(crate) const TEMPLATE_MARKER: &str = "liveActivityTemplate";
+
+/// The plugin's rule beyond activitykit's contract: no value under [`TEMPLATE_MARKER`].
+fn unmarked(snapshot: &LayoutSnapshot) -> Result<()> {
+    if snapshot.values.contains_key(TEMPLATE_MARKER) {
+        Err(Error::invalid())
+    } else {
+        Ok(())
+    }
+}
+
+impl LayoutStartInput {
+    /// activitykit's rules alone, for the starts that the plugin makes of contract v1's templates.
+    pub(crate) fn validate_contract(&self) -> Result<()> {
+        Ok(wire::Validate::validate(&self.wire())?)
+    }
+}
+
 impl Validate for LayoutStartInput {
     fn validate(&self) -> Result<()> {
-        Ok(wire::Validate::validate(&self.wire())?)
+        self.validate_contract()?;
+        unmarked(&self.snapshot)
     }
 }
 
 impl Validate for LayoutUpdateInput {
     fn validate(&self) -> Result<()> {
-        Ok(wire::Validate::validate(&self.wire())?)
+        wire::Validate::validate(&self.wire())?;
+        unmarked(&self.snapshot)
     }
 }
 
 impl Validate for LayoutEndInput {
     fn validate(&self) -> Result<()> {
-        Ok(wire::Validate::validate(&self.wire())?)
+        wire::Validate::validate(&self.wire())?;
+        self.snapshot.as_ref().map_or(Ok(()), unmarked)
     }
 }
 
 /// A JSON request of `command` (`start_layout`, `update_layout` or `end_layout`) as activitykit checks it, strictly
-/// (unknown members, `null`, a request that does not read back as itself), and then in the plugin's type.
-pub(crate) fn parse<T: DeserializeOwned>(command: &str, input: serde_json::Value) -> Result<T> {
+/// (unknown members, `null`, a request that does not read back as itself), and then in the plugin's type, with the
+/// plugin's rules.
+pub(crate) fn parse<T: DeserializeOwned + Validate>(
+    command: &str,
+    input: serde_json::Value,
+) -> Result<T> {
     wire::validate_request(command, input.clone())?;
-    serde_json::from_value(input).map_err(|_| Error::invalid())
+    let typed: T = serde_json::from_value(input).map_err(|_| Error::invalid())?;
+    typed.validate()?;
+    Ok(typed)
 }
 
 #[cfg(test)]
@@ -305,5 +334,46 @@ mod tests {
             ..end
         };
         assert_eq!(input.validate_end(&bare), Ok(()));
+    }
+
+    // TP-CONTRACT-7
+    #[test]
+    fn the_template_marker_is_no_value_key_of_a_layout_request() {
+        let code = |result: Result<()>| result.map_err(|error| error.code);
+        let invalid = Err("INVALID_INPUT".to_owned());
+        let mut marked = start();
+        marked["snapshot"]["values"]["liveActivityTemplate"] = json!("progress");
+        // The commands' check, and the Rust API's.
+        assert_eq!(
+            code(crate::validate_request("start_layout", marked.clone())),
+            invalid
+        );
+        let typed: LayoutStartInput = serde_json::from_value(marked).unwrap();
+        assert_eq!(code(typed.validate()), invalid);
+        let update =
+            json!({"id":"a","snapshot":{"revision":1,"values":{"liveActivityTemplate":"timer"}}});
+        assert_eq!(
+            code(crate::validate_request("update_layout", update.clone())),
+            invalid
+        );
+        let typed: LayoutUpdateInput = serde_json::from_value(update).unwrap();
+        assert_eq!(code(typed.validate()), invalid);
+        let end = json!({"id":"a","policy":{"kind":"immediate"},
+            "snapshot":{"revision":1,"values":{"liveActivityTemplate":"timer"}}});
+        assert_eq!(
+            code(crate::validate_request("end_layout", end.clone())),
+            invalid
+        );
+        let typed: LayoutEndInput = serde_json::from_value(end).unwrap();
+        assert_eq!(code(typed.validate()), invalid);
+        // Only that key: a longer one is a value like any other, and an end without content has none.
+        let mut similar = start();
+        similar["snapshot"]["values"]["liveActivityTemplates"] = json!("progress");
+        assert_eq!(
+            code(crate::validate_request("start_layout", similar)),
+            Ok(())
+        );
+        let bare = json!({"id":"a","policy":{"kind":"immediate"}});
+        assert_eq!(code(crate::validate_request("end_layout", bare)), Ok(()));
     }
 }

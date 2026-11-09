@@ -6,10 +6,13 @@
 //! ([`template`]). Revisions, repeated starts and lookups by id are activitykit's; the plugin keeps the handles of the
 //! activities it ended, so that ending one again still reaches activitykit after the system stops listing it.
 
+pub(crate) mod glue;
 pub(crate) mod template;
 
 #[cfg(test)]
 mod fake;
+#[cfg(test)]
+mod glue_tests;
 #[cfg(test)]
 mod tests;
 
@@ -35,6 +38,9 @@ use std::{
 /// What the plugin needs of activitykit's `ActivityKit`.
 pub(crate) trait Kit: Send + Sync + 'static {
     type Handle: Handle;
+    type Ack: glue::Acknowledge;
+    /// Every tap of a button from now on, with what holds its intent, until the kit ends.
+    fn taps(&self) -> Box<dyn Iterator<Item = (ActionEvent, Self::Ack)> + Send>;
     fn authorization(&self) -> Authorization;
     fn start(
         &self,
@@ -204,6 +210,25 @@ fn template_record<H: Handle>(handle: &H) -> Option<ActivityRecord> {
     })
 }
 
+/// The start that a layout request asks for.
+pub(crate) fn start_spec(request: LayoutStartInput) -> StartSpec {
+    let layout = activitykit::Layout {
+        lock_screen: request.layout.lock_screen,
+        island: request.layout.island,
+        background: request.layout.background,
+        keyline: request.layout.keyline,
+        styles: request.styles.unwrap_or_default(),
+    };
+    StartSpec {
+        key: request.activity_key,
+        layout,
+        values: request.snapshot.values.into(),
+        revision: request.snapshot.revision,
+        stale_at: request.snapshot.stale_at,
+        timestamp: request.snapshot.timestamp,
+    }
+}
+
 fn update_spec(snapshot: LayoutSnapshot) -> UpdateSpec {
     UpdateSpec {
         values: snapshot.values.into(),
@@ -340,7 +365,7 @@ impl<K: Kit> Apple<K> {
     pub(crate) async fn start_template(&self, input: StartInput) -> Result<ActivityRecord> {
         input.validate()?;
         let request = template::start(&input);
-        request.validate()?;
+        request.validate_contract()?;
         let handle = self.start(request).await?;
         template_record(&handle).ok_or_else(Error::native)
     }
@@ -371,22 +396,7 @@ impl<K: Kit> Apple<K> {
     }
 
     async fn start(&self, request: LayoutStartInput) -> Result<K::Handle> {
-        let layout = activitykit::Layout {
-            lock_screen: request.layout.lock_screen,
-            island: request.layout.island,
-            background: request.layout.background,
-            keyline: request.layout.keyline,
-            styles: request.styles.unwrap_or_default(),
-        };
-        let start = StartSpec {
-            key: request.activity_key,
-            layout,
-            values: request.snapshot.values.into(),
-            revision: request.snapshot.revision,
-            stale_at: request.snapshot.stale_at,
-            timestamp: request.snapshot.timestamp,
-        };
-        Ok(self.kit.start(start).await?)
+        Ok(self.kit.start(start_spec(request)).await?)
     }
 
     fn keep_ended(&self, handle: &K::Handle) {
@@ -409,8 +419,39 @@ impl<K: Kit> Apple<K> {
     }
 }
 
-/// Drives `future` to its end on this thread. The plugin's blocking methods use it; never call it on the main thread,
-/// where activitykit answers.
+/// Whether the calling thread is the process's main thread, where activitykit answers.
+#[cfg(target_vendor = "apple")]
+pub(crate) fn on_main_thread() -> bool {
+    unsafe extern "C" {
+        fn pthread_main_np() -> std::ffi::c_int;
+    }
+    // SAFETY: pthread_main_np takes no argument and only reads which thread calls it.
+    unsafe { pthread_main_np() != 0 }
+}
+
+#[cfg(not(target_vendor = "apple"))]
+pub(crate) fn on_main_thread() -> bool {
+    false
+}
+
+/// The answer of `future`, which the plugin's blocking methods wait for. On the main thread it would never come,
+/// because activitykit answers there: the call answers an error at once instead.
+pub(crate) fn wait<T>(future: impl Future<Output = Result<T>>) -> Result<T> {
+    wait_on(on_main_thread(), future)
+}
+
+pub(crate) fn wait_on<T>(main: bool, future: impl Future<Output = Result<T>>) -> Result<T> {
+    if main {
+        return Err(Error::new(
+            "NATIVE_ERROR",
+            "A blocking call of the plugin on the main thread, where activitykit answers, would never end: call it on \
+             another thread, or await the command.",
+        ));
+    }
+    block_on(future)
+}
+
+/// Drives `future` to its end on this thread.
 pub(crate) fn block_on<F: Future>(future: F) -> F::Output {
     struct Unpark(thread::Thread);
     impl Wake for Unpark {

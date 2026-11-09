@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      retest:
+        description: Run the simulator suites even when they passed for the same inputs
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -14,6 +19,13 @@ permissions:
 concurrency:
   group: ci-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# The tools of every job, pinned; the simulator jobs' keys name them (tests/ci/cache.sh).
+env:
+  TOOLCHAIN: 1.99.1
+  XCODEGEN: 2.44.1
+  XCODEGEN_SHA256: a2e905fb68446e9bb4008cdfe2e13e3f176d0cbcca828b71770f8e53fca91b73
+  NODE: '24'
 
 jobs:
   # Which parts the push or pull request changed. Each job below runs only for its part, so a
@@ -47,9 +59,10 @@ jobs:
           area() { grep -qE "$2" <<< "$files" && echo "$1=true" >> "$GITHUB_OUTPUT" || echo "$1=false" >> "$GITHUB_OUTPUT"; }
           area rust '^(src/|build\.rs$|Cargo\.(toml|lock)$|permissions/|tests/[^/]+\.rs$|examples/demo/src-tauri/)'
           area js '^(guest-js/|cli/|tools/|tests/[^/]+\.mjs$|tests/release/|package(-lock)?\.json$|tsconfig\.json$|examples/demo/)'
-          # iOS is the activitykit crate and the plugin's Rust on it (Cargo.lock holds activitykit's version), setup, and
-          # what the demo on the simulator is built from.
-          area ios '^(src/|build\.rs$|Cargo\.(toml|lock)$|cli/|guest-js/|package(-lock)?\.json$|tests/ios/|examples/demo/)'
+          # iOS is what the simulator suites read, as tests/ci/cache.sh lists it: the plugin's Rust on activitykit
+          # (Cargo.lock holds activitykit's version), the TypeScript API, setup, the tools of the demo's build, the demo,
+          # the UI tests and the CI scripts.
+          area ios '^(src/|build\.rs$|Cargo\.(toml|lock)$|permissions/|guest-js/|cli/|tools/|package(-lock)?\.json$|tsconfig\.json$|examples/demo/|tests/ios/|tests/ci/)'
           area android '^(android/|tests/android/|Cargo\.(toml|lock)$)'
           cat "$GITHUB_OUTPUT"
   # The specification against the tests, for every change: docs/spec.md may change alone.
@@ -62,9 +75,9 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version: ${{ env.NODE }}
       - run: sh tools/spec-coverage.sh
-      - run: node --test tests/ci.test.mjs
+      - run: node --test tests/spec-coverage.test.mjs tests/ci.test.mjs tests/ci-cache.test.mjs
   contracts:
     name: Rust, TypeScript and iOS
     needs: changes
@@ -78,22 +91,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Node also for the Rust: the demo's Rust embeds its page, which build:demo makes.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: env.JS == 'true'
+        if: env.JS == 'true' || env.RUST == 'true'
         with:
-          node-version: '24'
+          node-version: ${{ env.NODE }}
           cache: npm
       - if: env.RUST == 'true' || env.IOS == 'true'
-        run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt,clippy,llvm-tools-preview --target x86_64-apple-ios,aarch64-apple-ios
-      - if: env.RUST == 'true' || env.IOS == 'true'
-        run: rustup default 1.99.1
+        run: rustup toolchain install "$TOOLCHAIN" --profile minimal --component rustfmt,clippy,llvm-tools-preview --target x86_64-apple-ios,aarch64-apple-ios && rustup default "$TOOLCHAIN"
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         if: env.RUST == 'true' || env.IOS == 'true'
         with:
           workspaces: |
             . -> target
             examples/demo/src-tauri -> target
-      - if: env.JS == 'true'
+      - if: env.JS == 'true' || env.RUST == 'true'
         run: npm ci
       - if: env.JS == 'true'
         run: npm test && npm run typecheck && npm run build:demo
@@ -113,7 +125,7 @@ jobs:
       - if: env.RUST == 'true'
         run: cargo llvm-cov --locked --summary-only --fail-under-lines 80
       - if: env.RUST == 'true'
-        run: cargo test --locked --manifest-path examples/demo/src-tauri/Cargo.toml
+        run: npm run build:demo && cargo test --locked --manifest-path examples/demo/src-tauri/Cargo.toml
       # The plugin's iOS code on activitykit: checked for the device without Swift, then built for the simulator, which
       # builds activitykit's Swift bridge into the library.
       - if: env.IOS == 'true'
@@ -124,15 +136,19 @@ jobs:
         run: npm pack --dry-run
       - if: env.RUST == 'true'
         run: cargo package --locked
-  # The demo app on an iOS Simulator (tests/ios/run.sh). The built demo and UI tests are cached under a key of what they
-  # are built from and the Xcode version, and an exact hit runs them with test-without-building. A pass is remembered
-  # under its inputs, the runner image and the Xcode version, so the merge commit of a tested pull request skips the
-  # suite; the job stays green either way.
+  # The demo app on an iOS Simulator (tests/ios/run.sh), built by `tauri ios build` (e2e) and by `tauri ios dev`
+  # (e2e-dev). A suite skips when it already passed for the same inputs (tests/ci/cache.sh): the tracked files it reads,
+  # Xcode, the runner image, the pinned tools and the simulator runtime. The record of a pass is an artifact, so the push
+  # to main that merges a pull request finds the pass of the pull request's run. A skipped suite leaves the job green.
   e2e:
     name: Demo on the iOS Simulator
     needs: changes
     if: needs.changes.outputs.ios == 'true'
     runs-on: macos-15-intel
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
     env:
       BUILD_DIR: ${{ github.workspace }}/.ios-build
     steps:
@@ -141,70 +157,166 @@ jobs:
           persist-credentials: false
       # The newest Xcode of the image, as activitykit's CI selects it.
       - name: Select Xcode
-        id: xcode
         run: |
-          xcode=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          xcode=$(find /Applications -maxdepth 1 -name 'Xcode_*.app' | sort -V | tail -1)
           sudo xcode-select -s "$xcode"
-          echo "version=$(xcodebuild -version | tr -s ' \n' '-' | sed 's/-$//')" >> "$GITHUB_OUTPUT"
-      - name: Inputs of the demo and the UI tests
-        id: inputs
-        run: echo "hash=${{ hashFiles('Cargo.toml', 'Cargo.lock', 'build.rs', 'src/**', 'guest-js/**', 'package-lock.json', 'tsconfig.json', 'examples/demo/**', 'tests/ios/**', '!examples/demo/src-tauri/target/**') }}" >> "$GITHUB_OUTPUT"
-      - name: Earlier pass
+          xcodebuild -version
+      - name: Keys
+        id: keys
+        run: sh tests/ci/cache.sh keys simulator
+      - name: Look for a pass of the suite
         id: passed
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .e2e-passed
-          key: e2e-passed-${{ env.ImageOS }}-${{ env.ImageVersion }}-${{ steps.xcode.outputs.version }}-${{ steps.inputs.outputs.hash }}
-          lookup-only: true
-      - if: steps.passed.outputs.cache-hit == 'true'
-        run: echo "The suite passed for these inputs on $ImageOS $ImageVersion with ${{ steps.xcode.outputs.version }}; skipped."
-      - name: Built demo and UI tests
-        id: built
-        if: steps.passed.outputs.cache-hit != 'true'
+        if: ${{ !inputs.retest }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ steps.keys.outputs.simulator }}
+        run: sh tests/ci/cache.sh passed "$NAME"
+      # The built demo and UI tests of these exact inputs: run.sh tests them without building.
+      - name: Restore the built demo and UI tests
+        id: products
+        if: steps.passed.outputs.found != 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ios-build
-          key: ios-build-${{ env.ImageOS }}-${{ steps.xcode.outputs.version }}-${{ steps.inputs.outputs.hash }}
+          key: ${{ steps.keys.outputs.products }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: steps.passed.outputs.cache-hit != 'true' && steps.built.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.found != 'true' && steps.products.outputs.cache-hit != 'true'
         with:
-          node-version: '24'
+          node-version: ${{ env.NODE }}
           cache: npm
-      - if: steps.passed.outputs.cache-hit != 'true' && steps.built.outputs.cache-hit != 'true'
-        run: |
-          npm ci
-          rustup toolchain install 1.99.1 --profile minimal --target x86_64-apple-ios
-          rustup default 1.99.1
-          brew install xcodegen
+      - if: steps.passed.outputs.found != 'true' && steps.products.outputs.cache-hit != 'true'
+        run: npm ci && rustup toolchain install "$TOOLCHAIN" --profile minimal --target x86_64-apple-ios && rustup default "$TOOLCHAIN"
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        if: steps.passed.outputs.cache-hit != 'true' && steps.built.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.found != 'true' && steps.products.outputs.cache-hit != 'true'
         with:
           workspaces: examples/demo/src-tauri -> target
           key: ios-simulator
+          cache-on-failure: true
+      - name: Install XcodeGen
+        if: steps.passed.outputs.found != 'true'
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
       - name: End to end on the simulator
-        if: steps.passed.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.found != 'true'
         env:
-          REUSE: ${{ steps.built.outputs.cache-hit == 'true' && '1' || '' }}
-          OUTPUT: ${{ github.workspace }}/tests/ios/output
+          BUILD_KEY: ${{ steps.keys.outputs.products }}
+          RUNTIME: ${{ steps.keys.outputs.runtime }}
+          OUTPUT: ${{ runner.temp }}/ios-simulator
         run: sh tests/ios/run.sh
-      - if: always() && steps.passed.outputs.cache-hit != 'true' && steps.built.outputs.cache-hit != 'true' && hashFiles('.ios-build/demo/live-activity-demo.app/Info.plist') != ''
+      # Saved once the build is complete, also when the tests then failed: a re-run tests the same products.
+      - name: Check the build of the products
+        id: built
+        if: ${{ !cancelled() && steps.passed.outputs.found != 'true' && steps.products.outputs.cache-hit != 'true' }}
+        env:
+          KEY: ${{ steps.keys.outputs.products }}
+        run: |
+          if [ "$(cat .ios-build/build-key 2>/dev/null)" = "$KEY" ]; then
+            echo complete=true >> "$GITHUB_OUTPUT"
+          else
+            echo "no complete build to save"
+          fi
+      - name: Save the built demo and UI tests
+        if: ${{ !cancelled() && steps.built.outputs.complete == 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ios-build
-          key: ios-build-${{ env.ImageOS }}-${{ steps.xcode.outputs.version }}-${{ steps.inputs.outputs.hash }}
-      - if: steps.passed.outputs.cache-hit != 'true'
-        run: mkdir -p .e2e-passed && date -u > .e2e-passed/passed
-      - if: steps.passed.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .e2e-passed
-          key: e2e-passed-${{ env.ImageOS }}-${{ env.ImageVersion }}-${{ steps.xcode.outputs.version }}-${{ steps.inputs.outputs.hash }}
+          key: ${{ steps.keys.outputs.products }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        if: always() && steps.passed.outputs.cache-hit != 'true'
+        if: always() && steps.passed.outputs.found != 'true'
         with:
           name: ios-simulator
-          path: tests/ios/output
+          path: ${{ runner.temp }}/ios-simulator/
+          retention-days: 14
           if-no-files-found: ignore
+      - name: Record the pass of the suite
+        id: record
+        if: steps.passed.outputs.found != 'true'
+        run: sh tests/ci/cache.sh record simulator "$RUNNER_TEMP/ios-simulator/passed"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: steps.record.outputs.recorded == 'true'
+        with:
+          name: ${{ steps.keys.outputs.simulator }}
+          path: ${{ runner.temp }}/passed-simulator/
+          retention-days: 90
+          if-no-files-found: error
+  # The demo that `tauri ios dev` builds, installs, launches and serves, with the tests that go through its page and the
+  # one where Rust starts a layout (MODE=dev). Nothing of its build is cached: Tauri builds it in its own DerivedData.
+  e2e-dev:
+    name: Demo in tauri ios dev on the iOS Simulator
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    runs-on: macos-15-intel
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select Xcode
+        run: |
+          xcode=$(find /Applications -maxdepth 1 -name 'Xcode_*.app' | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+      - name: Keys
+        id: keys
+        run: sh tests/ci/cache.sh keys dev
+      - name: Look for a pass of the suite
+        id: passed
+        if: ${{ !inputs.retest }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ steps.keys.outputs.dev }}
+        run: sh tests/ci/cache.sh passed "$NAME"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.passed.outputs.found != 'true'
+        with:
+          node-version: ${{ env.NODE }}
+          cache: npm
+      - if: steps.passed.outputs.found != 'true'
+        run: npm ci && rustup toolchain install "$TOOLCHAIN" --profile minimal --target x86_64-apple-ios && rustup default "$TOOLCHAIN"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: steps.passed.outputs.found != 'true'
+        with:
+          workspaces: examples/demo/src-tauri -> target
+          key: ios-dev
+          cache-on-failure: true
+      - name: Install XcodeGen
+        if: steps.passed.outputs.found != 'true'
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: End to end on the simulator
+        if: steps.passed.outputs.found != 'true'
+        env:
+          MODE: dev
+          RUNTIME: ${{ steps.keys.outputs.runtime }}
+          OUTPUT: ${{ runner.temp }}/ios-dev
+        run: sh tests/ios/run.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always() && steps.passed.outputs.found != 'true'
+        with:
+          name: ios-dev
+          path: ${{ runner.temp }}/ios-dev/
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Record the pass of the suite
+        id: record
+        if: steps.passed.outputs.found != 'true'
+        run: sh tests/ci/cache.sh record dev "$RUNNER_TEMP/ios-dev/passed"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: steps.record.outputs.recorded == 'true'
+        with:
+          name: ${{ steps.keys.outputs.dev }}
+          path: ${{ runner.temp }}/passed-dev/
+          retention-days: 90
+          if-no-files-found: error
   android:
     name: Android unit tests and lint
     needs: changes
@@ -216,7 +328,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24'
+          node-version: ${{ env.NODE }}
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
@@ -246,7 +358,7 @@ jobs:
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
-      - run: rustup toolchain install 1.99.1 --profile minimal
-      - run: rustup default 1.99.1
+      - run: rustup toolchain install "$TOOLCHAIN" --profile minimal && rustup default "$TOOLCHAIN"
+        shell: bash
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo test --locked

@@ -488,5 +488,7 @@ test('the declarations follow the contract of 0.4', async () => {
   assert.match(types, /export interface LayoutSnapshot \{[^}]*readonly timestamp\?: number;/s);
   assert.match(types, /export interface LayoutEndInput extends EndInput \{\s*readonly snapshot\?: LayoutSnapshot;\s*\}/);
   assert.match(index, /export declare function endLayout\(input: LayoutEndInput\): Promise<LayoutActivityRecord>;/);
+  // iOS sends the caller's revision (TP-IOS-3); 0.4.0-dev numbered them, and no comment may say so.
+  assert.doesNotMatch(types, /numbers the revisions|record's plus one/);
 });
 

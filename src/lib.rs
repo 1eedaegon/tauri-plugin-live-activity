@@ -32,6 +32,8 @@ mod image;
 mod ios;
 mod layout;
 mod models;
+#[cfg(test)]
+mod types_tests;
 mod validation;
 
 #[cfg(target_os = "android")]

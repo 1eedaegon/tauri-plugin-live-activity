@@ -17,6 +17,8 @@ records, revisions and taps keep the behaviour of 0.3. Android and desktop work 
   revision, the same keyed start returns the running activity (also after a relaunch), and `receipts: "redacted"`
   keeps a digest instead of the values. After a relaunch, a redacted activity's record has the values that ActivityKit
   shows, where 0.3 reported none.
+- On iOS a blocking method of `app.live_activity()` called on the main thread, where activitykit answers, returns
+  `NATIVE_ERROR` at once instead of waiting for an answer that cannot come.
 - A tap's intent, and so an app that the system launched for the tap, waits until the `on_action` handlers have run
   and the tap has gone to JavaScript, at most 4 seconds, on iOS as on Android. JavaScript listeners are not awaited.
 - Breaking: iOS needs 16.2 on an iPhone (iPadOS 17 on an iPad). Below it every command but the reads answers
@@ -41,8 +43,14 @@ records, revisions and taps keep the behaviour of 0.3. Android and desktop work 
   share an activity key.
 - Breaking: the plugin's setup fails when the process already runs activitykit with other receipts than the plugin
   configuration names.
+- Breaking: on an app whose `live-activity.yml` was changed by hand, setup keeps the spec and the old
+  `LiveActivityActionIntent.swift` and `LiveActivityCustomRegistry.swift` that it names, and reports how to finish
+  the migration by hand.
+- Breaking: the value key `liveActivityTemplate` is the plugin's, which marks the progress and timer templates on iOS.
+  A layout start, update or end whose values hold it answers `INVALID_INPUT` on every platform.
 - Breaking: after a relaunch, ending again an activity that ended at once in an earlier launch, and that the system no
-  longer lists, is `NOT_FOUND`; 0.3 answered the record. Within a launch, ending again answers the record as before.
+  longer lists, is `NOT_FOUND`; 0.3 answered the record. Within a launch, ending again answers the record for the
+  last 64 activities that ended; an older one that the system no longer lists is `NOT_FOUND` too.
 - `npx tauri-plugin-live-activity setup` finds activitykit's folder with `cargo metadata` and writes
   `live-activity.yml` on its Swift package: the widget extension (iOS 16.2) links `ActivityKitWidget` and
   `ActivityKitViews`, and the app target links `ActivityKitIntent` and `ActivityKitViews` and compiles the custom
@@ -68,9 +76,12 @@ records, revisions and taps keep the behaviour of 0.3. Android and desktop work 
 - `docs/spec.md` lists every requirement with its tests, checked by `tools/spec-coverage.sh` in CI. The demo runs on
   an iOS Simulator of its own with `tests/ios/run.sh` (`MODE=dev` for `tauri ios dev`, with connected iPhones hidden
   from Tauri).
-- CI caches the Rust builds and installs cargo-llvm-cov as a binary. A new macOS job runs the simulator suite, with
-  the built demo and UI tests cached under a key of their inputs and the Xcode version, and skips the suite when the
-  same inputs already passed on the same runner image and Xcode.
+- CI caches the Rust builds and installs cargo-llvm-cov as a binary, and pins the Rust toolchain and XcodeGen (a
+  release checked against its SHA-256). Two new macOS jobs run the simulator suite, on the demo of `tauri ios build`
+  and on the demo of `tauri ios dev`. The built demo and UI tests are cached under a key of the tracked files they are
+  built from, Xcode and the tools. A suite that passed in full is recorded as an artifact named after its inputs, the
+  runner image and the simulator runtime (`tests/ci/cache.sh`, as in activitykit), and a later run with the same
+  inputs, the push to main that merges a tested pull request included, skips it.
 
 ## 0.3.0
 

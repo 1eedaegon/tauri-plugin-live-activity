@@ -93,8 +93,8 @@ target of your Mac.
 - `MODE=dev tests/ios/run.sh` lets `tauri ios dev` build, install and serve the demo instead, and
   runs the layout, button and relaunch tests on it, and the one where the demo, launched with
   `--start-buttons`, starts the Buttons example from Rust.
-- `BUILD_DIR=<folder>` keeps the built demo and UI tests, and `REUSE=1` runs them again without
-  building, as CI does on a cache hit.
+- `BUILD_DIR=<folder>` keeps the built demo and UI tests, and `BUILD_KEY=<name>` marks a complete
+  build: a later run with the same key tests it without building, as CI does on a cache hit.
 
 ## Unit tests
 

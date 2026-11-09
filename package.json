@@ -29,7 +29,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p examples/demo/tsconfig.json",
     "test": "npm run build && npm run test:contracts && npm run test:api && npm run test:demo && npm run test:setup",
-    "test:contracts": "node --test --experimental-test-coverage \"--test-coverage-include=tools/validate-request.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/requests.test.mjs tests/layout-requests.test.mjs tests/contract-sync.test.mjs tests/ci.test.mjs",
+    "test:contracts": "node --test --experimental-test-coverage \"--test-coverage-include=tools/validate-request.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/requests.test.mjs tests/layout-requests.test.mjs tests/contract-sync.test.mjs tests/ci.test.mjs tests/ci-cache.test.mjs tests/spec-coverage.test.mjs",
     "test:api": "node --test --experimental-test-coverage \"--test-coverage-include=dist-js/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/api.test.mjs",
     "test:demo": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=examples/demo/src/*.ts\" \"--test-coverage-exclude=examples/demo/tests/**\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 examples/demo/tests/self-test.test.mjs examples/demo/tests/ui-state.test.mjs examples/demo/tests/layouts.test.mjs examples/demo/tests/setup.test.mjs",
     "test:setup": "node --test --experimental-test-coverage \"--test-coverage-include=cli/*.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/setup.test.mjs",

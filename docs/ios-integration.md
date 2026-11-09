@@ -244,7 +244,11 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
 ## Testing
 
 - `cargo test` runs the plugin's iOS logic on the host, against a fake of activitykit: what each command sends, the
-  records, the templates, the receipts setting, and a tap held until a slow handler has run.
+  records, the templates, the receipts setting, and a tap held until a slow handler has run. `src/apple/glue.rs` maps
+  the plugin's requests to activitykit's `Start`, `Update` and `End`, builds the kit's settings and runs the taps; its
+  tests compare them with activitykit's own types. Only `src/ios.rs`, which hands activitykit's types to that code, is
+  compiled for iOS alone: no host test runs it, the coverage gate (`cargo llvm-cov`, 80 % of lines) leaves it out, and
+  the simulator suite drives it.
 - `ACTIVITYKIT_SKIP_SWIFT=1 cargo clippy --target aarch64-apple-ios --lib` checks the iOS code without building
   activitykit's Swift. `cargo build --target x86_64-apple-ios --lib` builds it with the Swift bridge, which needs
   Xcode. CI runs both.
@@ -260,10 +264,16 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
   demo's Xcode project and the test project with XcodeGen, builds the demo with
   `tauri ios build --debug --target x86_64|aarch64-sim --ci` for this Mac's architecture, installs it and runs the UI
   tests of `tests/ios/DemoUITests`: a bound style on the Lock Screen, a Lock Screen button that reaches Rust and
-  JavaScript, `listLayout` after a relaunch, the demo's lifecycle test, and the two templates on the Lock Screen. It
-  copies the screenshots to `tests/ios/output` (or `$OUTPUT`), then deletes the simulator and the build. It needs
-  Xcode, XcodeGen, Node with the repository's npm packages, and cargo with the iOS simulator target of this Mac. The
-  archive step after the build needs a signing team and may fail; the simulator needs only the build.
+  JavaScript, `listLayout` after a relaunch, the demo's lifecycle test, the two templates on the Lock Screen, and a
+  tap that launches the app for a slow Rust handler. The tests run through the `DemoUITests` scheme of the project
+  that XcodeGen generates on every run; with an `.xctestrun` file alone, xcodebuild found no simulator on a CI
+  runner. It copies the screenshots, the other attachments, `xcodebuild.log` and, when a test failed, the demo's log
+  (`app.log`) to `tests/ios/output` (or `$OUTPUT`,
+  where it replaces only its own files), then deletes the simulator and the build, and puts back the tracked files of
+  the demo's `gen/apple`, which XcodeGen rewrites. It needs Xcode, XcodeGen, Node with the repository's npm
+  packages, and cargo with the iOS simulator target of this Mac. The archive step after the build needs a signing
+  team and may fail; the simulator needs only the build. Under `CI` a failed test runs again, up to three times in
+  all, and after a full pass `OUTPUT/passed` lists the tests that passed only on a retry.
 - `MODE=dev tests/ios/run.sh` lets `tauri ios dev` build, install, launch and serve the demo on the simulator, and
   runs the layout, button and relaunch tests through its page, then launches it with `--start-buttons`, where Rust
   starts the Buttons example and a tap on Pet Mochi reaches the Rust handler. Three things about Tauri CLI 2.12.4 have
@@ -276,8 +286,9 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
   - After the simulator build Tauri archives the app and installs the archive's copy; on an Intel Mac that archive is
     a device build, which needs a signing team (`bundle > iOS > developmentTeam` or `APPLE_DEVELOPMENT_TEAM`). The
     script answers the archive with the simulator build itself.
-- `BUILD_DIR=<folder>` keeps the built demo and UI tests and `REUSE=1` runs them again with `test-without-building`,
-  as CI does on a cache hit. The simulator destination names its architecture.
+- `BUILD_DIR=<folder>` keeps the built demo and UI tests, and `BUILD_KEY=<name>` marks a complete build: a later run
+  with the same key tests those products without building, as CI does on a cache hit (`tests/ci/cache.sh` makes the
+  key from the tracked files, Xcode and the pinned tools). The simulator destination names its architecture.
 
 The Swift layer's own tests (its validators, the lifecycle and receipts, the C bridge and a test host on a simulator)
 are activitykit's ([testing](https://github.com/1eedaegon/activitykit-rs/blob/main/docs/testing.md)). 0.3's

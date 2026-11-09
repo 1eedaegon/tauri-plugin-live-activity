@@ -17,7 +17,7 @@ use activitykit::{
 use std::collections::BTreeMap;
 
 /// The value key that marks a template activity; its value is `progress` or `timer`.
-pub(crate) const MARKER: &str = "liveActivityTemplate";
+pub(crate) const MARKER: &str = crate::layout::TEMPLATE_MARKER;
 const TITLE: &str = "title";
 const STATUS: &str = "status";
 const PROGRESS: &str = "progress";
@@ -219,11 +219,7 @@ pub(crate) fn snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        Error,
-        models::Fallback,
-        validation::{MAX_TIMESTAMP, Validate},
-    };
+    use crate::{Error, models::Fallback, validation::MAX_TIMESTAMP};
     use serde_json::json;
 
     fn input(template: Template, title: &str, status: &str) -> StartInput {
@@ -270,7 +266,7 @@ mod tests {
             json!({"revision":3,"staleAt":9,"values":{"liveActivityTemplate":"progress","title":"Delivery",
                 "status":"On the way","progress":0.426,"percent":"43%"}})
         );
-        assert_eq!(start.validate(), Ok(()));
+        assert_eq!(start.validate_contract(), Ok(()));
         let layout = serde_json::to_value(&start.layout).unwrap();
         assert_eq!(
             layout["lockScreen"]["children"][2],
@@ -286,7 +282,7 @@ mod tests {
             json!({"light":"#F2F2F7","dark":"#1C1C1E"})
         );
         let timer = start_timer();
-        assert_eq!(timer.validate(), Ok(()));
+        assert_eq!(timer.validate_contract(), Ok(()));
         let layout = serde_json::to_value(&timer.layout).unwrap();
         assert_eq!(
             layout["lockScreen"]["children"][2],
@@ -330,12 +326,12 @@ mod tests {
     fn the_largest_template_snapshot_fits_the_weight_with_its_layout() {
         for template in [Template::Progress, Template::Timer] {
             let start = start(&input(template, &"😀".repeat(120), &"😀".repeat(240)));
-            assert_eq!(start.validate(), Ok(()), "{template:?}");
+            assert_eq!(start.validate_contract(), Ok(()), "{template:?}");
             let mut over = start.clone();
             over.snapshot
                 .values
                 .insert("status".into(), Value::Text("😀".repeat(1000)));
-            assert_eq!(over.validate(), Err(Error::payload_too_large()));
+            assert_eq!(over.validate_contract(), Err(Error::payload_too_large()));
         }
     }
 }

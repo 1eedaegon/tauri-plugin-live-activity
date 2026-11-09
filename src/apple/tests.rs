@@ -98,6 +98,10 @@ fn a_layout_start_goes_to_activitykit_and_answers_a_v2_record() {
         let listed = block_on(apple.list_layout()).unwrap();
         assert_eq!(serde_json::to_value(listed[0].state).unwrap(), wire);
     }
+    // What activitykit reports the system could not show reaches the record.
+    kit.degrade("la-ios-layout-1", &["alertSound", "relevance"]);
+    let listed = block_on(apple.list_layout()).unwrap();
+    assert_eq!(listed[0].degraded_features, ["alertSound", "relevance"]);
 }
 
 // TP-IOS-2
@@ -318,15 +322,43 @@ fn an_activity_that_ended_at_once_answers_a_second_end_after_the_system_drops_it
         code(block_on(relaunched.end_layout(ended(&id)))),
         "NOT_FOUND"
     );
-    // The plugin keeps the handles of the last ENDED_KEPT ends.
-    for n in 0..ENDED_KEPT {
-        let other = block_on(apple.start_layout(start(&format!("demo:n{n}"), "green")))
+}
+
+// TP-IOS-17
+#[test]
+fn the_last_64_activities_that_ended_answer_again_each_counted_once() {
+    let (apple, kit) = apple();
+    let ended = |id: &str| end(id, EndPolicy::Immediate {}, None);
+    let started = |key: &str| {
+        block_on(apple.start_layout(start(key, "green")))
             .unwrap()
-            .id;
-        block_on(apple.end_layout(ended(&other))).unwrap();
+            .id
+    };
+    let again = |id: &str| match block_on(apple.end_layout(ended(id))) {
+        Ok(_) => "ok".to_owned(),
+        Err(error) => error.code,
+    };
+    let (first, second) = (started("demo:first"), started("demo:second"));
+    block_on(apple.end_layout(ended(&first))).unwrap();
+    block_on(apple.end_layout(ended(&second))).unwrap();
+    // Ending the first again keeps its place: it counts once, from its first end.
+    for _ in 0..3 {
+        assert_eq!(again(&first), "ok");
+    }
+    for n in 0..62 {
+        let other = started(&format!("demo:n{n}"));
         block_on(apple.end_layout(ended(&other))).unwrap();
     }
-    assert_eq!(code(block_on(apple.end_layout(ended(&id)))), "NOT_FOUND");
+    // 64 activities ended: both answer.
+    assert_eq!((again(&first), again(&second)), ("ok".into(), "ok".into()));
+    // One more lets the oldest go, which the system no longer lists.
+    let last = started("demo:last");
+    block_on(apple.end_layout(ended(&last))).unwrap();
+    assert!(!kit.listed(&first));
+    assert_eq!(
+        (again(&first), again(&second)),
+        ("NOT_FOUND".into(), "ok".into())
+    );
 }
 
 // TP-IOS-11, TP-IOS-12
@@ -406,19 +438,16 @@ fn redacted_receipts_in_the_configuration_build_the_kit_with_redacted_receipts()
 #[test]
 fn capabilities_and_permissions_follow_activitykits_authorization() {
     let (apple, kit) = apple();
-    let all = apple.capabilities();
+    // Every feature, as JavaScript reads it: each follows the authorization, and `actions` also the buttons.
+    let features = |backend: &str, all: &str, actions: &str| {
+        json!({"platform":"ios","backend":backend,"start":all,"update":all,"end":all,"progress":all,"timer":all,
+            "actions":actions,"stateObservation":all,"silentUpdate":all,"nativeLiveActivity":all,
+            "maxPayloadBytes":4096,"layout":all})
+    };
+    let reported = |apple: &Apple<FakeKit>| serde_json::to_value(apple.capabilities()).unwrap();
     assert_eq!(
-        (all.backend, all.layout, all.actions, all.timer),
-        (
-            Backend::ActivityKit,
-            FeatureSupport::Supported,
-            FeatureSupport::Supported,
-            FeatureSupport::Supported
-        )
-    );
-    assert_eq!(
-        (all.platform.as_str(), all.max_payload_bytes),
-        ("ios", 4096)
+        reported(&apple),
+        features("activityKit", "supported", "supported")
     );
     assert_eq!(
         apple.permissions(false).live_activities,
@@ -429,10 +458,9 @@ fn capabilities_and_permissions_follow_activitykits_authorization() {
         enabled: false,
         buttons: false,
     });
-    let ios16 = apple.capabilities();
     assert_eq!(
-        (ios16.start, ios16.actions),
-        (FeatureSupport::Supported, FeatureSupport::Unsupported)
+        reported(&apple),
+        features("activityKit", "supported", "unsupported")
     );
     assert_eq!(
         apple.permissions(false).live_activities,
@@ -462,15 +490,9 @@ fn capabilities_and_permissions_follow_activitykits_authorization() {
         enabled: false,
         buttons: false,
     });
-    let none = apple.capabilities();
     assert_eq!(
-        (none.backend, none.start, none.layout, none.actions),
-        (
-            Backend::Unsupported,
-            FeatureSupport::Unsupported,
-            FeatureSupport::Unsupported,
-            FeatureSupport::Unsupported
-        )
+        reported(&apple),
+        features("unsupported", "unsupported", "unsupported")
     );
     assert_eq!(
         apple.permissions(true).live_activities,
@@ -584,7 +606,7 @@ fn a_template_activity_starts_updates_ends_and_lists_as_contract_v1() {
 // TP-V1-3
 #[test]
 fn the_two_contract_versions_do_not_see_each_others_activities() {
-    let (apple, _kit) = apple();
+    let (apple, kit) = apple();
     let layout = block_on(apple.start_layout(start("demo:1", "green"))).unwrap();
     let template = block_on(apple.start_template(progress("job:1", 0, 0.3))).unwrap();
     assert_eq!(
@@ -620,6 +642,20 @@ fn the_two_contract_versions_do_not_see_each_others_activities() {
         )))),
         "NOT_FOUND"
     );
+    // One key, one activity: a layout cannot start under a running template's key, nor a template under a layout's.
+    assert_eq!(
+        code(block_on(apple.start_layout(start("job:1", "green")))),
+        "CONFLICT"
+    );
+    assert_eq!(
+        code(block_on(apple.start_template(progress("demo:1", 0, 0.3)))),
+        "CONFLICT"
+    );
+    kit.degrade(&template.id, &["dynamicIsland"]);
+    assert_eq!(
+        block_on(apple.list_templates()).unwrap()[0].degraded_features,
+        ["dynamicIsland"]
+    );
 }
 
 // TP-ACTION-1
@@ -654,4 +690,27 @@ fn block_on_drives_a_future_that_another_thread_completes() {
     });
     assert_eq!(block_on(async { receiver.recv().await.unwrap() }), 42);
     answer.join().unwrap();
+}
+
+// TP-RUST-1
+#[test]
+fn a_blocking_call_on_the_main_thread_answers_at_once_instead_of_waiting_forever() {
+    // On the main thread the call must not wait at all: activitykit's answer would come on that thread. The future is
+    // never polled; one that answers shows a call that waited.
+    let polled = std::cell::Cell::new(false);
+    let answer = async {
+        polled.set(true);
+        Ok::<u8, Error>(1)
+    };
+    let refused = wait_on(true, answer).unwrap_err();
+    assert!(!polled.get());
+    assert_eq!(refused.code, "NATIVE_ERROR");
+    assert!(
+        refused.message.contains("main thread"),
+        "{}",
+        refused.message
+    );
+    // Elsewhere the call waits for its answer, and a test thread is not the main thread.
+    assert!(!on_main_thread());
+    assert_eq!(wait(async { Ok::<_, Error>(7) }), Ok(7));
 }

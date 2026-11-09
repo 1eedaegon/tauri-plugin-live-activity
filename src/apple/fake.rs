@@ -7,12 +7,25 @@
 //! As on iOS, an activity that ends at once leaves the system's list (here at once, the losing side of the race), and
 //! `activity(id)` finds an id through a handle that is alive in the process, else through the list.
 
-use super::{Authorization, EndSpec, Handle, Kit, StartSpec, UpdateSpec};
+use super::{Authorization, EndSpec, Handle, Kit, StartSpec, UpdateSpec, glue::Acknowledge};
+use crate::layout::ActionEvent;
 use activitykit::{Error, State, Values};
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex, MutexGuard, Weak},
+    sync::{Arc, Mutex, MutexGuard, Weak, mpsc},
 };
+
+/// What the tests log: calls, handlers, emits and releases, in order.
+pub(crate) type Log = Arc<Mutex<Vec<String>>>;
+
+/// An acknowledgement that logs `released` when the tap's intent is let go.
+pub(crate) struct FakeAck(pub(crate) Log);
+
+impl Acknowledge for FakeAck {
+    fn acknowledge(&self) {
+        self.0.lock().unwrap().push("released".into());
+    }
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct Entry {
@@ -25,6 +38,8 @@ pub(crate) struct Entry {
     pub(crate) timestamp: Option<u64>,
     /// Whether the system lists it.
     pub(crate) listed: bool,
+    /// What the system could not show of it.
+    pub(crate) degraded: Vec<String>,
 }
 
 #[derive(Default)]
@@ -40,6 +55,8 @@ pub(crate) struct Book {
     pub(crate) authorization: Option<Authorization>,
     /// The handles alive in this process, by id; they share one token, as activitykit's share their state.
     alive: HashMap<String, Weak<()>>,
+    /// Where the taps of the kit's events go, once the plugin subscribed.
+    taps: Option<mpsc::Sender<(ActionEvent, FakeAck)>>,
 }
 
 impl Book {
@@ -99,6 +116,29 @@ impl FakeKit {
             .iter_mut()
             .filter(|entry| entry.id == id)
             .for_each(|entry| entry.state = state);
+    }
+
+    /// A tap as activitykit's events give it, to the subscriber of [`Kit::taps`].
+    pub(crate) fn send_tap(&self, event: ActionEvent, acknowledgement: FakeAck) {
+        let book = self.book();
+        let taps = book
+            .taps
+            .as_ref()
+            .expect("the plugin subscribed to the taps");
+        taps.send((event, acknowledgement)).unwrap();
+    }
+
+    /// The end of the kit's events.
+    pub(crate) fn close_taps(&self) {
+        self.book().taps = None;
+    }
+
+    /// What activitykit reports the system could not show of the activity `id`.
+    pub(crate) fn degrade(&self, id: &str, features: &[&str]) {
+        let mut book = self.book();
+        for entry in book.entries.iter_mut().filter(|entry| entry.id == id) {
+            entry.degraded = features.iter().map(|&feature| feature.to_owned()).collect();
+        }
     }
 
     /// Whether the system lists the activity `id`.
@@ -167,6 +207,15 @@ fn takes(
 
 impl Kit for FakeKit {
     type Handle = FakeHandle;
+    type Ack = FakeAck;
+
+    fn taps(&self) -> Box<dyn Iterator<Item = (ActionEvent, FakeAck)> + Send> {
+        let (sender, receiver) = mpsc::channel();
+        let mut book = self.book();
+        book.calls.push("taps".into());
+        book.taps = Some(sender);
+        Box::new(receiver.into_iter())
+    }
 
     fn authorization(&self) -> Authorization {
         self.book().authorization.unwrap_or(Authorization {
@@ -208,6 +257,7 @@ impl Kit for FakeKit {
                 stale_at: start.stale_at,
                 timestamp: Some(start.timestamp.unwrap_or(1_000)),
                 listed: true,
+                degraded: Vec::new(),
             });
             guard.starts.push(start);
             Ok(adopt(&book, &mut guard, &id, &key))
@@ -297,7 +347,7 @@ impl Handle for FakeHandle {
     }
 
     fn degraded_features(&self) -> Vec<String> {
-        Vec::new()
+        self.entry().map(|entry| entry.degraded).unwrap_or_default()
     }
 
     fn update(&self, update: UpdateSpec) -> impl Future<Output = activitykit::Result<()>> + Send {

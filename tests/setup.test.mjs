@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { main } from '../cli/main.mjs';
 import { setTrueKey } from '../cli/plist.mjs';
 import { formatReport } from '../cli/report.mjs';
-import { PERMISSIONS, SetupError, setup } from '../cli/setup.mjs';
+import { PERMISSIONS, SetupError, findCrates, setup } from '../cli/setup.mjs';
 import { fontNames } from '../cli/widget-files.mjs';
 import { addInclude, appGroupOf, readProject } from '../cli/xcodegen.mjs';
 
@@ -121,6 +121,36 @@ const statuses = result => Object.fromEntries(result.steps.map(step => [step.pat
 const xcodegenRuns = context => (existsSync(context.env.FAKE_XCODEGEN_LOG)
   ? readFileSync(context.env.FAKE_XCODEGEN_LOG, 'utf8').trim().split('\n') : []);
 const run = (context, options = {}) => setup({ cwd: context.app, env: context.env, platform: 'darwin', ...options });
+
+// TP-SETUP-1, TP-SETUP-2
+test('setup finds the real activitykit crate with cargo metadata and links the products its Swift package declares', t => {
+  const context = makeApp(t);
+  // The app depends on this checkout of the plugin, through the real cargo, with the versions of the demo's lock file.
+  const manifest = join(context.srcTauri, 'Cargo.toml');
+  writeFileSync(manifest, `${readFileSync(manifest, 'utf8')}tauri-plugin-live-activity = { path = ${JSON.stringify(repo)} }\n`);
+  cpSync(join(repo, 'examples/demo/src-tauri/Cargo.lock'), join(context.srcTauri, 'Cargo.lock'));
+  // The real cargo; XcodeGen stays the fake one, first on PATH.
+  const cargo = spawnSync('sh', ['-c', 'command -v cargo'], { encoding: 'utf8' }).stdout.trim();
+  assert.ok(cargo, 'cargo is on PATH');
+  const env = { ...process.env, FAKE_XCODEGEN_LOG: context.env.FAKE_XCODEGEN_LOG, CARGO: cargo, PATH: `${context.bin}:${process.env.PATH}` };
+  const { plugin, activitykit } = findCrates({ srcTauri: context.srcTauri }, env);
+  assert.equal(plugin.dir, repo.replace(/\/$/, ''));
+  const locked = /name = "activitykit"\nversion = "([^"]+)"/.exec(readFileSync(join(repo, 'Cargo.lock'), 'utf8'))[1];
+  assert.equal(activitykit.version, locked);
+  const declared = [...readFileSync(join(activitykit.dir, 'swift/Package.swift'), 'utf8').matchAll(/\.library\(name: "(\w+)"/g)]
+    .map(match => match[1]);
+  for (const product of ['ActivityKitWidget', 'ActivityKitViews', 'ActivityKitIntent']) assert.ok(declared.includes(product), product);
+  const result = run({ ...context, env });
+  assert.equal(result.steps.some(step => step.status === 'failed'), false);
+  // The widget is the crate's template, and the spec links products that the crate's Swift package declares.
+  assert.equal(read(context, 'gen/apple/LiveActivityWidget/LiveActivityWidget.swift'),
+    readFileSync(join(activitykit.dir, 'templates/ios/Widget.swift'), 'utf8'));
+  const spec = read(context, 'gen/apple/live-activity.yml');
+  assert.ok(spec.includes(join(activitykit.dir, 'swift')), spec);
+  const linked = [...new Set([...spec.matchAll(/product: (\w+)/g)].map(match => match[1]))].sort();
+  assert.deepEqual(linked, ['ActivityKitIntent', 'ActivityKitViews', 'ActivityKitWidget']);
+  for (const product of linked) assert.ok(declared.includes(product), product);
+});
 
 // TP-SETUP-2, TP-SETUP-7
 test('sets up a fresh Tauri 2 app: capabilities, Android minimum, widget files, XcodeGen spec', t => {
@@ -757,6 +787,21 @@ test('keeps old files that were changed by hand, as steps to do, and a dry run o
   assert.match(readFileSync(intent, 'utf8'), /\/\/ mine\n$/);
   assert.match(readFileSync(widget, 'utf8'), /\/\/ mine\n$/);
   assert.equal(existsSync(widgetPath(context, 'LiveActivityCustomRegistry.swift')), false);
+});
+
+// TP-SETUP-3
+test('keeps the old copies that a spec changed by hand still names, as steps to do', t => {
+  const context = makeApp(t, { fixture: 'app-0.3' });
+  const spec = join(context.srcTauri, 'gen/apple/live-activity.yml');
+  // A spec changed by hand keeps its sources, which name both old copies; setup keeps the spec.
+  writeFileSync(spec, `${readFileSync(spec, 'utf8')}# mine\n`);
+  const result = run(context);
+  assert.equal(statuses(result)['src-tauri/gen/apple/live-activity.yml'], 'kept');
+  const todo = Object.fromEntries(result.steps.filter(step => step.status === 'todo').map(step => [step.path, step.detail]));
+  for (const name of ['LiveActivityActionIntent.swift', 'LiveActivityCustomRegistry.swift']) {
+    assert.equal(existsSync(widgetPath(context, name)), true, name);
+    assert.match(todo[`src-tauri/gen/apple/LiveActivityWidget/${name}`], /live-activity\.yml, which you changed, still names it/);
+  }
 });
 
 test('checks the fonts and images it is given before it writes anything', t => {

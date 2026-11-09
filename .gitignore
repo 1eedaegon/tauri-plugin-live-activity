@@ -67,7 +67,6 @@ tests/ios/output/
 tests/ios/DemoUITests/*.xcodeproj/
 # What CI caches of the simulator run
 .ios-build/
-.e2e-passed/
 
 # Keys and certificates never belong in the repository.
 *.asc

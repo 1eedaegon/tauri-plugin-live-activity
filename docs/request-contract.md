@@ -176,8 +176,9 @@ snapshot's fields become its values (`title`, `status`, `progress` with `percent
 `endsAt`), with the marker value `liveActivityTemplate` set to `progress` or `timer`, by which `list`
 and the v1 commands find their activities and the layout commands leave them alone. The records stay
 v1 records. Both versions start through activitykit's keys, so a template and a layout activity
-cannot run under the same `activityKey`: the second start answers `CONFLICT`. A layout whose values
-hold `liveActivityTemplate` with `progress` or `timer` is taken for a template.
+cannot run under the same `activityKey`: the second start answers `CONFLICT`. The key
+`liveActivityTemplate` is therefore the plugin's: a layout start, update or end whose values hold it
+answers `INVALID_INPUT` on every platform, although activitykit's contract allows it.
 
 ### Requests
 
@@ -283,7 +284,8 @@ device's limit was reached.
 
 `values` is an object with 0 to 32 entries.
 
-- Key: `^[A-Za-z][A-Za-z0-9_]{0,31}$`.
+- Key: `^[A-Za-z][A-Za-z0-9_]{0,31}$`, except `liveActivityTemplate`, which the plugin keeps for
+  its templates on iOS.
 - Value: a string of 0 to 1000 Unicode code points, a finite number from -8640000000000000 to
   8640000000000000, or a boolean. The empty string is allowed. `null`, arrays and objects are
   not.

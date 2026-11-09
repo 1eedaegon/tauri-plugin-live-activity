@@ -46,7 +46,7 @@ export function iosSteps(context) {
   const include = includeStep(context, specPath, yaml);
   // XcodeGen lists the files of a folder when it generates, so a new or removed widget file also needs a run.
   const projectSteps = [
-    widgetStep(context, widget), ...retiredSteps(context, widget), customViewsStep(context, widget),
+    widgetStep(context, widget), ...retiredSteps(context, widget, readText(join(apple, SPEC_FILE))), customViewsStep(context, widget),
     ...fontSteps(context, widget), ...assetSteps(context, widget),
     specStep(context, apple, project, { fonts: bundledFonts(context, widget), appGroup }), include,
   ];
@@ -113,12 +113,19 @@ function widgetStep({ activitykit, show }, widget) {
   return step('kept', show(path), "differs from activitykit's template; to take the template, delete it and run setup again");
 }
 
-/** The button intent and the custom views registry of 0.2 and 0.3, which activitykit's products replace. */
-function retiredSteps({ show }, widget) {
+/**
+ * The button intent and the custom views registry of 0.2 and 0.3, which activitykit's products replace. A spec changed
+ * by hand, which setup keeps, may still name one: XcodeGen would fail without it, so it stays as a step to do.
+ */
+function retiredSteps({ show }, widget, spec) {
+  const kept = spec !== undefined && !writtenBySetup(spec);
   return RETIRED.flatMap(name => {
     const path = join(widget, name);
     const current = readText(path);
     if (current === undefined) return [];
+    if (kept && spec.includes(name)) {
+      return [step('todo', show(path), `${SPEC_FILE}, which you changed, still names it: take it out of the spec, then delete it; activitykit's Swift package replaces it`)];
+    }
     if (released(name, current)) {
       return [step('removed', show(path), "activitykit's Swift package replaces it", () => rmSync(path))];
     }

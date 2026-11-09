@@ -1,37 +1,51 @@
 //! iOS: the plugin's commands on the activitykit crate, which builds its Swift bridge into the app's Rust library. The
-//! plugin has no Swift of its own; the logic it adds is `crate::apple`, generic over the [`Kit`] implemented here.
+//! plugin has no Swift of its own; the logic it adds is `crate::apple`, generic over the [`Kit`] implemented here, and
+//! `apple::glue` maps the requests and runs the taps. This file only hands activitykit's types to them, and no test
+//! runs it: the coverage gate leaves it out, and the simulator suite (`tests/ios/run.sh`) drives it.
 
 use crate::{
-    Config, Error, Result,
-    actions::{self, ACTION_EVENT, Actions},
-    apple::{self, Apple, Authorization, EndSpec, Handle, Kit, StartSpec, UpdateSpec},
+    Config, Result,
+    actions::{ACTION_EVENT, Actions},
+    apple::{
+        self, Apple, Authorization, EndSpec, Handle, Kit, StartSpec, UpdateSpec,
+        glue::{self, Acknowledge},
+    },
     layout::{
         ActionEvent, LayoutActivityRecord, LayoutEndInput, LayoutStartInput, LayoutUpdateInput,
     },
     models::*,
 };
-use activitykit::{
-    Acknowledgement, Activity, ActivityKit, End, Event, Start, State, Update, Values,
-};
-use std::{
-    future::Future,
-    marker::PhantomData,
-    sync::Arc,
-    thread,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use activitykit::{Acknowledgement, Activity, ActivityKit, Event, State, Values};
+use std::{future::Future, iter, marker::PhantomData, sync::Arc};
 use tauri::{AppHandle, Emitter, Runtime, plugin::PluginApi};
 
-fn time(millis: u64) -> SystemTime {
-    UNIX_EPOCH + Duration::from_millis(millis)
-}
-
-fn millis(at: SystemTime) -> Option<u64> {
-    u64::try_from(at.duration_since(UNIX_EPOCH).ok()?.as_millis()).ok()
+impl Acknowledge for Acknowledgement {
+    fn acknowledge(&self) {
+        Acknowledgement::acknowledge(self);
+    }
 }
 
 impl Kit for ActivityKit {
     type Handle = Activity;
+    type Ack = Acknowledgement;
+
+    fn taps(&self) -> Box<dyn Iterator<Item = (ActionEvent, Acknowledgement)> + Send> {
+        let events = self.events();
+        Box::new(iter::from_fn(move || {
+            loop {
+                match events.recv_blocking() {
+                    Ok(Event::Action {
+                        activity,
+                        action,
+                        acknowledgement,
+                        ..
+                    }) => return Some((apple::action_event(&activity, action), acknowledgement)),
+                    Ok(_) => {}
+                    Err(_) => return None,
+                }
+            }
+        }))
+    }
 
     fn authorization(&self) -> Authorization {
         let authorization = ActivityKit::authorization(self);
@@ -43,16 +57,7 @@ impl Kit for ActivityKit {
     }
 
     fn start(&self, spec: StartSpec) -> impl Future<Output = activitykit::Result<Activity>> + Send {
-        let mut start = Start::new(spec.layout, spec.values)
-            .key(spec.key)
-            .revision(spec.revision);
-        if let Some(at) = spec.stale_at {
-            start = start.stale_at(time(at));
-        }
-        if let Some(at) = spec.timestamp {
-            start = start.timestamp(time(at));
-        }
-        self.start_with(start)
+        self.start_with(glue::start_of(spec))
     }
 
     fn activity(
@@ -93,11 +98,11 @@ impl Handle for Activity {
     }
 
     fn stale_at(&self) -> Option<u64> {
-        Activity::stale_at(self).and_then(millis)
+        Activity::stale_at(self).and_then(glue::millis)
     }
 
     fn timestamp(&self) -> Option<u64> {
-        Activity::timestamp(self).and_then(millis)
+        Activity::timestamp(self).and_then(glue::millis)
     }
 
     fn degraded_features(&self) -> Vec<String> {
@@ -105,84 +110,25 @@ impl Handle for Activity {
     }
 
     fn update(&self, spec: UpdateSpec) -> impl Future<Output = activitykit::Result<()>> + Send {
-        let mut update = Update::new(spec.values).revision(spec.revision);
-        if let Some(at) = spec.stale_at {
-            update = update.stale_at(time(at));
-        }
-        if let Some(at) = spec.timestamp {
-            update = update.timestamp(time(at));
-        }
-        self.update_with(update)
+        self.update_with(glue::update_of(spec))
     }
 
     fn end(&self, spec: EndSpec) -> impl Future<Output = activitykit::Result<()>> + Send {
-        let mut end = match spec.policy {
-            EndPolicy::Immediate {} => End::immediately(),
-            EndPolicy::Default {} => End::default(),
-            EndPolicy::After { at } => End::after(time(at)),
-        };
-        if let Some(values) = spec.values {
-            end = end.values(values);
-        }
-        if let Some(revision) = spec.revision {
-            end = end.revision(revision);
-        }
-        if let Some(at) = spec.stale_at {
-            end = end.stale_at(time(at));
-        }
-        if let Some(at) = spec.timestamp {
-            end = end.timestamp(time(at));
-        }
-        Activity::end(self, end)
+        Activity::end(self, glue::end_of(spec))
     }
 }
 
-/// Lets a tap's intent go when dropped: the dispatcher drops it once the `on_action` handlers have run and the tap went
-/// to JavaScript.
-struct Release(Acknowledgement);
-
-impl Drop for Release {
-    fn drop(&mut self) {
-        self.0.acknowledge();
-    }
-}
-
-/// Creates activitykit's kit early, at plugin setup, with the receipts of the plugin configuration: a tap that launched
-/// the app waits for it. One thread reads its events from then on and hands every tap, with its acknowledgement, to the
-/// handlers of `on_action` and then to JavaScript.
+/// Creates activitykit's kit early, at plugin setup, with the receipts of the plugin configuration, so that a tap that
+/// launched the app finds it; `apple::glue::setup` does the rest.
 pub(crate) fn init<R: Runtime>(
     app: &AppHandle<R>,
     api: PluginApi<R, Option<Config>>,
 ) -> Result<LiveActivity<R>> {
-    let kit = ActivityKit::builder()
-        .receipts(apple::receipts(api.config().as_ref()))
-        .build()?;
-    let apple = Arc::new(Apple::new(kit.clone()));
     let app = app.clone();
-    let actions = actions::spawn(move |event| {
-        let _ = app.emit(ACTION_EVENT, event);
-    })?;
-    let events = kit.events();
-    let taps = actions.clone();
-    thread::Builder::new()
-        .name("live-activity-events".into())
-        .spawn(move || {
-            while let Ok(event) = events.recv_blocking() {
-                if let Event::Action {
-                    activity,
-                    action,
-                    acknowledgement,
-                    ..
-                } = event
-                {
-                    taps.tap(
-                        apple::action_event(&activity, action),
-                        Release(acknowledgement),
-                    );
-                }
-            }
-        })
-        .map_err(|_| Error::native())?;
+    let (apple, actions) =
+        glue::setup(glue::builder(api.config().as_ref()).build(), move |event| {
+            let _ = app.emit(ACTION_EVENT, event);
+        })?;
     Ok(LiveActivity {
         apple,
         actions,
@@ -196,8 +142,8 @@ pub struct LiveActivity<R: Runtime> {
     runtime: PhantomData<fn() -> R>,
 }
 
-/// Each method blocks its thread until activitykit has answered, which it does from the main thread: never call one
-/// on the main thread. The commands await the same calls without blocking.
+/// Each method blocks its thread until activitykit has answered, which it does from the main thread: on the main thread
+/// a method answers `NATIVE_ERROR` at once instead. The commands await the same calls without blocking.
 impl<R: Runtime> LiveActivity<R> {
     pub fn get_capabilities(&self) -> Result<Capabilities> {
         Ok(self.apple.capabilities())
@@ -209,28 +155,28 @@ impl<R: Runtime> LiveActivity<R> {
         self.apple.request_permissions(kind)
     }
     pub fn start(&self, input: StartInput) -> Result<ActivityRecord> {
-        apple::block_on(self.apple.start_template(input))
+        apple::wait(self.apple.start_template(input))
     }
     pub fn update(&self, input: UpdateInput) -> Result<ActivityRecord> {
-        apple::block_on(self.apple.update_template(input))
+        apple::wait(self.apple.update_template(input))
     }
     pub fn end(&self, input: EndInput) -> Result<ActivityRecord> {
-        apple::block_on(self.apple.end_template(input))
+        apple::wait(self.apple.end_template(input))
     }
     pub fn list(&self) -> Result<Vec<ActivityRecord>> {
-        apple::block_on(self.apple.list_templates())
+        apple::wait(self.apple.list_templates())
     }
     pub fn start_layout(&self, input: LayoutStartInput) -> Result<LayoutActivityRecord> {
-        apple::block_on(self.apple.start_layout(input))
+        apple::wait(self.apple.start_layout(input))
     }
     pub fn update_layout(&self, input: LayoutUpdateInput) -> Result<LayoutActivityRecord> {
-        apple::block_on(self.apple.update_layout(input))
+        apple::wait(self.apple.update_layout(input))
     }
     pub fn end_layout(&self, input: LayoutEndInput) -> Result<LayoutActivityRecord> {
-        apple::block_on(self.apple.end_layout(input))
+        apple::wait(self.apple.end_layout(input))
     }
     pub fn list_layout(&self) -> Result<Vec<LayoutActivityRecord>> {
-        apple::block_on(self.apple.list_layout())
+        apple::wait(self.apple.list_layout())
     }
 
     /// Writes a PNG that `image` nodes with the source `{ "file": name }` show, replacing an earlier one of that name,

@@ -133,10 +133,7 @@ export interface LayoutValues {
 }
 
 export interface LayoutSnapshot {
-  /**
-   * Nonnegative JavaScript safe integer; strictly increases when the values change. On iOS a higher revision than
-   * the record's is sent as the record's plus one: activitykit numbers the revisions.
-   */
+  /** Nonnegative JavaScript safe integer; strictly increases when the values change. Sent as given. */
   readonly revision: number;
   /** The complete map. An update keeps the keys and the value types accepted at start. */
   readonly values: LayoutValues;

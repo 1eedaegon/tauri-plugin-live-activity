@@ -250,6 +250,8 @@ Group을 Apple 계정에 한 번 등록해야 하는데, 자동 서명이 대신
 - iOS는 활동마다 마지막 값을 앱의 Application Support에 평문으로 남깁니다. 플러그인 설정에
   `"receipts": "redacted"`를 주면 값 대신 다이제스트만 남깁니다.
 - 버튼을 누르면 Rust의 `on_action` 핸들러가 끝날 때까지 최대 4초 기다립니다. JavaScript 리스너는 기다리지 않습니다.
+- `app.live_activity()`의 Rust 메서드는 응답이 올 때까지 스레드를 멈추므로 메인 스레드가 아닌 곳에서 호출하세요. iOS에서
+  메인 스레드에서 호출하면 바로 `NATIVE_ERROR`를 돌려줍니다. JavaScript의 명령은 멈추지 않습니다.
 - 푸시 갱신은 없습니다. Android는 진행 중 알림으로 보여 주고, 시스템이 허용하면 Live Update로 올립니다.
 
 ## Samsung Now Bar
