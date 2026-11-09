@@ -1,287 +1,305 @@
 # iOS integration
 
-The backend uses ActivityKit on iPhone with iOS 16.1+ and iPad with iPadOS 17+.
-iOS app compatibility mode on Mac is unsupported. The host application must
-embed a WidgetKit extension. Installing the Rust crate or JavaScript package does
-not add that Xcode target automatically.
+On iOS the plugin's Rust commands call the [activitykit](https://github.com/1eedaegon/activitykit-rs) crate, and the
+plugin has no Swift of its own. activitykit's build script builds its Swift bridge, `ActivityKitBridge` (the C
+functions, the lifecycle with its receipts, and the ActivityKit calls), into the app's Rust library. What the app adds
+in Xcode is a widget extension that draws the activities and a little Swift in the app target; both link products of
+activitykit's Swift package. Installing the crate or the npm package does not add them:
+`npx tauri-plugin-live-activity setup` does, for the Xcode project that Tauri generates
+([Usage](usage.md#what-setup-does)).
 
-## Add the widget
+Live Activities need iOS 16.2 on an iPhone and iPadOS 17 on an iPad; buttons need iOS 17. Below that every command
+but the reads answers `UNSUPPORTED_PLATFORM`, and `getCapabilities()` reports every feature as unsupported. An iOS app
+running on a Mac is unsupported too.
 
-`npx tauri-plugin-live-activity setup` does these steps for the Xcode project that Tauri
-generates; [Usage](usage.md#what-setup-does) says how. The steps below are for a project
-that `setup` leaves alone, such as one that already has a widget extension.
-
-1. Enable `NSSupportsLiveActivities` (`Boolean`, `YES`) in the host application's
-   Info.plist.
-2. Add a Widget Extension target, with a minimum deployment target of iOS 16.1.
-   Remove its generated widget entry point and add
-   `templates/ios/LiveActivityWidget.swift` and
-   `templates/ios/LiveActivityActionIntent.swift`. Use `templates/ios/Info.plist`
-   as the extension Info.plist example.
-3. Add this repository's `ios` Swift package as a local package reference. Link its
-   **LiveActivityShared** and **LiveActivityUI** products to the widget extension.
-   The plugin links `LiveActivityShared` into the host app through the Rust static
-   library. Do not copy and redefine the attributes types in another Swift module.
-4. Add `templates/ios/LiveActivityActionIntent.swift` to the host app target too,
-   so the same file is a member of both targets. Link no package product to the
-   app target: the package's objects are already in the Rust static library, and
-   a second copy would duplicate symbols.
-5. For custom views, add `templates/ios/LiveActivityCustomRegistry.swift` and a copy of
-   `templates/ios/LiveActivityCustomViews.swift`, which is yours from then on, to both
-   targets as well. The widget draws the views; the plugin in the app reads which names have
-   one. Neither file imports the package. Without them the template does not compile.
-6. For fonts, add the files to the extension and list them under `UIAppFonts` in its
-   Info.plist. For images the app draws, give both targets the same App Group in
-   `com.apple.security.application-groups` and set `TauriLiveActivityAppGroup` to that group
-   in the extension's Info.plist.
-7. Give the extension an identifier under the app identifier, embed it in the
-   host, and use the same signing team for device builds.
-
-The template bundle contains two widgets: `LiveActivityWidget` draws v1
-activities (`start`, templates `progress` and `timer`) and
-`LiveActivityLayoutWidget` draws layout activities (`start_layout`, request
-contract v2). A host that keeps its own v1 widget, like the sample app's
-`MochiWidget.swift`, can add `LiveActivityLayoutWidget` to its bundle the same way.
-
-The package's Tauri dependency at `.tauri/tauri-api` is prepared by Tauri's Cargo
-plugin build. Before resolving the widget's local Swift package in Xcode, run
-this from the host application's `src-tauri` directory with its iOS toolchain
-configured:
-
-```sh
-cargo check --target aarch64-apple-ios-sim
-# On an Intel Mac, use --target x86_64-apple-ios instead.
+```text
+JavaScript, Rust -> the plugin's commands -> activitykit (Rust) -> ActivityKitBridge (Swift, in the Rust library) -> ActivityKit
+Lock Screen, Dynamic Island <- the widget extension: ActivityKitLayoutWidget (product ActivityKitWidget)
+A tap -> ActivityKitActionIntent in the app (product ActivityKitIntent) -> activitykit's events -> on_action -> onAction
 ```
 
-This prepares the Tauri Swift dependency before Xcode attempts package resolution.
-For a registry installation, locate the installed crate using `cargo metadata`;
-its `ios/` directory is the package location. The Rust crate includes both the template files under `templates/ios/` and the
-native Swift package under `ios/`. The npm package supplies the JavaScript API.
+The plugin's own iOS logic is Rust (`src/apple`): it checks every request against the contract before activitykit
+sees it, finds activities by id, applies the revision rules, answers a repeated start, builds the records, turns the
+progress and timer templates into layouts and hands taps to the handlers.
 
-The sample app's generated `project.yml` includes `LiveActivityWidget` and links
-`LiveActivityShared` and `LiveActivityUI`. Its bundle holds
-`examples/demo/widget/MochiWidget.swift`, a cat design for v1 activities, and an
-unchanged copy of the template's `LiveActivityLayoutWidget`. The intent template is a
-member of the app and the extension; the generic template remains available for other apps.
-Regenerating the entire Tauri iOS project can replace manual
-Xcode changes. Keep the widget target, package reference, intent file membership
-and Info.plist properties in the source XcodeGen specification used for your app.
+## Set up by hand
 
-No push token or remote notification entitlement is needed. An App Group is
-needed only for images that the app draws and writes with `writeImage`: the
-extension runs in its own sandbox and reads them from the group's container. The plugin does not request ordinary
-notification permission on iOS. If Live Activities are disabled,
-`requestPermissions('liveActivities')` returns `settingsRequired`;
-there is no repeated permission prompt or automatic settings redirect.
+`setup` does these steps for Tauri's generated project; [Usage](usage.md#set-up-by-hand) has them as commands and the
+XcodeGen spec. Do them yourself for a project that `setup` leaves alone, such as one that already has a widget
+extension.
 
-## Layout activities
+1. Find activitykit's folder. It is a dependency of the plugin, so `cargo metadata` lists it (the package named
+   `activitykit`). Its `swift` folder is the Swift package; add it as a local package reference. Until activitykit is
+   on crates.io it is a git checkout in Cargo's folder, whose path changes with each activitykit revision.
+2. Set `NSSupportsLiveActivities` (`Boolean`, `YES`) in the app's Info.plist. In a Tauri app that is
+   `src-tauri/Info.ios.plist`, which Tauri merges when it builds.
+3. Add a Widget Extension target with a deployment target of iOS 16.2. Link the `ActivityKitWidget` product, and
+   `ActivityKitViews` for custom views. Replace its Swift files with activitykit's `templates/ios/Widget.swift`, which
+   `setup` writes as `gen/apple/LiveActivityWidget/LiveActivityWidget.swift`:
 
-`start_layout` requires an embedded app extension whose Info.plist sets
-`TauriLiveActivityLayout` to the integer `2` (`Number` in Xcode's editor).
-Without one it answers `CONFIGURATION_REQUIRED`
-("Embed a widget extension built from the layout template."). The template
-Info.plist sets the key; add it to your own extension's Info.plist when you
-embed `LiveActivityLayoutWidget` there. `getCapabilities()` reports
-`layout: 'supported'` on every device that supports Live Activities.
+   ```swift
+   import ActivityKitWidget
+   import SwiftUI
+   import WidgetKit
 
-`LayoutView` (product `LiveActivityUI`) draws one region of the layout with the
-current values. Its `button` and `custom` builders let the widget wrap buttons in
-`Button(intent:)` and draw custom views, so the package names neither an intent
-type nor a view of the app. Absent island parts get the defaults of the contract: the
-expanded island shows the lock screen tree in its bottom region, the compact
-leading and minimal parts show the lock screen's first `symbol` (or
-`circle.fill`), and the compact trailing part is empty. `background` becomes
-`activityBackgroundTint` and `keyline` becomes `keylineTint`.
+   @main
+   struct Widgets: WidgetBundle {
+       var body: some Widget {
+           ActivityKitLayoutWidget()
+       }
+   }
+   ```
 
-A bound style member reads the snapshot's values each time the view is drawn, so an update
-redraws it with the new color or size. `LayoutView` does this for the members of styles. The
-two tints are applied outside it, so the template passes the values to
-`LayoutDocument.background(values:)` and `keyline(values:)`. The properties `background` and
-`keyline` give the literal tints only; a widget copied from an earlier template uses them, still
-compiles, and draws a bound tint as absent. A value that a member cannot take, which validation
-prevents, leaves the member out.
+4. In the extension's Info.plist, set `ActivityKitLayout` to the integer `2` (`Number` in Xcode's editor).
+5. Link the `ActivityKitIntent` product (buttons) and the `ActivityKitViews` product (custom views) to the app
+   target, and have the app target compile at least one Swift file. `setup`'s `LiveActivityCustomViews.swift` is that
+   file; the demo compiles a file whose only code is `import ActivityKitIntent`. Xcode extracts the App Intents metadata
+   of a linked package product only for a target that compiles Swift. Without it a button does nothing.
+6. Link no other activitykit product to the app target, and never link `ActivityKitBridge` in Xcode: the Rust library
+   holds the bridge already, and a second copy would duplicate its symbols. Do not define an `ActivityKitActionIntent`
+   of your own; Xcode refuses an intent that conflicts with one of a linked package.
+7. Give the extension an identifier under the app's (`setup` uses `<app identifier>.widget`) and the app's version,
+   embed it in the app, and use the same signing team for device builds.
 
-Rendering notes:
+Regenerating Tauri's iOS project replaces changes made in Xcode. Keep the widget target, the package reference, the
+products, the source files and the Info.plist keys in the XcodeGen spec of your app, as `setup` does with
+`gen/apple/live-activity.yml`.
 
-- Style members apply in this order: font and text members, `color`, `tint` and
-  `buttonStyle`, `padding`, `frame`, `background`, `cornerRadius`, `opacity`.
-  Members a style leaves out keep the values inherited from the parent.
-- `text` shows its string as given, without localization or Markdown.
-- `image` with an `asset` names an image in the widget extension's asset
-  catalog; an unknown name draws nothing. With a `file`, the widget reads
-  `tauri-live-activity/images/<name>` in the container of the App Group that its
-  Info.plist names under `TauriLiveActivityAppGroup`, with `UIImage(contentsOfFile:)`,
-  each time it draws. A missing file draws nothing.
-- `fontFamily` draws with `Font.custom`: `custom(_:size:relativeTo:)` with `font`,
-  at the text style's default size, `custom(_:fixedSize:)` with `size`, and the size
-  of `body` alone. The font must be in the extension, listed under `UIAppFonts`.
-- A `custom` node calls the `custom` builder of `LayoutView` with its name and its
-  props, the bound ones read from the values. The template looks the name up in
-  the `TauriLiveActivityCustomViews` class of `LiveActivityCustomViews.swift`; an
-  unknown name, or no such class, draws nothing.
-- `timerText` uses `Text(timerInterval:countsDown:)`. In a widget it is
-  horizontally flexible; give it a `frame` when it shares a row.
-- `progress` is a linear or circular `ProgressView`; `gauge` uses the accessory
-  linear or circular capacity style.
-- `path` is scaled to fit its frame, keeping the aspect ratio of its `box`; it is
-  stroked when `stroke` is set and filled otherwise, in the foreground color.
-- A `{ "light", "dark" }` color follows the color scheme the system draws the
-  activity with, the background tint included (`Color(_:scheme:)`). The Dynamic
-  Island is always dark, so `keyline` uses the dark color.
+activitykit's [iOS setup](https://github.com/1eedaegon/activitykit-rs/blob/main/docs/ios-setup.md) has the rest for an
+app target that does not come from Tauri: the Swift runtime's search paths and `IPHONEOS_DEPLOYMENT_TARGET` while
+cargo builds.
 
-### Buttons
+## Info.plist keys
 
-A `button` node needs iOS 17 or later; `getCapabilities()` reports
-`actions: 'supported'` there. Below iOS 17 the widget shows the button's label
-without the button.
+| Key | Target | Value |
+| --- | --- | --- |
+| `NSSupportsLiveActivities` | app | `YES`. Without it a start answers `CONFIGURATION_REQUIRED` |
+| `ActivityKitLayout` | widget extension | The integer `2`. A start checks that an embedded extension carries it and answers `CONFIGURATION_REQUIRED` otherwise |
+| `ActivityKitAppGroup` | widget extension | The App Group for images the app draws; only with `writeImage` |
+| `UIAppFonts` | widget extension | The fonts the extension bundles, for `fontFamily` |
 
-A tap runs `LiveActivityActionIntent`, a `LiveActivityIntent`, in the app process.
-The intent posts `tauri.live-activity.action` through `NotificationCenter` with
-the activity id and the action id. The plugin observes that notification from
-the moment it is created, acknowledges it, and sends
-`{ actionId, activityId, activityKey? }` to Rust on a background queue. Rust
-calls every `on_action` handler on a plugin thread and then emits
-`live-activity://action` for `onAction` listeners in the web view.
+0.2 and 0.3 named the extension's keys `TauriLiveActivityLayout` and `TauriLiveActivityAppGroup`; 0.4 reads neither.
 
-- When the system launches the app for a tap, the plugin may not exist yet, and
-  Tauri may never create a web view or run `setup()`. The intent posts again every
-  100 ms for up to 5 s until the plugin acknowledges. Up to 16 taps wait in the
-  plugin until Rust has registered its channel, and Rust keeps taps that arrive
-  before the first `on_action` handler.
-- Xcode builds App Intents metadata only for targets it compiles. The plugin's
-  Swift code is inside the Rust static library, so the app target needs its own
-  copy of the intent, and the widget needs one to build `Button(intent:)`. Keep
-  the type name: the system identifies the action by `LiveActivityActionIntent`.
-- The intent's `authenticationPolicy` is `.alwaysAllowed`. Apple's pages do not
-  settle whether a locked iPhone runs a Live Activity button without unlocking;
-  check it on a device.
-- A tap does not change the activity. Update it from the handler if the button
-  should change.
+## Pictures the app draws
+
+`writeImage` needs an App Group that both targets have in `com.apple.security.application-groups` and that the
+extension names under `ActivityKitAppGroup`. `setup --app-group` configures it. activitykit writes the PNG to
+`activitykit/images` in the group's container, and the widget reads it from there each time it draws. Without the
+group `writeImage` fails with `CONFIGURATION_REQUIRED`. A simulator needs nothing more; for a device the group has to
+exist in your Apple Developer account, which automatic signing registers once. Images that 0.3 wrote lie in
+`tauri-live-activity/images` and are not read any more: write them again.
+
+## Fonts and asset images
+
+A `fontFamily` names a font that the extension bundles and lists under `UIAppFonts`; an `image` with an `asset` names
+an image of the extension's asset catalog. `setup --font` and `setup --asset` add both. A font name the extension
+lacks draws the system font, and an unknown asset draws nothing; neither is reported.
+
+## Custom views
+
+A `custom` node draws a SwiftUI view that the app registers in `LiveActivityCustomViews.swift`, a subclass of
+activitykit's `ActivityKitCustomViewRegistry` with the Objective-C name `ActivityKitCustomViews`. The file is compiled
+into both targets, and both link `ActivityKitViews`: the widget draws the views, and activitykit in the app reads which
+names have one and lists the others in `degradedFeatures` as `layout.custom.<name>`. Without the class in the app
+target every name is listed. Keep the Objective-C name; the Swift class name may stay `LiveActivityCustomViews`.
+[Usage](usage.md#custom-swiftui-views) has an example.
+
+## Buttons
+
+A `button` node needs iOS 17; `getCapabilities()` reports `actions: 'supported'` there. Below iOS 17 the widget shows
+the button's label without the button.
+
+A tap runs activitykit's `ActivityKitActionIntent`, a `LiveActivityIntent`, in the app process. When the app was not
+running, the system launches it in the background. The intent posts the tap to activitykit's bridge for at most 5
+seconds. The plugin creates its `ActivityKit` at plugin setup and reads its events on a thread of its own from then
+on. It calls every `on_action` handler on a plugin thread, one tap after another, emits `live-activity://action` with
+`{ actionId, activityId, activityKey? }` for `onAction` listeners, and only then lets go of the tap's acknowledgement:
+the intent, and so an app that the system launched for the tap, waits for the Rust handlers, at most 4 seconds after
+the tap. `onAction` listeners are not awaited; a webview handler is asynchronous and may not run at all while the web
+view is suspended. Taps that come before the first handler wait for it, the newest 16, but their intent does not.
+
+- Register `on_action` handlers on the built `App` before `App::run`, or in the setup of a plugin, and not in
+  `Builder::setup`: when the system launches the app for a tap, Tauri may never run it, and may create no web view
+  for `onAction`.
+- The intent's `authenticationPolicy` is `.alwaysAllowed`. Whether a locked iPhone runs a button without unlocking
+  has not been checked on a device.
+- A tap does not change the activity. Update it from the handler if the button should change.
+
+## Permissions
+
+No push token, remote notification entitlement or ordinary notification permission is needed. An App Group is needed
+only for `writeImage`. Live Activities are a switch in the system's Settings, and the plugin has no prompt of its own:
+
+- `checkPermissions()` reports `liveActivities` as `granted` when they are on, `denied` when they are off, and
+  `notApplicable` where the device has none. `notifications` and `promotion` are `notApplicable`.
+- `requestPermissions('liveActivities')` reports `settingsRequired` instead of `denied`. Another kind fails with
+  `UNSUPPORTED_FEATURE`.
+- `getCapabilities()`: with Live Activities supported, every feature but `actions` is `supported`, and `actions`
+  follows iOS 17. Without them every feature is `unsupported` and the backend `unsupported`. `maxPayloadBytes` is 4096.
+
+## Starts, updates and ends
+
+- A start needs the app in the foreground. ActivityKit refuses a start from the background, which answers
+  `NOT_FOREGROUND`; a start right after the app left the foreground may still succeed.
+- The system ends an activity after 8 hours and removes it from the Lock Screen after 12.
+- Every start, update and end goes out at the request's revision, as in 0.3. activitykit's Swift layer takes a higher
+  revision than the accepted one, answers the accepted one with the same values and stale date as done, and refuses a
+  lower one (`STALE_REVISION`) or the accepted one with other values (`CONFLICT`). An end without a snapshot ends at
+  the next revision with the last values.
+- While an activity of a key runs, the same start returns it, also after a relaunch (activitykit compares the content
+  without its timestamp), and a different start under the key answers `CONFLICT`. After an end the key starts a new
+  activity with a new id.
+- Commands find an activity by its id through activitykit, which asks ActivityKit when it has no handle. An id that
+  neither knows answers `NOT_FOUND`, and so does an update of an ended activity.
+- A snapshot's `timestamp` goes to activitykit as the content's time; without one activitykit takes the time it sends
+  the content, and a start's content is always timed then. From iOS 17.2 ActivityKit drops content older than what it
+  shows: the update still succeeds, but the activity keeps showing the newer content. The iOS record does not carry
+  the timestamp back.
+- `staleAt` becomes ActivityKit's stale date. Each snapshot has its own; one without it clears the date. The state is
+  what ActivityKit reports: `pending`, `active`, `stale`, `ended`, `dismissed` or `unknown`. ActivityKit has not been
+  seen to report `stale` on a simulator, so no test asserts it.
+- A successful request does not prove that anything was shown: records keep `visibility: 'unknown'`.
+
+End policies:
+
+- `immediate` removes the activity at once.
+- `default` keeps it on the Lock Screen for up to four hours.
+- `after` keeps it until the given time or four hours after the end, whichever comes first. Any time from 0 to
+  8640000000000000 ms is allowed, and a time in the past removes it at once. (0.3 required a time in the future.)
+
+`endLayout` takes final content in `snapshot`, checked as an update: `STALE_REVISION` below the accepted revision,
+`CONFLICT` at it with other values, `INVALID_INPUT` for other keys or types. Without `snapshot` the activity ends
+with its last accepted values at the next revision, so the record's revision is one higher. Ending again answers the
+record, also once the system no longer lists an activity that ended at once: the plugin keeps the handles of the last
+64 activities it ended in this launch. After a relaunch such an activity is `NOT_FOUND`. The v1 `end` takes no final
+content.
 
 ## Receipts
 
-ActivityKit publication can lag an awaited update. The plugin stores receipts of
-accepted requests in the app's Application Support directory, under
-`tauri-live-activity/receipts-v2.json`, and merges them with OS lifecycle state.
-This prevents a delayed OS read from accepting an older revision, including after
-an app restart. One file holds both contract versions. Each version keeps at most
-256 receipts, of which at most the latest 128 are terminal; the file is limited
-to 2 MiB. It is written atomically with iOS file protection until first unlock.
-The containing directory is excluded from cross-app access by the sandbox.
+ActivityKit can report an update late. activitykit's Swift layer therefore keeps a receipt of each accepted request in
+the app's Application Support, `activitykit/receipts-v2.json`, so that a late read cannot bring back an older revision,
+also after a restart. A receipt holds the activity's key and its last accepted values in plain text. The file is
+readable by the app only and protected until the first unlock after a restart. Leave out of activities what must not
+rest on the device in plain text.
 
-The plugin configuration chooses what a receipt contains:
+With `receipts: "redacted"` in the plugin configuration the plugin builds activitykit with redacted receipts, which keep
+a SHA-256 digest of each accepted content instead of its values. After a relaunch, `listLayout()` then gives the values
+that ActivityKit shows. A digest of guessable values can be guessed, and ActivityKit itself keeps the values in the
+activity's content. activitykit's settings hold for the whole process: when the app builds activitykit itself with
+other receipts first, the plugin's setup fails. Android ignores the option.
 
-```json
-{ "plugins": { "live-activity": { "receipts": "redacted" } } }
-```
+0.4 does not read 0.3's receipts (`tauri-live-activity/receipts-v2.json`) and does not list activities that 0.3
+started.
 
-- `full` (the default, also without a `live-activity` entry): the accepted
-  snapshot, including the text displayed in the activity. Do not put secrets in
-  that text.
-- `redacted`: only the SHA-256 digest of the snapshot's sorted-keys JSON. The
-  revision floor (`STALE_REVISION`), the same-revision check (an equal digest is
-  an idempotent success, a different one is `CONFLICT`), terminal receipts and
-  end idempotency survive a restart. Within one process the accepted snapshot is
-  kept in memory. After a restart, `list` and a repeated `end` report what
-  ActivityKit shows; an ended activity that ActivityKit no longer lists is
-  reported at the receipt's revision with an empty snapshot (empty title and
-  status in v1, `values: {}` in v2). Loading in this mode rewrites stored
-  snapshots as digests.
+## The progress and timer templates
 
-Layouts are never stored in receipts. On the first load, a
-`tauri-live-activity/receipts-v1.json` written by earlier versions is converted
-and deleted, which also removes its plaintext in redacted mode. A v1 file that
-cannot be read is an error and is kept. If such a file appears again, for
-example after a downgrade, its entries are merged and replace those with the same
-id.
+activitykit has no templates, so `start` turns a template request into a layout activity with a fixed tree, drawn like
+0.3's template widget:
 
-## Runtime behavior
+- Lock Screen: the title (headline, one line), the status (subheadline, up to two lines) and a progress bar or a
+  countdown, on the system's secondary background color in light and dark.
+- Dynamic Island: title, status and meter again in the expanded center; compact leading the symbol
+  `arrow.down.circle` or `timer`; compact trailing the percentage or the countdown; minimal a progress ring or the
+  `timer` symbol.
 
-Start activities while the application is in the foreground. `progress` and
-`timer` use the same shared Codable attributes and state in both binaries.
-`staleAt` requires iOS 16.2; iOS 16.1 returns `UNSUPPORTED_FEATURE` when it is used.
-It is sent as ActivityKit's `staleDate`. The returned `state` follows ActivityKit's
-observed lifecycle; it does not promise a `stale` transition at an exact clock time.
-On the tested iOS 27.2 simulator, foreground and background probes did not observe
-that transition within their observation window. See
-[iOS coverage](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-coverage.md).
-The `after` dismissal policy must be in the future and no more than four hours
-away. Immediate and default dismissal are also available. Layout activities
-follow the same rules.
+The snapshot's fields become values, with a marker value `liveActivityTemplate` set to `progress` or `timer`.
+`ActivityKitLayoutWidget` draws these activities like any layout, so a widget of the app's own for the templates no
+longer draws them. `start`, `update`, `end` and `list` keep their requests and records, and follow the revision rules
+above. `list` gives template activities only and `listLayout` layout activities only, and an id of one version is not
+found by the other version's commands. Both versions start through activitykit's keys, so a template and a layout
+activity can no longer run under the same `activityKey`: the second start answers `CONFLICT`. A layout of your own
+that holds the value `liveActivityTemplate` with `progress` or `timer` is taken for a template.
 
-A successful native request does not prove that the UI is visible. All results
-retain `visibility: 'unknown'`. The `degradedFeatures` of a layout record lists
-`layout.custom.<name>` for each custom node whose name the app's copy of
-`LiveActivityCustomViews.swift` does not register, while ActivityKit reports the
-activity; a record that only the receipts know lists nothing. Listing does not report locally saved activities
-as active when ActivityKit no longer reports them. Repeating `end` is idempotent
-while the terminal receipt is retained or the OS still reports that terminal
-activity. Evicted or unknown IDs return `NOT_FOUND`. A new start after completion
-receives a new handle. Remote pushes and lifecycle event subscriptions are outside
-this release; call `list()` when returning to the app.
+## Migrating from 0.3
 
-## Reproduce local tests
+1. End the activities that 0.3 started before you update: 0.4 does not list them, and they stay until the system ends
+   them, within 8 hours.
+2. Update the crate and the npm package to the same minor version, and run `npx tauri-plugin-live-activity setup`
+   again. On an app that 0.2 or 0.3 set up, it:
+   - removes `LiveActivityActionIntent.swift` and `LiveActivityCustomRegistry.swift` from
+     `gen/apple/LiveActivityWidget` when they are as a release wrote them;
+   - replaces a `LiveActivityWidget.swift` that 0.2 or 0.3 wrote with activitykit's template;
+   - gives `LiveActivityCustomViews.swift` activitykit's names: `@objc(ActivityKitCustomViews)`,
+     `ActivityKitCustomViewRegistry`, `ActivityKitCustomView`, `ActivityKitCustomProps` and `import ActivityKitViews`.
+     Your views stay as they are;
+   - writes `live-activity.yml` again on activitykit's Swift package, with iOS 16.2, `ActivityKitLayout` and, when the
+     spec had an App Group, the same group under `ActivityKitAppGroup`;
+   - runs XcodeGen.
 
-```sh
-tests/ios/run-core.sh
-```
+   Files changed by hand stay. An edited intent or registry file, and a widget file that still imports
+   `LiveActivityShared`, `LiveActivityUI` or `LiveActivityCore`, are reported as steps to do. Another changed widget
+   file is kept, and so is a `live-activity.yml` changed by hand, which still names 0.3's package and keys: delete it
+   and run `setup` again. A second run changes nothing. The 0.3 step that copied Tauri's Swift API into the plugin crate (`.tauri/tauri-api`)
+   is gone, and so is the `cargo check` that prepared it.
+3. Code: `endLayout` and `end_layout` take `LayoutEndInput` (`snapshot` is optional), a Rust `LayoutSnapshot` literal
+   needs `timestamp: None`, a `match` on `ActivityState` needs a `_` arm, and a start may fail with `NOT_FOREGROUND`.
+4. Write the images of `writeImage` again; 0.4 reads them from `activitykit/images`.
 
-This compiles the shared model and lifecycle core with a deterministic in-memory
-OS adapter used only in tests. It checks revisions, conflicting retries, async
-serialization, template validation, payload size, permission failures, missing
-OS activities, disk-backed restart/end recovery, receipt redaction and migration,
-and every case of `tests/fixtures/layout-requests.json`. LLVM coverage must be at
-least 80% for lines, functions, and regions. These metrics exclude the ActivityKit
-adapter, Tauri bridge, and widget rendering.
+An app whose widget extension `setup` left alone does the same by hand: replace the plugin's Swift package and its
+products (`LiveActivityShared`, `LiveActivityUI`) with activitykit's, draw with `ActivityKitLayoutWidget()`, delete
+the copied intent and registry files, rename the custom views as above, and move the Info.plist keys to their new
+names. A widget of your own can stay in the bundle beside `ActivityKitLayoutWidget()`; `import ActivityKitWidget`
+brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one that draws layouts itself.
 
-The real native harness is under `tests/ios/SimulatorHost`. It compiles the
-production ActivityKit adapters, the action hub and the lifecycle core, links the
-shared Swift module, and embeds the production widget template with the layout
-interpreter. The intent template is a member of the app and the widget, as in a
-host app:
+## Testing
 
-```sh
-xcodegen generate --spec tests/ios/SimulatorHost/project.yml
-xcodebuild \
-  -project tests/ios/SimulatorHost/LiveActivityNativeTests.xcodeproj \
-  -scheme LiveActivityNativeTests \
-  -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath /tmp/live-activity-native-host \
-  CODE_SIGNING_ALLOWED=NO build
-```
+- `cargo test` runs the plugin's iOS logic on the host, against a fake of activitykit: what each command sends, the
+  records, the templates, the receipts setting, and a tap held until a slow handler has run. `src/apple/glue.rs` maps
+  the plugin's requests to activitykit's `Start`, `Update` and `End`, builds the kit's settings, reads the taps from the
+  kit's events and holds each until the handlers have run; its tests compare them with activitykit's own types. Only
+  `src/ios.rs`, which hands activitykit's types to that code, is compiled for iOS alone: no host test runs it, the
+  coverage gate (`cargo llvm-cov`, 80 % of lines) leaves it out, and the simulator suite drives it. activitykit makes
+  no event or acknowledgement outside its crate, so its `match` on `Event::Action` cannot run on the host.
+- `ACTIVITYKIT_SKIP_SWIFT=1 cargo clippy --target aarch64-apple-ios --lib` checks the iOS code without building
+  activitykit's Swift. `cargo build --target x86_64-apple-ios --lib` builds it with the Swift bridge, which needs
+  Xcode. CI runs both.
+- `tests/ios/run.sh` runs the demo app end to end on an iOS Simulator of its own:
 
-Install its `.app` with `xcrun simctl install`, then launch
-`io.github.eedaegon.LiveActivityNativeTests`. It writes the current stage to
-`Documents/result.json` in its own data container. Lock the simulated device while
-it shows `updated` to inspect the actual widget. Return to the app so its local
-task can complete the immediate-end check. Native simulator coverage does not
-establish device signing, APNs, low-power behavior, or physical-device support.
+  ```sh
+  npm ci
+  tests/ios/run.sh
+  ONLY=DemoTests/test2LockScreenButtonReachesRustAndJavaScript tests/ios/run.sh   # one test
+  ```
 
-Launch arguments select the layout scenarios:
+  It creates an iPhone 17 Pro simulator on the newest iOS runtime installed, runs `npm run build:demo`, generates the
+  demo's Xcode project and the test project with XcodeGen, builds the demo with
+  `tauri ios build --debug --target x86_64|aarch64-sim --ci` for this Mac's architecture, installs it and runs the UI
+  tests of `tests/ios/DemoUITests`: a bound style on the Lock Screen, a Lock Screen button that reaches Rust and
+  JavaScript, `listLayout` after a relaunch, the demo's lifecycle test, the two templates on the Lock Screen, and a
+  tap that launches the app for a slow Rust handler. The tests run through the `DemoUITests` scheme of the project
+  that XcodeGen generates on every run; with an `.xctestrun` file alone, xcodebuild found no simulator on a CI
+  runner. It copies the screenshots, the other attachments, `xcodebuild.log` and, when a test failed, the demo's log
+  (`app.log`) to `tests/ios/output` (or `$OUTPUT`,
+  where it replaces only its own files), then deletes the simulator and the build, and puts back the tracked files of
+  the demo's `gen/apple`, which XcodeGen rewrites. It needs Xcode, XcodeGen, Node with the repository's npm
+  packages, and cargo with the iOS simulator target of this Mac. The archive step after the build needs a signing
+  team and may fail; the simulator needs only the build. Under `CI` a failed test runs again, up to three times in
+  all, and after a full pass `OUTPUT/passed` lists the tests that passed only on a retry.
+- `MODE=dev tests/ios/run.sh` lets `tauri ios dev` build, install, launch and serve the demo on the simulator, and
+  runs the layout, button and relaunch tests through its page, then launches it with `--start-buttons`, where Rust
+  starts the Buttons example and a tap on Pet Mochi reaches the Rust handler. Three things about Tauri CLI 2.12.4 have
+  nothing to do with Live Activities:
+  - `tauri ios dev --no-watch` ends once it has launched the app, and its server for the page ends with it: the page
+    then shows `Failed to request http://127.0.0.1:1430/`. Run it without `--no-watch`.
+  - With an iPhone connected, `tauri ios dev <simulator name>` takes the iPhone when no iPhone has that name. The
+    script hides connected iPhones from Tauri (`xcrun devicectl` and `ios-deploy`) for its run; disconnect them, or
+    name the device you mean, when you run `tauri ios dev` yourself.
+  - After the simulator build Tauri archives the app and installs the archive's copy; on an Intel Mac that archive is
+    a device build, which needs a signing team (`bundle > iOS > developmentTeam` or `APPLE_DEVELOPMENT_TEAM`). The
+    script answers the archive with the simulator build itself.
+- `BUILD_DIR=<folder>` keeps the built demo and UI tests, and `BUILD_KEY=<name>` marks a complete build: a later run
+  with the same key tests those products without building, as CI does on a cache hit (`tests/ci/cache.sh` makes the
+  key from the tracked files, Xcode and the pinned tools). The simulator destination names its architecture.
 
-- `-scenario layout` ends activities that earlier runs left, starts a layout
-  activity with a Stop button in redacted receipt mode, updates it, checks
-  recovery from a second controller and that the receipt file holds none of its
-  text, waits up to two minutes for a tap, and ends the activity after the action
-  arrived from the production action hub, off the main thread.
-- `-scenario fixtures` sends every case of `tests/fixtures/layout-requests.json`
-  through the plugin's argument decoding, controller and reply mapping, and draws
-  every region of every valid start with `LayoutView`.
-
-`NativeUITests/LayoutScreen` drives both on a simulator with iOS 17 or later.
-`testLayoutButtonReachesApp` reads the activity's texts on the Lock Screen, taps
-Stop and waits for the app to report the action:
-
-```sh
-xcodebuild test \
-  -project tests/ios/SimulatorHost/LiveActivityNativeTests.xcodeproj \
-  -scheme LiveActivityNativeTests \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  CODE_SIGNING_ALLOWED=NO \
-  -only-testing:NativeUITests/LayoutScreen
-```
+The Swift layer's own tests (its validators, the lifecycle and receipts, the C bridge and a test host on a simulator)
+are activitykit's ([testing](https://github.com/1eedaegon/activitykit-rs/blob/main/docs/testing.md)). 0.3's
+`tests/ios/run-core.sh`, the native harness `tests/ios/SimulatorHost` and the plugin's Swift unit tests are gone.
 
 ## Validation record
+
+The records below describe 0.3 and earlier: the plugin's own Swift package (`LiveActivityShared`, `LiveActivityCore`,
+`LiveActivityUI`, `LiveActivityPlugin`), its 16.1 availability gates and the native harness `tests/ios/SimulatorHost`,
+none of which exist in 0.4. No 0.4 run is recorded here yet.
 
 On 2026-11-04, Xcode 27.2 built the full Tauri Swift plugin package for arm64 and
 x86_64 iOS simulators with the package's iOS 15 deployment target and runtime
@@ -297,9 +315,8 @@ The sanitized persisted report is in `tests/ios/results/tauri-lifecycle.json`.
 XCTest drove the real WebView button; these were not mocked IPC calls.
 
 The Swift shared model/lifecycle suite passed 36 assertions with 98.05% line,
-94.92% region, and 97.10% function coverage at that checkpoint. Exact current
-coverage is printed by the test script. iOS 16.1/16.2 branches are compiled but
-have not been run on those older OS versions.
+94.92% region, and 97.10% function coverage at that checkpoint. iOS 16.1/16.2 branches were compiled but
+were not run on those older OS versions.
 
 On 2026-11-06, on an Intel Mac with Xcode 26.3 (iOS 26.2 SDK), the package's
 `tauri-plugin-live-activity` and `LiveActivityUI` schemes built for the iOS
@@ -319,11 +336,12 @@ light appearance had shown a light background behind white text, which is why
 color pairs are resolved from the view's color scheme. Locked-device behavior
 of the button was not tested.
 
-References: [Apple ActivityKit](https://developer.apple.com/documentation/activitykit),
-[Tauri mobile plugins](https://v2.tauri.app/develop/plugins/develop-mobile/).
-
-The README screenshot is a direct simulator capture of two running examples,
-without mock UI or test-result overlays. The download widget comes from the native
+`docs/images/ios-live-activity.png`, the README screenshot of the first releases, is a direct simulator capture of two
+running examples, without mock UI or test-result overlays. The download widget comes from the native
 production-adapter harness; the order widget comes from the actual Tauri demo's
 Start activity button. XCTest verified the visible order title and accepted the
 system's Live Activity prompt before the capture.
+
+References: [Apple ActivityKit](https://developer.apple.com/documentation/activitykit),
+[Tauri mobile plugins](https://v2.tauri.app/develop/plugins/develop-mobile/),
+[activitykit](https://github.com/1eedaegon/activitykit-rs).

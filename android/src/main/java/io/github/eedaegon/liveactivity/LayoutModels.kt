@@ -3,12 +3,21 @@ package io.github.eedaegon.liveactivity
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** The values of a layout activity at one revision. Values are `String`, `Double` or `Boolean`. */
-internal data class LayoutSnapshot(val revision: Long, val values: Map<String, Any>, val staleAt: Long?) {
+/**
+ * The values of a layout activity at one revision. Values are `String`, `Double` or `Boolean`.
+ * `staleAt` and `timestamp` (when the content was made) are epoch milliseconds; each is written
+ * back only when the request had it, and equality compares both, as the JSON does.
+ */
+internal data class LayoutSnapshot(val revision: Long, val values: Map<String, Any>, val staleAt: Long?, val timestamp: Long? = null) {
     val weight: Int get() = weigh(values)
-    fun json(): JSONObject = JSONObject().put("revision", revision).put("values", toJson(values))
-        .also { if (staleAt != null) it.put("staleAt", staleAt) }
+    fun json(): JSONObject = JSONObject().put("revision", revision).put("values", toJson(values)).also { json ->
+        if (staleAt != null) json.put("staleAt", staleAt)
+        if (timestamp != null) json.put("timestamp", timestamp)
+    }
 }
+
+/** An end request of contract v2: the handle, the policy kind and the optional final content. */
+internal data class LayoutEnd(val id: String, val policy: String, val snapshot: LayoutSnapshot?)
 
 /**
  * What a record keeps of its start: the whole [LayoutStart] while the activity lives, and only
@@ -158,7 +167,8 @@ internal class LayoutEngine(store: Store<LayoutRecord>, port: Port<LayoutRecord,
 
     fun start(request: LayoutStart): LayoutRecord = lifecycle.start(request)
     fun update(id: String, snapshot: LayoutSnapshot): LayoutRecord = lifecycle.update(id, snapshot)
-    fun end(id: String, policy: String): LayoutRecord = lifecycle.end(id, policy)
+    /** Ends with `snapshot` as the final content when there is one, checked as an update. */
+    fun end(id: String, policy: String, snapshot: LayoutSnapshot? = null): LayoutRecord = lifecycle.end(id, policy, snapshot)
     fun list(): List<LayoutRecord> = lifecycle.list()
 }
 

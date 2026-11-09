@@ -6,7 +6,7 @@ became, and how it differs from this draft, is in the
 
 Status: design proposal (RFC), before implementation. If accepted, it leads to v2 of
 `contracts/request.schema.json` and a revision of `docs/request-contract.md`. It builds on
-the feasibility study of 2026-11-05 in the fremen repository (`docs/tauri/`) and on the
+a feasibility study of 2026-11-05 in an app that uses the plugin and on the
 [architecture proposal](architecture.md).
 
 ## Goals
@@ -126,7 +126,7 @@ corrected automatically.
   by OS version.
 - Whether appintentsmetadataprocessor extracts the intent from a project that XcodeGen
   generated has to be checked on a device. It has not been verified; the check is shared
-  with S4 of fremen Phase 0.
+  with the first device checks of an app that uses the plugin.
 
 ## The 4 KB budget
 
@@ -169,7 +169,7 @@ existing docs give.
 | --- | --- |
 | Contract | `contracts/request.schema.json` v2 and fixtures; keep the four validators (Rust/Swift/Kotlin/JS) |
 | Interpreter | Snapshot tests from nodes to views (simulator), cases that region budgets reject, byte counts that match between Rust and Swift |
-| Device | A soak test of Rust-driven value updates while locked, the button intent (locked, without authentication), App Group images, each Dynamic Island region. These overlap with the plugin's first device checks, so they run alongside fremen Phase 0 |
+| Device | A soak test of Rust-driven value updates while locked, the button intent (locked, without authentication), App Group images, each Dynamic Island region. These overlap with the plugin's first device checks, so they run alongside them |
 | Regression | The v1 demo (Mochi) passes unchanged |
 
 ## Implementation steps (about 4–5 weeks)

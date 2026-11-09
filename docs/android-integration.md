@@ -87,9 +87,9 @@ A crash between persisting and posting can leave a pending `unknown` receipt;
 explicitly end that
 handle before restarting if it never becomes observable.
 
-This storage key is new in 0.3.0. End running template activities before upgrading from a
-release that used the former Kotlin lifecycle; old receipts are not imported, and Android can
-otherwise leave an old notification posted. Layout receipts are unchanged.
+This storage key is new in 0.4.0. End running template activities before upgrading from a
+release that used the former Kotlin lifecycle (0.3 and earlier); old receipts are not imported, and
+Android can otherwise leave an old notification posted. Layout receipts are unchanged.
 
 ## Layout activities (contract v2)
 

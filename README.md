@@ -23,11 +23,12 @@ an ongoing notification on Android. You describe the layout in TypeScript; the p
 </table>
 
 All four come from the [demo app](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo),
-which follows a cat named Mochi. The plugin runs on iOS 16.1+ and Android 8+; on desktop, its
-activity commands return `UNSUPPORTED_PLATFORM`. Before 1.0, a minor version may change the API.
-On Android, fixed progress/timer lifecycle and policy run in Rust through
-[`1eedaegon/liveupdate-rs`](https://github.com/1eedaegon/liveupdate-rs); Kotlin is limited to
-notification framework calls and app-private receipt storage.
+which follows a cat named Mochi. The plugin runs on iOS 16.2+ and Android 8+; on desktop, its
+activity commands return `UNSUPPORTED_PLATFORM`. On iOS it is built on the
+[activitykit](https://github.com/1eedaegon/activitykit-rs) crate and has no Swift of its own. On Android the progress
+and timer templates run their lifecycle in Rust, on the [liveupdate](https://github.com/1eedaegon/liveupdate-rs)
+crate, and Kotlin only calls the notification framework and stores the app's receipts; layout activities keep their
+Kotlin renderer. Before 1.0, a minor version may change the API.
 
 ## Install
 
@@ -46,9 +47,10 @@ Then add one line to the builder in `src-tauri/src/lib.rs`:
 ```
 
 `setup` grants the plugin's permissions, raises the Android minimum to API 26 and, on a Mac,
-adds the widget extension that draws the activity to the Xcode project. Run it after
-`tauri ios init`, and again if `src-tauri/gen/apple` is ever made from scratch. `--dry-run`
-shows what it would change.
+adds the widget extension that draws the activity to the Xcode project, on activitykit's Swift
+package. Run it after `tauri ios init`, and again if `src-tauri/gen/apple` is ever made from
+scratch. On an app that 0.3 set up, run it again: it moves the widget and your custom views to
+activitykit. `--dry-run` shows what it would change.
 
 ## Use
 
@@ -86,7 +88,7 @@ await updateLayout({ id, snapshot: { revision: 2, values: { ...values, tone: 're
 let status = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
 // Later: every value again, with the new color.
 values.insert("tone".into(), Value::Text("red".into()));
-app.live_activity().update_layout(LayoutUpdateInput { id, snapshot: LayoutSnapshot { revision: 2, values, stale_at: None } })?;
+app.live_activity().update_layout(LayoutUpdateInput { id, snapshot: LayoutSnapshot { revision: 2, values, stale_at: None, timestamp: None } })?;
 ```
 
 Only `color`, `background`, `tint`, `opacity`, `size`, `weight`, `cornerRadius` and the layout's
@@ -230,12 +232,12 @@ custom('ring', { props: { level: bind('done'), width: 4 } }),
 ```
 
 ```swift
-"ring": LiveActivityCustomView { props in Ring(level: props.number("level") ?? 0) },
+"ring": ActivityKitCustomView { props in Ring(level: props.number("level") ?? 0) },
 ```
 
 A name without a view draws nothing and is reported in `degradedFeatures` as `layout.custom.ring`. The last
-resort is to edit the copied `LiveActivityWidget.swift`; `setup` then keeps your copy, and template updates are
-yours to merge.
+resort is to edit the copied `LiveActivityWidget.swift`, activitykit's widget template; `setup` then keeps your copy,
+and template updates are yours to merge.
 
 Limits: a Live Activity has no network and little memory. A drawn PNG is at most 1 MiB and 1224 × 480 pixels,
 Apple's largest Lock Screen presentation at @3x. Fonts must be in the extension. On a device the App Group is
@@ -243,6 +245,17 @@ registered with your Apple account once; automatic signing does that. The valida
 and props, not the view. Android draws none of these, except that the first drawn image becomes the
 notification's large icon. Layout, styles and values still share 3584.
 [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#beyond-the-built-in-parts)
+
+## Limits
+
+- iOS: an iPhone with iOS 16.2 or an iPad with iPadOS 17; buttons need iOS 17. An activity starts only while the
+  app is in the foreground (`NOT_FOREGROUND` otherwise), and the system ends it after 8 hours.
+- iOS keeps each activity's last values in plain text in the app's Application Support, unless the plugin
+  configuration sets `"receipts": "redacted"`.
+- A button's tap waits for your Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.
+- The Rust methods of `app.live_activity()` block until the answer: call them off the main thread. On iOS a call on
+  the main thread answers `NATIVE_ERROR` at once. The commands from JavaScript never block.
+- No push updates. Android shows an ongoing notification, promoted to a Live Update where the system allows it.
 
 ## Samsung Now Bar
 

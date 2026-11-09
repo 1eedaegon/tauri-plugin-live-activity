@@ -13,19 +13,21 @@ categories = ["api-bindings", "gui", "os::android-apis"]
 links = "tauri-plugin-live-activity"
 include = [
     "/src/**", "/build.rs", "/permissions/**",
-    "/ios/Package.swift", "/ios/Sources/**",
     "/android/build.gradle.kts", "/android/consumer-rules.pro", "/android/src/main/**",
-    "/templates/ios/**", "/Cargo.toml", "/Cargo.lock", "/LICENSE*", "/README.md",
+    "/Cargo.toml", "/Cargo.lock", "/LICENSE*", "/README.md",
     "/docs/ios-integration.md", "/docs/android-integration.md",
     "/tests/contract.rs", "/tests/fixtures/requests.json", "/tests/fixtures/layout-requests.json",
 ]
 
 [dependencies]
+# iOS Live Activities, and the request contract that every platform checks.
+activitykit = "0.1"
 tauri = { version = "2.12.5", default-features = false }
 serde = { version = "1", features = ["derive"] }
 # Correctly rounded number parsing, so that a value arrives as JavaScript sent it.
 serde_json = { version = "1", features = ["float_roundtrip"] }
 thiserror = "2"
+# Android: the lifecycle, revisions and receipts of the progress and timer templates.
 liveupdate = { version = "0.1.0-alpha.1", git = "https://github.com/1eedaegon/liveupdate-rs", rev = "3b797bbfeb7aef29253ff0cb017bb7b07ee0bd46" }
 
 [target.'cfg(target_os = "ios")'.dependencies]

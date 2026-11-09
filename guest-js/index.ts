@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
-  ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutStartInput,
+  ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutEndInput, LayoutStartInput,
   LayoutUpdateInput, PermissionKind, Permissions, StartInput, UpdateInput,
 } from './types.js';
 
@@ -54,8 +54,8 @@ export function updateLayout(input: LayoutUpdateInput): Promise<LayoutActivityRe
   return invoke('plugin:live-activity|update_layout', { input });
 }
 
-/** End this layout generation. A late update cannot revive it. */
-export function endLayout(input: EndInput): Promise<LayoutActivityRecord> {
+/** End this layout generation, with final content when `snapshot` is given. A late update cannot revive it. */
+export function endLayout(input: LayoutEndInput): Promise<LayoutActivityRecord> {
   return invoke('plugin:live-activity|end_layout', { input });
 }
 
@@ -68,7 +68,8 @@ export function listLayout(): Promise<readonly LayoutActivityRecord[]> {
  * Write a PNG that `image` nodes with the source `{ file: name }` show, replacing one of that name. The widget
  * reads it each time it draws the activity, on start and on every update, so write the picture first and then
  * update. At most 1 MiB and 1224 x 480 pixels (`PAYLOAD_TOO_LARGE` beyond). On iOS it needs the App Group
- * that `setup --app-group` configures (`CONFIGURATION_REQUIRED` without one); on Android the first such image
+ * that `setup --app-group` configures (`CONFIGURATION_REQUIRED` without one), where activitykit writes it to
+ * `activitykit/images`; on Android the first such image
  * becomes the notification's large icon.
  */
 export function writeImage(name: string, png: Uint8Array | ArrayBuffer): Promise<void> {
@@ -78,7 +79,10 @@ export function writeImage(name: string, png: Uint8Array | ArrayBuffer): Promise
 
 /**
  * Receive button taps while this webview is alive; resolves to the function that stops listening.
- * Listening uses Tauri's event permissions (`core:event:default`).
+ * Listening uses Tauri's event permissions (`core:event:default`). The tap reaches the page after the Rust
+ * `on_action` handlers have run; the tap's intent does not wait for this handler, which runs in the webview whenever it
+ * gets the event, and not at all while the webview is suspended or was never created. Act on taps in Rust when they
+ * must not be lost.
  */
 export function onAction(handler: (event: ActionEvent) => void): Promise<UnlistenFn> {
   return listen<ActionEvent>('live-activity://action', event => handler(event.payload));

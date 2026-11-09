@@ -78,6 +78,51 @@ async function checkEnded(api: API, current: Record, check: Check): Promise<void
   ));
 }
 
+function layoutRequest(runId: string): PublicAPI.LayoutStartInput {
+  return {
+    activityKey: `integration-layout:${runId}`, schemaVersion: 2, fallback: 'notification',
+    layout: { lockScreen: { type: 'text', bind: 'status' } },
+    snapshot: { revision: 0, values: { status: 'Starting' } },
+  };
+}
+
+/** How long an iOS layout stays on screen after its `after` end: briefly, so that it leaves the Lock Screen at once. */
+const AFTER_END_MS = 1000;
+
+/**
+ * The layout API: a start, an update that jumps revisions, a stale one, an end with final content at its revision, a
+ * repeated end and a late update. iOS ends `after` a time; Android, which answers `after` with UNSUPPORTED_FEATURE,
+ * with the default policy. `live` learns the id that the cleanup must end while it is running.
+ */
+async function checkLayout(api: API, runId: string, platform: string, check: Check, live: (id?: string) => void): Promise<void> {
+  const started = await api.startLayout(layoutRequest(runId));
+  live(started.id);
+  const { id } = started;
+  await check('a layout starts at the revision of its request', async () => {
+    ensure(started.snapshot.revision === 0 && started.snapshot.values.status === 'Starting', 'The layout record did not match the start');
+  });
+  const jumped = await api.updateLayout({ id, snapshot: { revision: 5, values: { status: 'Jumped' } } });
+  await check('a layout update may jump revisions', async () => {
+    ensure(jumped.snapshot.revision === 5 && jumped.snapshot.values.status === 'Jumped', 'The update did not keep its revision');
+  });
+  await check('a layout revision below the accepted one is rejected', () => rejectsCode(
+    api.updateLayout({ id, snapshot: { revision: 3, values: { status: 'Old' } } }), 'STALE_REVISION',
+  ));
+  const policy: PublicAPI.EndPolicy = platform === 'ios' ? { kind: 'after', at: Date.now() + AFTER_END_MS } : { kind: 'default' };
+  const ended = await api.endLayout({ id, policy, snapshot: { revision: 6, values: { status: 'Done' } } });
+  live(undefined);
+  await check('a layout ends with its final content at its revision', async () => {
+    ensure(ended.state === 'ended' && ended.snapshot.revision === 6 && ended.snapshot.values.status === 'Done',
+      'The end did not report its final content');
+  });
+  await check('a repeated layout end answers the record', async () => {
+    ensure((await api.endLayout({ id, policy: { kind: 'immediate' } })).state === 'ended', 'A repeated end did not report ended');
+  });
+  await check('a late layout update cannot revive the ended activity', () => rejectsCode(
+    api.updateLayout({ id, snapshot: { revision: 7, values: { status: 'Late' } } }), 'NOT_FOUND',
+  ));
+}
+
 function checkPermission(platform: string, permissions: PublicAPI.Permissions): void {
   const permission = platform === 'ios' ? permissions.liveActivities : permissions.notifications;
   ensure(permission === 'granted', `Grant the ${platform} activity/notification permission before running the test (${permission})`);
@@ -87,6 +132,7 @@ function checkPermission(platform: string, permissions: PublicAPI.Permissions): 
 export async function runLifecycleChecks(api: API, runId: string): Promise<SelfTestReport> {
   let report: SelfTestReport = { status: 'failed', platform: 'unknown', checks: [], visibility: 'unknown' };
   let liveId: string | undefined;
+  let liveLayout: string | undefined;
   const check: Check = async (name, task) => {
     await task();
     report = { ...report, checks: [...report.checks, { name, passed: true }] };
@@ -118,12 +164,17 @@ export async function runLifecycleChecks(api: API, runId: string): Promise<SelfT
       ensure((await api.end({ id: next.id, policy: { kind: 'immediate' } })).state === 'ended', 'Cleanup failed');
     });
     liveId = undefined;
+    await checkLayout(api, runId, capabilities.platform, check, id => { liveLayout = id; });
     report = { ...report, status: 'passed' };
   } catch (error) {
     report = { ...report, error: describeError(error) };
   }
   if (liveId !== undefined) {
     try { await api.end({ id: liveId, policy: { kind: 'immediate' } }); }
+    catch (error) { report = { ...report, cleanupError: describeError(error) }; }
+  }
+  if (liveLayout !== undefined) {
+    try { await api.endLayout({ id: liveLayout, policy: { kind: 'immediate' } }); }
     catch (error) { report = { ...report, cleanupError: describeError(error) }; }
   }
   return report;

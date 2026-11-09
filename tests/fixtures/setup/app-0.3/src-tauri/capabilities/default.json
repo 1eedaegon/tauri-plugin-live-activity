@@ -1,0 +1,20 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "enables the default permissions",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "live-activity:default",
+    "live-activity:allow-request-permissions",
+    "live-activity:allow-start",
+    "live-activity:allow-update",
+    "live-activity:allow-end",
+    "live-activity:allow-start-layout",
+    "live-activity:allow-update-layout",
+    "live-activity:allow-end-layout",
+    "live-activity:allow-write-image"
+  ]
+}

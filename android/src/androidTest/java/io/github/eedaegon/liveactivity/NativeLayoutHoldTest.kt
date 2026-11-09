@@ -28,7 +28,10 @@ class NativeLayoutHoldTest {
         val seconds = arguments.getString("liveActivityHold")?.toLongOrNull()
         assumeTrue("Pass -e liveActivityHold <seconds> to run this check", seconds != null)
         if (Build.VERSION.SDK_INT >= 33) {
-            instrumentation.uiAutomation.executeShellCommand("pm grant ${context.packageName} ${Manifest.permission.POST_NOTIFICATIONS}").close()
+            // Reading the output to its end waits for the grant; closing at once let the start race it on a phone.
+            instrumentation.uiAutomation.executeShellCommand("pm grant ${context.packageName} ${Manifest.permission.POST_NOTIFICATIONS}").let { descriptor ->
+                android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
+            }
         }
         val port = LayoutNotifications(context, { arguments.getString("samsungNowBar") == "true" })
         val engine = LayoutEngine(LayoutPreferencesStore(context), port)

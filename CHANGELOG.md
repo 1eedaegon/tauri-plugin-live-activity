@@ -1,8 +1,100 @@
 # Changelog
 
+## Unreleased
+
+iOS moves onto the [activitykit](https://crates.io/crates/activitykit) crate, which was split out of this plugin's iOS
+code. The plugin has no Swift of its own any more: its Rust commands call activitykit, whose build script builds its
+Swift bridge into the app's Rust library, and the widget extension links activitykit's Swift products. Requests,
+records, revisions and taps keep the behaviour of 0.3. On Android the progress and timer templates move onto the
+[liveupdate](https://github.com/1eedaegon/liveupdate-rs) crate, run from the plugin's Rust; layouts keep their Kotlin
+side. Desktop works as before.
+
+- iOS: the commands call activitykit 0.1 directly. The Tauri Swift plugin and the copied Swift packages (`ios/`,
+  `LiveActivityShared`, `LiveActivityCore`, `LiveActivityUI`, `LiveActivityPlugin`) and the templates under
+  `templates/ios` are gone. activitykit also fixes what 0.3's Swift got wrong: ActivityKit's `unsupported`,
+  `unsupportedTarget` and `visibility` refusals keep their codes, the start's preflight no longer depends on the app's
+  state, `pending` is a state, `End::after` takes any time, an end can carry final content, and every content has a
+  timestamp.
+- Revisions, repeated starts and receipts work as in 0.3: each start, update and end goes out at the request's
+  revision, the same keyed start returns the running activity (also after a relaunch), and `receipts: "redacted"`
+  keeps a digest instead of the values. After a relaunch, a redacted activity's record has the values that ActivityKit
+  shows, where 0.3 reported none.
+- On iOS a blocking method of `app.live_activity()` called on the main thread, where activitykit answers, returns
+  `NATIVE_ERROR` at once instead of waiting for an answer that cannot come.
+- A tap's intent, and so an app that the system launched for the tap, waits until the `on_action` handlers have run
+  and the tap has gone to JavaScript, at most 4 seconds, on iOS as on Android. JavaScript listeners are not awaited.
+- Breaking: iOS needs 16.2 on an iPhone (iPadOS 17 on an iPad). Below it every command but the reads answers
+  `UNSUPPORTED_PLATFORM`, and `getCapabilities()` reports the features as unsupported.
+- Breaking: an end can carry final content. `end_layout` takes `LayoutEndInput { id, policy, snapshot }` in Rust, and
+  `endLayout` takes `LayoutEndInput`, which is `EndInput` with an optional `snapshot`, in TypeScript. On iOS an end
+  without a snapshot ends with the last accepted values at the next revision, so its record has one revision more.
+- Breaking: `LayoutSnapshot` has an optional `timestamp`, the time the content was made, which ActivityKit uses on
+  iOS 17.2 to drop older content, and which iOS records carry. A struct literal needs `timestamp: None`.
+- Breaking: `ActivityState` has `Pending`, and the Rust enum is `#[non_exhaustive]`: a match needs a `_` arm.
+  TypeScript's `ActivityState` adds `'pending'`.
+- Breaking: the error code `NOT_FOREGROUND`, for a start that ActivityKit refuses while the app is not in the
+  foreground (it was `NATIVE_ERROR` or `PERMISSION_DENIED`). `UNSUPPORTED_FEATURE` and `SYSTEM_LIMIT` messages name
+  the feature and the limit.
+- Breaking: the extension's Info.plist keys are activitykit's, `ActivityKitLayout` and `ActivityKitAppGroup`, and
+  activitykit keeps receipts in `activitykit/receipts-v2.json` and drawn images in `activitykit/images` of the App
+  Group. Activities that 0.3 started are not listed by 0.4: end them before the update, or the system ends them
+  within 8 hours.
+- Breaking: the progress and timer templates of contract v1 are layout activities on iOS, with a fixed layout like
+  0.3's template widget, so `ActivityKitLayoutWidget` draws them and a widget of the app's own for them no longer
+  applies. `start`, `update`, `end` and `list` keep their requests and records. A v1 and a v2 activity can no longer
+  share an activity key.
+- Breaking: the plugin's setup fails when the process already runs activitykit with other receipts than the plugin
+  configuration names.
+- Breaking: on an app whose `live-activity.yml` was changed by hand, setup keeps the spec and the old
+  `LiveActivityActionIntent.swift` and `LiveActivityCustomRegistry.swift` that it names, and reports how to finish
+  the migration by hand.
+- Breaking: the value key `liveActivityTemplate` is the plugin's, which marks the progress and timer templates on iOS.
+  A layout start, update or end whose values hold it answers `INVALID_INPUT` on every platform.
+- Breaking: after a relaunch, ending again an activity that ended at once in an earlier launch, and that the system no
+  longer lists, is `NOT_FOUND`; 0.3 answered the record. Within a launch, ending again answers the record for the
+  last 64 activities that ended; an older one that the system no longer lists is `NOT_FOUND` too.
+- `npx tauri-plugin-live-activity setup` finds activitykit's folder with `cargo metadata` and writes
+  `live-activity.yml` on its Swift package: the widget extension (iOS 16.2) links `ActivityKitWidget` and
+  `ActivityKitViews`, and the app target links `ActivityKitIntent` and `ActivityKitViews` and compiles the custom
+  views file. It writes activitykit's widget template as `LiveActivityWidget.swift`. On an app that 0.2 or 0.3 set
+  up, it removes `LiveActivityActionIntent.swift` and `LiveActivityCustomRegistry.swift`, replaces the old widget
+  file, gives `LiveActivityCustomViews.swift` activitykit's names (your views stay), and writes the new Info.plist
+  keys with the App Group it had. A file changed by hand is kept and reported as a step to do. A second run changes
+  nothing.
+- Rust: the layout types (`Node`, `Element`, `Style`, `Island`, `Bound`, `Bindable`, `Color`, `Value` and the rest)
+  are activitykit's, under the same names and with the same JSON, and gain activitykit's builder methods. `Layout` is
+  activitykit's `contract::LayoutRegions`. The plugin's validator is activitykit's; `LayoutStartInput::validate_end`
+  is new.
+- Request contract v2 is activitykit's: `contracts/request.schema.json` and `tests/fixtures/layout-requests.json`
+  are its files, which `node tools/sync-contract.mjs --write` copies and a test compares. They add `timestamp` to
+  snapshots, final content to `end_layout` and the `ends` fixtures. The reference validator adds
+  `validateLayoutEnd`.
+- Android: the progress and timer templates of contract v1 run on the liveupdate crate (git revision 3b797bb), which
+  the plugin's Rust calls. Rust checks the requests and owns the fallback, repeated starts, revisions, limits, retries,
+  the lifecycle and the reconciliation with the posted notifications; the Kotlin side keeps six bounded operations
+  (capabilities, reading and replacing the receipts, observing, posting and cancelling notifications). Layout
+  activities keep their Kotlin renderer and lifecycle.
+- Breaking: on Android, end running template activities before the update. 0.4 does not read the receipts that 0.3's
+  Kotlin lifecycle stored, and a notification of 0.3 may stay posted.
+- Android takes a snapshot's `timestamp` and keeps it in the record, and ends a layout activity with the final
+  content of `end_layout`, checked as an update.
+- The demo's widget is activitykit's template, its own Mochi widget for the templates is gone, and its Rust handler
+  takes a second to count a pet, which the tap waits for. Launched with `--start-buttons`, it starts the Buttons
+  example from Rust. The debug build of `tauri ios dev` on a simulator works as the build of `tauri ios build`: the
+  page starts layouts, the widget draws them and their buttons reach Rust and the page.
+- `docs/spec.md` lists every requirement with its tests, checked by `tools/spec-coverage.sh` in CI. The demo runs on
+  an iOS Simulator of its own with `tests/ios/run.sh` (`MODE=dev` for `tauri ios dev`, with connected iPhones hidden
+  from Tauri).
+- CI caches the Rust builds and installs cargo-llvm-cov as a binary, and pins the Rust toolchain and XcodeGen (a
+  release checked against its SHA-256). Two new macOS jobs run the simulator suite, on the demo of `tauri ios build`
+  and on the demo of `tauri ios dev`. The built demo and UI tests are cached under a key of the tracked files they are
+  built from, Xcode and the tools. A suite that passed in full is recorded as an artifact named after its inputs, the
+  workflow file, what selects the suite (its mode, `ONLY` and the retries), the runner image and the simulator runtime
+  (`tests/ci/cache.sh`, as in activitykit), and a later run with the same inputs, the push to main that merges a tested
+  pull request included, skips it.
+
 ## 0.3.0
 
-- Route Android progress/timer activities through `1eedaegon/liveupdate-rs`. Rust now owns validation, fallback policy, idempotency, revisions, limits, retry, lifecycle and notification reconciliation; Kotlin exposes only six bounded framework and persistence operations. End running template activities before upgrading because the former Kotlin receipt store is not migrated. Contract v2 layouts keep their Kotlin renderer and lifecycle engine.
 - Add bound style members to request contract v2. `{ "bind": "<value key>" }` can stand for a literal `color`, `background`, `tint`, `opacity`, `size`, `weight` or `cornerRadius` in a style, and for the layout's `background` and `keyline`. The member reads that value on every render, so `updateLayout` and `update_layout` change it while the activity runs. A bound color is a color name or a hex color, never a light and dark pair. The tree and the other members stay fixed at start.
 - Rust, the reference validator, Swift and Kotlin check the value at start, and the native layers check it again on every update, with `INVALID_INPUT` when it does not fit. The fixture file adds start cases and an `updates` list of start and update pairs that all four run.
 - TypeScript: `layout.bind(key)` and the types `LayoutBound` and `LayoutBindable<T>`. The reference validator adds `validateLayoutUpdate`.

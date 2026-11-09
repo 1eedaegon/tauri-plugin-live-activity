@@ -1,21 +1,23 @@
-// The iOS part of setup: Info.ios.plist, the widget files in gen/apple with the fonts and images it
-// bundles, the XcodeGen spec that adds the widget extension, the App Group, the plugin's Swift package
-// and the regenerated Xcode project.
+// The iOS part of setup: Info.ios.plist, the widget files in gen/apple with the fonts and images it bundles, the
+// XcodeGen spec that adds the widget extension on activitykit's Swift package, the App Group, and the regenerated
+// Xcode project. An app that 0.2 or 0.3 set up loses the plugin's old Swift files on the way (migration.mjs).
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, readdirSync } from 'node:fs';
-import { join, relative, resolve, sep } from 'node:path';
+import { readdirSync, rmSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { OLD_MODULES, RETIRED, released, renameCustomViews } from './migration.mjs';
 import { newPlist, setTrueKey } from './plist.mjs';
 import { SetupError, parseJson, readText, step, tail, which, writeFile } from './steps.mjs';
 import { assetSteps, bundledFonts, fontSteps } from './widget-files.mjs';
 import { SPEC_FILE, WIDGET, addInclude, appGroupOf, readProject, widgetSpec, writtenBySetup } from './xcodegen.mjs';
 
-const TEMPLATES = ['LiveActivityWidget.swift', 'LiveActivityActionIntent.swift', 'LiveActivityCustomRegistry.swift', 'Info.plist'];
-/** The app's own file: created once from the template and never written again. */
+/** The widget bundle: activitykit's template, under the name 0.2 and 0.3 gave the plugin's. */
+const WIDGET_FILE = 'LiveActivityWidget.swift';
+const WIDGET_TEMPLATE = join('templates', 'ios', 'Widget.swift');
+/** The app's own file: created once from the template and never written again, but for the names of activitykit. */
 const CUSTOM_VIEWS = 'LiveActivityCustomViews.swift';
+const CUSTOM_VIEWS_TEMPLATE = new URL('./templates/LiveActivityCustomViews.swift', import.meta.url);
 const GROUP = /^group\.[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*$/;
 const PLIST_KEY = 'NSSupportsLiveActivities';
-// Left out of the copy of Tauri's Swift API, as the plugin's build script does.
-const NOT_COPIED = ['.build', 'Package.resolved', 'Tests'];
 
 export function iosSteps(context) {
   const { srcTauri, platform, show } = context;
@@ -42,12 +44,13 @@ export function iosSteps(context) {
   const widget = join(apple, WIDGET);
   const appGroup = appGroupFor(context, apple, project);
   const include = includeStep(context, specPath, yaml);
-  // XcodeGen lists the files of a folder when it generates, so a new widget file also needs a run.
+  // XcodeGen lists the files of a folder when it generates, so a new or removed widget file also needs a run.
   const projectSteps = [
-    ...templateSteps(context, apple), customViewsStep(context, widget), ...fontSteps(context, widget), ...assetSteps(context, widget),
+    widgetStep(context, widget), ...retiredSteps(context, widget, readText(join(apple, SPEC_FILE))), customViewsStep(context, widget),
+    ...fontSteps(context, widget), ...assetSteps(context, widget),
     specStep(context, apple, project, { fonts: bundledFonts(context, widget), appGroup }), include,
   ];
-  return [plist, ...projectSteps, swiftPackageStep(context), xcodegenStep(context, apple, specPath, projectSteps, include)];
+  return [plist, ...projectSteps, xcodegenStep(context, apple, specPath, projectSteps, include)];
 }
 
 /**
@@ -63,12 +66,19 @@ function appGroupFor({ appGroup, config }, apple, project) {
   return group;
 }
 
-/** LiveActivityCustomViews.swift belongs to the app: created once, then never written again. */
-function customViewsStep({ plugin, show }, widget) {
+/**
+ * LiveActivityCustomViews.swift belongs to the app: created once, then never written again, except that a file of 0.3
+ * takes activitykit's names, its views kept.
+ */
+function customViewsStep({ show }, widget) {
   const path = join(widget, CUSTOM_VIEWS);
-  if (readText(path) !== undefined) return step('unchanged', show(path));
-  const stub = readText(join(plugin.dir, 'templates', 'ios', CUSTOM_VIEWS));
-  if (stub === undefined) throw new SetupError(`The plugin crate at ${plugin.dir} has no templates/ios/${CUSTOM_VIEWS}.`);
+  const current = readText(path);
+  if (current !== undefined) {
+    const renamed = renameCustomViews(current);
+    if (renamed === undefined) return step('unchanged', show(path));
+    return step('updated', show(path), "activitykit's names for the registry and its types; your views are kept", writeFile(path, renamed));
+  }
+  const stub = readText(CUSTOM_VIEWS_TEMPLATE);
   return step('created', show(path), 'yours, for custom views; setup never changes it again', writeFile(path, stub));
 }
 
@@ -86,20 +96,44 @@ function infoPlistStep({ srcTauri, show }) {
   return step('kept', show(path), `it sets ${PLIST_KEY} to something other than true; Live Activities need true`);
 }
 
-function templateSteps({ plugin, show }, apple) {
-  return TEMPLATES.map(name => {
-    const wanted = readText(join(plugin.dir, 'templates', 'ios', name));
-    if (wanted === undefined) throw new SetupError(`The plugin crate at ${plugin.dir} has no templates/ios/${name}.`);
-    const path = join(apple, WIDGET, name);
+/** The widget bundle from activitykit's template; one that 0.2 or 0.3 wrote is replaced, one of the app's kept. */
+function widgetStep({ activitykit, show }, widget) {
+  const wanted = readText(join(activitykit.dir, WIDGET_TEMPLATE));
+  if (wanted === undefined) throw new SetupError(`The activitykit crate at ${activitykit.dir} has no ${WIDGET_TEMPLATE}.`);
+  const path = join(widget, WIDGET_FILE);
+  const current = readText(path);
+  if (current === undefined) return step('created', show(path), '', writeFile(path, wanted));
+  if (current === wanted) return step('unchanged', show(path));
+  if (released(WIDGET_FILE, current)) {
+    return step('updated', show(path), "activitykit's widget, in place of the one tauri-plugin-live-activity 0.3 wrote", writeFile(path, wanted));
+  }
+  if (OLD_MODULES.test(current)) {
+    return step('todo', show(path), "imports the Swift modules of tauri-plugin-live-activity 0.3, which 0.4 no longer has: draw with ActivityKitWidget's ActivityKitLayoutWidget(), or delete the file and run setup again");
+  }
+  return step('kept', show(path), "differs from activitykit's template; to take the template, delete it and run setup again");
+}
+
+/**
+ * The button intent and the custom views registry of 0.2 and 0.3, which activitykit's products replace. A spec changed
+ * by hand, which setup keeps, may still name one: XcodeGen would fail without it, so it stays as a step to do.
+ */
+function retiredSteps({ show }, widget, spec) {
+  const kept = spec !== undefined && !writtenBySetup(spec);
+  return RETIRED.flatMap(name => {
+    const path = join(widget, name);
     const current = readText(path);
-    if (current === undefined) return step('created', show(path), '', writeFile(path, wanted));
-    // XcodeGen writes the extension's Info.plist from the spec, so it differs from the template.
-    if (current === wanted || name === 'Info.plist') return step('unchanged', show(path));
-    return step('kept', show(path), "differs from the plugin's template; to take the template, delete it and run setup again");
+    if (current === undefined) return [];
+    if (kept && spec.includes(name)) {
+      return [step('todo', show(path), `${SPEC_FILE}, which you changed, still names it: take it out of the spec, then delete it; activitykit's Swift package replaces it`)];
+    }
+    if (released(name, current)) {
+      return [step('removed', show(path), "activitykit's Swift package replaces it", () => rmSync(path))];
+    }
+    return [step('todo', show(path), "changed by hand; activitykit's Swift package replaces it, so move your changes and delete it")];
   });
 }
 
-function specStep({ plugin, config, srcTauri, show }, apple, project, { fonts, appGroup }) {
+function specStep({ plugin, activitykit, config, srcTauri, show }, apple, project, { fonts, appGroup }) {
   const path = join(apple, SPEC_FILE);
   const wanted = widgetSpec({
     fonts,
@@ -107,7 +141,7 @@ function specStep({ plugin, config, srcTauri, show }, apple, project, { fonts, a
     // XcodeGen writes the entitlements file from the spec, so the App Group goes into the spec, at the app's path.
     appEntitlements: project.entitlements ?? `${project.appTarget}/${project.appTarget}.entitlements`,
     pluginVersion: plugin.version,
-    packagePath: join(plugin.dir, 'ios'),
+    packagePath: join(activitykit.dir, 'swift'),
     appTarget: project.appTarget,
     bundleId: `${project.bundleId ?? config.identifier}.widget`,
     ...appVersions(config, srcTauri),
@@ -115,13 +149,13 @@ function specStep({ plugin, config, srcTauri, show }, apple, project, { fonts, a
   });
   const current = readText(path);
   if (current === undefined) {
-    return step('created', show(path), 'the widget extension, and the button intent and custom views in both targets', writeFile(path, wanted));
+    return step('created', show(path), "the widget extension on activitykit's Swift package, and the button intent and custom views in the app", writeFile(path, wanted));
   }
   if (current === wanted) return step('unchanged', show(path));
   if (!writtenBySetup(current)) {
     return step('kept', show(path), 'it was changed by hand; delete it and run setup again to have it written anew');
   }
-  return step('updated', show(path), 'for the current plugin and app version', writeFile(path, wanted));
+  return step('updated', show(path), 'for the current plugin, activitykit and app version', writeFile(path, wanted));
 }
 
 /** The `version` of Cargo.toml's [package] section. */
@@ -150,21 +184,6 @@ function includeStep({ show }, specPath, yaml) {
   return step('todo', show(specPath), `add ${SPEC_FILE} to its include list`);
 }
 
-/** The plugin's Swift package refers to Tauri's at ../.tauri/tauri-api, which the plugin's iOS build copies there. */
-function swiftPackageStep({ plugin, show }) {
-  const target = join(plugin.dir, '.tauri', 'tauri-api');
-  if (existsSync(join(target, 'Package.swift'))) return step('unchanged', show(target));
-  const source = plugin.tauriDir && join(plugin.tauriDir, 'mobile', 'ios-api');
-  if (!source || !existsSync(join(source, 'Package.swift'))) {
-    const detail = "the plugin's Swift package needs Tauri's Swift API here. Build the Rust code for iOS once to make it: "
-      + 'cargo build --target aarch64-apple-ios-sim (x86_64-apple-ios on an Intel Mac) in src-tauri';
-    return step('todo', show(target), detail);
-  }
-  const copied = path => !NOT_COPIED.some(name => relative(source, path) === name || relative(source, path).startsWith(name + sep));
-  const detail = "Tauri's Swift API for the plugin's Swift package, as the plugin's iOS build copies it";
-  return step('created', show(target), detail, () => cpSync(source, target, { recursive: true, filter: copied }));
-}
-
 function generatedWithWidget(apple) {
   return readdirSync(apple).filter(name => name.endsWith('.xcodeproj'))
     .some(name => readText(join(apple, name, 'project.pbxproj'))?.includes(WIDGET));
@@ -173,7 +192,7 @@ function generatedWithWidget(apple) {
 function xcodegenStep({ env, show }, apple, specPath, projectSteps, include) {
   const command = `xcodegen generate --spec ${show(specPath)}`;
   if (include.status === 'todo') return step('skipped', 'Xcode project', 'waits for the include in project.yml');
-  const changed = projectSteps.some(item => item.status === 'created' || item.status === 'updated');
+  const changed = projectSteps.some(item => ['created', 'updated', 'removed'].includes(item.status));
   if (!changed && generatedWithWidget(apple)) return step('unchanged', 'Xcode project');
   const xcodegen = which('xcodegen', env);
   if (!xcodegen) return step('todo', 'Xcode project', `XcodeGen is not on PATH. Install it (brew install xcodegen), then run: ${command}`);

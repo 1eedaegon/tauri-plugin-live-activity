@@ -1,3 +1,5 @@
 xcuserdata/
 build/
 Externals/
+# The link to activitykit's folder that link-activitykit.mjs makes.
+/activitykit

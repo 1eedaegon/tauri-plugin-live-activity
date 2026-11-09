@@ -1,6 +1,8 @@
 use crate::{
     Error, Result,
-    layout::{ActionEvent, LayoutActivityRecord, LayoutStartInput, LayoutUpdateInput},
+    layout::{
+        ActionEvent, LayoutActivityRecord, LayoutEndInput, LayoutStartInput, LayoutUpdateInput,
+    },
     models::*,
     validation::Validate,
 };
@@ -79,7 +81,7 @@ impl<R: Runtime> LiveActivity<R> {
         Err(Error::unsupported())
     }
 
-    pub fn end_layout(&self, input: EndInput) -> Result<LayoutActivityRecord> {
+    pub fn end_layout(&self, input: LayoutEndInput) -> Result<LayoutActivityRecord> {
         input.validate()?;
         Err(Error::unsupported())
     }

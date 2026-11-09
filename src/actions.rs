@@ -1,10 +1,13 @@
 //! Button taps on their way from the native side to the handlers of `on_action`.
 //!
-//! The native side calls the channel closure on a thread of its own, never the main thread, and
-//! acknowledges the tap when the closure returns; an app that the system launched for the tap
-//! keeps running until then. The closure therefore queues the tap and waits, for a bounded time,
-//! until the handlers registered at that moment have run. One plugin thread runs the handlers,
-//! so a handler may call the plugin synchronously.
+//! On Android the native side calls the channel closure on a thread of its own, never the main
+//! thread, and acknowledges the tap when the closure returns; an app that the system launched for
+//! the tap keeps running until then. The closure therefore queues the tap and waits, for a bounded
+//! time, until the handlers registered at that moment have run. On iOS the taps come from
+//! activitykit's events, whose acknowledgement holds the tap's intent: [`Actions::tap`] queues the
+//! tap with it, and the dispatcher lets it go once the handlers have run and the event has gone to
+//! JavaScript. JavaScript listeners are not awaited. One plugin thread runs the handlers, so a
+//! handler may call the plugin synchronously.
 
 use crate::{ActionEvent, Error, Result};
 use std::{
@@ -14,6 +17,7 @@ use std::{
     thread,
     time::Duration,
 };
+#[cfg(any(target_os = "android", test))]
 use tauri::ipc::{Channel, InvokeResponseBody};
 
 /// The Tauri event that carries an [`ActionEvent`] to JavaScript.
@@ -27,8 +31,9 @@ type Handler = Arc<dyn Fn(ActionEvent) + Send + Sync>;
 type Handlers = Arc<Mutex<Vec<Handler>>>;
 
 enum Message {
-    /// A tap, and the sender whose drop tells `accept` that its handlers have run.
-    Tap(ActionEvent, mpsc::Sender<()>),
+    /// A tap, and what holds it: dropped once the handlers have run and the tap was emitted. On
+    /// Android it is the sender whose drop tells `accept`; on iOS activitykit's acknowledgement.
+    Tap(ActionEvent, Box<dyn Send>),
     Subscribed,
 }
 
@@ -37,6 +42,8 @@ enum Message {
 pub(crate) struct Actions {
     handlers: Handlers,
     queue: mpsc::Sender<Message>,
+    /// How long a tap of the Android channel waits for its handlers.
+    #[cfg_attr(not(any(target_os = "android", test)), allow(dead_code))]
     wait: Duration,
 }
 
@@ -60,6 +67,7 @@ fn channel(wait: Duration) -> (Actions, Dispatcher) {
 /// Runs the handlers on a thread of the plugin, where every tap then goes to `emit`, and hands
 /// the channel of the taps to `register` on the calling thread. When `register` fails, no tap
 /// arrives; the plugin works otherwise.
+#[cfg(any(target_os = "android", test))]
 pub(crate) fn start(
     register: impl FnOnce(Channel) -> bool,
     emit: impl Fn(&ActionEvent) + Send + 'static,
@@ -67,16 +75,28 @@ pub(crate) fn start(
     start_waiting(HANDLER_WAIT, register, emit)
 }
 
-fn start_waiting(
-    wait: Duration,
-    register: impl FnOnce(Channel) -> bool,
-    emit: impl Fn(&ActionEvent) + Send + 'static,
-) -> Result<Actions> {
+/// Runs the handlers on a thread of the plugin, where every tap then goes to `emit`.
+#[cfg(any(target_os = "ios", test))]
+pub(crate) fn spawn(emit: impl Fn(&ActionEvent) + Send + 'static) -> Result<Actions> {
+    spawn_waiting(HANDLER_WAIT, emit)
+}
+
+fn spawn_waiting(wait: Duration, emit: impl Fn(&ActionEvent) + Send + 'static) -> Result<Actions> {
     let (actions, dispatcher) = channel(wait);
     thread::Builder::new()
         .name("live-activity-actions".into())
         .spawn(move || dispatcher.run(emit))
         .map_err(|_| Error::native())?;
+    Ok(actions)
+}
+
+#[cfg(any(target_os = "android", test))]
+fn start_waiting(
+    wait: Duration,
+    register: impl FnOnce(Channel) -> bool,
+    emit: impl Fn(&ActionEvent) + Send + 'static,
+) -> Result<Actions> {
+    let actions = spawn_waiting(wait, emit)?;
     let taps = actions.clone();
     let source = Channel::new(move |body| {
         taps.accept(body);
@@ -99,10 +119,19 @@ impl Actions {
         let _ = self.queue.send(Message::Subscribed);
     }
 
+    /// Queues one tap for the handlers and returns at once. `hold` is dropped once the handlers
+    /// registered now have run and the tap was emitted, or at once when the plugin is gone.
+    #[cfg(any(target_os = "ios", test))]
+    pub(crate) fn tap(&self, event: ActionEvent, hold: impl Send + 'static) {
+        // The dispatcher ends only with the plugin, and then nothing is left to deliver.
+        let _ = self.queue.send(Message::Tap(event, Box::new(hold)));
+    }
+
     /// Queues one payload of the native channel and returns once the handlers registered now
     /// have run for it, or after the wait; without a handler it returns at once. It never
     /// panics: the caller is a native callback that cannot unwind. A payload that is not an
     /// action event is dropped.
+    #[cfg(any(target_os = "android", test))]
     pub(crate) fn accept(&self, body: InvokeResponseBody) {
         let InvokeResponseBody::Json(payload) = body else {
             return;
@@ -110,8 +139,12 @@ impl Actions {
         let Ok(event) = serde_json::from_str(&payload) else {
             return;
         };
-        let (handled, done) = mpsc::channel();
-        if self.queue.send(Message::Tap(event, handled)).is_ok() {
+        let (handled, done) = mpsc::channel::<()>();
+        if self
+            .queue
+            .send(Message::Tap(event, Box::new(handled)))
+            .is_ok()
+        {
             let _ = done.recv_timeout(self.wait);
         }
     }
@@ -191,6 +224,7 @@ mod tests {
         log.lock().unwrap().clone()
     }
 
+    // TP-ACTION-1, TP-ACTION-2
     #[test]
     fn every_handler_sees_a_tap_before_it_is_emitted() {
         let log = Log::default();
@@ -225,6 +259,7 @@ mod tests {
         );
     }
 
+    // TP-ACTION-1
     #[test]
     fn payloads_that_are_not_action_events_are_dropped() {
         let log = Log::default();
@@ -242,6 +277,7 @@ mod tests {
         assert!(finish(actions, runner, &log).is_empty());
     }
 
+    // TP-ACTION-2
     #[test]
     fn a_panicking_handler_does_not_stop_delivery() {
         let log = Log::default();
@@ -256,6 +292,7 @@ mod tests {
         );
     }
 
+    // TP-ACTION-2
     #[test]
     fn taps_before_the_first_handler_wait_for_it() {
         let log = Log::default();
@@ -279,6 +316,7 @@ mod tests {
         assert_eq!(log[early + MAX_PENDING..], ["late:live", "emit:live"]);
     }
 
+    // TP-ACTION-3
     #[test]
     fn a_tap_is_accepted_once_its_handlers_have_run() {
         let log = Log::default();
@@ -293,6 +331,7 @@ mod tests {
         assert_eq!(finish(actions, runner, &log).len(), 2);
     }
 
+    // TP-ACTION-3
     #[test]
     fn the_wait_for_a_handler_is_bounded() {
         let log = Log::default();
@@ -315,6 +354,7 @@ mod tests {
         assert_eq!(finish(actions, runner, &log), ["emit:stuck"]);
     }
 
+    // TP-ACTION-2
     #[test]
     fn a_handler_may_register_another_handler() {
         let log = Log::default();
@@ -341,6 +381,7 @@ mod tests {
         );
     }
 
+    // TP-ACTION-1
     #[test]
     fn the_channel_is_registered_on_the_calling_thread_and_carries_taps() {
         let log = Log::default();
@@ -361,6 +402,7 @@ mod tests {
         assert_eq!(log.lock().unwrap()[0], "rust:play");
     }
 
+    // TP-ACTION-1
     #[test]
     fn a_refused_channel_leaves_the_plugin_working() {
         let log = Log::default();
@@ -368,5 +410,66 @@ mod tests {
         handler(&actions, &log, "rust");
         actions.accept(tap("direct"));
         assert_eq!(*log.lock().unwrap(), ["rust:direct"]);
+    }
+
+    /// Records when it is dropped, as activitykit's acknowledgement lets the tap's intent go.
+    struct Release(Log, Instant);
+
+    impl Drop for Release {
+        fn drop(&mut self) {
+            record(
+                &self.0,
+                format!(
+                    "released after {} ms",
+                    self.1.elapsed().as_millis() / 1000 * 1000
+                ),
+            );
+        }
+    }
+
+    // TP-ACTION-1, TP-ACTION-3
+    #[test]
+    fn a_tap_from_activitykit_reaches_the_handlers_and_then_the_event_and_is_released_after_them() {
+        let log = Log::default();
+        let (actions, runner) = running(&log, LONG);
+        handler(&actions, &log, "rust");
+        let started = Instant::now();
+        let event = ActionEvent {
+            action_id: "pet".into(),
+            activity_id: "la-ios-layout-1".into(),
+            activity_key: Some("mochi:buttons".into()),
+        };
+        actions.tap(event.clone(), Release(log.clone(), started));
+        // Queuing does not wait: activitykit's events thread goes on reading.
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert_eq!(
+            finish(actions, runner, &log),
+            ["rust:pet", "emit:pet", "released after 0 ms"]
+        );
+        let spawned = spawn(|_| {}).unwrap();
+        spawned.tap(event, ());
+    }
+
+    // TP-ACTION-3
+    #[test]
+    fn a_tap_waits_for_a_rust_handler_that_takes_a_second() {
+        let log = Log::default();
+        let (actions, runner) = running(&log, LONG);
+        let slow = log.clone();
+        actions.subscribe(move |event| {
+            thread::sleep(Duration::from_secs(1));
+            record(&slow, format!("slow:{}", event.action_id));
+        });
+        let started = Instant::now();
+        actions.tap(
+            ActionEvent {
+                action_id: "pet".into(),
+                activity_id: "a".into(),
+                activity_key: None,
+            },
+            Release(log.clone(), started),
+        );
+        let entries = finish(actions, runner, &log);
+        assert_eq!(entries, ["slow:pet", "emit:pet", "released after 1000 ms"]);
     }
 }

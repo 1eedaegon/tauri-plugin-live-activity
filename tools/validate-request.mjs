@@ -118,7 +118,8 @@ function validateLayout({ command, input }) {
   if (command === 'start_layout') issues.push(...layoutIssues(input));
   // The weight is checked last, and only on a request that breaks no other rule.
   if (issues.length > 0) return { valid: false, issues };
-  if (command === 'end_layout') return { valid: true, issues };
+  // An end without final content has no values to weigh.
+  if (command === 'end_layout' && input.snapshot === undefined) return { valid: true, issues };
   const layoutWeight = command === 'start_layout' ? weight(input.layout) + weight(input.styles ?? {}) : 0;
   if (layoutWeight + weight(input.snapshot.values) > MAX_WEIGHT) return structuredClone(TOO_HEAVY);
   return { valid: true, issues };
@@ -144,6 +145,17 @@ export function validateLayoutUpdate(start, update) {
   if (issues.length > 0) return { valid: false, issues };
   if (weight(start.layout) + weight(start.styles ?? {}) + weight(values) > MAX_WEIGHT) return structuredClone(TOO_HEAVY);
   return { valid: true, issues: [] };
+}
+
+/**
+ * Development reference of the check the native layer makes on `end_layout` with final content: `end` against the
+ * `start_layout` input of its activity, as `validateLayoutUpdate` checks an update. An end without final content
+ * gets the result of `validateRequest`.
+ */
+export function validateLayoutEnd(start, end) {
+  const result = validateRequest({ command: 'end_layout', input: end });
+  if (!result.valid || end.snapshot === undefined) return result;
+  return validateLayoutUpdate(start, { id: end.id, snapshot: end.snapshot });
 }
 
 function layoutIssues({ layout, styles = {}, snapshot: { values } }) {

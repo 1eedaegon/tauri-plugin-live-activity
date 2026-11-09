@@ -2,7 +2,11 @@
 
 Status: the design drawn up during the first research, on 2026-11-04. The first alpha
 implements iOS and Android. What was actually built and tested is in the
-[validation record](validation.md).
+[validation record](validation.md). Since 0.4 the iOS side differs from this proposal: the
+plugin has no Swift adapter, `ios/` or `templates/ios/` of its own. Its Rust commands call the
+[activitykit](https://github.com/1eedaegon/activitykit-rs) crate, whose Swift layer talks to
+ActivityKit, and the host's widget extension links activitykit's Swift products
+([iOS integration](ios-integration.md)).
 
 ## Product requirements
 
@@ -66,9 +70,7 @@ src/
   mobile.rs              # Tauri mobile bridge
   desktop/               # macOS, Windows, Linux adapters
 permissions/             # Generated command permissions and defaults
-ios/                     # Swift plugin and shared ActivityAttributes model
 android/                 # Kotlin plugin and standard notification renderer
-templates/ios/           # Host Widget Extension integration template
 examples/demo/           # Tauri host app and native integration fixtures
 tests/                   # Contract and cross-backend fixtures
 docs/

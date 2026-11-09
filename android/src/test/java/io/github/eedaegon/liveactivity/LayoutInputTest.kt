@@ -16,7 +16,7 @@ class LayoutInputTest {
         {"type":"symbol","name":"waveform","variableBind":"level"},
         {"type":"path","d":"M0 0L24 24","box":[24,24]}]}}"""
     private val values = """{"title":"Focus","from":1790000000000,"to":1790000600000,"level":0.5,"live":true}"""
-    private fun start(values: String = this.values) = JSONObject("""{"activityKey":"fremen:session","schemaVersion":2,"fallback":"notification",
+    private fun start(values: String = this.values) = JSONObject("""{"activityKey":"app:session","schemaVersion":2,"fallback":"notification",
         "layout":$layout,"styles":{"title":{"font":"headline","padding":4}},"snapshot":{"revision":0,"values":$values}}""")
 
     private fun code(action: () -> Unit): String {
@@ -117,8 +117,8 @@ class LayoutInputTest {
     }
 
     @Test fun endTakesTheV1PolicyShapes() {
-        assertEquals("handle" to "immediate", LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":"immediate"}}""")))
-        assertEquals("handle" to "after", LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":"after","at":0}}""")))
+        assertEquals(LayoutEnd("handle", "immediate", null), LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":"immediate"}}""")))
+        assertEquals(LayoutEnd("handle", "after", null), LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":"after","at":0}}""")))
         assertEquals("INVALID_INPUT", code { LayoutInput.end(JSONObject("""{"id":"handle","policy":{"kind":5}}""")) })
         assertEquals("INVALID_INPUT", code { LayoutInput.end("text") })
     }

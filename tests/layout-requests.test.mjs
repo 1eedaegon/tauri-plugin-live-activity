@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import fixtures from './fixtures/layout-requests.json' with { type: 'json' };
 import v1Fixtures from './fixtures/requests.json' with { type: 'json' };
-import { validateLayoutUpdate, validateRequest, weight } from '../tools/validate-request.mjs';
+import { validateLayoutEnd, validateLayoutUpdate, validateRequest, weight } from '../tools/validate-request.mjs';
 
 const LOCK = '/input/layout/lockScreen';
 const ISLAND = '/input/layout/island';
@@ -35,20 +35,43 @@ const issues = (pairs) => pairs.map(([path, message]) => ({ path, message }));
 const weigh = ({ layout: tree, styles = {}, snapshot }) => (tree ? weight(tree) + weight(styles) : 0) + weight(snapshot.values);
 const codeOf = (result) => (result.issues.some(({ message }) => message === WEIGHT_MESSAGE) ? 'PAYLOAD_TOO_LARGE' : 'INVALID_INPUT');
 
+// TP-CONTRACT-3
 test('fixture names are unique and every start and update states its weight', () => {
-  const cases = [...fixtures.valid, ...fixtures.invalid, ...fixtures.updates];
+  const cases = [...fixtures.valid, ...fixtures.invalid, ...fixtures.updates, ...fixtures.ends];
   assert.equal(new Set(cases.map(({ name }) => name)).size, cases.length);
-  for (const { name, command, weight: stated } of fixtures.valid) assert.equal(Number.isInteger(stated), command !== 'end_layout', name);
-  assert.ok(fixtures.updates.length >= 20);
-  for (const { name, weight: stated, code } of fixtures.updates) assert.equal(Number.isInteger(stated), code === undefined, name);
+  const weighed = ({ command, input }) => command !== 'end_layout' || input.snapshot !== undefined;
+  for (const { name, weight: stated, ...request } of fixtures.valid) assert.equal(Number.isInteger(stated), weighed(request), name);
+  assert.ok(fixtures.updates.length >= 20 && fixtures.ends.length >= 4);
+  for (const { name, weight: stated, code } of [...fixtures.updates, ...fixtures.ends]) {
+    assert.equal(Number.isInteger(stated), code === undefined, name);
+  }
 });
 
 for (const { name, command, input, weight: stated } of fixtures.valid) {
   test(name, () => {
     assert.deepEqual(validateRequest({ command, input }), { valid: true, issues: [] });
     if (command !== 'end_layout') assert.equal(weigh(input), stated);
+    else if (input.snapshot !== undefined) assert.equal(weight(input.snapshot.values), stated);
   });
 }
+
+// TP-CONTRACT-3
+test('every end fixture is checked against its start', () => {
+  for (const { name, start: started, end, weight: stated, code } of fixtures.ends) {
+    assert.deepEqual(validateRequest({ command: 'start_layout', input: started }), { valid: true, issues: [] }, name);
+    const result = validateLayoutEnd(started, end);
+    if (code === undefined) {
+      assert.deepEqual(result, { valid: true, issues: [] }, name);
+      assert.equal(weight(started.layout) + weight(started.styles ?? {}) + weight(end.snapshot.values), stated, name);
+    } else {
+      assert.equal(result.valid, false, name);
+      assert.equal(codeOf(result), code, `${name}: ${JSON.stringify(result.issues)}`);
+    }
+  }
+  const plain = { id: 'opaque-handle-1', policy: { kind: 'immediate' } };
+  assert.deepEqual(validateLayoutEnd(fixtures.ends[0].start, plain), { valid: true, issues: [] });
+  assert.equal(validateLayoutEnd(fixtures.ends[0].start, { ...plain, snapshot: null }).valid, false);
+});
 
 for (const { name, command, input, code } of fixtures.invalid) {
   test(name, () => {

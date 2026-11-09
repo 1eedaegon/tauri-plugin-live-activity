@@ -58,6 +58,7 @@ for (const code of ['PERMISSION_DENIED', 'UNSUPPORTED_PLATFORM', 'STALE_REVISION
   });
 }
 
+// TP-JS-2
 test('writeImage sends the name and the bytes of a Uint8Array or an ArrayBuffer', async () => {
   const calls = [];
   mockIPC((nativeCommand, payload) => {
@@ -127,6 +128,7 @@ for (const [name, command, args, result] of [
   });
 }
 
+// TP-JS-1
 test('keeps the caller-owned layout request, its tree and its values unchanged', async () => {
   const serialized = JSON.stringify(layoutInput);
   mockIPC((_command, payload) => {
@@ -155,6 +157,7 @@ for (const [name, args, code] of [
   });
 }
 
+// TP-JS-3
 test('onAction hands each action payload, and nothing else, to its handler until that handler is unsubscribed', async t => {
   // The event mock keeps an unsubscribed listener id and warns when it finds no callback for it.
   t.mock.method(console, 'warn', () => {});
@@ -234,12 +237,14 @@ for (const [name, build, expected] of [
   });
 }
 
+// TP-JS-6
 test('layout.bind writes the binding of a style member and nothing else', () => {
   assert.deepEqual(layout.bind('tone'), { bind: 'tone' });
   assert.deepEqual(Object.keys(layout.bind('')), ['bind']);
   assert.notEqual(layout.bind('tone'), layout.bind('tone'));
 });
 
+// TP-JS-6
 test('layout builders omit options that were not given or are undefined', () => {
   assert.deepEqual(Object.keys(layout.vstack([])), ['type', 'children']);
   assert.deepEqual(layout.spacer({}), { type: 'spacer' });
@@ -283,6 +288,7 @@ const each = async (cases, check) => {
   }
 };
 
+// TP-JS-1
 test('sends every valid layout fixture to its command unchanged', async () => {
   const commands = new Set(fixtures.valid.map(({ command }) => command));
   for (const command of ['start_layout', 'update_layout', 'end_layout']) assert.ok(commands.has(command), `no valid fixture for ${command}`);
@@ -452,3 +458,37 @@ for (const [name, build] of [
     else assert.ok(starts.some(({ input }) => isDeepStrictEqual(input.layout, built)), 'no valid fixture holds this layout');
   });
 }
+
+// TP-JS-4
+test('endLayout sends the final content of an end unchanged', async () => {
+  const end = Object.freeze({
+    id: 'opaque-native-handle', policy: Object.freeze({ kind: 'after', at: 1_790_000_000_000 }),
+    snapshot: Object.freeze({ revision: 3, values: Object.freeze({ status: 'Delivered' }), timestamp: 1_790_000_000_000 }),
+  });
+  const calls = [];
+  mockIPC((nativeCommand, payload) => {
+    calls.push({ nativeCommand, payload });
+    return { id: end.id, state: 'ended' };
+  });
+  assert.deepEqual(await activity.endLayout(end), { id: end.id, state: 'ended' });
+  await activity.endLayout({ id: end.id, policy: { kind: 'immediate' } });
+  assert.deepEqual(calls, [
+    { nativeCommand: 'plugin:live-activity|end_layout', payload: { input: end } },
+    { nativeCommand: 'plugin:live-activity|end_layout', payload: { input: { id: end.id, policy: { kind: 'immediate' } } } },
+  ]);
+});
+
+// TP-JS-5
+test('the declarations follow the contract of 0.4', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const types = await readFile(new URL('../dist-js/types.d.ts', import.meta.url), 'utf8');
+  const index = await readFile(new URL('../dist-js/index.d.ts', import.meta.url), 'utf8');
+  assert.match(types, /export type ActivityState = 'pending' \| 'active' \| 'stale' \| 'ended' \| 'dismissed' \| 'unknown';/);
+  assert.match(types, /'NOT_FOREGROUND'/);
+  assert.match(types, /export interface LayoutSnapshot \{[^}]*readonly timestamp\?: number;/s);
+  assert.match(types, /export interface LayoutEndInput extends EndInput \{\s*readonly snapshot\?: LayoutSnapshot;\s*\}/);
+  assert.match(index, /export declare function endLayout\(input: LayoutEndInput\): Promise<LayoutActivityRecord>;/);
+  // iOS sends the caller's revision (TP-IOS-3); 0.4.0-dev numbered them, and no comment may say so.
+  assert.doesNotMatch(types, /numbers the revisions|record's plus one/);
+});
+

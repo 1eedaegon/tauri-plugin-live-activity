@@ -1,6 +1,7 @@
 use serde_json::{Value, json};
 use tauri_plugin_live_activity::{
-    Error, LayoutStartInput, LayoutUpdateInput, LiveActivityExt, Validate, validate_request, weight,
+    Error, LayoutEndInput, LayoutStartInput, LayoutUpdateInput, LiveActivityExt, Validate,
+    validate_request, weight,
 };
 
 fn progress() -> Value {
@@ -8,6 +9,7 @@ fn progress() -> Value {
         "fallback":"notification","snapshot":{"revision":0,"title":"Job","status":"Running","progress":0.3}})
 }
 
+// TP-CONTRACT-5
 #[test]
 fn shared_contract_fixtures_match_reference_validator() {
     let fixtures: Value = serde_json::from_str(include_str!("fixtures/requests.json")).unwrap();
@@ -26,6 +28,7 @@ fn shared_contract_fixtures_match_reference_validator() {
     }
 }
 
+// TP-CONTRACT-5
 #[test]
 fn rejects_boundary_and_type_errors_without_echoing_values() {
     let invalid = [
@@ -54,6 +57,7 @@ fn rejects_boundary_and_type_errors_without_echoing_values() {
     }
 }
 
+// TP-CONTRACT-5
 #[test]
 fn rejects_unknown_fields_nulls_and_mixed_presentations() {
     for (key, value) in [("unsafePath", json!("/tmp")), ("snapshot", json!(null))] {
@@ -80,6 +84,7 @@ fn rejects_unknown_fields_nulls_and_mixed_presentations() {
     assert!(validate_request("start", json!([])).is_err());
 }
 
+// TP-CONTRACT-5
 #[test]
 fn accepts_unicode_and_numeric_boundaries() {
     let mut input = progress();
@@ -91,6 +96,7 @@ fn accepts_unicode_and_numeric_boundaries() {
     assert!(validate_request("start", input).is_ok());
 }
 
+// TP-CONTRACT-5
 #[test]
 fn validates_timer_order_and_end_policy() {
     for (start, end, valid) in [
@@ -125,6 +131,7 @@ fn layout_weight(input: &Value) -> usize {
         + part("/layout").map_or(0, |layout| layout + part("/styles").unwrap_or(2))
 }
 
+// TP-CONTRACT-2, TP-RUST-3
 #[test]
 fn layout_fixtures_match_reference_validator() {
     let (valid, invalid) = (layout_cases("valid"), layout_cases("invalid"));
@@ -137,7 +144,9 @@ fn layout_fixtures_match_reference_validator() {
             "{name}"
         );
         match command {
-            "end_layout" => assert!(case.get("weight").is_none(), "{name}"),
+            "end_layout" if case["input"].get("snapshot").is_none() => {
+                assert!(case.get("weight").is_none(), "{name}")
+            }
             _ => assert_eq!(
                 case["weight"],
                 json!(layout_weight(&case["input"])),
@@ -159,6 +168,7 @@ fn layout_fixtures_match_reference_validator() {
 
 /// Each pair is a start and the update after it, which the native layer checks against the stored
 /// layout and styles. A valid pair states the weight of the layout, the styles and the new values.
+// TP-CONTRACT-2, TP-RUST-3
 #[test]
 fn layout_update_fixtures_match_the_check_against_the_start() {
     let updates = layout_cases("updates");
@@ -204,6 +214,7 @@ mod changing_styles {
             revision,
             values: BTreeMap::from(values),
             stale_at: None,
+            timestamp: None,
         }
     }
 
@@ -249,6 +260,7 @@ mod changing_styles {
     }
 }
 
+// TP-RUST-1, TP-DESKTOP-1
 #[test]
 fn the_changing_styles_example_binds_a_color_that_an_update_changes() {
     use changing_styles::{delivery, start_input};
@@ -288,6 +300,7 @@ fn the_changing_styles_example_binds_a_color_that_an_update_changes() {
     assert_eq!(plugin.start_layout(wrong), Err(Error::invalid()));
 }
 
+// TP-CONTRACT-2, TP-RUST-2
 #[test]
 fn layout_fixtures_keep_their_verdict_and_weight_through_the_typed_models() {
     for case in layout_cases("valid") {
@@ -303,12 +316,22 @@ fn layout_fixtures_keep_their_verdict_and_weight_through_the_typed_models() {
                 assert_eq!(typed.validate(), Ok(()), "{name}");
                 serde_json::to_value(&typed).unwrap()
             }
+            "end_layout" => {
+                let typed: LayoutEndInput = serde_json::from_value(input.clone()).unwrap();
+                assert_eq!(typed.validate(), Ok(()), "{name}");
+                assert_eq!(serde_json::to_value(&typed).unwrap(), input, "{name}");
+                if input.get("snapshot").is_none() {
+                    continue;
+                }
+                serde_json::to_value(&typed).unwrap()
+            }
             _ => continue,
         };
         assert_eq!(case["weight"], json!(layout_weight(&encoded)), "{name}");
     }
 }
 
+// TP-CONTRACT-2
 #[test]
 fn layout_weight_limit_is_a_payload_error_only_for_an_otherwise_valid_request() {
     let start = |values: Value| {
@@ -340,6 +363,7 @@ fn layout_weight_limit_is_a_payload_error_only_for_an_otherwise_valid_request() 
     );
 }
 
+// TP-CONTRACT-5, TP-RUST-3
 #[test]
 fn layout_commands_do_not_mix_with_contract_v1() {
     let v2 = json!({"activityKey":"job:1","schemaVersion":2,"fallback":"none",
@@ -363,6 +387,7 @@ fn layout_commands_do_not_mix_with_contract_v1() {
 
 /// Tauri reads a request from JSON text with this crate's serde_json, so every number must
 /// arrive as the double that JavaScript wrote.
+// TP-CONTRACT-6
 #[test]
 fn layout_numbers_keep_their_value_when_read_from_json_text() {
     for text in [
@@ -406,5 +431,37 @@ fn layout_numbers_keep_their_value_when_read_from_json_text() {
             Err(Error::invalid()),
             "{style} {values}"
         );
+    }
+}
+
+/// Each pair is a start and an end with final content, which the native layer checks against the stored layout and
+/// styles as an update. A valid pair states the weight of the layout, the styles and the final values.
+// TP-CONTRACT-2, TP-RUST-3
+#[test]
+fn layout_end_fixtures_match_the_check_against_the_start() {
+    let ends = layout_cases("ends");
+    assert!(ends.len() >= 4);
+    for case in &ends {
+        let name = case["name"].as_str().unwrap();
+        assert_eq!(
+            validate_request("start_layout", case["start"].clone()),
+            Ok(()),
+            "{name}"
+        );
+        let start: LayoutStartInput = serde_json::from_value(case["start"].clone()).unwrap();
+        let verdict = validate_request("end_layout", case["end"].clone()).and_then(|()| {
+            let end: LayoutEndInput = serde_json::from_value(case["end"].clone()).unwrap();
+            start.validate_end(&end)
+        });
+        match case.get("code") {
+            None => {
+                assert_eq!(verdict, Ok(()), "{name}");
+                let stored =
+                    layout_weight(&case["start"]) - weight(&case["start"]["snapshot"]["values"]);
+                let total = stored + weight(&case["end"]["snapshot"]["values"]);
+                assert_eq!(case["weight"], json!(total), "{name}");
+            }
+            Some(code) => assert_eq!(code, verdict.expect_err(name).code.as_str(), "{name}"),
+        }
     }
 }

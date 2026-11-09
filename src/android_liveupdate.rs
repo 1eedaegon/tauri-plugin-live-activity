@@ -93,14 +93,24 @@ pub(crate) fn capabilities(value: liveupdate::Capabilities) -> Capabilities {
     }
 }
 
+/// A liveupdate error with its code, which is one of the plugin's: liveupdate's codes are non-exhaustive.
 pub(crate) fn error(value: liveupdate::Error) -> Error {
     let code = serde_json::to_value(value.code)
         .ok()
-        .and_then(|value| value.as_str().map(str::to_owned))
+        .and_then(|value| value.as_str().map(plugin_code))
         .unwrap_or_else(|| "NATIVE_ERROR".into());
     Error {
         code,
         message: value.message,
+    }
+}
+
+/// `code` when the plugin answers it, else `NATIVE_ERROR`.
+fn plugin_code(code: &str) -> String {
+    if crate::error::ERROR_CODES.contains(&code) {
+        code.to_owned()
+    } else {
+        "NATIVE_ERROR".to_owned()
     }
 }
 
@@ -200,6 +210,7 @@ mod tests {
         }
     }
 
+    // TP-ANDROID-4
     #[test]
     fn plugin_start_becomes_a_private_rust_owned_request() {
         let request = start_request(StartInput {
@@ -215,6 +226,7 @@ mod tests {
         assert_eq!(request.snapshot.progress, Some(0.25));
     }
 
+    // TP-ANDROID-4
     #[test]
     fn liveupdate_records_keep_the_existing_plugin_contract() {
         let record = activity_record(liveupdate::ActivityRecord {
@@ -245,6 +257,7 @@ mod tests {
         assert_eq!(record.snapshot.revision, 2);
     }
 
+    // TP-ANDROID-4
     #[test]
     fn capabilities_and_errors_keep_stable_public_values() {
         let converted = capabilities(liveupdate::Capabilities {
@@ -266,5 +279,34 @@ mod tests {
             end_policy(crate::EndPolicy::After { at: 42 }),
             liveupdate::EndPolicy::After { at: 42 },
         );
+    }
+
+    // TP-ANDROID-4, TP-JS-7
+    #[test]
+    fn every_liveupdate_code_is_one_of_the_plugins() {
+        use liveupdate::ErrorCode::*;
+        for code in [
+            InvalidInput,
+            Conflict,
+            NotFound,
+            StaleRevision,
+            PermissionDenied,
+            UnsupportedFeature,
+            SystemLimit,
+            NativeError,
+        ] {
+            let converted = error(liveupdate::Error::new(code, "m"));
+            assert!(
+                crate::error::ERROR_CODES.contains(&converted.code.as_str()),
+                "{code:?} → {}",
+                converted.code
+            );
+            assert_eq!(
+                serde_json::to_value(code).unwrap(),
+                serde_json::json!(converted.code)
+            );
+        }
+        // liveupdate's codes are non-exhaustive: a later one that the plugin does not know is a native error.
+        assert_eq!(plugin_code("SOMETHING_NEW"), "NATIVE_ERROR");
     }
 }

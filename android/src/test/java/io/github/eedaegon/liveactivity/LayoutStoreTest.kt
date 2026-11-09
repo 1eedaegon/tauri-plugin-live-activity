@@ -30,7 +30,7 @@ class LayoutStoreTest {
     @Test fun aTombstoneKeepsWhatItsRecordShowsButNotTheLayout() {
         val preferences = MemoryPreferences()
         val engine = LayoutEngine(LayoutPreferencesStore(PreferencesContext(preferences)), JsonLayoutPort())
-        val started = engine.start(start(session, "fremen:session"))
+        val started = engine.start(start(session, "app:session"))
         val ended = engine.end(started.id, "immediate")
         val kept = stored(preferences).getJSONObject(0)
         assertFalse(kept.has("origin"))
@@ -43,7 +43,7 @@ class LayoutStoreTest {
         assertEquals(tree(ended.json()), tree(engine.list().single().json()))
         assertEquals("NOT_FOUND", code { engine.update(started.id, started.snapshot.copy(revision = 1)) })
         // A late tap on its notification still names the key of a declared button only.
-        assertEquals(ActionTap("session.pause", started.id, "fremen:session"), ActionTaps.resolve(listOf(later), started.id, "session.pause"))
+        assertEquals(ActionTap("session.pause", started.id, "app:session"), ActionTaps.resolve(listOf(later), started.id, "session.pause"))
         assertNull(ActionTaps.resolve(listOf(later), started.id, "other"))
     }
 
@@ -51,7 +51,7 @@ class LayoutStoreTest {
         val preferences = MemoryPreferences()
         val store = LayoutPreferencesStore(PreferencesContext(preferences))
         val engine = LayoutEngine(store, JsonLayoutPort())
-        val record = engine.start(start(session, "fremen:session"))
+        val record = engine.start(start(session, "app:session"))
         val read = store.read()
         assertSame(read, store.read())
         // The receivers make their own store over the same file.
@@ -82,7 +82,7 @@ class LayoutStoreTest {
         val preferences = MemoryPreferences()
         val store = LayoutPreferencesStore(PreferencesContext(preferences))
         val engine = LayoutEngine(store, JsonLayoutPort())
-        engine.end(engine.start(start(session, "fremen:session")).id, "immediate")
+        engine.end(engine.start(start(session, "app:session")).id, "immediate")
         val tombstone = stored(preferences).getJSONObject(0)
         for (broken in listOf(
             JSONObject(tombstone.toString()).put("state", "active"),

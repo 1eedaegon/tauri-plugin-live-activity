@@ -61,3 +61,18 @@ Thumbs.db
 
 # Keep Cargo.lock and JS package-manager lockfiles for reproducible validation.
 # Keep Gradle wrapper, native project files, entitlements, and permission schemas.
+
+# The simulator run of tests/ios/run.sh
+tests/ios/output/
+tests/ios/DemoUITests/*.xcodeproj/
+# What CI caches of the simulator run
+.ios-build/
+
+# Keys and certificates never belong in the repository.
+*.asc
+*.gpg
+*.p8
+*.p12
+*.pem
+*.key
+*.mobileprovision

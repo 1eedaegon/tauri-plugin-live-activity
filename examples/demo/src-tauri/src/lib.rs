@@ -25,5 +25,6 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
     actions::register(&app);
+    actions::start_from_rust_if_asked(&app, std::env::args());
     app.run(|_, _| {});
 }

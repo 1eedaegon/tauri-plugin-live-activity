@@ -56,6 +56,7 @@ for (const [name, request] of [
   test(`rejects ${name}`, () => assert.equal(validateRequest(request).valid, false));
 }
 
+// TP-CONTRACT-5
 test('accepts safe integer and Unicode length boundaries without changing input', () => {
   const snapshot = Object.freeze({
     ...start.input.snapshot, revision: Number.MAX_SAFE_INTEGER,
@@ -78,6 +79,7 @@ for (const [startedAt, endsAt, valid] of [[0, 1, true], [1, 1, false], [2, 1, fa
   });
 }
 
+// TP-CONTRACT-5
 test('error results survive a later validation and do not echo input values', () => {
   const result = validateRequest(withSnapshot({ progress: 'sensitive-test-value' }));
   const before = JSON.stringify(result);

@@ -23,11 +23,12 @@ Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과 Dynamic Island에, A
 </table>
 
 네 장 모두 고양이 Mochi를 따라가는 [데모 앱](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo)에서
-캡처했습니다. 플러그인은 iOS 16.1 이상과 Android 8 이상에서 동작하고, 데스크톱에서는 활동 명령이
-`UNSUPPORTED_PLATFORM`을 돌려줍니다. 1.0 전까지는 마이너 버전이 바뀔 때 API도 바뀔 수 있습니다.
-Android의 고정 진행률/타이머 수명 주기와 정책은
-[`1eedaegon/liveupdate-rs`](https://github.com/1eedaegon/liveupdate-rs)를 통해 Rust에서 처리합니다.
-Kotlin은 알림 프레임워크 호출과 앱 전용 영수증 저장만 담당합니다.
+캡처했습니다. 플러그인은 iOS 16.2 이상과 Android 8 이상에서 동작하고, 데스크톱에서는 활동 명령이
+`UNSUPPORTED_PLATFORM`을 돌려줍니다. iOS에서는 [activitykit](https://github.com/1eedaegon/activitykit-rs) 크레이트
+위에서 동작하므로 플러그인 자체의 Swift 코드가 없습니다. Android에서는 진행률과 타이머 템플릿의 수명 주기를
+[liveupdate](https://github.com/1eedaegon/liveupdate-rs) 크레이트로 Rust에서 처리하고, Kotlin은 알림 프레임워크 호출과
+앱의 영수증 저장만 맡습니다. 레이아웃 활동은 계속 Kotlin이 그립니다. 1.0 전까지는 마이너 버전이 바뀔 때 API도 바뀔 수
+있습니다.
 
 ## 설치
 
@@ -46,8 +47,9 @@ npx tauri-plugin-live-activity setup
 ```
 
 `setup`은 플러그인 권한을 허용하고, Android 최소 버전을 API 26으로 올리고, Mac에서는 활동을 그리는
-위젯 확장을 Xcode 프로젝트에 추가합니다. `tauri ios init` 뒤에 실행하고, 나중에 `src-tauri/gen/apple`을
-처음부터 다시 만들었다면 한 번 더 실행하세요. 무엇이 바뀔지는 `--dry-run`으로 먼저 볼 수 있습니다.
+위젯 확장을 activitykit의 Swift 패키지로 Xcode 프로젝트에 추가합니다. `tauri ios init` 뒤에 실행하고, 나중에
+`src-tauri/gen/apple`을 처음부터 다시 만들었다면 한 번 더 실행하세요. 0.3으로 설정한 앱이라면 다시 한 번
+실행하면 위젯과 직접 만든 뷰를 activitykit으로 옮겨 줍니다. 무엇이 바뀔지는 `--dry-run`으로 먼저 볼 수 있습니다.
 
 ## 사용법
 
@@ -86,7 +88,7 @@ await updateLayout({ id, snapshot: { revision: 2, values: { ...values, tone: 're
 let status = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
 // 나중에: 값을 모두 다시 보내면서 색만 바꿉니다.
 values.insert("tone".into(), Value::Text("red".into()));
-app.live_activity().update_layout(LayoutUpdateInput { id, snapshot: LayoutSnapshot { revision: 2, values, stale_at: None } })?;
+app.live_activity().update_layout(LayoutUpdateInput { id, snapshot: LayoutSnapshot { revision: 2, values, stale_at: None, timestamp: None } })?;
 ```
 
 값을 가리킬 수 있는 것은 `color`, `background`, `tint`, `opacity`, `size`, `weight`, `cornerRadius`와
@@ -230,12 +232,12 @@ custom('ring', { props: { level: bind('done'), width: 4 } }),
 ```
 
 ```swift
-"ring": LiveActivityCustomView { props in Ring(level: props.number("level") ?? 0) },
+"ring": ActivityKitCustomView { props in Ring(level: props.number("level") ?? 0) },
 ```
 
 뷰가 없는 이름은 아무것도 그리지 않고 `degradedFeatures`에 `layout.custom.ring`으로 남습니다. 마지막 수단은
-복사된 `LiveActivityWidget.swift`를 직접 고치는 것입니다. 그러면 `setup`은 그 파일을 그대로 두고, 템플릿이
-바뀐 부분은 직접 합쳐야 합니다.
+복사된 `LiveActivityWidget.swift`(activitykit의 위젯 템플릿)를 직접 고치는 것입니다. 그러면 `setup`은 그 파일을
+그대로 두고, 템플릿이 바뀐 부분은 직접 합쳐야 합니다.
 
 제한: Live Activity는 네트워크를 쓸 수 없고 메모리도 적습니다. 그린 PNG는 1 MiB, 1224 × 480 픽셀까지이고,
 이는 Apple의 가장 큰 잠금화면 크기를 @3x로 잰 값입니다. 글꼴은 확장 안에 있어야 합니다. 기기에서는 App
@@ -243,6 +245,17 @@ Group을 Apple 계정에 한 번 등록해야 하는데, 자동 서명이 대신
 보고 뷰 자체는 보지 않습니다. Android는 이 가운데 아무것도 그리지 않고, 처음 나오는 그린 그림만 알림의 큰
 아이콘이 됩니다. 레이아웃, 스타일, 값은 여전히 3584를 나눠 씁니다.
 [자세히](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#beyond-the-built-in-parts)
+
+## 제약
+
+- iOS: iOS 16.2 이상의 iPhone 또는 iPadOS 17 이상의 iPad가 필요하고, 버튼은 iOS 17부터 동작합니다. 활동은 앱이
+  포그라운드에 있을 때만 시작되고(아니면 `NOT_FOREGROUND`), 시스템이 8시간 뒤에 끝냅니다.
+- iOS는 활동마다 마지막 값을 앱의 Application Support에 평문으로 남깁니다. 플러그인 설정에
+  `"receipts": "redacted"`를 주면 값 대신 다이제스트만 남깁니다.
+- 버튼을 누르면 Rust의 `on_action` 핸들러가 끝날 때까지 최대 4초 기다립니다. JavaScript 리스너는 기다리지 않습니다.
+- `app.live_activity()`의 Rust 메서드는 응답이 올 때까지 스레드를 멈추므로 메인 스레드가 아닌 곳에서 호출하세요. iOS에서
+  메인 스레드에서 호출하면 바로 `NATIVE_ERROR`를 돌려줍니다. JavaScript의 명령은 멈추지 않습니다.
+- 푸시 갱신은 없습니다. Android는 진행 중 알림으로 보여 주고, 시스템이 허용하면 Live Update로 올립니다.
 
 ## Samsung Now Bar
 

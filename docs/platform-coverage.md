@@ -10,7 +10,7 @@ in [OS compatibility](compatibility.md), and desktop options in
 
 | Platform | Implemented | Tested, and what remains |
 | --- | --- | --- |
-| iPhone / iOS 16.1+ | ActivityKit progress and timer: start, update, end, list | Ran on the iOS 27.2 simulator. 16.1 and 16.2 have availability branches and build checks only; no run on a device with those versions |
+| iPhone / iOS 16.2+ (16.1+ before 0.4) | ActivityKit progress and timer: start, update, end, list; since 0.4 as layout activities through activitykit | Ran on the iOS 27.2 simulator before 0.4. 16.1 and 16.2 had availability branches and build checks only; no run on a device with those versions |
 | iPadOS 17+ | ActivityKit progress and timer; iPadOS 16.x is unsupported | 13 lifecycle checks and 10 further checks passed on the iPadOS 27.2 simulator. Older versions have policy unit tests |
 | Android API 24–25 | Unsupported; the minimum was raised to API 26 | On API 24 the published alpha.2 app crashed in Tauri's Jackson initialization. API 25 was not run on its own |
 | Android API 26–32 | Ongoing progress and timer notifications | API 26: real Tauri `Invoke` and 8 native notification tests passed; its stock WebView 58 cannot parse Tauri's JavaScript. API 31: 13 full app lifecycle checks passed |

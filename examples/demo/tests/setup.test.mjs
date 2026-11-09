@@ -1,10 +1,11 @@
-// The demo is set up for layouts the way the README tells an app to be.
+// The demo is set up for layouts the way docs/usage.md tells an app to be, on activitykit's Swift products.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { test } from 'node:test';
+import { activitykitDir } from '../../../tools/sync-contract.mjs';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
-const template = read('../../../templates/ios/LiveActivityWidget.swift');
 const project = read('../src-tauri/gen/apple/project.yml');
 
 /** The YAML of one target in the XcodeGen spec, up to the next target. */
@@ -16,28 +17,28 @@ function target(name) {
   return end === -1 ? rest : rest.slice(0, end + 1);
 }
 
-test('the demo widget carries the template layout widget unchanged', () => {
-  const begin = template.indexOf('/// Layout activities');
-  const end = template.indexOf('@main');
-  assert.ok(begin > 0 && end > begin);
-  assert.ok(read('../widget/LiveActivityLayoutWidget.swift').includes(template.slice(begin, end).trim()));
-  assert.match(read('../widget/MochiWidget.swift'), /MochiWidget\(\)\s+LiveActivityLayoutWidget\(\)/);
+// TP-SETUP-2
+test("the demo widget is activitykit's widget template, and the project names activitykit's package", () => {
+  const dir = activitykitDir({ manifest: new URL('../src-tauri/Cargo.toml', import.meta.url).pathname });
+  const template = readFileSync(join(dir, 'templates/ios/Widget.swift'), 'utf8');
+  const body = text => text.slice(text.indexOf('@main'));
+  assert.equal(body(read('../widget/MochiWidgets.swift')), body(template));
+  assert.match(project, /\npackages:\n(?:\s*#.*\n)?\s+ActivityKit:\n\s+path: activitykit\/swift\n/);
+  assert.match(read('../src-tauri/gen/apple/.gitignore'), /^\/activitykit$/m);
 });
 
-test('the widget extension links both package products, has the intent and declares layout support', () => {
+// TP-SETUP-2
+test('the widget extension links ActivityKitWidget and declares layout support, the app links the intent', () => {
   const widget = target('LiveActivityWidget');
-  for (const product of ['LiveActivityShared', 'LiveActivityUI']) assert.match(widget, new RegExp(`product: ${product}\\n`));
-  for (const source of ['widget/MochiWidget.swift', 'widget/LiveActivityLayoutWidget.swift', 'widget/Assets.xcassets',
-    'templates/ios/LiveActivityActionIntent.swift']) assert.ok(widget.includes(source), source);
-  assert.match(widget, /TauriLiveActivityLayout: 2\n/);
-  assert.match(read('../src-tauri/gen/apple/LiveActivityWidget/Info.plist'),
-    /<key>TauriLiveActivityLayout<\/key>\s*<integer>2<\/integer>/);
-});
-
-test('the app target compiles its own copy of the intent and links no package product', () => {
+  assert.match(widget, /- package: ActivityKit\n\s+product: ActivityKitWidget\n/);
+  assert.match(widget, /deploymentTarget: "16\.2"\n/);
+  assert.match(widget, /ActivityKitLayout: 2\n/);
+  for (const source of ['widget/MochiWidgets.swift', 'widget/Assets.xcassets']) assert.ok(widget.includes(source), source);
+  assert.doesNotMatch(project, /LiveActivityShared|LiveActivityUI|TauriLiveActivity|templates\/ios/);
   const app = target('live-activity-demo_iOS');
-  assert.ok(app.includes('templates/ios/LiveActivityActionIntent.swift'));
-  assert.doesNotMatch(app, /package: LiveActivity/);
+  assert.match(app, /- package: ActivityKit\n\s+product: ActivityKitIntent\n/);
+  assert.ok(app.includes('app/ActivityKitIntents.swift'));
+  assert.match(read('../app/ActivityKitIntents.swift'), /^import ActivityKitIntent$/m);
 });
 
 test('the app turns on the Samsung Now Bar extras and grants the layout commands', () => {

@@ -33,7 +33,10 @@ function adapter(config) {
   window.__MOCHI_QA__ = { config, get records() { return records; }, calls: [] };
   window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
     window.__MOCHI_QA__.calls.push({ command, args });
-    const operation = command.split('|')[1];
+    // The layout commands follow the template commands' rules; an end may carry final content.
+    const name = command.split('|')[1] ?? '';
+    const layout = name.endsWith('_layout');
+    const operation = name.replace(/_layout$/, '');
     if (config.delay) await new Promise(resolve => setTimeout(resolve, config.delay));
     const permissions = () => ({ notifications: platform === 'android' ? permission : 'notApplicable', liveActivities: platform === 'ios' ? permission : 'notApplicable', promotion: 'notApplicable' });
     if (operation === 'get_capabilities') return { platform, backend: platform === 'ios' ? 'activityKit' : 'androidNotification', start: config.unsupported ? 'unsupported' : 'supported', progress: 'supported', timer: 'supported' };
@@ -41,7 +44,7 @@ function adapter(config) {
     if (operation === 'request_permissions') { permission = 'granted'; return permissions(); }
     if (operation === 'list') {
       if (config.failListAfterStart && records.length > 0) { config.failListAfterStart = false; return fail('NATIVE_ERROR', 'Temporary observation failure.'); }
-      return structuredClone(records);
+      return structuredClone(records.filter(record => (record.schemaVersion === 2) === layout));
     }
     if (operation === 'start') {
       if (config.error) return fail('NATIVE_ERROR', config.error);
@@ -61,7 +64,8 @@ function adapter(config) {
         if (snapshot.revision < previous.snapshot.revision) return fail('STALE_REVISION', 'Stale revision.');
         if (snapshot.revision === previous.snapshot.revision && JSON.stringify(snapshot) !== JSON.stringify(previous.snapshot)) return fail('CONFLICT', 'Conflicting revision.');
       }
-      const record = operation === 'end' ? { ...previous, state: 'ended' } : { ...previous, snapshot: args.input.snapshot };
+      const final = operation === 'end' && args.input.snapshot ? { snapshot: args.input.snapshot } : {};
+      const record = operation === 'end' ? { ...previous, ...final, state: 'ended' } : { ...previous, snapshot: args.input.snapshot };
       records = records.map(item => item.id === record.id ? record : item);
       return structuredClone(record);
     }
@@ -140,12 +144,12 @@ try {
     await page.locator('#end').click(); await ready(page);
     assert.equal(await page.locator('#start').isVisible(), true);
   });
-  await check('Lifecycle runner remains opt-in and preserves all 13 checks', async () => {
+  await check('Lifecycle runner remains opt-in and preserves all 19 checks', async () => {
     assert.equal(await page.locator('#self-test-report').getAttribute('data-status'), 'idle');
     await page.locator('summary').click();
     await page.locator('#run-self-test').click(); await ready(page);
     const report = JSON.parse(await page.locator('#self-test-report').innerText());
-    assert.equal(report.status, 'passed'); assert.equal(report.checks.length, 13);
+    assert.equal(report.status, 'passed'); assert.equal(report.checks.length, 19);
     assert.match(await page.locator('#report-path').innerText(), /Saved report/);
   });
   await check('Narrow 320px layout has no horizontal overflow', async () => {
