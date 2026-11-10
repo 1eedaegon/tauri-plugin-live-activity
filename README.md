@@ -103,7 +103,7 @@ Layouts are built from `text`/`bound`, `path` (SVG path data) and `vstack`, `hst
 `spacer`, `divider`, plus the six below. Each picture is the iOS Lock Screen. The snippets take
 the builders from `layout` (`const { vstack, hstack, text, bound, symbol, image, gauge, progress, timerText, button } = layout;`).
 The same layouts can be written in TSX, and a React hook keeps an activity in step with a component
-([TSX and React](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#tsx-and-react)).
+([TSX and React](#tsx-and-react)).
 
 ### Symbols
 
@@ -203,6 +203,50 @@ keyline: '#A3D9C2', // the island's edge color
 Put `island` next to `lockScreen` in the layout. A part you leave out shows the lock screen tree (expanded) or its first symbol (compact leading, minimal).
 
 Android shows a layout as a notification: the first two texts as title and body, the first progress bar and timer, and up to three buttons. `degradedFeatures` names what it left out.
+
+## TSX and React
+
+The same layouts can be written in TSX. `tauri-plugin-live-activity/jsx` is a JSX import source of its own, so a
+`.tsx` file needs no React: set `"jsx": "react-jsx"` and `"jsxImportSource": "tauri-plugin-live-activity/jsx"` in
+`tsconfig.json`, or `/** @jsxImportSource tauri-plugin-live-activity/jsx */` at the top of the file.
+
+```tsx
+import { Button, HStack, SFSymbol, Text, VStack } from 'tauri-plugin-live-activity/jsx';
+
+const lockScreen = (
+  <VStack alignment="leading" spacing={8}>
+    <HStack spacing={8}><SFSymbol name="cat.fill" /><Text bind="title" /></HStack>
+    <Text bind="status" />
+    <Button actionId="pet"><Text>Pet Mochi</Text></Button>
+  </VStack>
+);
+```
+
+One component per node (`VStack`, `HStack`, `ZStack`, `Spacer`, `Divider`, `Text`, `SFSymbol`, `Image`, `Path`,
+`Progress`, `Gauge`, `TimerText`, `Button`, `Custom`), with the node's members as props. `Text` shows its
+children or, with `bind`, a value; a stack takes nodes, arrays and `{late && <Text>Late</Text>}`; a `Button`
+holds one node. There are no HTML elements and no fragments. The entry imports neither Tauri nor React, so a
+server can build the same layout for a push payload.
+
+`tauri-plugin-live-activity/react` keeps one activity in step with a component (React 18+, an optional peer
+dependency):
+
+```tsx
+import { useLiveActivity } from 'tauri-plugin-live-activity/react';
+
+const { status, record, error } = useLiveActivity({
+  activityKey: `delivery:${order.id}`,
+  layout: { lockScreen },
+  values: { title: order.title, status: order.status },
+  enabled: order.open,
+  onAction: ({ actionId }) => { if (actionId === 'done') closeOrder(order.id); },
+});
+```
+
+The activity starts on mount, each render with other `values` sends one update at the next revision (one request
+in flight at a time, the newest values last), and it ends on unmount or `enabled: false`. `layout` and `styles` are
+read at start; change the `activityKey` to start a new activity. A refused request lands in `error`, and `onAction`
+gets this activity's taps. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#tsx-and-react)
 
 ## Beyond the built-in parts
 
