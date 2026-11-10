@@ -28,6 +28,10 @@ pub struct AndroidConfig {
 pub struct Config {
     pub receipts: Option<Receipts>,
     pub android: Option<AndroidConfig>,
+    /// Watches the app's push-to-start token on iOS 17.2 and later and reports it, new or changed, as a
+    /// `live-activity://push-to-start-token` event. Off when absent. Like the receipts, the setting holds for
+    /// the process: a kit that already runs with other settings is `CONFLICT`.
+    pub push_to_start: Option<bool>,
 }
 
 #[cfg(test)]
@@ -37,6 +41,20 @@ mod tests {
 
     fn read(value: Value) -> Result<Option<Config>, serde_json::Error> {
         serde_json::from_value(value)
+    }
+
+    // TP-PUSH-3
+    #[test]
+    fn push_to_start_is_read_from_the_configuration() {
+        let on = read(json!({"pushToStart":true})).unwrap().unwrap();
+        assert_eq!(on.push_to_start, Some(true));
+        assert_eq!(on.receipts, None);
+        let off = read(json!({"receipts":"full","pushToStart":false}))
+            .unwrap()
+            .unwrap();
+        assert_eq!(off.push_to_start, Some(false));
+        assert_eq!(read(json!({})).unwrap().unwrap().push_to_start, None);
+        assert!(read(json!({"pushToStart":"yes"})).is_err());
     }
 
     // TP-CONFIG-1

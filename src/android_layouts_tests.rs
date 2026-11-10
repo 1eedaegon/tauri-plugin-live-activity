@@ -764,3 +764,20 @@ fn a_store_that_cannot_be_read_loses_no_tap() {
         }]
     );
 }
+
+// TP-PUSH-1
+#[test]
+fn a_start_with_a_push_is_projected_without_it() {
+    let f = fixture();
+    let mut request = start("snack:1", values("Snack", 0.2));
+    request.push = Some(crate::layout::LayoutPush::Token);
+    let record = f.layouts.start(&f.updates, request).unwrap();
+    assert_eq!(f.android.0.lock().unwrap().starts, 1);
+    assert_eq!(record.snapshot, snapshot(0, values("Snack", 0.2)));
+    // Android has no pushes: the same start asking for a channel instead is the same activity.
+    let mut again = start("snack:1", values("Snack", 0.2));
+    again.push = Some(crate::layout::LayoutPush::Channel("dGVzdA==".into()));
+    let same = f.layouts.start(&f.updates, again).unwrap();
+    assert_eq!(same.id, record.id);
+    assert_eq!(f.android.0.lock().unwrap().starts, 1);
+}

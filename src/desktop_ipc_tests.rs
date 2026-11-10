@@ -65,6 +65,8 @@ fn desktop_ipc_never_advertises_native_features_or_requests_os_permissions() {
         "stateObservation",
         "silentUpdate",
         "nativeLiveActivity",
+        "layout",
+        "push",
     ] {
         assert_eq!(capabilities[feature], "unsupported", "{feature}");
     }
@@ -74,7 +76,8 @@ fn desktop_ipc_never_advertises_native_features_or_requests_os_permissions() {
         json!({
             "notifications": "notApplicable",
             "liveActivities": "notApplicable",
-            "promotion": "notApplicable"
+            "promotion": "notApplicable",
+            "frequentPushes": "notApplicable"
         })
     );
 }

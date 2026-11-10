@@ -11,12 +11,12 @@ const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'
 test('activitykit is one line of Cargo.toml and the crate builds no Swift of its own', () => {
   const manifest = read('Cargo.toml');
   const lines = manifest.split('\n').filter(line => /^\s*activitykit\s*=/.test(line));
-  assert.deepEqual(lines, ['activitykit = "0.2"']);
+  assert.deepEqual(lines, ['activitykit = "0.3"']);
   assert.doesNotMatch(manifest, /\[dependencies\.activitykit\]|activitykit\.(git|rev|version)\s*=/);
   assert.doesNotMatch(read('build.rs'), /ios_path/);
   assert.doesNotMatch(manifest, /"\/ios\/|"\/templates\//);
   for (const gone of ['ios', 'templates']) assert.equal(existsSync(new URL(`../${gone}`, import.meta.url)), false, gone);
-  assert.match(read('Cargo.lock'), /name = "activitykit"\nversion = "0\.2\.\d+"\nsource = "registry\+https:\/\/github\.com\/rust-lang\/crates\.io-index"/);
+  assert.match(read('Cargo.lock'), /name = "activitykit"\nversion = "0\.3\.\d+"\nsource = "registry\+https:\/\/github\.com\/rust-lang\/crates\.io-index"/);
 });
 
 const root = new URL('..', import.meta.url);

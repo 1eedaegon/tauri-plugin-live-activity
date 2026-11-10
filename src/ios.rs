@@ -6,7 +6,9 @@
 use crate::{
     Config, Result,
     actions::{ACTION_EVENT, Actions},
-    apple::{self, Apple, Authorization, EndSpec, Handle, Kit, StartSpec, UpdateSpec, glue},
+    apple::{
+        self, Apple, Authorization, EndSpec, Handle, Kit, KitEvent, StartSpec, UpdateSpec, glue,
+    },
     layout::{
         ActionEvent, LayoutActivityRecord, LayoutEndInput, LayoutStartInput, LayoutUpdateInput,
     },
@@ -20,9 +22,9 @@ impl Kit for ActivityKit {
     type Handle = Activity;
     type Ack = Acknowledgement;
 
-    fn taps(&self) -> Box<dyn Iterator<Item = (ActionEvent, Acknowledgement)> + Send> {
+    fn events(&self) -> Box<dyn Iterator<Item = KitEvent<Activity, Acknowledgement>> + Send> {
         let events = self.events();
-        Box::new(glue::taps_of(
+        Box::new(glue::events_of(
             move || events.recv_blocking().ok(),
             |event| match event {
                 Event::Action {
@@ -30,7 +32,20 @@ impl Kit for ActivityKit {
                     action,
                     acknowledgement,
                     ..
-                } => Some((apple::action_event(&activity, action), acknowledgement)),
+                } => Some(KitEvent::Tap(
+                    apple::action_event(&activity, action),
+                    acknowledgement,
+                )),
+                Event::PushToken {
+                    activity, token, ..
+                } => Some(KitEvent::PushToken {
+                    activity,
+                    token: token.to_string(),
+                }),
+                Event::PushToStartToken { token, .. } => Some(KitEvent::PushToStartToken {
+                    token: token.to_string(),
+                }),
+                Event::Updated { activity, .. } => Some(KitEvent::Updated(activity)),
                 _ => None,
             },
         ))
@@ -42,11 +57,12 @@ impl Kit for ActivityKit {
             supported: authorization.supported,
             enabled: authorization.enabled,
             buttons: authorization.buttons,
+            frequent_pushes: authorization.frequent_pushes,
         }
     }
 
-    fn start(&self, spec: StartSpec) -> impl Future<Output = activitykit::Result<Activity>> + Send {
-        self.start_with(glue::start_of(spec))
+    async fn start(&self, spec: StartSpec) -> activitykit::Result<Activity> {
+        self.start_with(glue::start_of(spec)?).await
     }
 
     fn activity(
@@ -107,17 +123,23 @@ impl Handle for Activity {
     }
 }
 
-/// Creates activitykit's kit early, at plugin setup, with the receipts of the plugin configuration, so that a tap that
+/// Creates activitykit's kit early, at plugin setup, with the settings of the plugin configuration, so that a tap that
 /// launched the app finds it; `apple::glue::setup` does the rest.
 pub(crate) fn init<R: Runtime>(
     app: &AppHandle<R>,
     api: PluginApi<R, Option<Config>>,
 ) -> Result<LiveActivity<R>> {
     let app = app.clone();
-    let (apple, actions) =
-        glue::setup(glue::builder(api.config().as_ref()).build(), move |event| {
+    let pushes = app.clone();
+    let (apple, actions) = glue::setup(
+        glue::builder(api.config().as_ref()).build(),
+        move |event| {
             let _ = app.emit(ACTION_EVENT, event);
-        })?;
+        },
+        move |event| {
+            let _ = event.emit(&pushes);
+        },
+    )?;
     Ok(LiveActivity {
         apple,
         actions,

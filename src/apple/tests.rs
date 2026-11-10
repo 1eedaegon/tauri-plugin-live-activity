@@ -1,5 +1,5 @@
 use super::{fake::FakeKit, *};
-use crate::layout::Value;
+use crate::layout::{LayoutPush, Value};
 use activitykit::{Error as Kit, LimitScope};
 use serde_json::{Value as Json, json};
 
@@ -442,7 +442,7 @@ fn capabilities_and_permissions_follow_activitykits_authorization() {
     let features = |backend: &str, all: &str, actions: &str| {
         json!({"platform":"ios","backend":backend,"start":all,"update":all,"end":all,"progress":all,"timer":all,
             "actions":actions,"stateObservation":all,"silentUpdate":all,"nativeLiveActivity":all,
-            "maxPayloadBytes":4096,"layout":all})
+            "maxPayloadBytes":4096,"layout":all,"push":all})
     };
     let reported = |apple: &Apple<FakeKit>| serde_json::to_value(apple.capabilities()).unwrap();
     assert_eq!(
@@ -457,6 +457,7 @@ fn capabilities_and_permissions_follow_activitykits_authorization() {
         supported: true,
         enabled: false,
         buttons: false,
+        frequent_pushes: false,
     });
     assert_eq!(
         reported(&apple),
@@ -489,6 +490,7 @@ fn capabilities_and_permissions_follow_activitykits_authorization() {
         supported: false,
         enabled: false,
         buttons: false,
+        frequent_pushes: false,
     });
     assert_eq!(
         reported(&apple),
@@ -655,6 +657,77 @@ fn the_two_contract_versions_do_not_see_each_others_activities() {
     assert_eq!(
         block_on(apple.list_templates()).unwrap()[0].degraded_features,
         ["dynamicIsland"]
+    );
+}
+
+// TP-PUSH-1
+#[test]
+fn a_start_with_a_push_reaches_the_kit_as_it_is() {
+    let (apple, kit) = apple();
+    let mut channel = start("demo:1", "green");
+    channel.push = Some(LayoutPush::Channel("dGVzdA==".into()));
+    let first = block_on(apple.start_layout(channel)).unwrap();
+    let mut token = start("demo:2", "green");
+    token.push = Some(LayoutPush::Token);
+    block_on(apple.start_layout(token)).unwrap();
+    block_on(apple.start_layout(start("demo:3", "green"))).unwrap();
+    let pushes: Vec<_> = kit
+        .book()
+        .starts
+        .iter()
+        .map(|start| start.push.clone())
+        .collect();
+    assert_eq!(
+        pushes,
+        [
+            Some(LayoutPush::Channel("dGVzdA==".into())),
+            Some(LayoutPush::Token),
+            None
+        ]
+    );
+    // The push is no content: the same start again, asking for a token instead, is the running activity.
+    let mut again = start("demo:1", "green");
+    again.push = Some(LayoutPush::Token);
+    assert_eq!(block_on(apple.start_layout(again)).unwrap().id, first.id);
+    // A token is not in the record: ActivityKit makes it later and reports it as an event.
+    assert_eq!(kit.book().starts.len(), 3);
+}
+
+// TP-PUSH-5
+#[test]
+fn permissions_and_capabilities_report_pushes() {
+    let (apple, kit) = apple();
+    assert_eq!(apple.capabilities().push, FeatureSupport::Supported);
+    assert_eq!(
+        apple.permissions(false).frequent_pushes,
+        PermissionState::Granted
+    );
+    kit.book().authorization = Some(Authorization {
+        supported: true,
+        enabled: true,
+        buttons: true,
+        frequent_pushes: false,
+    });
+    // A switch in Settings, which the app offers with NSSupportsLiveActivitiesFrequentUpdates: a request changes
+    // nothing about it.
+    assert_eq!(
+        apple.permissions(false).frequent_pushes,
+        PermissionState::Denied
+    );
+    assert_eq!(
+        apple.permissions(true).frequent_pushes,
+        PermissionState::Denied
+    );
+    kit.book().authorization = Some(Authorization {
+        supported: false,
+        enabled: false,
+        buttons: false,
+        frequent_pushes: false,
+    });
+    assert_eq!(apple.capabilities().push, FeatureSupport::Unsupported);
+    assert_eq!(
+        apple.permissions(false).frequent_pushes,
+        PermissionState::NotApplicable
     );
 }
 

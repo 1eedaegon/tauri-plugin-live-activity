@@ -36,6 +36,7 @@ impl<R: Runtime> LiveActivity<R> {
             native_live_activity: Unsupported,
             max_payload_bytes: 0,
             layout: Unsupported,
+            push: Unsupported,
         })
     }
 
@@ -45,6 +46,7 @@ impl<R: Runtime> LiveActivity<R> {
             notifications: NotApplicable,
             live_activities: NotApplicable,
             promotion: NotApplicable,
+            frequent_pushes: NotApplicable,
         })
     }
 

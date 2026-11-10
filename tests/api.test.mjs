@@ -180,6 +180,45 @@ test('onAction hands each action payload, and nothing else, to its handler until
   assert.deepEqual(second, [[pause], [resume]]);
 });
 
+// TP-PUSH-1
+test('startLayout passes push through unchanged', async () => {
+  for (const push of ['token', { channel: 'dGVzdA==' }]) {
+    const calls = [];
+    mockIPC((nativeCommand, payload) => {
+      calls.push({ nativeCommand, payload });
+      return layoutRecord;
+    });
+    const request = Object.freeze({ ...layoutInput, push });
+    assert.deepEqual(await activity.startLayout(request), layoutRecord);
+    assert.deepEqual(calls, [{ nativeCommand: 'plugin:live-activity|start_layout', payload: { input: request } }]);
+    clearMocks();
+  }
+});
+
+// TP-PUSH-2, TP-PUSH-4
+test('onPushToken, onPushToStartToken and onUpdated listen to their events', async t => {
+  t.mock.method(console, 'warn', () => {});
+  mockIPC(() => {}, { shouldMockEvents: true });
+  const tokens = [];
+  const starts = [];
+  const updates = [];
+  const unlisten = await activity.onPushToken(event => tokens.push(event));
+  await activity.onPushToStartToken(event => starts.push(event));
+  await activity.onUpdated(event => updates.push(event));
+  const token = { activityId: layoutRecord.id, activityKey: layoutInput.activityKey, token: '0a1b' };
+  await emit('live-activity://push-token', token);
+  await emit('live-activity://push-to-start-token', { token: 'ff00' });
+  await emit('live-activity://updated', { record: layoutRecord });
+  await emit('live-activity://action', { actionId: 'pet', activityId: layoutRecord.id });
+  assert.deepEqual(tokens, [token]);
+  assert.deepEqual(starts, [{ token: 'ff00' }]);
+  assert.deepEqual(updates, [{ record: layoutRecord }]);
+
+  await unlisten();
+  await emit('live-activity://push-token', { ...token, token: 'later' });
+  assert.deepEqual(tokens, [token]);
+});
+
 test('onAction reports a refused subscription instead of pretending to listen', async () => {
   mockIPC(() => Promise.reject('event.listen not allowed'));
   await assert.rejects(activity.onAction(() => {}), error => {

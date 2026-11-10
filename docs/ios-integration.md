@@ -178,6 +178,18 @@ record, also once the system no longer lists an activity that ended at once: the
 64 activities it ended in this launch. After a relaunch such an activity is `NOT_FOUND`. The v1 `end` takes no final
 content.
 
+## Pushes
+
+The plugin asks ActivityKit for what a server needs and reports it; the server sends the pushes, built with
+activitykit's `push::Payload` (its [usage guide](https://github.com/1eedaegon/activitykit-rs/blob/main/docs/usage.md#pushes)
+has the headers and the payloads). The app needs the Push Notifications capability, the `aps-environment`
+entitlement, which `setup` does not add: without it, as in the simulator, a start with `push` fails with
+`CONFIGURATION_REQUIRED`. Frequent pushes need `NSSupportsLiveActivitiesFrequentUpdates` in Info.plist, and the
+person's consent in Settings, which `checkPermissions` reports as `frequentPushes`. Push-to-start (iOS 17.2) is
+`"pushToStart": true` under `plugins.live-activity`; broadcast channels need iOS 18. The events are
+`live-activity://push-token`, `live-activity://push-to-start-token` and `live-activity://updated`, which `onPushToken`,
+`onPushToStartToken` and `onUpdated` listen to; they go out as they come, and wait for nothing.
+
 ## Receipts
 
 ActivityKit can report an update late. activitykit's Swift layer therefore keeps a receipt of each accepted request in

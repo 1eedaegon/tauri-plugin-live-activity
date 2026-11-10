@@ -168,6 +168,7 @@ pub(crate) fn start(input: &StartInput) -> LayoutStartInput {
         styles: Some(styles),
         snapshot: layout_snapshot(&input.snapshot).1,
         android: None,
+        push: None,
     }
 }
 

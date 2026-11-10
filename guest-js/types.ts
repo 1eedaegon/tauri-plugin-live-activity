@@ -19,6 +19,8 @@ export interface Capabilities {
   readonly nativeLiveActivity: FeatureSupport;
   /** Layout activities of request contract v2. */
   readonly layout: FeatureSupport;
+  /** Pushes: tokens, channels and push-to-start (iOS). */
+  readonly push: FeatureSupport;
   readonly maxPayloadBytes: number;
 }
 
@@ -26,6 +28,8 @@ export interface Permissions {
   readonly notifications: PermissionState;
   readonly liveActivities: PermissionState;
   readonly promotion: PermissionState;
+  /** Frequent pushes, a switch in Settings on iOS (`granted` or `denied`); `notApplicable` where there are no pushes. */
+  readonly frequentPushes: PermissionState;
 }
 
 interface SnapshotFields {
@@ -404,6 +408,12 @@ export interface LayoutAndroidOptions {
   readonly visibility: 'public' | 'private' | 'secret';
 }
 
+/**
+ * What a layout activity asks ActivityKit for on iOS: a push token of its own, which `onPushToken` reports, or a
+ * broadcast channel the server made at APNs (iOS 18; `UNSUPPORTED_FEATURE` before). Android ignores it.
+ */
+export type LayoutPush = 'token' | { readonly channel: string };
+
 export interface LayoutStartInput {
   /** Stable app-owned key; do not put credentials or private data in this key. */
   readonly activityKey: string;
@@ -417,6 +427,8 @@ export interface LayoutStartInput {
   readonly snapshot: LayoutSnapshot;
   /** Ignored on iOS. */
   readonly android?: LayoutAndroidOptions;
+  /** Ignored on Android. */
+  readonly push?: LayoutPush;
 }
 
 export interface LayoutUpdateInput {
@@ -448,6 +460,25 @@ export interface LayoutActivityRecord {
   readonly degradedFeatures: readonly string[];
   readonly promotionRequested: boolean;
   readonly promotionState: PromotionState;
+}
+
+/** A push token of an activity, new or changed: what the server sends to. */
+export interface PushTokenEvent {
+  readonly activityId: string;
+  /** The key of that activity, when the plugin knows it. */
+  readonly activityKey?: string;
+  /** Lowercase hex, as APNs takes it. */
+  readonly token: string;
+}
+
+/** The app's push-to-start token, new or changed (`pushToStart` in the plugin configuration, iOS 17.2). */
+export interface PushToStartTokenEvent {
+  readonly token: string;
+}
+
+/** Content a push delivered: the activity's record with it. */
+export interface UpdatedEvent {
+  readonly record: LayoutActivityRecord;
 }
 
 /** A tap on a button node. */

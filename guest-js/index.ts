@@ -2,7 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutEndInput, LayoutStartInput,
-  LayoutUpdateInput, PermissionKind, Permissions, StartInput, UpdateInput,
+  LayoutUpdateInput, PermissionKind, Permissions, PushToStartTokenEvent, PushTokenEvent, StartInput, UpdateInput,
+  UpdatedEvent,
 } from './types.js';
 
 export type * from './types.js';
@@ -86,4 +87,28 @@ export function writeImage(name: string, png: Uint8Array | ArrayBuffer): Promise
  */
 export function onAction(handler: (event: ActionEvent) => void): Promise<UnlistenFn> {
   return listen<ActionEvent>('live-activity://action', event => handler(event.payload));
+}
+
+/**
+ * Receive the push token of each activity that asked for one (`push: 'token'`), when ActivityKit gives it and each
+ * time it changes (iOS). Send it to the server, which pushes to it with activitykit's `push::Payload`.
+ */
+export function onPushToken(handler: (event: PushTokenEvent) => void): Promise<UnlistenFn> {
+  return listen<PushTokenEvent>('live-activity://push-token', event => handler(event.payload));
+}
+
+/**
+ * Receive the app's push-to-start token, with `pushToStart: true` in the plugin configuration (iOS 17.2), when the
+ * system gives it and each time it changes. The server starts activities with it.
+ */
+export function onPushToStartToken(handler: (event: PushToStartTokenEvent) => void): Promise<UnlistenFn> {
+  return listen<PushToStartTokenEvent>('live-activity://push-to-start-token', event => handler(event.payload));
+}
+
+/**
+ * Receive the record of an activity whose content a push changed (iOS): content above every revision this app sent
+ * or accepted, so the app's own updates do not come this way.
+ */
+export function onUpdated(handler: (event: UpdatedEvent) => void): Promise<UnlistenFn> {
+  return listen<UpdatedEvent>('live-activity://updated', event => handler(event.payload));
 }

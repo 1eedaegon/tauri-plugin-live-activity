@@ -760,6 +760,40 @@ On iOS a start needs the app in the foreground and fails with `NOT_FOREGROUND` o
 activity after 8 hours and removes it from the Lock Screen after 12. [iOS integration](ios-integration.md) has the
 details.
 
+## Pushes
+
+On iOS a server can update an activity, end it, or start one, through APNs; the plugin asks ActivityKit for what the
+server needs and reports it, and the server builds the payloads with the activitykit crate's `push::Payload`
+(see [its usage guide](https://github.com/1eedaegon/activitykit-rs/blob/main/docs/usage.md#pushes)). The plugin
+holds no key and sends nothing. The app needs the Push Notifications capability (`aps-environment`); without it, as in
+the simulator, a start that asks for a token fails with `CONFIGURATION_REQUIRED`. Android takes no pushes and ignores
+the member.
+
+```ts
+import { onPushToken, onPushToStartToken, onUpdated, startLayout } from 'tauri-plugin-live-activity';
+
+// A token of the activity's own: the server sends to /3/device/<token>.
+const record = await startLayout({ activityKey: 'job:1', schemaVersion: 2, fallback: 'none', layout, snapshot, push: 'token' });
+// Or a broadcast channel the server made at APNs (iOS 18; UNSUPPORTED_FEATURE before).
+await startLayout({ ...input, push: { channel: 'dHN0LXNyY2gtY2hubA==' } });
+
+await onPushToken(({ activityId, token }) => { /* send the token to the server; it may change */ });
+await onPushToStartToken(({ token }) => { /* with pushToStart in the plugin configuration (iOS 17.2) */ });
+await onUpdated(({ record }) => { /* a push changed the content: record.snapshot has it */ });
+```
+
+A token is not in the start's record: ActivityKit makes it later, and may change it, and each one comes as a
+`live-activity://push-token` event. Push-to-start (iOS 17.2) needs `"pushToStart": true` under
+`plugins.live-activity` in `tauri.conf.json`, a setting that holds for the process like the receipts; an activity a
+push starts arrives as a listed activity, and a start of the app under its key answers `CONFLICT`. Content a push
+delivers comes as `live-activity://updated` with the activity's record when its revision is above every revision the
+app sent or accepted, so the app's own updates do not come this way; a server numbers its pushes above the app's.
+`checkPermissions` reports `frequentPushes`, the switch in Settings behind `NSSupportsLiveActivitiesFrequentUpdates`,
+and `getCapabilities` reports `push`.
+
+With React, `useLiveActivity` keeps the activity's `pushToken` in its state and takes pushed content as its record;
+pass `push` with the other options of the start.
+
 ## TSX and React
 
 ### Layouts in TSX

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0
+
+- Pushes on iOS, on activitykit 0.3. A layout start may ask for a push token (`push: 'token'`) or subscribe to a
+  broadcast channel (`push: { channel }`, iOS 18); Android ignores the member. A token, new or changed, reaches
+  JavaScript as `live-activity://push-token` (`onPushToken`); with `pushToStart: true` in the plugin configuration
+  the app's push-to-start token comes as `live-activity://push-to-start-token` (`onPushToStartToken`, iOS 17.2);
+  content a push delivers comes as `live-activity://updated` with the activity's record (`onUpdated`), and the
+  plugin's records carry it. `checkPermissions` reports `frequentPushes`, `getCapabilities` reports `push`. The
+  React hook's state carries `pushToken` and takes pushed content. The server builds payloads with activitykit's
+  `push::Payload`; the plugin sends nothing. Without the Push Notifications capability and APNs, as in the
+  simulator, a start that asks for a token fails with `CONFIGURATION_REQUIRED`.
+- The request contract is activitykit 0.3's, with the `push` member and its fixtures.
+
 ## 0.5.1
 
 - iOS runs on activitykit 0.2, whose records carry nothing of other platforms any more: the plugin adds `backend`,

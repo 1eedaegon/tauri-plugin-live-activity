@@ -4,13 +4,14 @@ version = 4
 
 [[package]]
 name = "activitykit"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef0719936de09a38e1cf76c1dd8dac4ad9e6860b0d8db0d876924a23b111847f"
+checksum = "c869b452611c6f8c1ded3cd6443366f097c7cd9e92be212c3417ec8e8e5fd166"
 dependencies = [
  "async-channel",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.21",
 ]
 
@@ -3086,7 +3087,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-live-activity"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "activitykit",
  "liveupdate",

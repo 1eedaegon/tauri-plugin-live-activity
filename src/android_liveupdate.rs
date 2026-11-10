@@ -103,6 +103,7 @@ pub(crate) fn capabilities(value: liveupdate::Capabilities) -> Capabilities {
         },
         max_payload_bytes: 4096,
         layout: supported,
+        push: FeatureSupport::Unsupported,
     }
 }
 
@@ -327,7 +328,7 @@ mod tests {
         assert_eq!(record.unwrap_err().code, "NATIVE_ERROR");
     }
 
-    // TP-ANDROID-4
+    // TP-ANDROID-4, TP-PUSH-5
     #[test]
     fn capabilities_and_errors_keep_stable_public_values() {
         let converted = capabilities(liveupdate::Capabilities {
@@ -339,6 +340,8 @@ mod tests {
         assert_eq!(converted.backend, Backend::AndroidNotification);
         assert_eq!(converted.start, FeatureSupport::Supported);
         assert_eq!(converted.native_live_activity, FeatureSupport::Unsupported);
+        // Android takes no pushes.
+        assert_eq!(converted.push, FeatureSupport::Unsupported);
 
         let converted = error(liveupdate::Error::new(
             liveupdate::ErrorCode::StaleRevision,

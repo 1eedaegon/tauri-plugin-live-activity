@@ -38,6 +38,7 @@ mod image;
 mod ios;
 mod layout;
 mod models;
+mod pushes;
 #[cfg(test)]
 mod types_tests;
 mod validation;
@@ -53,6 +54,7 @@ pub use image::{ImageInput, MAX_IMAGE_BYTES, MAX_IMAGE_HEIGHT, MAX_IMAGE_WIDTH, 
 pub use ios::LiveActivity;
 pub use layout::*;
 pub use models::*;
+pub use pushes::{PushToStartTokenEvent, PushTokenEvent, UpdatedEvent};
 pub use validation::{Validate, validate_request};
 
 /// Access the registered plugin from a Tauri application or window.

@@ -2,20 +2,21 @@
 //! become, and the loop that hands each tap to the handlers and lets it go after them.
 
 use super::{
-    EndSpec, StartSpec, UpdateSpec, action_event,
-    fake::{FakeAck, FakeKit, Log},
+    EndSpec, Handle, Kit, KitEvent, StartSpec, UpdateSpec, action_event, block_on,
+    fake::{FakeAck, FakeHandle, FakeKit, Log},
     glue::{
-        LATEST_MILLIS, builder, end_of, millis, setup, setup_with, start_of, taps_of, time,
+        LATEST_MILLIS, builder, end_of, events_of, millis, setup, setup_with, start_of, time,
         update_of,
     },
     start_spec,
 };
 use crate::{
     Config, Receipts,
-    layout::{LayoutStartInput, Value},
+    layout::{LayoutPush, LayoutStartInput, Value},
     models::EndPolicy,
+    pushes::PushEvent,
 };
-use activitykit::{ActivityKit, End, Start, Update, Values};
+use activitykit::{ActivityKit, ChannelId, End, Push, Start, Update, Values};
 use serde_json::json;
 use std::{
     fmt::Debug,
@@ -51,7 +52,7 @@ fn a_start_goes_to_activitykit_with_its_key_revision_stale_date_and_timestamp() 
         .revision(5)
         .stale_at(time(1000))
         .timestamp(time(1_790_000_000_000));
-    assert_eq!(debug(start_of(spec.clone())), debug(full));
+    assert_eq!(debug(start_of(spec.clone()).unwrap()), debug(full));
     let bare = StartSpec {
         stale_at: None,
         timestamp: None,
@@ -60,7 +61,7 @@ fn a_start_goes_to_activitykit_with_its_key_revision_stale_date_and_timestamp() 
     let plain = Start::new(bare.layout.clone(), bare.values.clone())
         .key("demo:1")
         .revision(5);
-    assert_eq!(debug(start_of(bare)), debug(plain));
+    assert_eq!(debug(start_of(bare).unwrap()), debug(plain));
 }
 
 // TP-IOS-16
@@ -90,7 +91,7 @@ fn a_far_future_time_reaches_activitykit_capped() {
         .revision(5)
         .stale_at(time(LATEST_MILLIS))
         .timestamp(time(LATEST_MILLIS));
-    assert_eq!(debug(start_of(spec)), debug(capped));
+    assert_eq!(debug(start_of(spec).unwrap()), debug(capped));
 }
 
 // TP-IOS-16
@@ -161,6 +162,7 @@ fn the_kit_takes_its_receipts_from_the_configuration_and_a_conflicting_kit_fails
     let config = |receipts| Config {
         receipts,
         android: None,
+        push_to_start: None,
     };
     let redacted = config(Some(Receipts::Redacted));
     assert_eq!(
@@ -179,7 +181,9 @@ fn the_kit_takes_its_receipts_from_the_configuration_and_a_conflicting_kit_fails
     }
     // activitykit answers a second kit with other settings with CONFLICT, and setup fails with it.
     let conflict = activitykit::Error::Conflict("other settings run".into());
-    let failed = setup::<FakeKit>(Err(conflict), |_| {}).err().unwrap();
+    let failed = setup::<FakeKit>(Err(conflict), |_| {}, |_| {})
+        .err()
+        .unwrap();
     assert_eq!(failed.code, "CONFLICT");
 }
 
@@ -201,15 +205,19 @@ fn a_tap_from_activitykit_is_released_only_after_a_slow_handler_and_the_event() 
     let kit = FakeKit::default();
     let log = Log::default();
     let emitted = log.clone();
-    let (_apple, actions) = setup(Ok(kit.clone()), move |event| {
-        emitted
-            .lock()
-            .unwrap()
-            .push(format!("emit:{}:{:?}", event.action_id, event.activity_key));
-    })
+    let (_apple, actions) = setup(
+        Ok(kit.clone()),
+        move |event| {
+            emitted
+                .lock()
+                .unwrap()
+                .push(format!("emit:{}:{:?}", event.action_id, event.activity_key));
+        },
+        |_| {},
+    )
     .unwrap();
     // The plugin subscribes to the kit's events before anything else.
-    assert_eq!(kit.calls(), ["taps"]);
+    assert_eq!(kit.calls(), ["events"]);
     let handled = log.clone();
     actions.subscribe(move |event| {
         thread::sleep(Duration::from_secs(1));
@@ -228,7 +236,7 @@ fn a_tap_from_activitykit_is_released_only_after_a_slow_handler_and_the_event() 
         ["slow:pet", "emit:pet:Some(\"demo:1\")", "released"]
     );
     // When the kit's events end, so does the loop; the plugin keeps working.
-    kit.close_taps();
+    kit.close_events();
     thread::sleep(Duration::from_millis(50));
     actions.subscribe(|_| {});
 }
@@ -238,13 +246,17 @@ fn a_tap_from_activitykit_is_released_only_after_a_slow_handler_and_the_event() 
 fn setup_subscribes_to_the_kits_events_before_it_starts_the_handlers_thread() {
     let kit = FakeKit::default();
     let spawned = kit.clone();
-    let (_apple, _actions) = setup_with(Ok(kit.clone()), move || {
-        spawned.book().calls.push("spawn".into());
-        crate::actions::spawn(|_| {})
-    })
+    let (_apple, _actions) = setup_with(
+        Ok(kit.clone()),
+        move || {
+            spawned.book().calls.push("spawn".into());
+            crate::actions::spawn(|_| {})
+        },
+        |_| {},
+    )
     .unwrap();
     // A tap that launched the app waits for the first subscriber: the plugin subscribes before anything else.
-    assert_eq!(kit.calls(), ["taps", "spawn"]);
+    assert_eq!(kit.calls(), ["events", "spawn"]);
 }
 
 // TP-ACTION-1, TP-ACTION-3
@@ -267,22 +279,150 @@ fn the_kits_events_become_taps_until_they_end_and_other_events_pass() {
     let held = log.clone();
     let kit = FakeKit::default();
     let handle = kit.handle("la-1", "demo:1");
-    let taps: Vec<_> = taps_of(
+    let events: Vec<KitEvent<FakeHandle, FakeAck>> = events_of(
         move || stream.next(),
         move |event| match event {
-            Seen::Tapped(action) => {
-                Some((action_event(&handle, action.into()), FakeAck(held.clone())))
-            }
+            Seen::Tapped(action) => Some(KitEvent::Tap(
+                action_event(&handle, action.into()),
+                FakeAck(held.clone()),
+            )),
             Seen::Started | Seen::Ended => None,
         },
     )
     .collect();
-    let actions: Vec<_> = taps
+    let actions: Vec<_> = events
         .iter()
-        .map(|(event, _)| event.action_id.as_str())
+        .map(|event| match event {
+            KitEvent::Tap(tap, _) => tap.action_id.as_str(),
+            _ => "other",
+        })
         .collect();
     assert_eq!(actions, ["pet", "done"]);
-    assert_eq!(taps[0].0.activity_key.as_deref(), Some("demo:1"));
+    let KitEvent::Tap(first, _) = &events[0] else {
+        panic!("a tap")
+    };
+    assert_eq!(first.activity_key.as_deref(), Some("demo:1"));
     // Nothing is let go while the plugin holds the taps.
     assert!(log.lock().unwrap().is_empty());
+}
+
+// TP-PUSH-1
+#[test]
+fn a_start_carries_its_push_to_activitykit() {
+    let with = |push| StartSpec {
+        push: Some(push),
+        ..spec()
+    };
+    let expected = |push| {
+        Start::new(spec().layout, spec().values)
+            .key("demo:1")
+            .revision(5)
+            .stale_at(time(1000))
+            .timestamp(time(1_790_000_000_000))
+            .push(push)
+    };
+    assert_eq!(
+        debug(start_of(with(LayoutPush::Token)).unwrap()),
+        debug(expected(Push::Token))
+    );
+    assert_eq!(
+        debug(start_of(with(LayoutPush::Channel("dGVzdA==".into()))).unwrap()),
+        debug(expected(Push::Channel(ChannelId::new("dGVzdA==").unwrap())))
+    );
+    // The check of the request keeps a channel that is no id out; one still never reaches activitykit.
+    let refused = start_of(with(LayoutPush::Channel("not base64!".into()))).unwrap_err();
+    assert_eq!(refused.code(), "INVALID_INPUT");
+}
+
+// TP-PUSH-3
+#[test]
+fn the_builder_watches_push_to_start_when_the_configuration_says_so() {
+    let config = |push_to_start| Config {
+        receipts: None,
+        android: None,
+        push_to_start,
+    };
+    assert_eq!(
+        builder(Some(&config(Some(true)))),
+        ActivityKit::builder().push_to_start(true)
+    );
+    for off in [None, Some(&config(Some(false))), Some(&config(None))] {
+        assert_eq!(builder(off), ActivityKit::builder());
+    }
+}
+
+/// What JavaScript would get of an event of the pushes, in one line.
+fn payload(event: &PushEvent) -> String {
+    match event {
+        PushEvent::Token(token) => format!(
+            "{}/{}/{}",
+            token.activity_id,
+            token.activity_key.as_deref().unwrap_or("-"),
+            token.token
+        ),
+        PushEvent::PushToStartToken(token) => token.token.clone(),
+        PushEvent::Updated(updated) => format!(
+            "{}@{} {:?}",
+            updated.record.id, updated.record.snapshot.revision, updated.record.snapshot.values
+        ),
+    }
+}
+
+// TP-PUSH-2, TP-PUSH-4, TP-PUSH-6
+#[test]
+fn push_events_reach_javascript_as_they_come_without_waiting_for_the_taps_handlers() {
+    let kit = FakeKit::default();
+    let log = Log::default();
+    let (tapped, pushed) = (log.clone(), log.clone());
+    let (_apple, actions) = setup(
+        Ok(kit.clone()),
+        move |event| {
+            tapped
+                .lock()
+                .unwrap()
+                .push(format!("emit:{}", event.action_id));
+        },
+        move |event| {
+            pushed
+                .lock()
+                .unwrap()
+                .push(format!("{}:{}", event.name(), payload(event)));
+        },
+    )
+    .unwrap();
+    let slow = log.clone();
+    actions.subscribe(move |event| {
+        thread::sleep(Duration::from_secs(1));
+        slow.lock()
+            .unwrap()
+            .push(format!("slow:{}", event.action_id));
+    });
+    let activity = block_on(kit.start(spec())).unwrap();
+    // A tap first: its handler takes a second, and the events of the pushes behind it do not wait for it.
+    kit.send_tap(action_event(&activity, "pet".into()), FakeAck(log.clone()));
+    kit.send_event(KitEvent::PushToken {
+        activity: activity.clone(),
+        token: "0a1b".into(),
+    });
+    kit.send_event(KitEvent::PushToStartToken {
+        token: "ff00".into(),
+    });
+    kit.pushed(activity.id(), 7, values("Pushed"));
+    kit.send_event(KitEvent::Updated(activity.clone()));
+    wait_for(&log, "released");
+    assert_eq!(
+        *log.lock().unwrap(),
+        [
+            "live-activity://push-token:la-ios-layout-1/demo:1/0a1b",
+            "live-activity://push-to-start-token:ff00",
+            "live-activity://updated:la-ios-layout-1@7 {\"status\": Text(\"Pushed\")}",
+            "slow:pet",
+            "emit:pet",
+            "released",
+        ]
+    );
+    // A token of an activity the system no longer lists names no key, as a tap does not.
+    let gone = kit.handle("gone", "");
+    let event = PushEvent::Token(super::push_token_event(&gone, "0a".into()));
+    assert_eq!(payload(&event), "gone/-/0a");
 }

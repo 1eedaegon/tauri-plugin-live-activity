@@ -115,7 +115,7 @@ test('mounting starts the activity at revision 0 and reports it active', async (
   assert.equal(view.state.status, 'active');
   assert.equal(view.state.record.id, 'activity-1');
   assert.equal(view.state.error, undefined);
-  assert.deepEqual(view.seen[0], { status: 'idle', record: undefined, error: undefined });
+  assert.deepEqual(view.seen[0], { status: 'idle', record: undefined, error: undefined, pushToken: undefined });
 
   const other = plugin();
   const second = await mount({ activityKey: 'k', layout, values, fallback: 'none' });
@@ -419,6 +419,41 @@ test('onAction gets the taps of this activity only, until unmount', async (t) =>
   await view.unmount();
   await act(async () => emit('live-activity://action', { actionId: 'late', activityId: 'activity-1' }));
   assert.deepEqual(taps, ['pet', 'new done']);
+});
+
+// TP-PUSH-7
+test('the state carries the push token and takes pushed content of its activity', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const native = plugin({ hold: ['start_layout'] });
+  const view = await mount(options({ push: 'token' }));
+  assert.equal(view.state.pushToken, undefined);
+  // A token that comes before the start has answered is the activity's once it has.
+  await act(async () => emit('live-activity://push-token', { activityId: 'activity-1', token: 'early' }));
+  await native.release('start_layout');
+  assert.equal(native.named('start_layout')[0].push, 'token');
+  assert.equal(view.state.pushToken, 'early');
+  await act(async () => {
+    await emit('live-activity://push-token', { activityId: 'activity-9', token: 'other' });
+    await emit('live-activity://push-token', { activityId: 'activity-1', token: 'later' });
+  });
+  assert.equal(view.state.pushToken, 'later');
+  // Pushed content becomes the record; the component's values did not change, so nothing is sent.
+  const pushed = { ...view.state.record, snapshot: { revision: 3, values: { status: 'Delivered', done: 1 } } };
+  await act(async () => {
+    await emit('live-activity://updated', { record: { ...pushed, id: 'activity-9' } });
+    await emit('live-activity://updated', { record: pushed });
+  });
+  assert.deepEqual(view.state.record, pushed);
+  assert.equal(view.state.status, 'active');
+  assert.equal(native.named('update_layout').length, 0);
+  // The next change of the values goes above the pushed revision.
+  await view.rerender(options({ push: 'token', values: { status: 'Rated', done: 1 } }));
+  assert.deepEqual(native.named('update_layout'), [{ id: 'activity-1', snapshot: { revision: 4, values: { status: 'Rated', done: 1 } } }]);
+  assert.equal(view.state.pushToken, 'later');
+  // The token goes with the activity.
+  await view.rerender(options({ push: 'token', values: { status: 'Rated', done: 1 }, enabled: false }));
+  assert.equal(view.state.status, 'ended');
+  assert.equal(view.state.pushToken, undefined);
 });
 
 // TP-REACT-5

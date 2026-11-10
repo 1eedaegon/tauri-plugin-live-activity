@@ -1,8 +1,8 @@
 // One layout activity kept in step with what a component wants, one request at a time. Framework-free:
 // the hook in index.ts feeds it the options of each render.
 import type {
-  EndPolicy, ErrorCode, Fallback, Layout, LayoutActivityRecord, LayoutAndroidOptions, LayoutEndInput,
-  LayoutStartInput, LayoutStyle, LayoutUpdateInput, LayoutValues, LiveActivityError,
+  EndPolicy, ErrorCode, Fallback, Layout, LayoutActivityRecord, LayoutAndroidOptions, LayoutEndInput, LayoutPush,
+  LayoutStartInput, LayoutStyle, LayoutUpdateInput, LayoutValues, LiveActivityError, PushTokenEvent, UpdatedEvent,
 } from '../types.js';
 
 export interface SessionOptions {
@@ -18,6 +18,8 @@ export interface SessionOptions {
   readonly fallback?: Fallback;
   /** Read at start. */
   readonly android?: LayoutAndroidOptions;
+  /** Read at start: what the activity asks ActivityKit for, a push token or a channel (iOS). */
+  readonly push?: LayoutPush;
   /** False ends the activity, and true starts it again. Defaults to true. */
   readonly enabled?: boolean;
   /** How the activity ends on unmount or when `enabled` turns false. Defaults to `{ kind: 'immediate' }`. */
@@ -32,6 +34,8 @@ export interface LiveActivityState {
   readonly record: LayoutActivityRecord | undefined;
   /** The last refusal; an accepted request clears it. */
   readonly error: LiveActivityError | undefined;
+  /** The running activity's latest push token (iOS, with `push: 'token'`), until the activity ends. */
+  readonly pushToken: string | undefined;
 }
 
 /** The commands the session sends. */
@@ -41,7 +45,7 @@ export interface SessionCommands {
   readonly endLayout: (input: LayoutEndInput) => Promise<LayoutActivityRecord>;
 }
 
-export const IDLE: LiveActivityState = Object.freeze({ status: 'idle', record: undefined, error: undefined });
+export const IDLE: LiveActivityState = Object.freeze({ status: 'idle', record: undefined, error: undefined, pushToken: undefined });
 const IMMEDIATE: EndPolicy = Object.freeze({ kind: 'immediate' });
 
 export class Session {
@@ -54,6 +58,8 @@ export class Session {
   private refused: LayoutValues | undefined;
   /** The key whose start was refused: not started again until `enabled` turns off or the key changes. */
   private failedKey: string | undefined;
+  /** The latest push token of each activity seen, by id: one may come before the start it belongs to has answered. */
+  private readonly tokens = new Map<string, string>();
   private busy = false;
   private mounts = 0;
 
@@ -62,6 +68,23 @@ export class Session {
   /** The id of the running activity. */
   get activityId(): string | undefined {
     return this.running?.record.id;
+  }
+
+  /** A push token: the running activity's goes into the state; one that comes before its start answered waits. */
+  token(event: PushTokenEvent): void {
+    this.tokens.set(event.activityId, event.token);
+    if (this.running?.record.id === event.activityId) this.set({ ...this.state, pushToken: event.token });
+  }
+
+  /**
+   * Content a push delivered: the running activity's record takes it. The component's values stand as last sent, so
+   * the pushed content stays until they change, and that change goes above the pushed revision.
+   */
+  pushed(event: UpdatedEvent): void {
+    const { record } = event;
+    if (!this.running || record.id !== this.running.record.id) return;
+    this.running = { ...this.running, record, revision: record.snapshot.revision };
+    this.set({ ...this.state, record });
   }
 
   /** The options of a render. */
@@ -121,17 +144,18 @@ export class Session {
       snapshot: { revision: 0, values },
       ...(options.styles === undefined ? {} : { styles: options.styles }),
       ...(options.android === undefined ? {} : { android: options.android }),
+      ...(options.push === undefined ? {} : { push: options.push }),
     };
     this.failedKey = undefined;
     this.refused = undefined;
-    this.set({ status: 'starting', record: undefined, error: undefined });
+    this.set({ status: 'starting', record: undefined, error: undefined, pushToken: undefined });
     this.send(this.commands.startLayout(input), (record) => {
       this.running = { record, values, revision: 0 };
-      this.set({ status: 'active', record, error: undefined });
+      this.set({ status: 'active', record, error: undefined, pushToken: this.tokens.get(record.id) });
     }, (error) => {
       // Blocks only the key still wanted: `enabled` off meanwhile, or another key, starts again.
       if (this.wanted?.activityKey === options.activityKey) this.failedKey = options.activityKey;
-      this.set({ status: 'failed', record: undefined, error });
+      this.set({ status: 'failed', record: undefined, error, pushToken: undefined });
     });
   }
 
@@ -142,7 +166,7 @@ export class Session {
     this.send(this.commands.updateLayout({ id: running.record.id, snapshot: { revision, values } }), (record) => {
       this.refused = undefined;
       this.running = { record, values, revision };
-      this.set({ status: 'active', record, error: undefined });
+      this.set({ status: 'active', record, error: undefined, pushToken: this.state.pushToken });
     }, (error) => {
       this.refused = values;
       this.set({ ...this.state, error });
@@ -150,14 +174,15 @@ export class Session {
   }
 
   private end(record: LayoutActivityRecord): void {
-    this.set({ status: 'ending', record, error: this.state.error });
+    this.set({ status: 'ending', record, error: this.state.error, pushToken: this.state.pushToken });
+    this.tokens.delete(record.id);
     this.send(this.commands.endLayout({ id: record.id, policy: this.endPolicy }), (ended) => {
       this.running = undefined;
-      this.set({ status: 'ended', record: ended, error: undefined });
+      this.set({ status: 'ended', record: ended, error: undefined, pushToken: undefined });
     }, (error) => {
       // Not tried again: the activity is left to the system.
       this.running = undefined;
-      this.set({ status: 'failed', record, error });
+      this.set({ status: 'failed', record, error, pushToken: undefined });
     });
   }
 
