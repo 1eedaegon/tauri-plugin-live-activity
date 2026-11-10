@@ -59,7 +59,7 @@ React is an optional peer dependency that only this entry imports.
 | TP-RUST-2 | The layout types (`Node`, `Element`, `Style`, `Island`, `Bound`, `Bindable`, `Color`, `Value`, …) are activitykit's, re-exported under the same names with the same JSON; the request and record types are the plugin's, with `values` a `BTreeMap`. | A 0.3 request JSON reads into the same types and writes back the same. | — | all |
 | TP-RUST-3 | `validate_request(command, json)` checks the six commands of contracts v1 and v2 without a native call; `LayoutStartInput::validate_update` and `validate_end` check an update or an end against its start. | `("end_layout", {id, policy, snapshot})` → `Ok`. | `INVALID_INPUT`, `PAYLOAD_TOO_LARGE` | all |
 | TP-RUST-4 | An error of activitykit keeps its code; its message is activitykit's text, with the feature and iOS version of `UNSUPPORTED_FEATURE` and the scope of `SYSTEM_LIMIT`. | `SystemLimit { scope: App }` → `SYSTEM_LIMIT`, "the app's limit of Live Activities is reached". | every code | all |
-| TP-RUST-5 | The activitykit dependency is one line of `Cargo.toml`, `activitykit = "0.1"` from crates.io, and the crate links no Swift package of its own (`build.rs` registers no iOS path); `cargo package` packages and verifies the crate. | — | — | all |
+| TP-RUST-5 | The activitykit dependency is one line of `Cargo.toml`, `activitykit = "0.2"` from crates.io, and the crate links no Swift package of its own (`build.rs` registers no iOS path); `cargo package` packages and verifies the crate. | — | — | all |
 
 ## The request contract
 
