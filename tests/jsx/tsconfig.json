@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
+    "jsxImportSource": "tauri-plugin-live-activity/jsx",
+    "rootDir": ".",
+    "outDir": "out",
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true
+  },
+  "files": [
+    "elements.tsx",
+    "buttons.tsx",
+    "fragment.tsx"
+  ]
+}
