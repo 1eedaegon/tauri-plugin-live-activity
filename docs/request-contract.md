@@ -3,7 +3,7 @@
 Contract v1 is the request input used since `0.1.0-alpha.1`. 0.2.0 leaves it unchanged
 and adds [contract v2](#request-contract-v2-layout) for layouts. Validator tests in other
 languages reuse `contracts/request.schema.json` and `tests/fixtures/requests.json`.
-`tools/validate-request.mjs` is the reference implementation, for development only. Since 0.4
+`tools/validate-request.mjs` is the reference implementation, for development only. Since 0.5
 the schema file is a copy of the activitykit crate's, which also holds contract v2.
 
 ## Format
@@ -89,7 +89,7 @@ tests, and the coverage of each layer, are recorded separately in the
 
 Status: released in 0.2.0. [Bound style members](#bound-style-members), the style member
 `fontFamily`, images from a `file`, [custom nodes](#custom-nodes) and
-[`write_image`](#images-the-app-writes) came in 0.3.0. In 0.4 v2 is the contract of the
+[`write_image`](#images-the-app-writes) came in 0.3.0. In 0.5 v2 is the contract of the
 [activitykit](https://github.com/1eedaegon/activitykit-rs) crate, which adds a `timestamp` to snapshots,
 final content to `end_layout`, the state `pending` and the error code `NOT_FOREGROUND`. It follows the
 [layout DSL RFC](rfc-layout-dsl.md) with the differences listed at the end of this section. Contract v1
@@ -277,7 +277,7 @@ the plugin does not make.
 A failed request answers `{ "code", "message" }`; the message never repeats the request. The codes are
 `INVALID_INPUT`, `PAYLOAD_TOO_LARGE`, `NOT_FOUND`, `CONFLICT`, `STALE_REVISION`,
 `PERMISSION_DENIED`, `NOT_FOREGROUND`, `CONFIGURATION_REQUIRED`, `UNSUPPORTED_PLATFORM`,
-`UNSUPPORTED_FEATURE`, `SYSTEM_LIMIT` and `NATIVE_ERROR`. `NOT_FOREGROUND` is new in 0.4: ActivityKit
+`UNSUPPORTED_FEATURE`, `SYSTEM_LIMIT` and `NATIVE_ERROR`. `NOT_FOREGROUND` is new in 0.5: ActivityKit
 refused a start because the app was not in the foreground (0.3 answered `NATIVE_ERROR` or
 `PERMISSION_DENIED`). On iOS the codes are activitykit's, and the message of `UNSUPPORTED_FEATURE`
 names the feature and the iOS version it needs, that of `SYSTEM_LIMIT` whether the app's or the
@@ -495,7 +495,7 @@ every time it draws, and `ActivityKitLayoutWidget` passes the values to
 styles, bound or literal: `layout.styles`, `layout.background` and `layout.keyline` stay in
 `degradedFeatures` as before.
 
-The Rust crate carries the Rust validator, which is activitykit's since 0.4, and the Android
+The Rust crate carries the Rust validator, which is activitykit's since 0.5, and the Android
 layer, and brings in activitykit for iOS. A crate of 0.2.x rejects a binding
 with `INVALID_INPUT`, and the npm package of 0.2.x has no type or helper for it. Use the npm package
 and the crate of the same minor version. The same holds for `fontFamily`, `file` sources and `custom`

@@ -78,7 +78,7 @@ cargo builds.
 | `ActivityKitAppGroup` | widget extension | The App Group for images the app draws; only with `writeImage` |
 | `UIAppFonts` | widget extension | The fonts the extension bundles, for `fontFamily` |
 
-0.2 and 0.3 named the extension's keys `TauriLiveActivityLayout` and `TauriLiveActivityAppGroup`; 0.4 reads neither.
+0.2 and 0.3 named the extension's keys `TauriLiveActivityLayout` and `TauriLiveActivityAppGroup`; 0.5 reads neither.
 
 ## Pictures the app draws
 
@@ -192,7 +192,7 @@ that ActivityKit shows. A digest of guessable values can be guessed, and Activit
 activity's content. activitykit's settings hold for the whole process: when the app builds activitykit itself with
 other receipts first, the plugin's setup fails. Android ignores the option.
 
-0.4 does not read 0.3's receipts (`tauri-live-activity/receipts-v2.json`) and does not list activities that 0.3
+0.5 does not read 0.3's receipts (`tauri-live-activity/receipts-v2.json`) and does not list activities that 0.3
 started.
 
 ## The progress and timer templates
@@ -216,7 +216,7 @@ that holds the value `liveActivityTemplate` with `progress` or `timer` is taken 
 
 ## Migrating from 0.3
 
-1. End the activities that 0.3 started before you update: 0.4 does not list them, and they stay until the system ends
+1. End the activities that 0.3 started before you update: 0.5 does not list them, and they stay until the system ends
    them, within 8 hours.
 2. Update the crate and the npm package to the same minor version, and run `npx tauri-plugin-live-activity setup`
    again. On an app that 0.2 or 0.3 set up, it:
@@ -237,7 +237,7 @@ that holds the value `liveActivityTemplate` with `progress` or `timer` is taken 
    is gone, and so is the `cargo check` that prepared it.
 3. Code: `endLayout` and `end_layout` take `LayoutEndInput` (`snapshot` is optional), a Rust `LayoutSnapshot` literal
    needs `timestamp: None`, a `match` on `ActivityState` needs a `_` arm, and a start may fail with `NOT_FOREGROUND`.
-4. Write the images of `writeImage` again; 0.4 reads them from `activitykit/images`.
+4. Write the images of `writeImage` again; 0.5 reads them from `activitykit/images`.
 
 An app whose widget extension `setup` left alone does the same by hand: replace the plugin's Swift package and its
 products (`LiveActivityShared`, `LiveActivityUI`) with activitykit's, draw with `ActivityKitLayoutWidget()`, delete
@@ -305,7 +305,7 @@ are activitykit's ([testing](https://github.com/1eedaegon/activitykit-rs/blob/ma
 
 ## Validation record
 
-### 0.4
+### 0.5
 
 On 2026-11-09 the simulator suite (`tests/ios/run.sh`) passed its seven tests on this Mac (Intel, Xcode 26.3, an
 iPhone 17 Pro simulator with iOS 26.3), and `MODE=dev` its four, without a retry; CI passed both on the merged branch.

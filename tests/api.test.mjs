@@ -479,7 +479,7 @@ test('endLayout sends the final content of an end unchanged', async () => {
 });
 
 // TP-JS-5
-test('the declarations follow the contract of 0.4', async () => {
+test('the declarations follow the contract of 0.5', async () => {
   const { readFile } = await import('node:fs/promises');
   const types = await readFile(new URL('../dist-js/types.d.ts', import.meta.url), 'utf8');
   const index = await readFile(new URL('../dist-js/index.d.ts', import.meta.url), 'utf8');
@@ -488,7 +488,7 @@ test('the declarations follow the contract of 0.4', async () => {
   assert.match(types, /export interface LayoutSnapshot \{[^}]*readonly timestamp\?: number;/s);
   assert.match(types, /export interface LayoutEndInput extends EndInput \{\s*readonly snapshot\?: LayoutSnapshot;\s*\}/);
   assert.match(index, /export declare function endLayout\(input: LayoutEndInput\): Promise<LayoutActivityRecord>;/);
-  // iOS sends the caller's revision (TP-IOS-3); 0.4.0-dev numbered them, and no comment may say so.
+  // iOS sends the caller's revision (TP-IOS-3); 0.5.0-dev numbered them, and no comment may say so.
   assert.doesNotMatch(types, /numbers the revisions|record's plus one/);
 });
 

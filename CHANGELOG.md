@@ -1,6 +1,18 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
+
+iOS moves onto the [activitykit](https://crates.io/crates/activitykit) crate, which was split out of this plugin's iOS
+code. The plugin has no Swift of its own any more: its Rust commands call activitykit, whose build script builds its
+Swift bridge into the app's Rust library, and the widget extension links activitykit's Swift products. Requests,
+records, revisions and taps keep the behaviour of 0.3. On Android every activity moves onto the
+[liveupdate](https://crates.io/crates/liveupdate) crate, run from the plugin's Rust, which projects layouts onto its
+notification styles; the plugin's own Kotlin lifecycle and renderer are gone. Layouts can be written in TSX, and a
+React hook keeps an activity in step with a component. Desktop works as before.
+
+On an iPhone 16 with iOS 27.2 the layouts, updates while locked and buttons ran from an app on this release. A button
+on a locked phone that Face ID has not matched waits for an unlock, as a native app's `.alwaysAllowed` intent does
+([iOS integration](docs/ios-integration.md#buttons)).
 
 - `tauri-plugin-live-activity/jsx`: layouts in TSX. The entry is a JSX import source of its own, with one component per
   node that returns the node of its builder, so TSX needs no React. It imports neither Tauri nor React, so a server
@@ -11,20 +23,6 @@
 - CI runs the two simulator suites only when started by hand (`gh workflow run ci.yml -f simulator=true`); a push or
   a pull request no longer waits 30 to 50 minutes for a hosted runner to rebuild the demo. They run on a Mac before
   the push.
-
-## 0.4.0
-
-iOS moves onto the [activitykit](https://crates.io/crates/activitykit) crate, which was split out of this plugin's iOS
-code. The plugin has no Swift of its own any more: its Rust commands call activitykit, whose build script builds its
-Swift bridge into the app's Rust library, and the widget extension links activitykit's Swift products. Requests,
-records, revisions and taps keep the behaviour of 0.3. On Android the progress and timer templates move onto the
-[liveupdate](https://crates.io/crates/liveupdate) crate, run from the plugin's Rust; layouts keep their Kotlin
-side. Desktop works as before.
-
-On an iPhone 16 with iOS 27.2 the layouts, updates while locked and buttons ran from an app on this release. A button
-on a locked phone that Face ID has not matched waits for an unlock, as a native app's `.alwaysAllowed` intent does
-([iOS integration](docs/ios-integration.md#buttons)).
-
 - iOS: the commands call activitykit 0.1 directly. The Tauri Swift plugin and the copied Swift packages (`ios/`,
   `LiveActivityShared`, `LiveActivityCore`, `LiveActivityUI`, `LiveActivityPlugin`) and the templates under
   `templates/ios` are gone. activitykit also fixes what 0.3's Swift got wrong: ActivityKit's `unsupported`,
@@ -53,7 +51,7 @@ on a locked phone that Face ID has not matched waits for an unlock, as a native 
   the feature and the limit.
 - Breaking: the extension's Info.plist keys are activitykit's, `ActivityKitLayout` and `ActivityKitAppGroup`, and
   activitykit keeps receipts in `activitykit/receipts-v2.json` and drawn images in `activitykit/images` of the App
-  Group. Activities that 0.3 started are not listed by 0.4: end them before the update, or the system ends them
+  Group. Activities that 0.3 started are not listed by 0.5: end them before the update, or the system ends them
   within 8 hours.
 - Breaking: the progress and timer templates of contract v1 are layout activities on iOS, with a fixed layout like
   0.3's template widget, so `ActivityKitLayoutWidget` draws them and a widget of the app's own for them no longer
@@ -94,7 +92,7 @@ on a locked phone that Face ID has not matched waits for an unlock, as a native 
   renderer, receivers and validator are gone, with the notification channel `tauri.live-activity.v1` and the tag
   prefixes. Taps come from liveupdate's durable event queue: a tap stored while the app did not run arrives when the
   plugin starts, and the native side no longer waits for the handlers.
-- Breaking: on Android, end running template activities before the update. 0.4 does not read the receipts that 0.3's
+- Breaking: on Android, end running template activities before the update. 0.5 does not read the receipts that 0.3's
   Kotlin lifecycle stored, and a notification of 0.3 may stay posted.
 - Android takes a snapshot's `timestamp` and keeps it in the record, and ends a layout activity with the final
   content of `end_layout`, checked as an update.

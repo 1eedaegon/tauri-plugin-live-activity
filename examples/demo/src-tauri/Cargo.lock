@@ -3228,7 +3228,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-live-activity"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "activitykit",
  "liveupdate",
