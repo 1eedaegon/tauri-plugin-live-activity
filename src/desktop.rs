@@ -36,6 +36,7 @@ impl<R: Runtime> LiveActivity<R> {
             native_live_activity: Unsupported,
             max_payload_bytes: 0,
             layout: Unsupported,
+            push: Unsupported,
         })
     }
 
@@ -45,6 +46,7 @@ impl<R: Runtime> LiveActivity<R> {
             notifications: NotApplicable,
             live_activities: NotApplicable,
             promotion: NotApplicable,
+            frequent_pushes: NotApplicable,
         })
     }
 
@@ -88,6 +90,11 @@ impl<R: Runtime> LiveActivity<R> {
 
     pub fn list_layout(&self) -> Result<Vec<LayoutActivityRecord>> {
         Err(Error::unsupported())
+    }
+
+    /// Desktop has no pushes: no token is ever held, which is an answer, not a failure, as the other reads give.
+    pub fn push_tokens(&self) -> Result<crate::PushTokens> {
+        Ok(crate::PushTokens::default())
     }
 
     /// Checks the PNG as on mobile, then returns `UNSUPPORTED_PLATFORM`.

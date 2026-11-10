@@ -104,6 +104,7 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
             notifications.promotionAllowed() -> "granted"
             else -> "settingsRequired"
         })
+        .put("frequentPushes", "notApplicable")
 
     // Tauri can cache DENIED for a cancelled dialog. Only an observed rationale proves
     // a previous denial; otherwise report uncertainty and allow an explicit retry.

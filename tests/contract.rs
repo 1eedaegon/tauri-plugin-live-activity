@@ -244,6 +244,7 @@ mod changing_styles {
             styles: Some(BTreeMap::from([("status".to_string(), style)])),
             snapshot: delivery(0, "On time", "green"),
             android: None,
+            push: None,
         }
     }
 

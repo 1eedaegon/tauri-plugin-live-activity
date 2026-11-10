@@ -1,6 +1,6 @@
 // `useLiveActivity`: one layout activity kept in step with a React component. Only this entry imports React.
 import { useEffect, useRef, useState } from 'react';
-import { endLayout, onAction, startLayout, updateLayout } from '../index.js';
+import { endLayout, onAction, onPushToken, onUpdated, startLayout, updateLayout } from '../index.js';
 import type { ActionEvent } from '../types.js';
 import { IDLE, Session, type LiveActivityState, type SessionOptions } from './session.js';
 
@@ -15,7 +15,8 @@ const commands = { startLayout, updateLayout, endLayout };
 
 /**
  * Starts a layout activity on mount, sends `values` as an update whenever they change, and ends the activity on
- * unmount or when `enabled` turns false.
+ * unmount or when `enabled` turns false. The state carries the activity's push token and takes content a push
+ * delivered (iOS).
  */
 export function useLiveActivity(options: UseLiveActivityOptions): LiveActivityState {
   const [state, setState] = useState<LiveActivityState>(IDLE);
@@ -24,6 +25,8 @@ export function useLiveActivity(options: UseLiveActivityOptions): LiveActivitySt
   const handler = useRef(options.onAction);
   handler.current = options.onAction;
   const listening = options.onAction !== undefined;
+  // Read at start, as `push` is: an activity that asks for no push gets no token and no pushed content.
+  const pushing = options.push !== undefined;
 
   useEffect(() => {
     session.current?.sync(options);
@@ -37,12 +40,27 @@ export function useLiveActivity(options: UseLiveActivityOptions): LiveActivitySt
   }, []);
 
   useEffect(() => {
+    if (!pushing) return undefined;
+    let open = true;
+    const stops = [
+      onPushToken((event) => { if (open) session.current?.token(event); }),
+      onUpdated((event) => { if (open) session.current?.pushed(event); }),
+    ];
+    for (const stop of stops) stop.catch((error: unknown) => { if (open) session.current?.failed(error); });
+    return () => {
+      open = false;
+      for (const stop of stops) stop.then((unlisten) => unlisten(), () => {});
+    };
+  }, [pushing]);
+
+  useEffect(() => {
     if (!listening) return undefined;
     let open = true;
     const stop = onAction((event) => {
       const running = session.current?.activityId;
       if (open && running !== undefined && event.activityId === running) handler.current?.(event);
     });
+    stop.catch((error: unknown) => { if (open) session.current?.failed(error); });
     return () => {
       open = false;
       stop.then((unlisten) => unlisten(), () => {});

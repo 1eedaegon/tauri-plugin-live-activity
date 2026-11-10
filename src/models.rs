@@ -127,10 +127,17 @@ pub struct Capabilities {
     /// Layout activities of request contract v2; a native side that predates them omits it.
     #[serde(default = "unsupported")]
     pub layout: FeatureSupport,
+    /// Pushes: tokens, channels and push-to-start (iOS); a native side that predates them omits it.
+    #[serde(default = "unsupported")]
+    pub push: FeatureSupport,
 }
 
 fn unsupported() -> FeatureSupport {
     FeatureSupport::Unsupported
+}
+
+fn not_applicable() -> PermissionState {
+    PermissionState::NotApplicable
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -150,6 +157,10 @@ pub struct Permissions {
     pub notifications: PermissionState,
     pub live_activities: PermissionState,
     pub promotion: PermissionState,
+    /// Frequent pushes, a switch in Settings on iOS (`granted` or `denied`); `notApplicable` where there are no
+    /// pushes. A native side that predates it omits it.
+    #[serde(default = "not_applicable")]
+    pub frequent_pushes: PermissionState,
 }
 
 /// The lifecycle of an activity. More states may come, so a match needs a `_` arm.

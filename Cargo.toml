@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-live-activity"
-version = "0.5.1"
+version = "0.6.0"
 description = "Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates with ongoing notification fallback"
 authors = ["1eedaegon"]
 edition = "2024"
@@ -21,7 +21,7 @@ include = [
 
 [dependencies]
 # iOS Live Activities, and the request contract that every platform checks.
-activitykit = "0.2"
+activitykit = "0.3"
 tauri = { version = "2.12.5", default-features = false }
 serde = { version = "1", features = ["derive"] }
 # Correctly rounded number parsing, so that a value arrives as JavaScript sent it.

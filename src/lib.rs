@@ -38,6 +38,7 @@ mod image;
 mod ios;
 mod layout;
 mod models;
+mod pushes;
 #[cfg(test)]
 mod types_tests;
 mod validation;
@@ -53,6 +54,10 @@ pub use image::{ImageInput, MAX_IMAGE_BYTES, MAX_IMAGE_HEIGHT, MAX_IMAGE_WIDTH, 
 pub use ios::LiveActivity;
 pub use layout::*;
 pub use models::*;
+pub use pushes::{
+    PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT, PushToStartTokenEvent, PushTokenEvent, PushTokens,
+    TOKENS_KEPT, UPDATED_EVENT, UpdatedEvent,
+};
 pub use validation::{Validate, validate_request};
 
 /// Access the registered plugin from a Tauri application or window.
@@ -82,7 +87,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R, Option<Config>> {
             commands::update_layout,
             commands::end_layout,
             commands::list_layout,
-            commands::write_image
+            commands::write_image,
+            commands::push_tokens
         ])
         .setup(|app, _api| {
             #[cfg(target_os = "android")]

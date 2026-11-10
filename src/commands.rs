@@ -31,6 +31,11 @@ pub(crate) async fn check_permissions<R: Runtime>(app: AppHandle<R>) -> Result<P
 }
 
 #[tauri::command]
+pub(crate) async fn push_tokens<R: Runtime>(app: AppHandle<R>) -> Result<crate::PushTokens> {
+    app.live_activity().push_tokens()
+}
+
+#[tauri::command]
 pub(crate) async fn request_permissions<R: Runtime>(
     app: AppHandle<R>,
     kind: Value,

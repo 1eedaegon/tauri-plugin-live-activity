@@ -95,6 +95,12 @@ impl<D: liveupdate::Driver, S: Store> Layouts<D, S> {
         updates: &liveupdate::LiveUpdate<D>,
         input: LayoutStartInput,
     ) -> Result<LayoutActivityRecord> {
+        // Android has no pushes: what the start asks of them is dropped here, so that it is no part of the request
+        // the activity keeps and a repeated start is compared without it.
+        let input = LayoutStartInput {
+            push: None,
+            ..input
+        };
         let _guard = self.lock.lock().map_err(|_| Error::native())?;
         let (mut entries, records) = self.reconciled(updates)?;
         // liveupdate compares the projections; two starts that project the same may still differ.

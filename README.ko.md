@@ -174,6 +174,19 @@ await onAction(async ({ actionId, activityId }) => {
 
 탭은 `onAction`으로, 앱이 열려 있지 않을 때는 Rust의 `on_action`으로 전달됩니다. iOS 17 이상이며, Android는 최대 세 개를 알림 버튼으로 보여 줍니다.
 
+### 푸시
+
+```ts
+await onPushToken(({ activityId, token }) => sendToServer(activityId, token));
+await onUpdated(({ record }) => show(record.snapshot.values));
+await startLayout({ ...input, push: 'token' });
+```
+
+iOS에서는 서버가 APNs로 액티비티를 갱신하고, 끝내고, 시작할 수 있습니다. 액티비티의 토큰은 `onPushToken`으로,
+앱의 push-to-start 토큰(iOS 17.2, 플러그인 설정의 `pushToStart`)은 `onPushToStartToken`으로, 푸시가 전달한
+내용은 `onUpdated`로 옵니다. 페이지가 구독할 때 플러그인이 이미 갖고 있던 토큰은 바로 전달됩니다(`pushTokens`).
+페이로드는 서버가 activitykit의 `push::Payload`로 만듭니다. [docs/usage.md](docs/usage.md#pushes)를 보세요.
+
 ### Dynamic Island
 
 <table>
@@ -300,7 +313,9 @@ Group을 Apple 계정에 한 번 등록해야 하는데, 자동 서명이 대신
 - 버튼을 누르면 Rust의 `on_action` 핸들러가 끝날 때까지 최대 4초 기다립니다. JavaScript 리스너는 기다리지 않습니다.
 - `app.live_activity()`의 Rust 메서드는 응답이 올 때까지 스레드를 멈추므로 메인 스레드가 아닌 곳에서 호출하세요. iOS에서
   메인 스레드에서 호출하면 바로 `NATIVE_ERROR`를 돌려줍니다. JavaScript의 명령은 멈추지 않습니다.
-- 푸시 갱신은 없습니다. Android는 진행 중 알림으로 보여 주고, 시스템이 허용하면 Live Update로 올립니다.
+- 푸시는 iOS에서만 됩니다. 토큰, 채널, push-to-start는 플러그인이 다루고 페이로드는 서버가 activitykit의
+  `push::Payload`로 만듭니다. Android는 진행 중 알림으로 보여 주고, 시스템이 허용하면 Live Update로 올리며, 푸시는
+  받지 않습니다.
 
 ## Samsung Now Bar
 

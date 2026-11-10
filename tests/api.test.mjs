@@ -21,6 +21,7 @@ for (const [name, command, args, expectedPayload, result] of [
   ['update', 'update', [{ id: record.id, snapshot: { ...snapshot, revision: 1, progress: 0.5 } }], { input: { id: record.id, snapshot: { ...snapshot, revision: 1, progress: 0.5 } } }, { ...record, snapshot: { ...snapshot, revision: 1, progress: 0.5 } }],
   ['end', 'end', [{ id: record.id, policy: { kind: 'immediate' } }], { input: { id: record.id, policy: { kind: 'immediate' } } }, { ...record, state: 'ended' }],
   ['list', 'list', [], {}, [record]],
+  ['pushTokens', 'push_tokens', [], {}, { activities: [] }],
 ]) {
   test(`${name} invokes the namespaced command with its public arguments`, async () => {
     const calls = [];
@@ -178,6 +179,102 @@ test('onAction hands each action payload, and nothing else, to its handler until
   await emit('live-activity://action', resume);
   assert.deepEqual(first, [[pause]]);
   assert.deepEqual(second, [[pause], [resume]]);
+});
+
+// TP-PUSH-1
+test('startLayout passes push through unchanged', async () => {
+  for (const push of ['token', { channel: 'dGVzdA==' }]) {
+    const calls = [];
+    mockIPC((nativeCommand, payload) => {
+      calls.push({ nativeCommand, payload });
+      return layoutRecord;
+    });
+    const request = Object.freeze({ ...layoutInput, push });
+    assert.deepEqual(await activity.startLayout(request), layoutRecord);
+    assert.deepEqual(calls, [{ nativeCommand: 'plugin:live-activity|start_layout', payload: { input: request } }]);
+    clearMocks();
+  }
+});
+
+// TP-PUSH-2, TP-PUSH-4
+test('onPushToken, onPushToStartToken and onUpdated listen to their events', async t => {
+  t.mock.method(console, 'warn', () => {});
+  mockIPC(command => (command === 'plugin:live-activity|push_tokens' ? { activities: [] } : undefined), { shouldMockEvents: true });
+  const tokens = [];
+  const starts = [];
+  const updates = [];
+  const unlisten = await activity.onPushToken(event => tokens.push(event));
+  await activity.onPushToStartToken(event => starts.push(event));
+  await activity.onUpdated(event => updates.push(event));
+  const token = { activityId: layoutRecord.id, activityKey: layoutInput.activityKey, token: '0a1b' };
+  await emit('live-activity://push-token', token);
+  await emit('live-activity://push-to-start-token', { token: 'ff00' });
+  await emit('live-activity://updated', { record: layoutRecord });
+  await emit('live-activity://action', { actionId: 'pet', activityId: layoutRecord.id });
+  assert.deepEqual(tokens, [token]);
+  assert.deepEqual(starts, [{ token: 'ff00' }]);
+  assert.deepEqual(updates, [{ record: layoutRecord }]);
+
+  await unlisten();
+  await emit('live-activity://push-token', { ...token, token: 'later' });
+  assert.deepEqual(tokens, [token]);
+});
+
+// TP-PUSH-2, TP-PUSH-8
+test('onPushToken and onPushToStartToken deliver the tokens the plugin holds first, each token once', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const held = {
+    pushToStart: 'ff00',
+    activities: [{ activityId: 'la-1', activityKey: 'job:1', token: '01' }, { activityId: 'la-2', token: '02' }],
+  };
+  mockIPC(command => (command === 'plugin:live-activity|push_tokens' ? held : undefined), { shouldMockEvents: true });
+  const tokens = [];
+  const starts = [];
+  await activity.onPushToken(event => tokens.push(`${event.activityId}:${event.token}`));
+  await activity.onPushToStartToken(event => starts.push(event.token));
+  assert.deepEqual(tokens, ['la-1:01', 'la-2:02']);
+  assert.deepEqual(starts, ['ff00']);
+  // The same token again is not delivered again; a changed one is.
+  await emit('live-activity://push-token', { activityId: 'la-1', token: '01' });
+  await emit('live-activity://push-token', { activityId: 'la-1', token: '11' });
+  await emit('live-activity://push-to-start-token', { token: 'ff00' });
+  await emit('live-activity://push-to-start-token', { token: 'ee00' });
+  assert.deepEqual(tokens, ['la-1:01', 'la-2:02', 'la-1:11']);
+  assert.deepEqual(starts, ['ff00', 'ee00']);
+});
+
+// TP-PUSH-8
+test('a token that comes while the plugin is asked outranks the one it held', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const held = { activities: [{ activityId: 'la-1', token: 'old' }, { activityId: 'la-2', token: '02' }] };
+  let answer;
+  mockIPC(command => (command === 'plugin:live-activity|push_tokens'
+    ? new Promise(resolve => { answer = () => resolve(held); })
+    : undefined), { shouldMockEvents: true });
+  const tokens = [];
+  const subscribing = activity.onPushToken(event => tokens.push(`${event.activityId}:${event.token}`));
+  // The listener is up before the plugin is asked; an event now is newer than what the plugin holds.
+  while (answer === undefined) await new Promise(resolve => setTimeout(resolve, 1));
+  await emit('live-activity://push-token', { activityId: 'la-1', token: 'new' });
+  answer();
+  await subscribing;
+  assert.deepEqual(tokens, ['la-1:new', 'la-2:02']);
+});
+
+// TP-PUSH-8
+test('onPushToken gives its subscription up when the plugin cannot be asked for the tokens it holds', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const refused = { code: 'NATIVE_ERROR', message: 'push_tokens not allowed' };
+  mockIPC(command => (command === 'plugin:live-activity|push_tokens' ? Promise.reject(refused) : undefined), { shouldMockEvents: true });
+  const tokens = [];
+  await assert.rejects(activity.onPushToken(event => tokens.push(event)), error => {
+    assert.deepEqual(error, refused);
+    return true;
+  });
+  await assert.rejects(activity.onPushToStartToken(event => tokens.push(event)));
+  await emit('live-activity://push-token', { activityId: 'la-1', token: '01' });
+  await emit('live-activity://push-to-start-token', { token: 'ff00' });
+  assert.deepEqual(tokens, []);
 });
 
 test('onAction reports a refused subscription instead of pretending to listen', async () => {
@@ -479,7 +576,7 @@ test('endLayout sends the final content of an end unchanged', async () => {
 });
 
 // TP-JS-5
-test('the declarations follow the contract of 0.5', async () => {
+test('the declarations follow the contract of 0.6', async () => {
   const { readFile } = await import('node:fs/promises');
   const types = await readFile(new URL('../dist-js/types.d.ts', import.meta.url), 'utf8');
   const index = await readFile(new URL('../dist-js/index.d.ts', import.meta.url), 'utf8');
@@ -490,5 +587,17 @@ test('the declarations follow the contract of 0.5', async () => {
   assert.match(index, /export declare function endLayout\(input: LayoutEndInput\): Promise<LayoutActivityRecord>;/);
   // iOS sends the caller's revision (TP-IOS-3); 0.5.0-dev numbered them, and no comment may say so.
   assert.doesNotMatch(types, /numbers the revisions|record's plus one/);
+  // 0.6: pushes.
+  assert.match(types, /export type LayoutPush = 'token' \| \{\s*readonly channel: string;\s*\};/);
+  assert.match(types, /export interface LayoutStartInput \{[\s\S]*?readonly push\?: LayoutPush;\s*\}/);
+  assert.match(types, /export interface Permissions \{[^}]*readonly frequentPushes: PermissionState;/s);
+  assert.match(types, /export interface Capabilities \{[^}]*readonly push: FeatureSupport;/s);
+  for (const name of ['PushTokenEvent', 'PushToStartTokenEvent', 'UpdatedEvent', 'PushTokens']) {
+    assert.match(types, new RegExp(`export interface ${name} \\{`), name);
+  }
+  assert.match(index, /export declare function pushTokens\(\): Promise<PushTokens>;/);
+  for (const name of ['onPushToken', 'onPushToStartToken', 'onUpdated']) {
+    assert.match(index, new RegExp(`export declare function ${name}\\(handler: \\(event: \\w+\\) => void\\): Promise<UnlistenFn>;`), name);
+  }
 });
 

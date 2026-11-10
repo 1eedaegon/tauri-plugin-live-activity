@@ -174,6 +174,19 @@ await onAction(async ({ actionId, activityId }) => {
 
 A tap reaches `onAction`, or `on_action` in Rust, which also runs when the app was not open. iOS 17+; Android shows up to three as notification actions.
 
+### Pushes
+
+```ts
+await onPushToken(({ activityId, token }) => sendToServer(activityId, token));
+await onUpdated(({ record }) => show(record.snapshot.values));
+await startLayout({ ...input, push: 'token' });
+```
+
+On iOS a server updates, ends or starts activities through APNs: the activity's token comes to `onPushToken`, the
+app's push-to-start token (iOS 17.2, `pushToStart` in the plugin configuration) to `onPushToStartToken`, and content a
+push delivered to `onUpdated`. Tokens the plugin already holds when a page subscribes come at once (`pushTokens`).
+The server builds the payloads with activitykit's `push::Payload`. See [docs/usage.md](docs/usage.md#pushes).
+
 ### Dynamic Island
 
 <table>
@@ -300,7 +313,9 @@ notification's large icon. Layout, styles and values still share 3584.
 - A button's tap waits for your Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.
 - The Rust methods of `app.live_activity()` block until the answer: call them off the main thread. On iOS a call on
   the main thread answers `NATIVE_ERROR` at once. The commands from JavaScript never block.
-- No push updates. Android shows an ongoing notification, promoted to a Live Update where the system allows it.
+- Pushes on iOS only: tokens, channels and push-to-start through the plugin, the payloads from activitykit's
+  `push::Payload` on the server. Android shows an ongoing notification, promoted to a Live Update where the system
+  allows it, and takes no pushes.
 
 ## Samsung Now Bar
 

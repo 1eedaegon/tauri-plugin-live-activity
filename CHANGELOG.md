@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.6.0
+
+- Pushes on iOS, on activitykit 0.3. A layout start may ask for a push token (`push: 'token'`) or subscribe to a
+  broadcast channel (`push: { channel }`, iOS 18); Android ignores the member. A token, new or changed, reaches
+  JavaScript as `live-activity://push-token` (`onPushToken`); with `pushToStart: true` in the plugin configuration
+  the app's push-to-start token comes as `live-activity://push-to-start-token` (`onPushToStartToken`, iOS 17.2);
+  content a push delivers comes as `live-activity://updated` with the activity's record (`onUpdated`), and the
+  plugin's records carry it. `checkPermissions` reports `frequentPushes`, `getCapabilities` reports `push`. The
+  React hook's state carries `pushToken` and takes pushed content. The server builds payloads with activitykit's
+  `push::Payload`; the plugin sends nothing. Without the Push Notifications capability and APNs, as in the
+  simulator, a start that asks for a token fails with `CONFIGURATION_REQUIRED`.
+- A token can come before the page listens, the push-to-start token at launch above all: the plugin keeps the newest
+  token of each of the last 32 activities and the push-to-start token (`pushTokens`, the command `push_tokens` in the
+  `default` permission, `push_tokens()` in Rust), and `onPushToken` and `onPushToStartToken` deliver what it holds
+  right after subscribing, each token once. The hook listens for pushes only when its options carry `push`. The
+  event names are public in Rust (`PUSH_TOKEN_EVENT`, `PUSH_TO_START_TOKEN_EVENT`, `UPDATED_EVENT`); a Rust
+  listener runs inline on the plugin's events thread, and one that panics no longer ends the events, nor does a
+  panicking listener of `live-activity://action` end the taps.
+- The hook sends the next change of its values above every revision it saw: a pushed one, the one a repeated keyed
+  start answered with, and the one an update in flight was answered at.
+- The request contract is activitykit 0.3's, with the `push` member and its fixtures.
+- Breaking: `LayoutStartInput`, `Capabilities`, `Permissions` and `Config` have a member more in Rust (`push`,
+  `push`, `frequent_pushes`, `push_to_start`), so a struct literal or an exhaustive pattern of them needs it; in
+  TypeScript `Capabilities.push`, `Permissions.frequentPushes` and the hook state's `pushToken` are required
+  members, so a test double of them needs them too. An app that grants the plugin's commands one by one, without
+  `live-activity:default`, needs `live-activity:allow-push-tokens` for `onPushToken` and `onPushToStartToken`.
+
 ## 0.5.1
 
 - iOS runs on activitykit 0.2, whose records carry nothing of other platforms any more: the plugin adds `backend`,

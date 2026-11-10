@@ -191,7 +191,7 @@ final class DemoTests: XCTestCase {
         XCTAssertTrue(webText("has ended").waitForExistence(timeout: page))
     }
 
-    // TP-E2E-4, TP-IOS-2, TP-IOS-3, TP-IOS-5, TP-V1-2
+    // TP-E2E-4, TP-IOS-2, TP-IOS-3, TP-IOS-5, TP-V1-2, TP-PUSH-1, TP-PUSH-2, TP-PUSH-8
     func test4LifecycleChecksPassThroughTauri() {
         launch()
         tap("Developer tools")

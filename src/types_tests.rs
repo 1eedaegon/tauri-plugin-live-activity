@@ -5,6 +5,7 @@ use crate::{
     error::ERROR_CODES,
     layout::{ActionEvent, LayoutActivityRecord, LayoutSnapshot, Value},
     models::*,
+    pushes::{PushToStartTokenEvent, PushTokenEvent, UpdatedEvent},
 };
 use serde::Serialize;
 use std::{
@@ -205,12 +206,10 @@ fn the_error_codes_of_typescript_are_those_that_rust_and_kotlin_raise() {
     }
 }
 
-// TP-JS-7
-#[test]
-fn the_typescript_records_have_the_members_that_the_rust_models_write() {
-    let ts = types();
+/// What iOS reports with everything there.
+fn ios_capabilities() -> Capabilities {
     let support = FeatureSupport::Supported;
-    let capabilities = Capabilities {
+    Capabilities {
         platform: "ios".into(),
         backend: Backend::ActivityKit,
         start: support,
@@ -224,16 +223,48 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
         native_live_activity: support,
         max_payload_bytes: 4096,
         layout: support,
-    };
+        push: support,
+    }
+}
+
+fn ios_permissions() -> Permissions {
+    Permissions {
+        notifications: PermissionState::Granted,
+        live_activities: PermissionState::Granted,
+        promotion: PermissionState::NotApplicable,
+        frequent_pushes: PermissionState::Granted,
+    }
+}
+
+// TP-PUSH-5
+#[test]
+fn capabilities_and_permissions_read_older_natives_without_pushes() {
+    // A native side of 0.5 writes neither member: it has no pushes.
+    let mut capabilities = serde_json::to_value(ios_capabilities()).unwrap();
+    capabilities.as_object_mut().unwrap().remove("push");
+    let read: Capabilities = serde_json::from_value(capabilities).unwrap();
+    assert_eq!(read.push, FeatureSupport::Unsupported);
+    assert_eq!(read.layout, FeatureSupport::Supported);
+    let mut permissions = serde_json::to_value(ios_permissions()).unwrap();
+    permissions
+        .as_object_mut()
+        .unwrap()
+        .remove("frequentPushes");
+    let read: Permissions = serde_json::from_value(permissions).unwrap();
+    assert_eq!(read.frequent_pushes, PermissionState::NotApplicable);
+    assert_eq!(read.live_activities, PermissionState::Granted);
+}
+
+// TP-JS-7
+#[test]
+fn the_typescript_records_have_the_members_that_the_rust_models_write() {
+    let ts = types();
+    let capabilities = ios_capabilities();
     assert_eq!(
         members(&ts, "Capabilities"),
         written(&capabilities, &capabilities)
     );
-    let permissions = Permissions {
-        notifications: PermissionState::Granted,
-        live_activities: PermissionState::Granted,
-        promotion: PermissionState::NotApplicable,
-    };
+    let permissions = ios_permissions();
     assert_eq!(
         members(&ts, "Permissions"),
         written(&permissions, &permissions)
@@ -298,6 +329,26 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
         ..tap.clone()
     };
     assert_eq!(members(&ts, "ActionEvent"), written(&tap, &unkeyed));
+    let token = PushTokenEvent {
+        activity_id: "a".into(),
+        activity_key: Some("k".into()),
+        token: "0a".into(),
+    };
+    let unkeyed_token = PushTokenEvent {
+        activity_key: None,
+        ..token.clone()
+    };
+    assert_eq!(
+        members(&ts, "PushTokenEvent"),
+        written(&token, &unkeyed_token)
+    );
+    let start_token = PushToStartTokenEvent { token: "0a".into() };
+    assert_eq!(
+        members(&ts, "PushToStartTokenEvent"),
+        written(&start_token, &start_token)
+    );
+    let updated = UpdatedEvent { record: layout };
+    assert_eq!(members(&ts, "UpdatedEvent"), written(&updated, &updated));
     // The state unions are the values the Rust enums write.
     assert_eq!(union(&ts, "ActivityState"), names(&every_activity_state()));
     assert_eq!(

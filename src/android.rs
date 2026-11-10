@@ -225,6 +225,11 @@ impl<R: Runtime> LiveActivity<R> {
         self.inner.layouts.list(&self.inner.updates)
     }
 
+    /// Android has no pushes: no token is ever held.
+    pub fn push_tokens(&self) -> Result<crate::PushTokens> {
+        Ok(crate::PushTokens::default())
+    }
+
     /// Writes a PNG that `image` nodes with the source `{ "file": name }` show, replacing an
     /// earlier one of that name. See [`check_image`](crate::check_image) for the limits. On Android the file goes to
     /// the app's private files, where the first such image of a layout becomes the notification's large icon when it

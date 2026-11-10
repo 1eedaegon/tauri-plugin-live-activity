@@ -131,11 +131,13 @@ and may not run at all while the web view is suspended. Taps that come before th
 
 ## Permissions
 
-No push token, remote notification entitlement or ordinary notification permission is needed. An App Group is needed
-only for `writeImage`. Live Activities are a switch in the system's Settings, and the plugin has no prompt of its own:
+No ordinary notification permission is needed, and no push entitlement unless the app uses [pushes](#pushes). An App
+Group is needed only for `writeImage`. Live Activities are a switch in the system's Settings, and the plugin has no
+prompt of its own:
 
 - `checkPermissions()` reports `liveActivities` as `granted` when they are on, `denied` when they are off, and
-  `notApplicable` where the device has none. `notifications` and `promotion` are `notApplicable`.
+  `notApplicable` where the device has none. `notifications` and `promotion` are `notApplicable`; `frequentPushes`
+  is the switch for frequent pushes, `granted` or `denied`, `notApplicable` where there are no Live Activities.
 - `requestPermissions('liveActivities')` reports `settingsRequired` instead of `denied`. Another kind fails with
   `UNSUPPORTED_FEATURE`.
 - `getCapabilities()`: with Live Activities supported, every feature but `actions` is `supported`, and `actions`
@@ -177,6 +179,23 @@ with its last accepted values at the next revision, so the record's revision is 
 record, also once the system no longer lists an activity that ended at once: the plugin keeps the handles of the last
 64 activities it ended in this launch. After a relaunch such an activity is `NOT_FOUND`. The v1 `end` takes no final
 content.
+
+## Pushes
+
+The plugin asks ActivityKit for what a server needs and reports it; the server sends the pushes, built with
+activitykit's `push::Payload` (its [usage guide](https://github.com/1eedaegon/activitykit-rs/blob/main/docs/usage.md#pushes)
+has the headers and the payloads). The app needs the Push Notifications capability, the `aps-environment`
+entitlement, which `setup` does not add: without it, as in the simulator, a start with `push` fails with
+`CONFIGURATION_REQUIRED`. Frequent pushes need `NSSupportsLiveActivitiesFrequentUpdates` in Info.plist, and the
+person's consent in Settings, which `checkPermissions` reports as `frequentPushes`. Push-to-start (iOS 17.2) is
+`"pushToStart": true` under `plugins.live-activity`; broadcast channels need iOS 18. The events are
+`live-activity://push-token`, `live-activity://push-to-start-token` and `live-activity://updated`, which `onPushToken`,
+`onPushToStartToken` and `onUpdated` listen to; they go out from the plugin's events thread as they come, without
+waiting for the handlers of `on_action` or for JavaScript, and a Rust listener runs inline on that thread. A token
+that comes before the page listens, the push-to-start token at launch above all, is kept: `pushTokens()` answers the
+newest token of each of the last 32 activities and the push-to-start token, and `onPushToken` and
+`onPushToStartToken` deliver them right after subscribing. An activity a push starts is not announced; it is in
+`listLayout`.
 
 ## Receipts
 

@@ -346,3 +346,145 @@ fn write_image_checks_the_png_then_reports_that_desktop_has_no_widget() {
         "PAYLOAD_TOO_LARGE"
     );
 }
+
+// TP-PUSH-1
+#[test]
+fn a_channel_that_is_no_base64_is_refused_before_the_native_side() {
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let handle = app.handle().clone();
+    tauri::async_runtime::block_on(async {
+        let with = |push: Value| {
+            let mut input = layout_start_input();
+            input["push"] = push;
+            input
+        };
+        for refused in [
+            json!({"channel": "not base64!"}),
+            json!({"channel": "dGVzdA==", "other": 1}),
+            json!("channel"),
+            json!(null),
+        ] {
+            let error = commands::start_layout(handle.clone(), with(refused)).await;
+            assert_eq!(error.unwrap_err().code, "INVALID_INPUT");
+        }
+        // A valid push passes the check and reaches the backend, which desktop has none of.
+        for valid in [json!("token"), json!({"channel": "dGVzdA=="})] {
+            let error = commands::start_layout(handle.clone(), with(valid)).await;
+            assert_eq!(error.unwrap_err().code, "UNSUPPORTED_PLATFORM");
+        }
+    });
+}
+
+// TP-PUSH-2, TP-PUSH-4
+#[test]
+fn push_events_reach_tauri_listeners() {
+    use crate::pushes::{
+        PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT, PushEvent, PushToStartTokenEvent,
+        PushTokenEvent, UPDATED_EVENT, UpdatedEvent,
+    };
+    use tauri::Listener;
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let (sender, heard) = std::sync::mpsc::channel();
+    for name in [PUSH_TOKEN_EVENT, PUSH_TO_START_TOKEN_EVENT, UPDATED_EVENT] {
+        let sender = sender.clone();
+        app.listen(name, move |event| {
+            let payload: Value = serde_json::from_str(event.payload()).unwrap();
+            let _ = sender.send((name, payload));
+        });
+    }
+    let record: crate::LayoutActivityRecord = serde_json::from_value(json!({
+        "id":"la-1","activityKey":"job:1","schemaVersion":2,
+        "snapshot":{"revision":3,"values":{"status":"Delivered"}},
+        "backend":"activityKit","state":"active","visibility":"unknown","degradedFeatures":[],
+        "promotionRequested":false,"promotionState":"notApplicable"}))
+    .unwrap();
+    let events = [
+        PushEvent::Token(PushTokenEvent {
+            activity_id: "la-1".into(),
+            activity_key: Some("job:1".into()),
+            token: "0a1b".into(),
+        }),
+        PushEvent::PushToStartToken(PushToStartTokenEvent {
+            token: "ff00".into(),
+        }),
+        PushEvent::Updated(UpdatedEvent {
+            record: record.clone(),
+        }),
+    ];
+    for event in &events {
+        event.emit(app.handle()).unwrap();
+    }
+    let mut received = Vec::new();
+    for _ in 0..events.len() {
+        received.push(
+            heard
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .unwrap(),
+        );
+    }
+    assert_eq!(
+        received,
+        [
+            (
+                PUSH_TOKEN_EVENT,
+                json!({"activityId":"la-1","activityKey":"job:1","token":"0a1b"})
+            ),
+            (PUSH_TO_START_TOKEN_EVENT, json!({"token":"ff00"})),
+            (
+                UPDATED_EVENT,
+                json!({"record": serde_json::to_value(&record).unwrap()})
+            ),
+        ]
+    );
+}
+
+// TP-PUSH-5
+#[test]
+fn desktop_reports_no_pushes() {
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let handle = app.handle().clone();
+    tauri::async_runtime::block_on(async {
+        let capabilities = commands::get_capabilities(handle.clone()).await.unwrap();
+        assert_eq!(capabilities.push, FeatureSupport::Unsupported);
+        let permissions = commands::check_permissions(handle.clone()).await.unwrap();
+        assert_eq!(permissions.frequent_pushes, PermissionState::NotApplicable);
+    });
+}
+
+// TP-PUSH-8
+#[test]
+fn push_tokens_answers_no_tokens_where_there_are_no_pushes() {
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let handle = app.handle().clone();
+    let tokens = tauri::async_runtime::block_on(commands::push_tokens(handle)).unwrap();
+    assert_eq!(tokens, crate::PushTokens::default());
+    assert_eq!(
+        serde_json::to_value(&tokens).unwrap(),
+        json!({"activities": []})
+    );
+    // What iOS writes once it has tokens.
+    let held = crate::PushTokens {
+        push_to_start: Some("ff00".into()),
+        activities: vec![crate::PushTokenEvent {
+            activity_id: "la-1".into(),
+            activity_key: None,
+            token: "0a1b".into(),
+        }],
+    };
+    assert_eq!(
+        serde_json::to_value(&held).unwrap(),
+        json!({"pushToStart":"ff00","activities":[{"activityId":"la-1","token":"0a1b"}]})
+    );
+}

@@ -14,6 +14,10 @@ use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 use std::collections::BTreeMap;
 
 pub use activitykit::Value;
+/// What a layout activity asks ActivityKit for on iOS: a push token of its own (`"token"`), reported as a
+/// `live-activity://push-token` event once ActivityKit has it, or a broadcast channel the server made at APNs
+/// (`{"channel": "<id>"}`, iOS 18). Android ignores it.
+pub use activitykit::contract::PushWire as LayoutPush;
 pub use activitykit::contract::{
     AndroidOptions, AndroidVisibility, Island, IslandExpanded, weight,
 };
@@ -66,6 +70,9 @@ pub struct LayoutStartInput {
     pub snapshot: LayoutSnapshot,
     #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
     pub android: Option<AndroidOptions>,
+    /// Ignored on Android.
+    #[serde(default, deserialize_with = "non_null", skip_serializing_if = "none")]
+    pub push: Option<LayoutPush>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -139,6 +146,7 @@ impl LayoutStartInput {
             styles: self.styles.clone(),
             snapshot: self.snapshot.wire(),
             android: self.android.clone(),
+            push: self.push.clone(),
         }
     }
 
