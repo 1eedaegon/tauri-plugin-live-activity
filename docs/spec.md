@@ -20,7 +20,7 @@ Android runs every activity on the liveupdate crate, the layouts projected by th
 | TP-JS-2 | `writeImage(name, png)` sends the bytes of a `Uint8Array` or an `ArrayBuffer` as an array of numbers. | `ArrayBuffer` of 3 bytes → `png: [..3 numbers]`. | the command's | all |
 | TP-JS-3 | `onAction(handler)` listens to `live-activity://action` and hands each payload to the handler; it resolves to the function that stops listening. | An event `{actionId: "pet"}` → handler gets it. | — | all |
 | TP-JS-4 | `endLayout` takes final content: `LayoutEndInput` is `EndInput` with an optional `snapshot`. | `endLayout({id, policy, snapshot})` → sent as given. | the command's | all |
-| TP-JS-5 | The types follow the contract of 0.4: `LayoutSnapshot` has an optional `timestamp`, `ActivityState` includes `pending`, `ErrorCode` includes `NOT_FOREGROUND`, and no comment says that iOS numbers the revisions itself (it sends the caller's, TP-IOS-3). | The declarations in `dist-js/types.d.ts`. | — | all |
+| TP-JS-5 | The types follow the contract of 0.5: `LayoutSnapshot` has an optional `timestamp`, `ActivityState` includes `pending`, `ErrorCode` includes `NOT_FOREGROUND`, and no comment says that iOS numbers the revisions itself (it sends the caller's, TP-IOS-3). | The declarations in `dist-js/types.d.ts`. | — | all |
 | TP-JS-6 | The `layout` builders return plain node objects without undefined members, and `bind(key)` writes `{ bind }`. | `text('a', {style: undefined})` → `{type: 'text', value: 'a'}`. | — | all |
 | TP-JS-7 | The TypeScript declarations are the plugin's models: `ErrorCode` is the 12 codes that the Rust side, the liveupdate crate and the Kotlin backend raise and no other; `Capabilities`, `Permissions`, `ActivityRecord`, `LayoutActivityRecord`, `LayoutSnapshot` and `ActionEvent` have the members that the Rust models write, optional where Rust leaves them out; the unions of feature support, backend, permission, activity and promotion states are the values the Rust enums write. | A Rust code that TypeScript lacks → failure. | — | all |
 
@@ -201,7 +201,7 @@ React is an optional peer dependency that only this entry imports.
 | TP-JS-2 | `tests/api.test.mjs::writeImage sends the name and the bytes of a Uint8Array or an ArrayBuffer` (node) |
 | TP-JS-3 | `tests/api.test.mjs::onAction hands each action payload, and nothing else, to its handler until that handler is unsubscribed` (node) |
 | TP-JS-4 | `tests/api.test.mjs::endLayout sends the final content of an end unchanged` (node) |
-| TP-JS-5 | `tests/api.test.mjs::the declarations follow the contract of 0.4` (node) |
+| TP-JS-5 | `tests/api.test.mjs::the declarations follow the contract of 0.5` (node) |
 | TP-JS-6 | `tests/api.test.mjs::layout.bind writes the binding of a style member and nothing else` (node)<br>`tests/api.test.mjs::layout builders omit options that were not given or are undefined` (node) |
 | TP-JS-7 | `src/types_tests.rs::the_error_codes_of_typescript_are_those_that_rust_and_kotlin_raise` (unit)<br>`src/types_tests.rs::the_typescript_records_have_the_members_that_the_rust_models_write` (unit) |
 | TP-JSX-1 | `tests/jsx.test.mjs::each component returns the node of its layout builder` (node)<br>`tests/jsx.test.mjs::TSX compiled with the package as its JSX import source gives the builders' nodes` (node) |

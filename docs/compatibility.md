@@ -4,7 +4,7 @@ The minimum versions below took effect in `0.1.0-alpha.3`, which is published on
 crates.io. `0.1.0-alpha.4` added search metadata; it is published on both registries and
 was checked in a real Tauri app. `0.2.0` is a regular release. It adds layouts (request
 contract v2) and buttons. The OS minimums stay the same, and the table below gives the OS
-requirements of the new features. 0.4 moves iOS onto the activitykit crate and raises the
+requirements of the new features. 0.5 moves iOS onto the activitykit crate and raises the
 iPhone minimum to iOS 16.2. Both registries use the name
 `tauri-plugin-live-activity`. This page sets what is supported;
 [platform coverage](platform-coverage.md) records the tests that actually ran.
@@ -13,7 +13,7 @@ iPhone minimum to iOS 16.2. Both registries use the name
 
 | Platform | Supported from | What it provides |
 | --- | --- | --- |
-| iPhone | iOS 16.2+ (16.1+ before 0.4) | ActivityKit start, update, end and list; progress and timer. Below 16.2 every command but the reads answers `UNSUPPORTED_PLATFORM` |
+| iPhone | iOS 16.2+ (16.1+ before 0.5) | ActivityKit start, update, end and list; progress and timer. Below 16.2 every command but the reads answers `UNSUPPORTED_PLATFORM` |
 | iPhone `staleAt` | iOS 16.2+ | Passes the stale date in `ActivityContent`. The stale state returned is the one the OS reports |
 | iPad | iPadOS 17+ | The same ActivityKit API; iPadOS 16.x is explicitly unsupported |
 | Android | Android 8.0 / API 26+ | Ongoing progress and timer notifications as the fallback. API 24 is excluded: a Tauri startup crash was reproduced there |
@@ -53,7 +53,7 @@ listed as tested.
 | --- | --- |
 | Rust | MSRV 1.90, edition 2024; release checks use Rust 1.99.1 |
 | Tauri | Tauri 2: Rust `^2.12.5`, JS API `^2.12.4` |
-| Apple Swift package | activitykit's: Swift tools 5.9, built for iOS 15+; activity features need the OS versions in the table above. The plugin has no Swift of its own since 0.4 |
+| Apple Swift package | activitykit's: Swift tools 5.9, built for iOS 15+; activity features need the OS versions in the table above. The plugin has no Swift of its own since 0.5 |
 | Demo and Widget Extension | The demo app's deployment target is iOS 16.1, the widget extension's 16.2; the 17+ rule applies on iPad |
 | Apple toolchain for checks | Xcode 27.2 / iOS SDK 27.2 for the alpha releases; Xcode 26.3 for the 0.2.0 checks |
 | Android package | `minSdk = 26` since alpha.3; `compileSdk = 37` |

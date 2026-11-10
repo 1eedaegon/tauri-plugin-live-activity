@@ -1126,7 +1126,7 @@ restart. It gives template activities only, and `listLayout()` layout activities
   </tr>
 </table>
 
-The iOS captures here show the demo's own widget of 0.3, with the cat. 0.4 has no such widget:
+The iOS captures here show the demo's own widget of 0.3, with the cat. 0.5 has no such widget:
 activitykit's widget draws the template's fixed layout, with the same title, status and bar.
 
 ### Timer template
