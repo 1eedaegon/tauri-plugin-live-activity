@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+- iOS runs on activitykit 0.2, whose records carry nothing of other platforms any more: the plugin adds `backend`,
+  `visibility`, `promotionRequested` and `promotionState` to its own records as before, so nothing changes for an app.
+  activitykit 0.2 also fails a call that its Swift layer never answers after 10 seconds instead of waiting forever.
+
 ## 0.5.0
 
 iOS moves onto the [activitykit](https://crates.io/crates/activitykit) crate, which was split out of this plugin's iOS
