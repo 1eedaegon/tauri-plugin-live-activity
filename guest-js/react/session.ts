@@ -83,8 +83,14 @@ export class Session {
   pushed(event: UpdatedEvent): void {
     const { record } = event;
     if (!this.running || record.id !== this.running.record.id) return;
-    this.running = { ...this.running, record, revision: record.snapshot.revision };
+    const revision = Math.max(this.running.revision, record.snapshot.revision);
+    this.running = { ...this.running, record, revision };
     this.set({ ...this.state, record });
+  }
+
+  /** A failure outside a request, as a subscription the plugin refused: it lands in `error`. */
+  failed(error: unknown): void {
+    this.set({ ...this.state, error: asError(error) });
   }
 
   /** The options of a render. */
@@ -150,7 +156,8 @@ export class Session {
     this.refused = undefined;
     this.set({ status: 'starting', record: undefined, error: undefined, pushToken: undefined });
     this.send(this.commands.startLayout(input), (record) => {
-      this.running = { record, values, revision: 0 };
+      // A repeated keyed start, after a relaunch, answers the running activity at its own revision.
+      this.running = { record, values, revision: record.snapshot.revision };
       this.set({ status: 'active', record, error: undefined, pushToken: this.tokens.get(record.id) });
     }, (error) => {
       // Blocks only the key still wanted: `enabled` off meanwhile, or another key, starts again.
@@ -165,7 +172,9 @@ export class Session {
     this.running = { ...running, revision };
     this.send(this.commands.updateLayout({ id: running.record.id, snapshot: { revision, values } }), (record) => {
       this.refused = undefined;
-      this.running = { record, values, revision };
+      // A push may have moved the activity on meanwhile: the next change goes above it.
+      const taken = Math.max(revision, record.snapshot.revision, this.running?.revision ?? 0);
+      this.running = { record, values, revision: taken };
       this.set({ status: 'active', record, error: undefined, pushToken: this.state.pushToken });
     }, (error) => {
       this.refused = values;

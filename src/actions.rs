@@ -103,7 +103,8 @@ impl Dispatcher {
                 Message::Subscribed => pending.drain(..).for_each(|event| deliver(&event)),
                 Message::Tap(event, handled) => {
                     deliver(&event);
-                    emit(&event);
+                    // Tauri runs the app's Rust listeners inline: one that panics must not end the taps.
+                    let _ = catch_unwind(AssertUnwindSafe(|| emit(&event)));
                     drop(handled);
                     if handlers.is_empty() {
                         if pending.len() == MAX_PENDING {
@@ -233,6 +234,28 @@ mod tests {
         assert_eq!(log[early], "late:2");
         assert_eq!(log[early + MAX_PENDING - 1], format!("late:{}", early - 1));
         assert_eq!(log[early + MAX_PENDING..], ["late:live", "emit:live"]);
+    }
+
+    // TP-ACTION-2, TP-PUSH-6
+    #[test]
+    fn a_panicking_rust_listener_of_the_event_does_not_stop_the_taps() {
+        let log = Log::default();
+        let (actions, dispatcher) = channel();
+        let sink = log.clone();
+        let runner = thread::spawn(move || {
+            dispatcher.run(|event| {
+                // Tauri runs the app's Rust listeners inline in the emit.
+                assert_ne!(event.action_id, "boom", "raised by this test");
+                record(&sink, format!("emit:{}", event.action_id));
+            });
+        });
+        handler(&actions, &log, "rust");
+        actions.tap(tap("boom"), Release(log.clone(), Instant::now()));
+        actions.tap(tap("play"), ());
+        assert_eq!(
+            finish(actions, runner, &log),
+            ["rust:boom", "released after 0 ms", "rust:play", "emit:play"]
+        );
     }
 
     // TP-ACTION-2

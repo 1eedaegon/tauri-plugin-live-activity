@@ -13,6 +13,7 @@ use crate::{
         ActionEvent, LayoutActivityRecord, LayoutEndInput, LayoutStartInput, LayoutUpdateInput,
     },
     models::*,
+    pushes::{PushTokens, TokenBook},
 };
 use activitykit::{Acknowledgement, Activity, ActivityKit, Event, State, Values};
 use std::{future::Future, marker::PhantomData, sync::Arc};
@@ -131,7 +132,7 @@ pub(crate) fn init<R: Runtime>(
 ) -> Result<LiveActivity<R>> {
     let app = app.clone();
     let pushes = app.clone();
-    let (apple, actions) = glue::setup(
+    let (apple, actions, tokens) = glue::setup(
         glue::builder(api.config().as_ref()).build(),
         move |event| {
             let _ = app.emit(ACTION_EVENT, event);
@@ -143,6 +144,7 @@ pub(crate) fn init<R: Runtime>(
     Ok(LiveActivity {
         apple,
         actions,
+        tokens,
         runtime: PhantomData,
     })
 }
@@ -150,6 +152,7 @@ pub(crate) fn init<R: Runtime>(
 pub struct LiveActivity<R: Runtime> {
     pub(crate) apple: Arc<Apple<ActivityKit>>,
     actions: Actions,
+    tokens: TokenBook,
     runtime: PhantomData<fn() -> R>,
 }
 
@@ -188,6 +191,13 @@ impl<R: Runtime> LiveActivity<R> {
     }
     pub fn list_layout(&self) -> Result<Vec<LayoutActivityRecord>> {
         apple::wait(self.apple.list_layout())
+    }
+
+    /// The push tokens the plugin holds since launch: the newest of each of the last [`TOKENS_KEPT`](crate::TOKENS_KEPT)
+    /// activities that got one, and the app's push-to-start token. The events report each token as it comes; this is
+    /// for a reader that came later, as a page that subscribes after launch.
+    pub fn push_tokens(&self) -> Result<PushTokens> {
+        Ok(self.tokens.tokens())
     }
 
     /// Writes a PNG that `image` nodes with the source `{ "file": name }` show, replacing an earlier one of that name,

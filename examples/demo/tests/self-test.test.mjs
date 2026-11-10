@@ -30,7 +30,7 @@ function scripted(steps) {
 
 function passingSteps() {
   return [
-    { method: 'getCapabilities', result: { start: 'supported', platform: 'ios' } },
+    { method: 'getCapabilities', result: { start: 'supported', push: 'supported', platform: 'ios' } },
     { method: 'checkPermissions', result: { liveActivities: 'granted', notifications: 'notApplicable' } },
     { method: 'start', result: record },
     { method: 'start', result: record },
@@ -51,7 +51,22 @@ function passingSteps() {
     { method: 'endLayout', result: layoutRecord(6, 'Done', 'ended') },
     { method: 'endLayout', result: layoutRecord(6, 'Done', 'ended') },
     { method: 'updateLayout', error: { code: 'NOT_FOUND' } },
+    // The push check: iOS refuses a token without the capability and holds no token.
+    { method: 'startLayout', error: { code: 'CONFIGURATION_REQUIRED' } },
+    { method: 'pushTokens', result: { activities: [] } },
   ];
+}
+
+/** The steps on Android, where a start with a push is a plain one. */
+function androidSteps() {
+  return passingSteps().slice(0, 21).map((step, index) => index === 0
+    ? { ...step, result: { start: 'supported', push: 'unsupported', platform: 'android' } }
+    : index === 1 ? { ...step, result: { notifications: 'granted', liveActivities: 'notApplicable' } } : step)
+    .concat([
+      { method: 'startLayout', result: { ...layoutRecord(0, 'Starting'), id: 'layout-push' } },
+      { method: 'pushTokens', result: { activities: [] } },
+      { method: 'endLayout', result: { ...layoutRecord(0, 'Starting', 'ended'), id: 'layout-push' } },
+    ]);
 }
 
 // TP-E2E-4
@@ -59,7 +74,7 @@ test('runs start/update/end and generation safety checks through the supplied pu
   const harness = scripted(passingSteps());
   const report = await runLifecycleChecks(harness.api, 'test');
   assert.equal(report.status, 'passed', JSON.stringify(report));
-  assert.equal(report.checks.length, 19);
+  assert.equal(report.checks.length, 21);
   assert.equal(report.checks.every(check => check.passed), true);
   assert.equal(harness.consumed(), true);
   assert.deepEqual(harness.calls[2].input.snapshot, snapshot);
@@ -80,10 +95,7 @@ test('runs start/update/end and generation safety checks through the supplied pu
 
 // TP-E2E-4
 test('ends a layout on Android with the default policy, which Android takes, and cleans up a failed layout run', async () => {
-  const android = passingSteps().map((step, index) => index === 0
-    ? { ...step, result: { start: 'supported', platform: 'android' } }
-    : index === 1 ? { ...step, result: { notifications: 'granted', liveActivities: 'notApplicable' } } : step);
-  const harness = scripted(android);
+  const harness = scripted(androidSteps());
   const report = await runLifecycleChecks(harness.api, 'test');
   assert.equal(report.status, 'passed', JSON.stringify(report));
   assert.deepEqual(harness.calls[18].input.policy, { kind: 'default' });

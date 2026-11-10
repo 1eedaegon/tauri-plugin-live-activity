@@ -8,6 +8,7 @@ Read capabilities, permissions and activities. Mutations require explicit grants
 - `allow-check-permissions`
 - `allow-list`
 - `allow-list-layout`
+- `allow-push-tokens`
 
 ## Permission Table
 
@@ -170,6 +171,32 @@ Enables the list_layout command without any pre-configured scope.
 <td>
 
 Denies the list_layout command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:allow-push-tokens`
+
+</td>
+<td>
+
+Enables the push_tokens command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:deny-push-tokens`
+
+</td>
+<td>
+
+Denies the push_tokens command without any pre-configured scope.
 
 </td>
 </tr>

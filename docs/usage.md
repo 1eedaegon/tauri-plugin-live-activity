@@ -772,27 +772,42 @@ the member.
 ```ts
 import { onPushToken, onPushToStartToken, onUpdated, startLayout } from 'tauri-plugin-live-activity';
 
+// Listen first: a token comes when ActivityKit makes it, and those the plugin already holds come at once.
+await onPushToken(({ activityId, token }) => { /* send the token to the server; it may change */ });
+await onPushToStartToken(({ token }) => { /* with pushToStart in the plugin configuration (iOS 17.2) */ });
+await onUpdated(({ record }) => { /* a push changed the content: record.snapshot has it */ });
+
 // A token of the activity's own: the server sends to /3/device/<token>.
 const record = await startLayout({ activityKey: 'job:1', schemaVersion: 2, fallback: 'none', layout, snapshot, push: 'token' });
 // Or a broadcast channel the server made at APNs (iOS 18; UNSUPPORTED_FEATURE before).
 await startLayout({ ...input, push: { channel: 'dHN0LXNyY2gtY2hubA==' } });
-
-await onPushToken(({ activityId, token }) => { /* send the token to the server; it may change */ });
-await onPushToStartToken(({ token }) => { /* with pushToStart in the plugin configuration (iOS 17.2) */ });
-await onUpdated(({ record }) => { /* a push changed the content: record.snapshot has it */ });
 ```
 
 A token is not in the start's record: ActivityKit makes it later, and may change it, and each one comes as a
-`live-activity://push-token` event. Push-to-start (iOS 17.2) needs `"pushToStart": true` under
-`plugins.live-activity` in `tauri.conf.json`, a setting that holds for the process like the receipts; an activity a
-push starts arrives as a listed activity, and a start of the app under its key answers `CONFLICT`. Content a push
-delivers comes as `live-activity://updated` with the activity's record when its revision is above every revision the
-app sent or accepted, so the app's own updates do not come this way; a server numbers its pushes above the app's.
-`checkPermissions` reports `frequentPushes`, the switch in Settings behind `NSSupportsLiveActivitiesFrequentUpdates`,
-and `getCapabilities` reports `push`.
+`live-activity://push-token` event. An event reaches only the listeners there are when it goes out, and a token can
+come before the page listens: the push-to-start token at every launch, and the token of an activity that outlived a
+relaunch. The plugin therefore keeps the newest token of each of the last 32 activities and the push-to-start token
+since launch, `pushTokens()`, and `onPushToken` and `onPushToStartToken` deliver what it holds right after
+subscribing, each token once; the read is in the plugin's `default` permission. Content a push delivered before the
+page listened is in the activity's record, as `listLayout` gives it.
 
-With React, `useLiveActivity` keeps the activity's `pushToken` in its state and takes pushed content as its record;
-pass `push` with the other options of the start.
+Push-to-start (iOS 17.2) needs `"pushToStart": true` under `plugins.live-activity` in `tauri.conf.json`, a setting
+that holds for the process like the receipts; an activity a push starts is not announced, it is a listed activity,
+and a start of the app under its key answers `CONFLICT`. Content a push delivers comes as `live-activity://updated`
+with the activity's record when its revision is above every revision the app sent or accepted, so the app's own
+updates do not come this way; a server numbers its pushes above the app's. The record is the activity's state when
+the plugin reads the event: two pushes close together may both report the later one. `checkPermissions` reports
+`frequentPushes`, the switch in Settings behind `NSSupportsLiveActivitiesFrequentUpdates`, `denied` as well when the
+app offers no such switch, and `getCapabilities` reports `push`.
+
+The events go out from the plugin's events thread as they come, without waiting for the handlers of `on_action` or
+for JavaScript. A Rust listener (`app.listen` with `PUSH_TOKEN_EVENT`, `PUSH_TO_START_TOKEN_EVENT` or
+`UPDATED_EVENT`) runs inline on that thread: one that panics is caught, one that blocks delays the taps and the
+events behind it. Rust reads the tokens with `push_tokens()`.
+
+With React, `useLiveActivity` listens for pushes when its options carry `push`, keeps the activity's `pushToken` in
+its state and takes pushed content as its record; the component's values stand as last sent, and their next change
+goes above the pushed revision. A subscription the plugin refuses lands in `error`.
 
 ## TSX and React
 
@@ -855,8 +870,8 @@ function Delivery({ order }: { order: Order }) {
   `status` goes from `idle` to `starting` and `active`; `record` is the plugin's newest record.
 - A render whose `values` differ from the last sent ones sends them all as an update at the next revision. One request
   is in flight at a time; values that change meanwhile go out once it answers, the newest only.
-- `layout`, `styles`, `fallback` and `android` are read at start. To change them, end the activity and start it
-  again, for example with another `activityKey`, which ends the running activity and starts one for the new key.
+- `layout`, `styles`, `fallback`, `android` and `push` are read at start. To change them, end the activity and start
+  it again, for example with another `activityKey`, which ends the running activity and starts one for the new key.
 - Unmount, or `enabled: false`, ends the activity with `endPolicy` (`immediate` unless given). React's Strict Mode
   neither ends nor restarts it.
 - A refused request sets `error` to the plugin's `{ code, message }`. After a refused start `status` is `failed`, until
@@ -1197,7 +1212,7 @@ capture is of 0.3's demo widget too.
 `plugins.live-activity` in `tauri.conf.json` is optional:
 
 ```json
-{ "plugins": { "live-activity": { "receipts": "full", "android": { "samsungNowBar": true } } } }
+{ "plugins": { "live-activity": { "receipts": "full", "pushToStart": true, "android": { "samsungNowBar": true } } } }
 ```
 
 - `receipts`: on iOS activitykit keeps a receipt of each accepted request in the app's
@@ -1208,6 +1223,9 @@ capture is of 0.3's demo widget too.
   of guessable values can be guessed, and ActivityKit keeps the values in the activity's content.
   Android ignores the option for now and stores records in full in app-private preferences.
 - `android.samsungNowBar`: the [Samsung Now Bar](#samsung-now-bar) extras; off when absent.
+- `pushToStart`: on iOS 17.2 and later the plugin watches the app's push-to-start token and reports it, new or
+  changed, as `live-activity://push-to-start-token` ([Pushes](#pushes)); off when absent. Like the receipts, the
+  setting holds for the process.
 
 ## Try the demo
 

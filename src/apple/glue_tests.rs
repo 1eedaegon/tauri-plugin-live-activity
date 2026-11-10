@@ -205,7 +205,7 @@ fn a_tap_from_activitykit_is_released_only_after_a_slow_handler_and_the_event() 
     let kit = FakeKit::default();
     let log = Log::default();
     let emitted = log.clone();
-    let (_apple, actions) = setup(
+    let (_apple, actions, _tokens) = setup(
         Ok(kit.clone()),
         move |event| {
             emitted
@@ -246,7 +246,7 @@ fn a_tap_from_activitykit_is_released_only_after_a_slow_handler_and_the_event() 
 fn setup_subscribes_to_the_kits_events_before_it_starts_the_handlers_thread() {
     let kit = FakeKit::default();
     let spawned = kit.clone();
-    let (_apple, _actions) = setup_with(
+    let (_apple, _actions, _tokens) = setup_with(
         Ok(kit.clone()),
         move || {
             spawned.book().calls.push("spawn".into());
@@ -374,7 +374,7 @@ fn push_events_reach_javascript_as_they_come_without_waiting_for_the_taps_handle
     let kit = FakeKit::default();
     let log = Log::default();
     let (tapped, pushed) = (log.clone(), log.clone());
-    let (_apple, actions) = setup(
+    let (_apple, actions, tokens) = setup(
         Ok(kit.clone()),
         move |event| {
             tapped
@@ -425,4 +425,129 @@ fn push_events_reach_javascript_as_they_come_without_waiting_for_the_taps_handle
     let gone = kit.handle("gone", "");
     let event = PushEvent::Token(super::push_token_event(&gone, "0a".into()));
     assert_eq!(payload(&event), "gone/-/0a");
+    // The plugin holds the tokens for a page that subscribes later.
+    let held = tokens.tokens();
+    assert_eq!(held.push_to_start.as_deref(), Some("ff00"));
+    assert_eq!(
+        held.activities,
+        [super::push_token_event(&activity, "0a1b".into())]
+    );
+}
+
+// TP-PUSH-8
+#[test]
+fn the_plugin_keeps_the_newest_token_of_the_last_activities_and_the_push_to_start_token() {
+    use crate::pushes::{PushToStartTokenEvent, PushTokenEvent, TOKENS_KEPT, TokenBook};
+    let book = TokenBook::default();
+    let token = |id: &str, token: &str| PushTokenEvent {
+        activity_id: id.into(),
+        activity_key: Some(format!("key:{id}")),
+        token: token.into(),
+    };
+    assert_eq!(book.tokens(), crate::PushTokens::default());
+    book.note(&PushEvent::Token(token("la-1", "01")));
+    book.note(&PushEvent::Token(token("la-2", "02")));
+    // A changed token replaces the activity's, in its place.
+    book.note(&PushEvent::Token(token("la-1", "11")));
+    book.note(&PushEvent::PushToStartToken(PushToStartTokenEvent {
+        token: "aa".into(),
+    }));
+    book.note(&PushEvent::PushToStartToken(PushToStartTokenEvent {
+        token: "bb".into(),
+    }));
+    let held = book.tokens();
+    assert_eq!(held.push_to_start.as_deref(), Some("bb"));
+    assert_eq!(held.activities, [token("la-1", "11"), token("la-2", "02")]);
+    // Content is no token.
+    let updated = PushEvent::Updated(crate::pushes::UpdatedEvent {
+        record: super::layout_record(&FakeKit::default().handle("la-1", "key:la-1")),
+    });
+    book.note(&updated);
+    assert_eq!(book.tokens(), held);
+    // The newest activities only: once the kept number have a token, the oldest goes for each new one.
+    for index in 0..TOKENS_KEPT - 2 {
+        book.note(&PushEvent::Token(token(&format!("more-{index}"), "ff")));
+    }
+    let full = book.tokens();
+    assert_eq!(full.activities.len(), TOKENS_KEPT);
+    assert_eq!(full.activities[0], token("la-1", "11"));
+    book.note(&PushEvent::Token(token("one-more", "ff")));
+    let held = book.tokens();
+    assert_eq!(held.activities.len(), TOKENS_KEPT);
+    assert_eq!(held.activities[0], token("la-2", "02"));
+    assert_eq!(held.activities[1], token("more-0", "ff"));
+    assert_eq!(held.activities[TOKENS_KEPT - 1], token("one-more", "ff"));
+}
+
+// TP-PUSH-6
+#[test]
+fn a_panicking_listener_of_a_push_event_ends_neither_the_events_nor_the_taps() {
+    let kit = FakeKit::default();
+    let log = Log::default();
+    let (tapped, pushed) = (log.clone(), log.clone());
+    let (_apple, actions, tokens) = setup(
+        Ok(kit.clone()),
+        move |event| {
+            tapped
+                .lock()
+                .unwrap()
+                .push(format!("emit:{}", event.action_id));
+        },
+        move |event| {
+            // What a Rust listener of the event that panics does: Tauri runs it inline.
+            assert!(
+                !matches!(event, PushEvent::PushToStartToken(_)),
+                "raised by this test"
+            );
+            pushed
+                .lock()
+                .unwrap()
+                .push(format!("push:{}", event.name()));
+        },
+    )
+    .unwrap();
+    actions.subscribe(|_| {});
+    let activity = block_on(kit.start(spec())).unwrap();
+    kit.send_event(KitEvent::PushToStartToken {
+        token: "ff00".into(),
+    });
+    kit.send_event(KitEvent::PushToken {
+        activity: activity.clone(),
+        token: "0a1b".into(),
+    });
+    kit.send_tap(action_event(&activity, "pet".into()), FakeAck(log.clone()));
+    wait_for(&log, "released");
+    assert_eq!(
+        *log.lock().unwrap(),
+        ["push:live-activity://push-token", "emit:pet", "released"]
+    );
+    // The token the listener never saw is held all the same.
+    assert_eq!(tokens.tokens().push_to_start.as_deref(), Some("ff00"));
+}
+
+// TP-PUSH-4
+#[test]
+fn pushed_content_of_a_contract_v1_activity_is_not_reported() {
+    // An activity of contract v1 asks for no push; one whose values carry the template marker is read as one.
+    let kit = FakeKit::default();
+    let layout = block_on(kit.start(spec())).unwrap();
+    assert_eq!(
+        super::updated_event(&layout).map(|event| event.record.id),
+        Some("la-ios-layout-1".to_owned())
+    );
+    let marked = StartSpec {
+        key: "job:1".into(),
+        values: Values::from_iter([
+            ("title".to_owned(), Value::Text("Job".into())),
+            ("status".to_owned(), Value::Text("Running".into())),
+            ("progress".to_owned(), Value::Number(0.5)),
+            (
+                crate::layout::TEMPLATE_MARKER.to_owned(),
+                Value::Text("progress".into()),
+            ),
+        ]),
+        ..spec()
+    };
+    let template = block_on(kit.start(marked)).unwrap();
+    assert!(super::updated_event(&template).is_none());
 }

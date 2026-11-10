@@ -128,6 +128,33 @@ function checkPermission(platform: string, permissions: PublicAPI.Permissions): 
   ensure(permission === 'granted', `Grant the ${platform} activity/notification permission before running the test (${permission})`);
 }
 
+/**
+ * A start that asks for a push token, through the real plugin: where there are pushes the demo lacks the Push
+ * Notifications capability, so ActivityKit refuses it, and the plugin holds no token; where there are none, the
+ * push is ignored and the start is a plain one.
+ */
+async function checkPush(api: API, runId: string, push: PublicAPI.FeatureSupport, check: Check, live: (id?: string) => void): Promise<void> {
+  const request: PublicAPI.LayoutStartInput = { ...layoutRequest(`${runId}-push`), activityKey: `integration-push:${runId}`, push: 'token' };
+  if (push === 'supported') {
+    await check('a start that asks for a push token needs the Push Notifications capability', () => rejectsCode(
+      api.startLayout(request), 'CONFIGURATION_REQUIRED',
+    ));
+    await check('the plugin holds no push token', async () => {
+      const held = await api.pushTokens();
+      ensure(held.activities.length === 0 && held.pushToStart === undefined, 'A token was held without pushes');
+    });
+    return;
+  }
+  const started = await api.startLayout(request);
+  live(started.id);
+  await check('a start that asks for a push token is a plain start where there are no pushes', async () => {
+    ensure(started.snapshot.revision === 0 && started.snapshot.values.status === 'Starting', 'The start with a push did not match');
+    ensure((await api.pushTokens()).activities.length === 0, 'A token was held where there are no pushes');
+  });
+  await api.endLayout({ id: started.id, policy: { kind: 'immediate' } });
+  live(undefined);
+}
+
 /** Tests real public API calls when invoked inside the Tauri app; never substitutes a backend. */
 export async function runLifecycleChecks(api: API, runId: string): Promise<SelfTestReport> {
   let report: SelfTestReport = { status: 'failed', platform: 'unknown', checks: [], visibility: 'unknown' };
@@ -165,6 +192,7 @@ export async function runLifecycleChecks(api: API, runId: string): Promise<SelfT
     });
     liveId = undefined;
     await checkLayout(api, runId, capabilities.platform, check, id => { liveLayout = id; });
+    await checkPush(api, runId, capabilities.push, check, id => { liveLayout = id; });
     report = { ...report, status: 'passed' };
   } catch (error) {
     report = { ...report, error: describeError(error) };

@@ -24,15 +24,18 @@ const values = { status: 'Preparing', done: 0.1 };
  * The plugin's commands, answered as the plugin would. `hold` names the commands whose answers wait until the test
  * settles them with `release(name)` or `refuse(name, error)`; `refusing` names those that reject at once.
  */
-function plugin({ hold = [], refusing = {} } = {}) {
+function plugin({ hold = [], refusing = {}, tokens = { activities: [] }, startAt } = {}) {
   const calls = [];
   const waiting = [];
   let started = 0;
   const answer = (name, input) => {
+    if (name === 'push_tokens') return tokens;
     if (name === 'start_layout') {
       started += 1;
+      // A repeated keyed start after a relaunch answers the running activity at its own revision.
+      const snapshot = startAt === undefined ? input.snapshot : { ...input.snapshot, revision: startAt };
       return {
-        id: `activity-${started}`, activityKey: input.activityKey, schemaVersion: 2, snapshot: input.snapshot,
+        id: `activity-${started}`, activityKey: input.activityKey, schemaVersion: 2, snapshot,
         backend: 'activityKit', state: 'active', visibility: 'unknown', degradedFeatures: [],
         promotionRequested: false, promotionState: 'notApplicable',
       };
@@ -454,6 +457,73 @@ test('the state carries the push token and takes pushed content of its activity'
   await view.rerender(options({ push: 'token', values: { status: 'Rated', done: 1 }, enabled: false }));
   assert.equal(view.state.status, 'ended');
   assert.equal(view.state.pushToken, undefined);
+});
+
+// TP-PUSH-8
+test('a token the plugin already holds reaches the state', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  plugin({ tokens: { activities: [{ activityId: 'activity-1', token: 'held' }, { activityId: 'activity-9', token: 'other' }] } });
+  const view = await mount(options({ push: 'token' }));
+  assert.equal(view.state.status, 'active');
+  assert.equal(view.state.pushToken, 'held');
+});
+
+// TP-PUSH-7
+test('the hook listens for pushes only when the activity asks for one, and reports a refused subscription', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const listened = [];
+  let refuse = false;
+  mockIPC((command, payload) => {
+    if (command === 'plugin:event|listen') {
+      listened.push(payload.event);
+      if (refuse && payload.event !== 'live-activity://action') return Promise.reject({ code: 'NATIVE_ERROR', message: 'event.listen not allowed' });
+      return listened.length;
+    }
+    if (command === 'plugin:event|unlisten') return null;
+    if (command === 'plugin:live-activity|start_layout') {
+      return { id: 'activity-1', activityKey: payload.input.activityKey, schemaVersion: 2, snapshot: payload.input.snapshot,
+        backend: 'activityKit', state: 'active', visibility: 'unknown', degradedFeatures: [], promotionRequested: false, promotionState: 'notApplicable' };
+    }
+    if (command === 'plugin:live-activity|push_tokens') return { activities: [] };
+    if (command === 'plugin:live-activity|end_layout') return { id: 'activity-1', state: 'ended' };
+    return undefined;
+  });
+  const plain = await mount(options());
+  assert.deepEqual(listened, []);
+  await plain.unmount();
+  const pushing = await mount(options({ push: 'token' }));
+  assert.deepEqual(listened, ['live-activity://push-token', 'live-activity://updated']);
+  assert.equal(pushing.state.error, undefined);
+  await pushing.unmount();
+  // A subscription the plugin refuses lands in the state's error.
+  refuse = true;
+  const refused = await mount(options({ push: { channel: 'dGVzdA==' } }));
+  assert.deepEqual(refused.state.error, { code: 'NATIVE_ERROR', message: 'event.listen not allowed' });
+  assert.equal(refused.state.status, 'active');
+});
+
+// TP-PUSH-7
+test('a repeated keyed start continues above the revision the activity is at', async () => {
+  const native = plugin({ startAt: 5 });
+  const view = await mount(options());
+  assert.equal(view.state.record.snapshot.revision, 5);
+  await view.rerender(options({ values: { status: 'Rated', done: 1 } }));
+  assert.deepEqual(native.named('update_layout').map((input) => input.snapshot.revision), [6]);
+});
+
+// TP-PUSH-7
+test('an update answered after a push continues above the pushed revision', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const native = plugin({ hold: ['update_layout'] });
+  const view = await mount(options({ push: 'token' }));
+  await view.rerender(options({ push: 'token', values: { status: 'Rated', done: 1 } }));
+  // The update at revision 1 is in flight when a push at 7 lands.
+  const pushed = { ...view.state.record, snapshot: { revision: 7, values: { status: 'Delivered', done: 1 } } };
+  await act(async () => emit('live-activity://updated', { record: pushed }));
+  await native.release('update_layout');
+  assert.equal(view.state.status, 'active');
+  await view.rerender(options({ push: 'token', values: { status: 'Tipped', done: 1 } }));
+  assert.deepEqual(native.named('update_layout').map((input) => input.snapshot.revision), [1, 8]);
 });
 
 // TP-REACT-5

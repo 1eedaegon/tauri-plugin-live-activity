@@ -459,3 +459,32 @@ fn desktop_reports_no_pushes() {
         assert_eq!(permissions.frequent_pushes, PermissionState::NotApplicable);
     });
 }
+
+// TP-PUSH-8
+#[test]
+fn push_tokens_answers_no_tokens_where_there_are_no_pushes() {
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let handle = app.handle().clone();
+    let tokens = tauri::async_runtime::block_on(commands::push_tokens(handle)).unwrap();
+    assert_eq!(tokens, crate::PushTokens::default());
+    assert_eq!(
+        serde_json::to_value(&tokens).unwrap(),
+        json!({"activities": []})
+    );
+    // What iOS writes once it has tokens.
+    let held = crate::PushTokens {
+        push_to_start: Some("ff00".into()),
+        activities: vec![crate::PushTokenEvent {
+            activity_id: "la-1".into(),
+            activity_key: None,
+            token: "0a1b".into(),
+        }],
+    };
+    assert_eq!(
+        serde_json::to_value(&held).unwrap(),
+        json!({"pushToStart":"ff00","activities":[{"activityId":"la-1","token":"0a1b"}]})
+    );
+}

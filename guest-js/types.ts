@@ -476,9 +476,22 @@ export interface PushToStartTokenEvent {
   readonly token: string;
 }
 
-/** Content a push delivered: the activity's record with it. */
+/**
+ * Content a push delivered: the activity's record with it, above every revision the app sent or accepted. The record
+ * is the activity's state when the plugin reads the event: two pushes close together may both report the later one.
+ */
 export interface UpdatedEvent {
   readonly record: LayoutActivityRecord;
+}
+
+/**
+ * The push tokens the plugin holds since launch (iOS): the newest token of each of the last 32 activities that got
+ * one, and the app's push-to-start token. Empty where there are no pushes.
+ */
+export interface PushTokens {
+  readonly pushToStart?: string;
+  /** In the order the activities' first tokens came. */
+  readonly activities: readonly PushTokenEvent[];
 }
 
 /** A tap on a button node. */

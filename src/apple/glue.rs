@@ -11,10 +11,11 @@ use crate::{
     actions::{self, Actions},
     layout::{ActionEvent, LayoutPush},
     models::EndPolicy,
-    pushes::{PushEvent, PushToStartTokenEvent},
+    pushes::{PushEvent, PushToStartTokenEvent, TokenBook},
 };
 use activitykit::{ActivityKit, Builder, ChannelId, End, Push, Start, Update};
 use std::{
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::Arc,
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -136,27 +137,31 @@ impl<A: Acknowledge> Drop for Release<A> {
     }
 }
 
-/// Hands every tap of `events` to the handlers with what holds it, and every event of the pushes to `push`, until the
-/// events end. Nothing here waits: a tap is queued, and the pushes' events go out as they come.
+/// Hands every tap of `events` to the handlers with what holds it, and every event of the pushes to `push`, noted in
+/// `book` first, until the events end. Nothing here waits: a tap is queued, and the pushes' events go out as they
+/// come. Tauri runs the app's Rust listeners inline in `push`: one that panics is caught, so that the events go on.
 fn forward<H: super::Handle, A: Acknowledge>(
     events: impl Iterator<Item = KitEvent<H, A>>,
     actions: &Actions,
+    book: &TokenBook,
     push: &impl Fn(&PushEvent),
 ) {
+    let send = |event: PushEvent| {
+        book.note(&event);
+        let _ = catch_unwind(AssertUnwindSafe(|| push(&event)));
+    };
     for event in events {
         match event {
             KitEvent::Tap(tap, acknowledgement) => actions.tap(tap, Release(acknowledgement)),
             KitEvent::PushToken { activity, token } => {
-                push(&PushEvent::Token(push_token_event(&activity, token)));
+                send(PushEvent::Token(push_token_event(&activity, token)));
             }
             KitEvent::PushToStartToken { token } => {
-                push(&PushEvent::PushToStartToken(PushToStartTokenEvent {
-                    token,
-                }));
+                send(PushEvent::PushToStartToken(PushToStartTokenEvent { token }));
             }
             KitEvent::Updated(activity) => {
                 if let Some(updated) = updated_event(&activity) {
-                    push(&PushEvent::Updated(updated));
+                    send(PushEvent::Updated(updated));
                 }
             }
         }
@@ -166,12 +171,13 @@ fn forward<H: super::Handle, A: Acknowledge>(
 /// The plugin on the kit that activitykit built, or setup's failure with activitykit's error: a kit that already runs
 /// with other settings answers `CONFLICT`. The plugin subscribes to the kit's events first, so that a tap which
 /// launched the app finds a subscriber as early as the plugin can be, and one thread reads them from then on and hands
-/// every tap to the handlers of `on_action` and then to `emit`, and every event of the pushes to `push` as it comes.
+/// every tap to the handlers of `on_action` and then to `emit`, and every event of the pushes to `push` as it comes,
+/// its token kept in the book returned.
 pub(crate) fn setup<K: Kit>(
     built: activitykit::Result<K>,
     emit: impl Fn(&ActionEvent) + Send + 'static,
     push: impl Fn(&PushEvent) + Send + 'static,
-) -> Result<(Arc<Apple<K>>, Actions)> {
+) -> Result<(Arc<Apple<K>>, Actions, TokenBook)> {
     setup_with(built, || actions::spawn(emit), push)
 }
 
@@ -180,14 +186,16 @@ pub(crate) fn setup_with<K: Kit>(
     built: activitykit::Result<K>,
     spawn: impl FnOnce() -> Result<Actions>,
     push: impl Fn(&PushEvent) + Send + 'static,
-) -> Result<(Arc<Apple<K>>, Actions)> {
+) -> Result<(Arc<Apple<K>>, Actions, TokenBook)> {
     let kit = built?;
     let events = kit.events();
     let actions = spawn()?;
     let forwarding = actions.clone();
+    let book = TokenBook::default();
+    let noting = book.clone();
     thread::Builder::new()
         .name("live-activity-events".into())
-        .spawn(move || forward(events, &forwarding, &push))
+        .spawn(move || forward(events, &forwarding, &noting, &push))
         .map_err(|_| Error::native())?;
-    Ok((Arc::new(Apple::new(kit)), actions))
+    Ok((Arc::new(Apple::new(kit)), actions, book))
 }

@@ -25,6 +25,8 @@ export function useLiveActivity(options: UseLiveActivityOptions): LiveActivitySt
   const handler = useRef(options.onAction);
   handler.current = options.onAction;
   const listening = options.onAction !== undefined;
+  // Read at start, as `push` is: an activity that asks for no push gets no token and no pushed content.
+  const pushing = options.push !== undefined;
 
   useEffect(() => {
     session.current?.sync(options);
@@ -38,16 +40,18 @@ export function useLiveActivity(options: UseLiveActivityOptions): LiveActivitySt
   }, []);
 
   useEffect(() => {
+    if (!pushing) return undefined;
     let open = true;
     const stops = [
       onPushToken((event) => { if (open) session.current?.token(event); }),
       onUpdated((event) => { if (open) session.current?.pushed(event); }),
     ];
+    for (const stop of stops) stop.catch((error: unknown) => { if (open) session.current?.failed(error); });
     return () => {
       open = false;
       for (const stop of stops) stop.then((unlisten) => unlisten(), () => {});
     };
-  }, []);
+  }, [pushing]);
 
   useEffect(() => {
     if (!listening) return undefined;
@@ -56,6 +60,7 @@ export function useLiveActivity(options: UseLiveActivityOptions): LiveActivitySt
       const running = session.current?.activityId;
       if (open && running !== undefined && event.activityId === running) handler.current?.(event);
     });
+    stop.catch((error: unknown) => { if (open) session.current?.failed(error); });
     return () => {
       open = false;
       stop.then((unlisten) => unlisten(), () => {});

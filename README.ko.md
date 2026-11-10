@@ -177,15 +177,15 @@ await onAction(async ({ actionId, activityId }) => {
 ### 푸시
 
 ```ts
-await startLayout({ ...input, push: 'token' });
 await onPushToken(({ activityId, token }) => sendToServer(activityId, token));
 await onUpdated(({ record }) => show(record.snapshot.values));
+await startLayout({ ...input, push: 'token' });
 ```
 
 iOS에서는 서버가 APNs로 액티비티를 갱신하고, 끝내고, 시작할 수 있습니다. 액티비티의 토큰은 `onPushToken`으로,
 앱의 push-to-start 토큰(iOS 17.2, 플러그인 설정의 `pushToStart`)은 `onPushToStartToken`으로, 푸시가 전달한
-내용은 `onUpdated`로 옵니다. 페이로드는 서버가 activitykit의 `push::Payload`로 만듭니다.
-[docs/usage.md](docs/usage.md#pushes)를 보세요.
+내용은 `onUpdated`로 옵니다. 페이지가 구독할 때 플러그인이 이미 갖고 있던 토큰은 바로 전달됩니다(`pushTokens`).
+페이로드는 서버가 activitykit의 `push::Payload`로 만듭니다. [docs/usage.md](docs/usage.md#pushes)를 보세요.
 
 ### Dynamic Island
 

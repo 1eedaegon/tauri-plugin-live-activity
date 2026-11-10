@@ -177,15 +177,15 @@ A tap reaches `onAction`, or `on_action` in Rust, which also runs when the app w
 ### Pushes
 
 ```ts
-await startLayout({ ...input, push: 'token' });
 await onPushToken(({ activityId, token }) => sendToServer(activityId, token));
 await onUpdated(({ record }) => show(record.snapshot.values));
+await startLayout({ ...input, push: 'token' });
 ```
 
 On iOS a server updates, ends or starts activities through APNs: the activity's token comes to `onPushToken`, the
 app's push-to-start token (iOS 17.2, `pushToStart` in the plugin configuration) to `onPushToStartToken`, and content a
-push delivered to `onUpdated`. The server builds the payloads with activitykit's `push::Payload`. See
-[docs/usage.md](docs/usage.md#pushes).
+push delivered to `onUpdated`. Tokens the plugin already holds when a page subscribes come at once (`pushTokens`).
+The server builds the payloads with activitykit's `push::Payload`. See [docs/usage.md](docs/usage.md#pushes).
 
 ### Dynamic Island
 

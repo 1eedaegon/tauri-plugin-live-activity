@@ -2,8 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutEndInput, LayoutStartInput,
-  LayoutUpdateInput, PermissionKind, Permissions, PushToStartTokenEvent, PushTokenEvent, StartInput, UpdateInput,
-  UpdatedEvent,
+  LayoutUpdateInput, PermissionKind, Permissions, PushToStartTokenEvent, PushTokenEvent, PushTokens, StartInput,
+  UpdateInput, UpdatedEvent,
 } from './types.js';
 
 export type * from './types.js';
@@ -90,24 +90,68 @@ export function onAction(handler: (event: ActionEvent) => void): Promise<Unliste
 }
 
 /**
- * Receive the push token of each activity that asked for one (`push: 'token'`), when ActivityKit gives it and each
- * time it changes (iOS). Send it to the server, which pushes to it with activitykit's `push::Payload`.
+ * The push tokens the plugin holds since launch (iOS): the newest token of each of the last 32 activities that got
+ * one, and the app's push-to-start token. The events report each token as it comes, but an event reaches only the
+ * listeners there are when it goes out, and a token may come before the page listens, at launch above all:
+ * `onPushToken` and `onPushToStartToken` read this right after subscribing. Empty where there are no pushes. The
+ * read is in the plugin's `default` permission.
  */
-export function onPushToken(handler: (event: PushTokenEvent) => void): Promise<UnlistenFn> {
-  return listen<PushTokenEvent>('live-activity://push-token', event => handler(event.payload));
+export function pushTokens(): Promise<PushTokens> {
+  return invoke('plugin:live-activity|push_tokens');
+}
+
+/**
+ * Receive the push token of each activity that asked for one (`push: 'token'`), when ActivityKit gives it and each
+ * time it changes (iOS), and first those the plugin already holds, each token once. Send it to the server, which
+ * pushes to it with activitykit's `push::Payload`. Rejects, subscribed to nothing, when the plugin cannot be asked
+ * for the tokens it holds.
+ */
+export async function onPushToken(handler: (event: PushTokenEvent) => void): Promise<UnlistenFn> {
+  const delivered = new Map<string, string>();
+  const deliver = (event: PushTokenEvent): void => {
+    if (delivered.get(event.activityId) === event.token) return;
+    delivered.set(event.activityId, event.token);
+    handler(event);
+  };
+  const unlisten = await listen<PushTokenEvent>('live-activity://push-token', event => deliver(event.payload));
+  const held = await heldTokens(unlisten);
+  // An event that came while the plugin was asked is newer than what it held for that activity.
+  for (const event of held.activities) if (!delivered.has(event.activityId)) deliver(event);
+  return unlisten;
 }
 
 /**
  * Receive the app's push-to-start token, with `pushToStart: true` in the plugin configuration (iOS 17.2), when the
- * system gives it and each time it changes. The server starts activities with it.
+ * system gives it and each time it changes, and first the one the plugin already holds, each token once. The server
+ * starts activities with it. Rejects, subscribed to nothing, when the plugin cannot be asked for the token it holds.
  */
-export function onPushToStartToken(handler: (event: PushToStartTokenEvent) => void): Promise<UnlistenFn> {
-  return listen<PushToStartTokenEvent>('live-activity://push-to-start-token', event => handler(event.payload));
+export async function onPushToStartToken(handler: (event: PushToStartTokenEvent) => void): Promise<UnlistenFn> {
+  let last: string | undefined;
+  const deliver = (event: PushToStartTokenEvent): void => {
+    if (event.token === last) return;
+    last = event.token;
+    handler(event);
+  };
+  const unlisten = await listen<PushToStartTokenEvent>('live-activity://push-to-start-token', event => deliver(event.payload));
+  const held = await heldTokens(unlisten);
+  if (last === undefined && held.pushToStart !== undefined) deliver({ token: held.pushToStart });
+  return unlisten;
+}
+
+/** What the plugin holds, or the subscription given up and the failure passed on. */
+async function heldTokens(unlisten: UnlistenFn): Promise<PushTokens> {
+  try {
+    return await pushTokens();
+  } catch (error) {
+    unlisten();
+    throw error;
+  }
 }
 
 /**
  * Receive the record of an activity whose content a push changed (iOS): content above every revision this app sent
- * or accepted, so the app's own updates do not come this way.
+ * or accepted, so the app's own updates do not come this way. Content pushed before the page listened is in the
+ * activity's record, as `listLayout` gives it.
  */
 export function onUpdated(handler: (event: UpdatedEvent) => void): Promise<UnlistenFn> {
   return listen<UpdatedEvent>('live-activity://updated', event => handler(event.payload));

@@ -92,6 +92,11 @@ impl<R: Runtime> LiveActivity<R> {
         Err(Error::unsupported())
     }
 
+    /// Desktop has no pushes: no token is ever held, which is an answer, not a failure, as the other reads give.
+    pub fn push_tokens(&self) -> Result<crate::PushTokens> {
+        Ok(crate::PushTokens::default())
+    }
+
     /// Checks the PNG as on mobile, then returns `UNSUPPORTED_PLATFORM`.
     pub fn write_image(&self, name: &str, png: &[u8]) -> Result<()> {
         crate::image::check_image(name, png)?;
