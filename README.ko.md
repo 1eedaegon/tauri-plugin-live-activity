@@ -103,8 +103,7 @@ app.live_activity().update_layout(LayoutUpdateInput { id, snapshot: LayoutSnapsh
 레이아웃은 `text`/`bound`, `path`(SVG path 데이터), `vstack`·`hstack`·`zstack`·`spacer`·`divider`와
 아래 여섯 가지로 만듭니다. 그림은 모두 iOS 잠금화면입니다. 예시의 빌더는 `layout`에서 꺼내 씁니다
 (`const { vstack, hstack, text, bound, symbol, image, gauge, progress, timerText, button } = layout;`).
-같은 레이아웃을 TSX로 쓸 수 있고, React 훅으로 컴포넌트와 액티비티를 함께 움직일 수도 있습니다
-([TSX and React](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#tsx-and-react)).
+같은 레이아웃을 TSX로 쓸 수 있고, React 훅으로 컴포넌트와 액티비티를 함께 움직일 수도 있습니다([TSX와 React](#tsx와-react)).
 
 ### 심볼
 
@@ -204,6 +203,50 @@ keyline: '#A3D9C2', // 아일랜드 테두리 색
 레이아웃에서 `lockScreen` 옆에 `island`를 둡니다. 빠진 부분은 잠금화면 트리(확장)나 그 첫 심볼(컴팩트 왼쪽, 미니멀)을 보여 줍니다.
 
 Android는 레이아웃을 알림으로 보여 줍니다. 첫 두 텍스트가 제목과 본문이 되고, 첫 진행률 막대와 타이머, 버튼 최대 세 개가 들어갑니다. 빠진 것은 `degradedFeatures`에 이름이 남습니다.
+
+## TSX와 React
+
+같은 레이아웃을 TSX로 쓸 수 있습니다. `tauri-plugin-live-activity/jsx`는 자체 JSX 소스라 `.tsx` 파일에 React가
+필요 없습니다. `tsconfig.json`에 `"jsx": "react-jsx"`와 `"jsxImportSource": "tauri-plugin-live-activity/jsx"`를
+두거나, 파일 맨 위에 `/** @jsxImportSource tauri-plugin-live-activity/jsx */`를 적습니다.
+
+```tsx
+import { Button, HStack, SFSymbol, Text, VStack } from 'tauri-plugin-live-activity/jsx';
+
+const lockScreen = (
+  <VStack alignment="leading" spacing={8}>
+    <HStack spacing={8}><SFSymbol name="cat.fill" /><Text bind="title" /></HStack>
+    <Text bind="status" />
+    <Button actionId="pet"><Text>Pet Mochi</Text></Button>
+  </VStack>
+);
+```
+
+노드마다 컴포넌트가 하나씩 있고(`VStack`, `HStack`, `ZStack`, `Spacer`, `Divider`, `Text`, `SFSymbol`, `Image`,
+`Path`, `Progress`, `Gauge`, `TimerText`, `Button`, `Custom`), 노드의 멤버가 그대로 prop입니다. `Text`는 자식을
+글자로 보여 주고 `bind`를 주면 값을 보여 줍니다. 스택은 노드, 배열, `{late && <Text>Late</Text>}`를 받고, `Button`은
+노드 하나를 감쌉니다. HTML 요소와 프래그먼트는 없습니다. 이 엔트리는 Tauri도 React도 불러오지 않아서, 서버에서 푸시
+페이로드용으로 같은 레이아웃을 만들 수 있습니다.
+
+`tauri-plugin-live-activity/react`는 액티비티 하나를 컴포넌트와 함께 움직입니다(React 18 이상, 선택적 peer
+의존성).
+
+```tsx
+import { useLiveActivity } from 'tauri-plugin-live-activity/react';
+
+const { status, record, error } = useLiveActivity({
+  activityKey: `delivery:${order.id}`,
+  layout: { lockScreen },
+  values: { title: order.title, status: order.status },
+  enabled: order.open,
+  onAction: ({ actionId }) => { if (actionId === 'done') closeOrder(order.id); },
+});
+```
+
+마운트되면 시작하고, `values`가 바뀐 렌더마다 다음 revision으로 갱신 하나를 보내며(한 번에 요청 하나, 겹치면 마지막
+값만), 언마운트나 `enabled: false`에 끝납니다. `layout`과 `styles`는 시작할 때만 읽으니 바꾸려면 `activityKey`를
+바꿔 새 액티비티를 시작합니다. 거부된 요청은 `error`에 남고, `onAction`은 이 액티비티의 탭만 받습니다.
+[더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#tsx-and-react)
 
 ## 기본 부품 너머
 
