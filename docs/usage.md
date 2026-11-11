@@ -339,6 +339,7 @@ fn start_input() -> LayoutStartInput {
         styles: Some(BTreeMap::from([("status".to_string(), style)])),
         snapshot: delivery(0, "On time", "green"),
         android: None,
+        push: None,
     }
 }
 
