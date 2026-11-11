@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](LICENSE)
 
 Show what your Tauri 2 app is doing on the iPhone Lock Screen and in the Dynamic Island, and as
-an ongoing notification on Android. You describe the layout in TypeScript; the plugin draws it.
+an ongoing notification on Android. You describe the layout in TSX, TypeScript or Rust; the plugin draws it.
 [한국어](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/README.ko.md)
 
 <table>
@@ -23,11 +23,11 @@ an ongoing notification on Android. You describe the layout in TypeScript; the p
 </table>
 
 All four come from the [demo app](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo),
-which follows a cat named Mochi. The plugin runs on iOS 16.2+ and Android 8+; on desktop, its
-activity commands return `UNSUPPORTED_PLATFORM`. On iOS it is built on the
-[activitykit](https://github.com/1eedaegon/activitykit-rs) crate and has no Swift of its own. On Android every activity runs
-its lifecycle in Rust, on the [liveupdate](https://github.com/1eedaegon/liveupdate-rs) crate, which draws templates
-and layouts as Android's notification styles; the plugin's Kotlin only answers the permission commands. Before 1.0, a minor version may change the API.
+which follows a cat named Mochi. iOS 16.2+ and Android 8+; on desktop the activity commands answer
+`UNSUPPORTED_PLATFORM`. On iOS the plugin runs on the [activitykit](https://github.com/1eedaegon/activitykit-rs)
+crate and has no Swift of its own; on Android every activity runs in Rust on
+[liveupdate](https://github.com/1eedaegon/liveupdate-rs), and the Kotlin only answers the permission commands.
+Before 1.0, a minor version may change the API.
 
 ## Install
 
@@ -39,27 +39,138 @@ npm i tauri-plugin-live-activity
 npx tauri-plugin-live-activity setup
 ```
 
-Then add one line to the builder in `src-tauri/src/lib.rs`:
+Then register the plugin in `src-tauri/src/lib.rs`:
 
 ```rust
 .plugin(tauri_plugin_live_activity::init())
 ```
 
-`setup` grants the plugin's permissions, raises the Android minimum to API 26 and, on a Mac,
-adds the widget extension that draws the activity to the Xcode project, on activitykit's Swift
-package. Run it after `tauri ios init`, and again if `src-tauri/gen/apple` is ever made from
-scratch. On an app that 0.3 set up, run it again: it moves the widget and your custom views to
-activitykit. `--dry-run` shows what it would change.
+`setup` grants the plugin's permissions, raises the Android minimum to API 26 and, on a Mac, adds the
+widget extension that draws the activity to the Xcode project. Run it after `tauri ios init`, and again
+whenever `src-tauri/gen/apple` is made from scratch. `--dry-run` shows what it would change.
 
-## Use
+## React and TSX
 
-```ts
-import { getCapabilities, layout, requestPermissions, startLayout, updateLayout, endLayout } from 'tauri-plugin-live-activity';
+A layout is a tree of components from `tauri-plugin-live-activity/jsx`, a JSX import source of its own: the
+file needs no React, and a server can build the same tree for a push payload. Keep it in a file of its own,
+since this JSX has no HTML elements.
 
-const { vstack, bound, progress } = layout;
-const { platform } = await getCapabilities();
+```tsx
+/** @jsxImportSource tauri-plugin-live-activity/jsx */
+// delivery-layout.tsx
+import { Button, HStack, Progress, SFSymbol, Text, VStack } from 'tauri-plugin-live-activity/jsx';
+
+// iOS: the Lock Screen draws this tree as it is, and the expanded Dynamic Island shows it too
+//      (iOS 16.2+; the Button needs iOS 17).
+// Android: the notification takes the first two Texts as title and body, the first Progress as its
+//      bar and up to three Buttons as actions; symbols, images and styles are left out.
+export const lockScreen = (
+  <VStack alignment="leading" spacing={8}>
+    <HStack spacing={8}><SFSymbol name="cat.fill" /><Text bind="title" /></HStack>
+    <Text bind="status" />
+    <Progress bind="done" />
+    <Button actionId="done"><Text>All done</Text></Button>
+  </VStack>
+);
+```
+
+`tauri-plugin-live-activity/react` keeps one activity in step with a component (React 18+, an optional
+peer dependency). It starts on mount, sends the values as an update whenever a render changes them, and
+ends on unmount or `enabled: false`:
+
+```tsx
+// Delivery.tsx
+import { requestPermissions } from 'tauri-plugin-live-activity';
+import { useLiveActivity } from 'tauri-plugin-live-activity/react';
+import { lockScreen } from './delivery-layout';
+
+// Once, before the first start: 'notifications' on Android, 'liveActivities' on iOS.
 await requestPermissions(platform === 'android' ? 'notifications' : 'liveActivities');
 
+export function Delivery({ order }: { order: Order }) {
+  const { status, error, pushToken } = useLiveActivity({
+    activityKey: `delivery:${order.id}`,
+    layout: { lockScreen },
+    values: { title: order.title, status: order.status, done: order.done },
+    enabled: order.open,
+    // Android only: who sees the notification on the lock screen ('public', 'private' or 'secret').
+    android: { visibility: 'public' },
+    // iOS only: ask ActivityKit for the activity's APNs token; it lands in `pushToken`.
+    push: 'token',
+    // A tap on a Button of this activity, also when the tap launched the app.
+    onAction: ({ actionId }) => { if (actionId === 'done') closeOrder(order.id); },
+  });
+  return <StatusLine status={status} error={error?.message} token={pushToken} />;
+}
+```
+
+`layout` and `styles` are read at start: change the `activityKey` to start a new activity. A refused request
+lands in `error`. One component per node: `VStack`, `HStack`, `ZStack`, `Spacer`, `Divider`, `Text`,
+`SFSymbol`, `Image`, `Path`, `Progress`, `Gauge`, `TimerText`, `Button`, `Custom`, with the node's members as
+props. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#tsx-and-react)
+
+## Rust
+
+The same requests from Rust, through `app.live_activity()`. The methods block until the platform answers, so
+call them off the main thread (on iOS a call on the main thread answers `NATIVE_ERROR` at once):
+
+```rust
+use std::collections::BTreeMap;
+use tauri::{AppHandle, Runtime};
+use tauri_plugin_live_activity::{
+    Element, EndPolicy, Fallback, Layout, LayoutEndInput, LayoutSnapshot, LayoutStartInput,
+    LayoutUpdateInput, LiveActivityExt, Result, Value,
+};
+
+fn snapshot(revision: u64, status: &str) -> LayoutSnapshot {
+    let values = BTreeMap::from([("status".to_string(), Value::Text(status.into()))]);
+    LayoutSnapshot { revision, values, stale_at: None, timestamp: None }
+}
+
+fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
+    let input = LayoutStartInput {
+        activity_key: "mochi:snack".into(),
+        schema_version: 2,
+        // Android, and iOS without Live Activities: shown as a notification.
+        fallback: Fallback::Notification,
+        layout: Layout {
+            lock_screen: Element::Text { value: None, bind: Some("status".into()) }.into(),
+            island: None, background: None, keyline: None,
+        },
+        styles: None,
+        snapshot: snapshot(0, "On time"),
+        android: None, // Android only: `AndroidOptions { visibility }` for the lock screen
+        push: None,    // iOS only: `Some(LayoutPush::Token)` asks for the activity's APNs token
+    };
+    let activity = app.live_activity().start_layout(input)?;
+    // Every update sends all values again, with a higher revision.
+    app.live_activity().update_layout(LayoutUpdateInput { id: activity.id.clone(), snapshot: snapshot(1, "At the door") })?;
+    app.live_activity().end_layout(LayoutEndInput { id: activity.id, policy: EndPolicy::Immediate {}, snapshot: None })?;
+    Ok(())
+}
+```
+
+A tap that must not be lost belongs in Rust: the system can launch the app for it with no web view yet, and
+JavaScript listeners are not awaited. Register the handler on the built `App` before `run`:
+
+```rust
+let handle = app.handle().clone();
+app.live_activity().on_action(move |event| {
+    if event.action_id == "done" {
+        let input = LayoutEndInput { id: event.activity_id, policy: EndPolicy::Immediate {}, snapshot: None };
+        let _ = handle.live_activity().end_layout(input);
+    }
+});
+```
+
+## Plain TypeScript
+
+Without React, the three commands and the `layout` builders do the same:
+
+```ts
+import { endLayout, layout, startLayout, updateLayout } from 'tauri-plugin-live-activity';
+
+const { vstack, bound, progress } = layout;
 const snack = await startLayout({
   activityKey: 'mochi:snack',
   schemaVersion: 2,
@@ -71,141 +182,36 @@ await updateLayout({ id: snack.id, snapshot: { revision: 1, values: { title: 'Mo
 await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 ```
 
-The layout stays as it started. Each update sends every value again, with a higher revision.
-
-## Changing styles
-
-The tree is fixed at start, but a few style members can name a value. An update then changes them:
-
-```ts
-const { bind } = layout;
-// styles: { status: { color: bind('tone'), weight: bind('weight') } }, values: { tone: 'green', weight: 'regular', … }
-await updateLayout({ id, snapshot: { revision: 2, values: { ...values, tone: 'red', weight: 'bold' } } });
-```
-
-```rust
-let status = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
-// Later: every value again, with the new color.
-values.insert("tone".into(), Value::Text("red".into()));
-app.live_activity().update_layout(LayoutUpdateInput { id, snapshot: LayoutSnapshot { revision: 2, values, stale_at: None, timestamp: None } })?;
-```
-
-Only `color`, `background`, `tint`, `opacity`, `size`, `weight`, `cornerRadius` and the layout's
-`background` and `keyline` can be bound. A bound color is a name or a hex color, not a light and
-dark pair. Everything else stays as started; end the activity and start it again to change it.
-Each update sends all values again, and layout, styles and values share the weight limit of 3584.
-Android draws no styles. A 0.2.x crate rejects bindings, so keep the npm package and the crate on
-the same minor version. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#changing-styles)
+The layout stays as it started; each update sends every value again, with a higher revision. Taps come to
+`onAction`, push tokens and pushed content to `onPushToken`, `onPushToStartToken` and `onUpdated`.
 
 ## What a layout can hold
 
-Layouts are built from `text`/`bound`, `path` (SVG path data) and `vstack`, `hstack`, `zstack`,
-`spacer`, `divider`, plus the six below. Each picture is the iOS Lock Screen. The snippets take
-the builders from `layout` (`const { vstack, hstack, text, bound, symbol, image, gauge, progress, timerText, button } = layout;`).
-The same layouts can be written in TSX, and a React hook keeps an activity in step with a component
-([TSX and React](#tsx-and-react)).
+| Node | Shows | iOS | Android |
+|---|---|---|---|
+| `text`, `bound` | a string, or the value of a key | yes | the first two become title and body |
+| `symbol` | an SF Symbol; `variableBind` fills a variable symbol from 0 to 1 | yes | no |
+| `image` | a picture from the widget's asset catalog, or a PNG the app wrote | yes | the first drawn image is the large icon |
+| `path` | SVG path data | yes | no |
+| `gauge` | a number between `min` and `max`, as a ring or a bar | yes | no |
+| `progress` | a number from 0 to 1, as a ring or a bar | yes | the first one is the notification's bar |
+| `timerText` | a count down to `end` or up from `start`, kept by the system | yes | the chronometer |
+| `button` | a tap for `onAction` / `on_action` | iOS 17+ | up to three actions |
+| `vstack`, `hstack`, `zstack`, `spacer`, `divider` | arrangement | yes | flattened |
+| `custom` | a SwiftUI view of your own, by name | yes | no |
 
-### Symbols
+Styles name a font, color, weight, frame and more by token (`styles: { title: { size: 22 } }`,
+`bound('title', { style: 'title' })`); `color`, `background`, `tint`, `opacity`, `size`, `weight`,
+`cornerRadius` and the layout's `background` and `keyline` may be bound to a value (`color: bind('tone')`)
+and then change with an update. Android draws no styles. Layout, styles and values share a weight limit of 3584.
+`degradedFeatures` in the record names what a platform left out.
 
-<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-symbols.png" width="400" alt="A cat, a multicolor heart and a speaker filled to 35%">
-
-```ts
-hstack([
-  symbol('cat.fill'),
-  symbol('heart.fill', { rendering: 'multicolor' }),
-  symbol('speaker.wave.3.fill', { variableBind: 'purr' }), // purr: 0.35
-])
-```
-
-SF Symbols. `variableBind` fills a variable symbol from a value between 0 and 1. iOS only.
-
-### Image
-
-<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-image.png" width="400" alt="Mochi's portrait from the widget's asset catalog">
-
-```ts
-hstack([image('mochi', { resizable: true, style: 'portrait' }), bound('title')])
-// styles: { portrait: { frame: { width: 56, height: 56 } } }
-```
-
-A picture from the widget extension's asset catalog. iOS only.
-
-### Gauge
-
-<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-gauge.png" width="400" alt="A circular and a linear gauge at 80 of 100">
-
-```ts
-hstack([gauge('bowl', { max: 100, kind: 'circular' }), gauge('bowl', { max: 100 })]) // bowl: 80
-```
-
-A number between `min` and `max` as a ring or a bar. iOS only.
-
-### Progress
-
-<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-progress.png" width="400" alt="A ring and a bar at 65%">
-
-```ts
-vstack([bound('title'), progress('done', { kind: 'circular' }), progress('done')]) // done: 0.65
-```
-
-A number from 0 to 1. On Android the first one becomes the notification's bar.
-
-### Timer
-
-<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-timer.png" width="400" alt="A countdown at 4:50 under Mochi's nap">
-
-```ts
-vstack([bound('title'), timerText('start', 'end')]) // end: Date.now() + 5 * 60_000
-```
-
-The system counts it, down to `end` or up from `start` (`countsDown: false`). On Android it is the notification's chronometer.
-
-### Buttons
-
-<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-buttons-after.png" width="400" alt="Pet Mochi and All done buttons after one pet">
-
-```ts
-hstack([button('pet', text('Pet Mochi')), button('done', text('All done'))])
-
-await onAction(async ({ actionId, activityId }) => {
-  if (actionId === 'done') await endLayout({ id: activityId, policy: { kind: 'immediate' } });
-});
-```
-
-A tap reaches `onAction`, or `on_action` in Rust, which also runs when the app was not open. iOS 17+; Android shows up to three as notification actions.
-
-### Pushes
-
-```ts
-await onPushToken(({ activityId, token }) => sendToServer(activityId, token));
-await onUpdated(({ record }) => show(record.snapshot.values));
-await startLayout({ ...input, push: 'token' });
-```
-
-On iOS a server updates, ends or starts activities through APNs: the activity's token comes to `onPushToken`, the
-app's push-to-start token (iOS 17.2, `pushToStart` in the plugin configuration) to `onPushToStartToken`, and content a
-push delivered to `onUpdated`. Tokens the plugin already holds when a page subscribes come at once (`pushTokens`).
-The server builds the payloads with activitykit's `push::Payload`. See [docs/usage.md](docs/usage.md#pushes).
-
-### Dynamic Island
-
-<table>
-  <tr><th>Compact</th><th>Minimal</th><th>Expanded</th></tr>
-  <tr>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-island-compact.png" width="270" alt="A paw and 9 min in the compact Dynamic Island"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-island-minimal.png" width="180" alt="A progress ring in the minimal Dynamic Island"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-island-expanded.png" width="265" alt="Portrait, title, time, status and bar in the expanded Dynamic Island"></td>
-  </tr>
-</table>
+The Dynamic Island takes its own parts next to `lockScreen`; a part left out shows the lock screen tree
+(expanded) or its first symbol (compact leading, minimal):
 
 ```ts
 island: {
-  expanded: {
-    leading: image('mochi', { resizable: true, style: 'portrait' }),
-    center: bound('title'),
-    trailing: bound('eta'),
-    bottom: vstack([bound('status'), progress('done')]),
-  },
+  expanded: { leading: image('mochi'), center: bound('title'), trailing: bound('eta'), bottom: progress('done') },
   compactLeading: symbol('pawprint.fill'),
   compactTrailing: bound('eta'),
   minimal: progress('done', { kind: 'circular' }),
@@ -213,96 +219,22 @@ island: {
 keyline: '#A3D9C2', // the island's edge color
 ```
 
-Put `island` next to `lockScreen` in the layout. A part you leave out shows the lock screen tree (expanded) or its first symbol (compact leading, minimal).
+## Pushes (iOS)
 
-Android shows a layout as a notification: the first two texts as title and body, the first progress bar and timer, and up to three buttons. `degradedFeatures` names what it left out.
-
-## TSX and React
-
-The same layouts can be written in TSX. `tauri-plugin-live-activity/jsx` is a JSX import source of its own, so a
-`.tsx` file needs no React: set `"jsx": "react-jsx"` and `"jsxImportSource": "tauri-plugin-live-activity/jsx"` in
-`tsconfig.json`, or `/** @jsxImportSource tauri-plugin-live-activity/jsx */` at the top of the file.
-
-```tsx
-import { Button, HStack, SFSymbol, Text, VStack } from 'tauri-plugin-live-activity/jsx';
-
-const lockScreen = (
-  <VStack alignment="leading" spacing={8}>
-    <HStack spacing={8}><SFSymbol name="cat.fill" /><Text bind="title" /></HStack>
-    <Text bind="status" />
-    <Button actionId="pet"><Text>Pet Mochi</Text></Button>
-  </VStack>
-);
-```
-
-One component per node (`VStack`, `HStack`, `ZStack`, `Spacer`, `Divider`, `Text`, `SFSymbol`, `Image`, `Path`,
-`Progress`, `Gauge`, `TimerText`, `Button`, `Custom`), with the node's members as props. `Text` shows its
-children or, with `bind`, a value; a stack takes nodes, arrays and `{late && <Text>Late</Text>}`; a `Button`
-holds one node. There are no HTML elements and no fragments. The entry imports neither Tauri nor React, so a
-server can build the same layout for a push payload.
-
-`tauri-plugin-live-activity/react` keeps one activity in step with a component (React 18+, an optional peer
-dependency):
-
-```tsx
-import { useLiveActivity } from 'tauri-plugin-live-activity/react';
-
-const { status, record, error } = useLiveActivity({
-  activityKey: `delivery:${order.id}`,
-  layout: { lockScreen },
-  values: { title: order.title, status: order.status },
-  enabled: order.open,
-  onAction: ({ actionId }) => { if (actionId === 'done') closeOrder(order.id); },
-});
-```
-
-The activity starts on mount, each render with other `values` sends one update at the next revision (one request
-in flight at a time, the newest values last), and it ends on unmount or `enabled: false`. `layout` and `styles` are
-read at start; change the `activityKey` to start a new activity. A refused request lands in `error`, and `onAction`
-gets this activity's taps. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#tsx-and-react)
+A server updates, ends or starts activities through APNs. Start with `push: 'token'` (or `{ channel }` on iOS 18)
+and the activity's token comes to `onPushToken`; the app's push-to-start token (iOS 17.2, `pushToStart` in the
+plugin configuration) to `onPushToStartToken`; content a push delivered to `onUpdated`. Tokens the plugin already
+holds when a page subscribes come at once. The server builds the payloads with activitykit's `push::Payload`.
+[More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#pushes)
 
 ## Beyond the built-in parts
 
-Most customizing needs no Swift. Bundle your fonts and pictures in the widget extension, and name them:
-
-```sh
-npx tauri-plugin-live-activity setup --font fonts/Pacifico-Regular.ttf --asset art/paw@3x.png
-```
-
-```ts
-styles: { title: { fontFamily: 'Pacifico-Regular', size: 22 } }, // setup prints the names a font answers to
-lockScreen: hstack([image('paw'), bound('title', { style: 'title' })]),
-```
-
-Pictures the app draws, on a canvas or in Rust, go through an App Group (`setup --app-group`). Write the PNG,
-then start or update, and the widget draws it:
-
-```ts
-await writeImage('badge.png', png); // Rust: app.live_activity().write_image("badge.png", &png)
-lockScreen: image({ file: 'badge.png' }, { resizable: true }),
-```
-
-For a view of your own, write it in SwiftUI in `gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift`, which
-`setup` creates once and never overwrites, and place it with `custom`:
-
-```ts
-custom('ring', { props: { level: bind('done'), width: 4 } }),
-```
-
-```swift
-"ring": ActivityKitCustomView { props in Ring(level: props.number("level") ?? 0) },
-```
-
-A name without a view draws nothing and is reported in `degradedFeatures` as `layout.custom.ring`. The last
-resort is to edit the copied `LiveActivityWidget.swift`, activitykit's widget template; `setup` then keeps your copy,
-and template updates are yours to merge.
-
-Limits: a Live Activity has no network and little memory. A drawn PNG is at most 1 MiB and 1224 × 480 pixels,
-Apple's largest Lock Screen presentation at @3x. Fonts must be in the extension. On a device the App Group is
-registered with your Apple account once; automatic signing does that. The validators check a custom view's name
-and props, not the view. Android draws none of these, except that the first drawn image becomes the
-notification's large icon. Layout, styles and values still share 3584.
-[More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#beyond-the-built-in-parts)
+Most customizing needs no Swift. `setup --font fonts/Pacifico-Regular.ttf --asset art/paw@3x.png` bundles fonts
+and pictures in the widget extension, to be named in styles and `image('paw')`. Pictures the app draws go
+through an App Group (`setup --app-group`): `writeImage('badge.png', png)`, then `image({ file: 'badge.png' })`.
+A view of your own is SwiftUI in `gen/apple/LiveActivityWidget/LiveActivityCustomViews.swift`, which `setup`
+creates once and never overwrites, placed with `custom('ring', { props: { level: bind('done') } })`. A drawn PNG is
+at most 1 MiB and 1224 × 480 pixels. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#beyond-the-built-in-parts)
 
 ## Limits
 
@@ -310,26 +242,20 @@ notification's large icon. Layout, styles and values still share 3584.
   app is in the foreground (`NOT_FOREGROUND` otherwise), and the system ends it after 8 hours.
 - iOS keeps each activity's last values in plain text in the app's Application Support, unless the plugin
   configuration sets `"receipts": "redacted"`.
-- A button's tap waits for your Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.
-- The Rust methods of `app.live_activity()` block until the answer: call them off the main thread. On iOS a call on
-  the main thread answers `NATIVE_ERROR` at once. The commands from JavaScript never block.
-- Pushes on iOS only: tokens, channels and push-to-start through the plugin, the payloads from activitykit's
-  `push::Payload` on the server. Android shows an ongoing notification, promoted to a Live Update where the system
-  allows it, and takes no pushes.
+- A button's tap waits for the Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.
+- Pushes are iOS only. Android shows an ongoing notification, promoted to a Live Update where the system allows it.
+- Keep the npm package and the crate on the same minor version.
 
 ## Samsung Now Bar
 
-Set `"plugins": { "live-activity": { "android": { "samsungNowBar": true } } }` in
-`tauri.conf.json` to send One UI 9 the title and body that its Now Bar shows. One UI shows the
-Now Bar only for apps on Samsung's allow list, or for every app while the developer option
-"Live notifications for all apps" is on, and the plugin cannot add an app to that list.
+`"plugins": { "live-activity": { "android": { "samsungNowBar": true } } }` in `tauri.conf.json` sends One UI 9
+the title and body its Now Bar shows. One UI shows the Now Bar only for apps on Samsung's allow list, or for every
+app while the developer option "Live notifications for all apps" is on.
 
 ## More
 
-The [docs](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/docs) cover the
-rest: what `setup` changes and how to do it by hand, every layout node with iOS and Android
-captures, buttons handled in Rust, the progress and timer templates, the plugin options and
-the test records.
+The [docs](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/docs) cover the rest: what `setup`
+changes and how to do it by hand, every node with iOS and Android captures, the plugin options and the test records.
 
 ## License
 
