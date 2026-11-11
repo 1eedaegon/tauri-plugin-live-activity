@@ -22,7 +22,18 @@ Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과 Dynamic Island에, A
   </tr>
 </table>
 
-네 장 모두 고양이 Mochi를 따라가는 [데모 앱](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo)에서
+데모가 도는 모습입니다. iPhone 17 Pro 시뮬레이터와 Android 16 에뮬레이터에서 녹화했습니다:
+
+<table>
+  <tr><th>iOS: 잠금 화면의 간식 배달과 낮잠 타이머</th><th>iOS: 갱신으로 바뀌는 바인딩된 스타일</th><th>Android: 같은 요청이 알림으로</th></tr>
+  <tr>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-demo.gif" width="250" alt="데모가 Mochi의 간식 배달을 시작하고, 잠금 화면에 진행률 막대가 있는 카드가 뜨고, 낮잠 타이머가 줄어듭니다"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-styles.gif" width="250" alt="데모가 새 값을 보내면 잠금 화면 카드의 상태가 빨갛고 굵게 바뀝니다"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/android-snack.gif" width="250" alt="데모가 Mochi의 간식 배달을 시작하고, 알림 창에 갱신마다 움직이는 진행률 막대와 함께 보입니다"></td>
+  </tr>
+</table>
+
+모두 고양이 Mochi를 따라가는 [데모 앱](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo)에서
 캡처했습니다. iOS 16.2 이상, Android 8 이상에서 동작하고, 데스크톱에서는 활동 명령이
 `UNSUPPORTED_PLATFORM`을 돌려줍니다. iOS에서는 [activitykit](https://github.com/1eedaegon/activitykit-rs)
 크레이트 위에서 동작해 플러그인 자체의 Swift 코드가 없고, Android에서는 모든 액티비티가
@@ -63,7 +74,7 @@ import { Button, HStack, Progress, SFSymbol, Text, VStack } from 'tauri-plugin-l
 // iOS: 잠금 화면이 이 트리를 그대로 그리고, 펼친 Dynamic Island에도 같은 트리가 보입니다
 //      (iOS 16.2 이상, Button은 iOS 17 이상).
 // Android: 알림이 처음 두 Text를 제목과 본문으로, 첫 Progress를 진행률 막대로, Button을 최대 세 개까지
-//      동작으로 가져가고, 심볼·이미지·스타일은 그리지 않습니다.
+//      동작으로 가져가고, 심볼과 스타일은 그리지 않습니다.
 export const lockScreen = (
   <VStack alignment="leading" spacing={8}>
     <HStack spacing={8}><SFSymbol name="cat.fill" /><Text bind="title" /></HStack>
@@ -79,12 +90,15 @@ export const lockScreen = (
 
 ```tsx
 // Delivery.tsx
-import { requestPermissions } from 'tauri-plugin-live-activity';
+import { getCapabilities, requestPermissions } from 'tauri-plugin-live-activity';
 import { useLiveActivity } from 'tauri-plugin-live-activity/react';
 import { lockScreen } from './delivery-layout';
 
 // 첫 시작 전에 한 번: Android는 'notifications', iOS는 'liveActivities'.
-await requestPermissions(platform === 'android' ? 'notifications' : 'liveActivities');
+export async function allowActivities() {
+  const { platform } = await getCapabilities();
+  await requestPermissions(platform === 'android' ? 'notifications' : 'liveActivities');
+}
 
 export function Delivery({ order }: { order: Order }) {
   const { status, error, pushToken } = useLiveActivity({
@@ -99,7 +113,8 @@ export function Delivery({ order }: { order: Order }) {
     // 이 액티비티의 Button 탭. 탭으로 앱이 켜졌을 때도 옵니다.
     onAction: ({ actionId }) => { if (actionId === 'done') closeOrder(order.id); },
   });
-  return <StatusLine status={status} error={error?.message} token={pushToken} />;
+  // pushToken: iOS에서 이 액티비티의 APNs 토큰. 서버에 보낼 것.
+  return <p>{status}{error ? ` (${error.message})` : ''}</p>;
 }
 ```
 

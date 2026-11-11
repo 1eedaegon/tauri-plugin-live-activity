@@ -22,7 +22,18 @@ an ongoing notification on Android. You describe the layout in TSX, TypeScript o
   </tr>
 </table>
 
-All four come from the [demo app](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo),
+The demo running, recorded on the iPhone 17 Pro simulator and an Android 16 emulator:
+
+<table>
+  <tr><th>iOS: a snack delivery and a nap timer on the Lock Screen</th><th>iOS: a bound style changes with an update</th><th>Android: the same request as a notification</th></tr>
+  <tr>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-demo.gif" width="250" alt="The demo starts Mochi's snack delivery, the Lock Screen shows its card with a progress bar, then a nap timer counts down"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-styles.gif" width="250" alt="The demo sends new values and the Lock Screen card's status turns red and bold"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/android-snack.gif" width="250" alt="The demo starts Mochi's snack delivery and the notification shade shows it with a progress bar that moves with each update"></td>
+  </tr>
+</table>
+
+All of them come from the [demo app](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo),
 which follows a cat named Mochi. iOS 16.2+ and Android 8+; on desktop the activity commands answer
 `UNSUPPORTED_PLATFORM`. On iOS the plugin runs on the [activitykit](https://github.com/1eedaegon/activitykit-rs)
 crate and has no Swift of its own; on Android every activity runs in Rust on
@@ -63,7 +74,7 @@ import { Button, HStack, Progress, SFSymbol, Text, VStack } from 'tauri-plugin-l
 // iOS: the Lock Screen draws this tree as it is, and the expanded Dynamic Island shows it too
 //      (iOS 16.2+; the Button needs iOS 17).
 // Android: the notification takes the first two Texts as title and body, the first Progress as its
-//      bar and up to three Buttons as actions; symbols, images and styles are left out.
+//      bar and up to three Buttons as actions; symbols and styles are left out.
 export const lockScreen = (
   <VStack alignment="leading" spacing={8}>
     <HStack spacing={8}><SFSymbol name="cat.fill" /><Text bind="title" /></HStack>
@@ -80,12 +91,15 @@ ends on unmount or `enabled: false`:
 
 ```tsx
 // Delivery.tsx
-import { requestPermissions } from 'tauri-plugin-live-activity';
+import { getCapabilities, requestPermissions } from 'tauri-plugin-live-activity';
 import { useLiveActivity } from 'tauri-plugin-live-activity/react';
 import { lockScreen } from './delivery-layout';
 
 // Once, before the first start: 'notifications' on Android, 'liveActivities' on iOS.
-await requestPermissions(platform === 'android' ? 'notifications' : 'liveActivities');
+export async function allowActivities() {
+  const { platform } = await getCapabilities();
+  await requestPermissions(platform === 'android' ? 'notifications' : 'liveActivities');
+}
 
 export function Delivery({ order }: { order: Order }) {
   const { status, error, pushToken } = useLiveActivity({
@@ -100,7 +114,8 @@ export function Delivery({ order }: { order: Order }) {
     // A tap on a Button of this activity, also when the tap launched the app.
     onAction: ({ actionId }) => { if (actionId === 'done') closeOrder(order.id); },
   });
-  return <StatusLine status={status} error={error?.message} token={pushToken} />;
+  // pushToken: the activity's APNs token on iOS, for your server.
+  return <p>{status}{error ? ` (${error.message})` : ''}</p>;
 }
 ```
 
