@@ -25,11 +25,11 @@ Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과 Dynamic Island에, A
 데모가 도는 모습입니다. iPhone 17 Pro 시뮬레이터와 Android 16 에뮬레이터에서 녹화했습니다:
 
 <table>
-  <tr><th>iOS: 잠금 화면의 간식 배달과 낮잠 타이머</th><th>iOS: 갱신으로 바뀌는 바인딩된 스타일</th><th>Android: 같은 요청이 알림으로</th></tr>
+  <tr><th>iOS: 잠금 화면의 간식 배달과 낮잠 타이머</th><th>iOS: 갱신으로 바뀌는 바인딩된 스타일</th><th>Android: 같은 요청이 잠금 화면의 알림으로</th></tr>
   <tr>
     <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-demo.gif" width="250" alt="데모가 Mochi의 간식 배달을 시작하고, 잠금 화면에 진행률 막대가 있는 카드가 뜨고, 낮잠 타이머가 줄어듭니다"></td>
     <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-styles.gif" width="250" alt="데모가 새 값을 보내면 잠금 화면 카드의 상태가 빨갛고 굵게 바뀝니다"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/android-snack.gif" width="250" alt="데모가 Mochi의 간식 배달을 시작하고, 알림 창에 갱신마다 움직이는 진행률 막대와 함께 보입니다"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/android-snack.gif" width="250" alt="데모가 Mochi의 간식 배달을 시작하고, 폰을 잠그면 잠금 화면에 알림이 보이며 갱신마다 진행률 막대가 움직이고, 밀어서 풀면 배달이 끝납니다"></td>
   </tr>
 </table>
 

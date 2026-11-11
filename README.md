@@ -25,11 +25,11 @@ an ongoing notification on Android. You describe the layout in TSX, TypeScript o
 The demo running, recorded on the iPhone 17 Pro simulator and an Android 16 emulator:
 
 <table>
-  <tr><th>iOS: a snack delivery and a nap timer on the Lock Screen</th><th>iOS: a bound style changes with an update</th><th>Android: the same request as a notification</th></tr>
+  <tr><th>iOS: a snack delivery and a nap timer on the Lock Screen</th><th>iOS: a bound style changes with an update</th><th>Android: the same request as a notification on the lock screen</th></tr>
   <tr>
     <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-demo.gif" width="250" alt="The demo starts Mochi's snack delivery, the Lock Screen shows its card with a progress bar, then a nap timer counts down"></td>
     <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-styles.gif" width="250" alt="The demo sends new values and the Lock Screen card's status turns red and bold"></td>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/android-snack.gif" width="250" alt="The demo starts Mochi's snack delivery and the notification shade shows it with a progress bar that moves with each update"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/android-snack.gif" width="250" alt="The demo starts Mochi's snack delivery; the phone is locked and its lock screen shows the notification, whose progress bar moves with each update; a swipe unlocks and the delivery ends"></td>
   </tr>
 </table>
 
