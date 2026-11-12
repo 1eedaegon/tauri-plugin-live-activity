@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+- The plugin is an adapter of the [`liveactivity`](https://crates.io/crates/liveactivity) crate 0.2. The contract and
+  its checks, the lifecycle, the iOS backend on activitykit, the Android backend on liveupdate and the projection of a
+  layout onto a notification are that crate's; the plugin keeps Tauri's commands, events and configuration, the
+  Android permissions and their dialog, the Kotlin side and the JavaScript API. `tauri_plugin_live_activity`
+  re-exports the crate's contract, so the Rust names and the JSON are the same.
+- A layout snapshot takes a `relevance` (iOS: which activity the Dynamic Island shows first) and an `android` content:
+  what the notification shows in Android's own terms, in place of the projection of the layout (a progress with
+  segments and points, metrics, the text of the status chip, action icons). `getCapabilities().androidPresentation`
+  says which styles the device draws. Android keeps the style of an activity's first snapshot and answers
+  `UNSUPPORTED_FEATURE` to another.
+- `updateLayout` takes an `alert` with a title and a body. On iOS the device lights up and an Apple Watch shows it;
+  Android updates silently and names `alert` in the record's `degradedFeatures`.
+- New events: `onStarted` (a layout activity began, also one a push started; iOS), `onState` (a new lifecycle state;
+  on Android, the person dismissed the notification) and `onPermissions` (the permissions after a change in Settings;
+  iOS). Their names are public in Rust: `STARTED_EVENT`, `STATE_EVENT`, `PERMISSIONS_EVENT`.
+- The reference validator `tools/validate-request.mjs` checks the new members beside activitykit's schema. One of
+  activitykit's fixtures, which uses `relevance` as its example of an unknown member, is valid here.
+- `docs/spec.md` lists what the plugin proves itself and, apart, the promises that liveactivity's tests prove.
+- Breaking in Rust: `LayoutSnapshot`, `LayoutUpdateInput` and `Capabilities` have members more, `Alert` and
+  `AndroidOptions` are built with `new`, and the state enums are `#[non_exhaustive]`, so a `match` on them needs a
+  `_` arm. `LayoutSnapshot::new`, `LayoutStartInput::new`, `LayoutUpdateInput::new` and `LayoutEndInput::new` build
+  the requests. In TypeScript every new member is optional.
+
 ## 0.6.0
 
 - Pushes on iOS, on activitykit 0.3. A layout start may ask for a push token (`push: 'token'`) or subscribe to a

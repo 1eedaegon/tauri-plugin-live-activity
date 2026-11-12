@@ -97,9 +97,9 @@ Android can otherwise leave an old notification posted. Layout receipts are unch
 
 `startLayout`, `updateLayout`, `endLayout` and `listLayout` work on Android with the
 rules of the [request contract](request-contract.md#request-contract-v2-layout), checked
-in Rust as on every platform. A notification cannot draw a layout, so the plugin's Rust
-projects the lock screen tree onto one of liveupdate's schema-v2 presentations
-(`src/android_layout.rs`), and liveupdate keeps the lifecycle, the receipts and the
+in Rust as on every platform. A notification cannot draw a layout, so the liveactivity
+crate, on which the plugin runs, projects the lock screen tree onto one of liveupdate's
+schema-v2 presentations, and liveupdate keeps the lifecycle, the receipts and the
 notification. What liveupdate does not keep, the layout request and its latest values, the
 plugin stores under liveupdate's id in `tauri-live-activity/layouts.json` of the app's
 private files; it forgets an activity once liveupdate no longer lists it.

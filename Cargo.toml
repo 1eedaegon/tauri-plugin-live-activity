@@ -20,15 +20,13 @@ include = [
 ]
 
 [dependencies]
-# iOS Live Activities, and the request contract that every platform checks.
-activitykit = "0.3"
+# The contract, its checks and the iOS and Android backends.
+liveactivity = "0.2"
 tauri = { version = "2.12.5", default-features = false }
 serde = { version = "1", features = ["derive"] }
 # Correctly rounded number parsing, so that a value arrives as JavaScript sent it.
 serde_json = { version = "1", features = ["float_roundtrip"] }
 thiserror = "2"
-# Android: the lifecycle, revisions and receipts of the progress and timer templates.
-liveupdate = "0.1.2"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 tauri = { version = "2.12.5", default-features = false, features = ["wry"] }

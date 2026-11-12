@@ -24,7 +24,7 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    // TP-ANDROID-3
+    // TP-ANDROID-12
     #[test]
     fn unwraps_success_and_preserves_stable_native_errors() {
         assert_eq!(
@@ -38,7 +38,7 @@ mod tests {
         assert_eq!(error.code, "PERMISSION_DENIED");
     }
 
-    // TP-ANDROID-3
+    // TP-ANDROID-12
     #[test]
     fn malformed_native_replies_fail_closed() {
         for value in [
@@ -56,7 +56,7 @@ mod tests {
         }
     }
 
-    // TP-ANDROID-3, TP-IOS-8
+    // TP-ANDROID-12, TP-IOS-8
     #[test]
     fn an_android_layout_record_reads_into_the_plugins_record() {
         let record: crate::LayoutActivityRecord = decode(json!({"ok":true,"data":{

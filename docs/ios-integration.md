@@ -1,7 +1,8 @@
 # iOS integration
 
-On iOS the plugin's Rust commands call the [activitykit](https://github.com/1eedaegon/activitykit-rs) crate, and the
-plugin has no Swift of its own. activitykit's build script builds its Swift bridge, `ActivityKitBridge` (the C
+On iOS the plugin's commands run on the [liveactivity](https://github.com/1eedaegon/liveactivity-rs) crate, whose
+iOS backend calls the [activitykit](https://github.com/1eedaegon/activitykit-rs) crate, and the plugin has no Swift of
+its own. activitykit's build script builds its Swift bridge, `ActivityKitBridge` (the C
 functions, the lifecycle with its receipts, and the ActivityKit calls), into the app's Rust library. What the app adds
 in Xcode is a widget extension that draws the activities and a little Swift in the app target; both link products of
 activitykit's Swift package. Installing the crate or the npm package does not add them:
@@ -176,8 +177,8 @@ End policies:
 `endLayout` takes final content in `snapshot`, checked as an update: `STALE_REVISION` below the accepted revision,
 `CONFLICT` at it with other values, `INVALID_INPUT` for other keys or types. Without `snapshot` the activity ends
 with its last accepted values at the next revision, so the record's revision is one higher. Ending again answers the
-record, also once the system no longer lists an activity that ended at once: the plugin keeps the handles of the last
-64 activities it ended in this launch. After a relaunch such an activity is `NOT_FOUND`. The v1 `end` takes no final
+record, also once the system no longer lists an activity that ended at once: the handles of the last 64 activities
+ended in this launch are kept. After a relaunch such an activity is `NOT_FOUND`. The v1 `end` takes no final
 content.
 
 ## Pushes

@@ -14,8 +14,6 @@ use std::{
     thread,
 };
 
-/// The Tauri event that carries an [`ActionEvent`] to JavaScript.
-pub(crate) const ACTION_EVENT: &str = "live-activity://action";
 /// Taps kept while no handler is registered yet.
 const MAX_PENDING: usize = 16;
 
@@ -53,7 +51,6 @@ fn channel() -> (Actions, Dispatcher) {
 }
 
 /// Runs the handlers on a thread of the plugin, where every tap then goes to `emit`.
-#[cfg(any(target_os = "ios", target_os = "android", test))]
 pub(crate) fn spawn(emit: impl Fn(&ActionEvent) + Send + 'static) -> Result<Actions> {
     let (actions, dispatcher) = channel();
     thread::Builder::new()
@@ -75,7 +72,6 @@ impl Actions {
 
     /// Queues one tap for the handlers and returns at once. `hold` is dropped once the handlers
     /// registered now have run and the tap was emitted, or at once when the plugin is gone.
-    #[cfg(any(target_os = "ios", target_os = "android", test))]
     pub(crate) fn tap(&self, event: ActionEvent, hold: impl Send + 'static) {
         // The dispatcher ends only with the plugin, and then nothing is left to deliver.
         let _ = self.queue.send(Message::Tap(event, Box::new(hold)));

@@ -3,7 +3,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutEndInput, LayoutStartInput,
   LayoutUpdateInput, PermissionKind, Permissions, PushToStartTokenEvent, PushTokenEvent, PushTokens, StartInput,
-  UpdateInput, UpdatedEvent,
+  StartedEvent, StateEvent, UpdateInput, UpdatedEvent,
 } from './types.js';
 
 export type * from './types.js';
@@ -155,4 +155,30 @@ async function heldTokens(unlisten: UnlistenFn): Promise<PushTokens> {
  */
 export function onUpdated(handler: (event: UpdatedEvent) => void): Promise<UnlistenFn> {
   return listen<UpdatedEvent>('live-activity://updated', event => handler(event.payload));
+}
+
+/**
+ * Receive the record of a layout activity that began while the app ran (iOS): one the app started, or one a push
+ * started with the app's push-to-start token. An activity that began before the page listened is in `listLayout`.
+ */
+export function onStarted(handler: (event: StartedEvent) => void): Promise<UnlistenFn> {
+  return listen<StartedEvent>('live-activity://started', event => handler(event.payload));
+}
+
+/**
+ * Receive each new lifecycle state of an activity. iOS reports every change while the app runs, such as `stale`,
+ * `ended` and `dismissed`; Android reports `dismissed` when the person removes the notification, when the plugin
+ * drains its events. A change while the app did not run is in the activity's record, as `list` and `listLayout`
+ * give it.
+ */
+export function onState(handler: (event: StateEvent) => void): Promise<UnlistenFn> {
+  return listen<StateEvent>('live-activity://state', event => handler(event.payload));
+}
+
+/**
+ * Receive the permissions after the person changed them in Settings (iOS): Live Activities turned on or off, or
+ * frequent pushes. `checkPermissions` gives them at any time.
+ */
+export function onPermissions(handler: (permissions: Permissions) => void): Promise<UnlistenFn> {
+  return listen<Permissions>('live-activity://permissions', event => handler(event.payload));
 }

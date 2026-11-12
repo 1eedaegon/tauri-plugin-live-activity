@@ -101,7 +101,7 @@ pub fn reply(action_id: &str, record: &LayoutActivityRecord) -> Option<Reply> {
     let id = record.id.clone();
     match action_id {
         "pet" => petted(&record.snapshot)
-            .map(|snapshot| Reply::Update(LayoutUpdateInput { id, snapshot })),
+            .map(|snapshot| Reply::Update(LayoutUpdateInput::new(id, snapshot))),
         "done" | "wake" => Some(Reply::End(LayoutEndInput {
             id,
             policy: EndPolicy::Immediate {},
@@ -137,10 +137,8 @@ fn petted(snapshot: &LayoutSnapshot) -> Option<LayoutSnapshot> {
         })
         .collect();
     Some(LayoutSnapshot {
-        revision: snapshot.revision + 1,
-        values,
         stale_at: snapshot.stale_at,
-        timestamp: None,
+        ..LayoutSnapshot::new(snapshot.revision + 1, values)
     })
 }
 

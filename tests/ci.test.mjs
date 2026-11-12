@@ -8,11 +8,13 @@ import { test } from 'node:test';
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 // TP-RUST-5
-test('activitykit is one line of Cargo.toml and the crate builds no Swift of its own', () => {
+test('liveactivity is one line of Cargo.toml, brings both engines, and the crate builds no Swift of its own', () => {
   const manifest = read('Cargo.toml');
-  const lines = manifest.split('\n').filter(line => /^\s*activitykit\s*=/.test(line));
-  assert.deepEqual(lines, ['activitykit = "0.3"']);
-  assert.doesNotMatch(manifest, /\[dependencies\.activitykit\]|activitykit\.(git|rev|version)\s*=/);
+  // The engines come through liveactivity alone, so the plugin and the interface always build on the same versions.
+  const lines = manifest.split('\n').filter(line => /^\s*(liveactivity|activitykit|liveupdate)\s*=/.test(line));
+  assert.equal(lines.length, 1, lines.join('\n'));
+  assert.match(lines[0], /^liveactivity = /);
+  assert.doesNotMatch(manifest, /\[dependencies\.(liveactivity|activitykit|liveupdate)\]/);
   assert.doesNotMatch(read('build.rs'), /ios_path/);
   assert.doesNotMatch(manifest, /"\/ios\/|"\/templates\//);
   for (const gone of ['ios', 'templates']) assert.equal(existsSync(new URL(`../${gone}`, import.meta.url)), false, gone);

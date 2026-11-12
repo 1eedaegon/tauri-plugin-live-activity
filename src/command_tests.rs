@@ -289,7 +289,7 @@ fn plugin_accepts_an_absent_null_or_redacted_configuration() {
 // TP-ACTION-1
 #[test]
 fn taps_reach_tauri_listeners_as_the_action_event() {
-    use crate::actions::{ACTION_EVENT, spawn};
+    use crate::{ACTION_EVENT, actions::spawn};
     use tauri::{Emitter, Listener};
     let app = mock_builder()
         .plugin(crate::init())
@@ -318,7 +318,7 @@ fn write_image_checks_the_png_then_reports_that_desktop_has_no_widget() {
         .build(mock_context(noop_assets()))
         .unwrap();
     let handle = app.handle().clone();
-    let png = crate::image::tests::png(8, 8, 1);
+    let png = sized_png(8, 8, 1);
     tauri::async_runtime::block_on(async {
         let write = |input: Value| commands::write_image(handle.clone(), input);
         assert_eq!(
@@ -337,7 +337,7 @@ fn write_image_checks_the_png_then_reports_that_desktop_has_no_widget() {
             assert_eq!(write(input).await.unwrap_err().code, "INVALID_INPUT");
         }
     });
-    let wide = crate::image::tests::png(1225, 8, 1);
+    let wide = sized_png(1225, 8, 1);
     assert_eq!(
         app.live_activity()
             .write_image("wide.png", &wide)
@@ -381,10 +381,11 @@ fn a_channel_that_is_no_base64_is_refused_before_the_native_side() {
 // TP-PUSH-2, TP-PUSH-4
 #[test]
 fn push_events_reach_tauri_listeners() {
-    use crate::pushes::{
-        PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT, PushEvent, PushToStartTokenEvent,
-        PushTokenEvent, UPDATED_EVENT, UpdatedEvent,
+    use crate::{
+        PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT, PushToStartTokenEvent, PushTokenEvent,
+        UPDATED_EVENT, UpdatedEvent,
     };
+    use liveactivity::Event;
     use tauri::Listener;
     let app = mock_builder()
         .plugin(crate::init())
@@ -405,20 +406,23 @@ fn push_events_reach_tauri_listeners() {
         "promotionRequested":false,"promotionState":"notApplicable"}))
     .unwrap();
     let events = [
-        PushEvent::Token(PushTokenEvent {
+        Event::PushToken(PushTokenEvent {
             activity_id: "la-1".into(),
             activity_key: Some("job:1".into()),
             token: "0a1b".into(),
         }),
-        PushEvent::PushToStartToken(PushToStartTokenEvent {
+        Event::PushToStartToken(PushToStartTokenEvent {
             token: "ff00".into(),
         }),
-        PushEvent::Updated(UpdatedEvent {
+        Event::Updated(UpdatedEvent {
             record: record.clone(),
         }),
     ];
+    // The sink of the backend's events, as the plugin connects it.
+    let actions = crate::actions::spawn(|_| {}).unwrap();
+    let sink = crate::events::sink(app.handle().clone(), actions);
     for event in &events {
-        event.emit(app.handle()).unwrap();
+        sink(event.clone());
     }
     let mut received = Vec::new();
     for _ in 0..events.len() {
@@ -486,5 +490,83 @@ fn push_tokens_answers_no_tokens_where_there_are_no_pushes() {
     assert_eq!(
         serde_json::to_value(&held).unwrap(),
         json!({"pushToStart":"ff00","activities":[{"activityId":"la-1","token":"0a1b"}]})
+    );
+}
+
+/// A PNG of that size: the signature, an image header, a data chunk of `filler` bytes and the end.
+fn sized_png(width: u32, height: u32, filler: usize) -> Vec<u8> {
+    let mut bytes = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();
+    bytes.extend(width.to_be_bytes());
+    bytes.extend(height.to_be_bytes());
+    bytes.extend([8, 6, 0, 0, 0, 0, 0, 0, 0]);
+    bytes.extend((filler as u32).to_be_bytes());
+    bytes.extend(b"IDAT");
+    bytes.extend(std::iter::repeat_n(0, filler + 4));
+    bytes.extend(b"\0\0\0\0IEND\xaeB`\x82");
+    bytes
+}
+
+// TP-EVENT-1
+#[test]
+fn starts_states_and_permissions_reach_tauri_listeners() {
+    use crate::{PERMISSIONS_EVENT, STARTED_EVENT, STATE_EVENT};
+    use liveactivity::Event;
+    use tauri::Listener;
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let (sender, heard) = std::sync::mpsc::channel();
+    for name in [STARTED_EVENT, STATE_EVENT, PERMISSIONS_EVENT] {
+        let sender = sender.clone();
+        app.listen(name, move |event| {
+            let payload: Value = serde_json::from_str(event.payload()).unwrap();
+            let _ = sender.send((name, payload));
+        });
+    }
+    let record: crate::LayoutActivityRecord = serde_json::from_value(json!({
+        "id":"la-1","activityKey":"job:1","schemaVersion":2,
+        "snapshot":{"revision":0,"values":{"status":"Started"},"relevance":80.0},
+        "backend":"activityKit","state":"active","visibility":"unknown","degradedFeatures":[],
+        "promotionRequested":false,"promotionState":"notApplicable"}))
+    .unwrap();
+    let permissions: crate::Permissions = serde_json::from_value(json!({
+        "notifications":"notApplicable","liveActivities":"denied","promotion":"notApplicable",
+        "frequentPushes":"denied"}))
+    .unwrap();
+    let actions = crate::actions::spawn(|_| {}).unwrap();
+    let sink = crate::events::sink(app.handle().clone(), actions);
+    sink(Event::Started(crate::StartedEvent {
+        record: record.clone(),
+    }));
+    sink(Event::State(crate::StateEvent {
+        activity_id: "la-1".into(),
+        activity_key: Some("job:1".into()),
+        state: crate::ActivityState::Dismissed,
+    }));
+    sink(Event::Permissions(permissions.clone()));
+    let received: Vec<_> = (0..3)
+        .map(|_| {
+            heard
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .unwrap()
+        })
+        .collect();
+    assert_eq!(
+        received,
+        [
+            (
+                STARTED_EVENT,
+                json!({"record": serde_json::to_value(&record).unwrap()})
+            ),
+            (
+                STATE_EVENT,
+                json!({"activityId":"la-1","activityKey":"job:1","state":"dismissed"})
+            ),
+            (
+                PERMISSIONS_EVENT,
+                serde_json::to_value(&permissions).unwrap()
+            ),
+        ]
     );
 }

@@ -131,7 +131,7 @@ fn layout_weight(input: &Value) -> usize {
         + part("/layout").map_or(0, |layout| layout + part("/styles").unwrap_or(2))
 }
 
-// TP-CONTRACT-2, TP-RUST-3
+// TP-CONTRACT-2, TP-CONTRACT-8, TP-RUST-3
 #[test]
 fn layout_fixtures_match_reference_validator() {
     let (valid, invalid) = (layout_cases("valid"), layout_cases("invalid"));
@@ -156,6 +156,12 @@ fn layout_fixtures_match_reference_validator() {
     }
     for case in &invalid {
         let (name, command) = (&case["name"], case["command"].as_str().unwrap());
+        // liveactivity, whose contract the plugin carries, takes a relevance in a snapshot; activitykit, whose
+        // fixtures these are, takes it beside the request and uses it here as its example of an unknown member.
+        if name == "rejects an unknown member in the final content" {
+            assert_eq!(validate_request(command, case["input"].clone()), Ok(()));
+            continue;
+        }
         let error =
             validate_request(command, case["input"].clone()).expect_err(name.as_str().unwrap());
         assert_eq!(case["code"], error.code.as_str(), "{name}");
@@ -210,12 +216,7 @@ mod changing_styles {
     pub fn delivery(revision: u64, status: &str, tone: &str) -> LayoutSnapshot {
         let values = [("status", status), ("tone", tone)]
             .map(|(key, text)| (key.to_string(), Value::Text(text.into())));
-        LayoutSnapshot {
-            revision,
-            values: BTreeMap::from(values),
-            stale_at: None,
-            timestamp: None,
-        }
+        LayoutSnapshot::new(revision, BTreeMap::from(values))
     }
 
     pub fn start_input() -> LayoutStartInput {
@@ -252,10 +253,7 @@ mod changing_styles {
         let record = app.live_activity().start_layout(start_input())?;
         // Later: every value again, with a higher revision. The status turns red.
         let snapshot = delivery(1, "Running late", "red");
-        let update = LayoutUpdateInput {
-            id: record.id,
-            snapshot,
-        };
+        let update = LayoutUpdateInput::new(record.id, snapshot);
         app.live_activity().update_layout(update)?;
         Ok(())
     }
@@ -274,10 +272,7 @@ fn the_changing_styles_example_binds_a_color_that_an_update_changes() {
             "snapshot":{"revision":0,"values":{"status":"On time","tone":"green"}}})
     );
     assert_eq!(input.validate(), Ok(()));
-    let update = |snapshot| LayoutUpdateInput {
-        id: "handle".into(),
-        snapshot,
-    };
+    let update = |snapshot| LayoutUpdateInput::new("handle", snapshot);
     let late = update(delivery(1, "Running late", "red"));
     assert_eq!(input.validate_update(&late), Ok(()));
     let unknown = update(delivery(1, "Running late", "crimson"));
