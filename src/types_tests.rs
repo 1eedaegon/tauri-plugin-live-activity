@@ -57,6 +57,19 @@ fn members(ts: &str, name: &str) -> BTreeMap<String, bool> {
         .collect()
 }
 
+/// The member of the union `export type NAME = | {…} | {…};` whose `kind` is `kind`, as it is written.
+fn variant(ts: &str, name: &str, kind: &str) -> String {
+    let start = ts
+        .find(&format!("export type {name} ="))
+        .unwrap_or_else(|| panic!("no type {name}"));
+    let body = &ts[start..];
+    let body = &body[..body.find("\n\n").unwrap_or(body.len())];
+    body.lines()
+        .find(|line| line.contains(&format!("kind: '{kind}'")))
+        .unwrap_or_else(|| panic!("{name} has no {kind}"))
+        .to_owned()
+}
+
 /// The members that `full` writes, each optional when `bare` leaves it out.
 fn written(full: impl Serialize, bare: impl Serialize) -> BTreeMap<String, bool> {
     let keys = |value: serde_json::Value| -> BTreeSet<String> {
@@ -204,6 +217,29 @@ fn ios_permissions() -> Permissions {
         promotion: PermissionState::NotApplicable,
         frequent_pushes: PermissionState::Granted,
     }
+}
+
+// TP-JS-7
+#[test]
+fn the_typescript_timer_style_is_what_rust_reads_and_writes() {
+    let ts = types();
+    // A timer style of an Android content, as TypeScript declares it and JavaScript sends it.
+    let sent = serde_json::json!({"kind":"timer",
+        "value":{"timer":{"startedAt":1000,"endsAt":2000},"countsDown":true}});
+    let style: PresentationStyle = serde_json::from_value(sent.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&style).unwrap(), sent);
+    let declared = variant(&ts, "AndroidStyle", "timer");
+    for key in sent["value"].as_object().unwrap().keys() {
+        assert!(
+            declared.contains(&format!("readonly {key}: ")),
+            "{declared} lacks {key}"
+        );
+    }
+    // The style holds liveupdate's `Timer`, which the plugin does not re-export. TypeScript declares it as its one
+    // `Timer`, the template's, whose members are those that liveupdate's writes.
+    assert!(declared.contains("readonly timer: Timer;"), "{declared}");
+    let timer = &sent["value"]["timer"];
+    assert_eq!(members(&ts, "Timer"), written(timer, timer));
 }
 
 // TP-JS-7

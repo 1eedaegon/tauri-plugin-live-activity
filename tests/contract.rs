@@ -381,6 +381,72 @@ fn layout_commands_do_not_mix_with_contract_v1() {
     }
 }
 
+/// A timer style holds liveupdate's `Timer`. The plugin re-exports `TimerStyle` and the template's `Timer`, which is
+/// another type with the same members, and not liveupdate's: Rust reads a timer style from JSON, as it comes from
+/// JavaScript, and reads its members without naming the type.
+// TP-CONTRACT-8, TP-RUST-2
+#[test]
+fn an_android_content_with_a_timer_style_reads_from_json_and_is_checked_in_full() {
+    use tauri_plugin_live_activity::{AndroidContent, PresentationStyle, Timer};
+    let content = |started_at: u64, ends_at: u64| {
+        json!({"title":"Mochi’s nap","status":"Dozing off","presentation":{"style":{"kind":"timer",
+            "value":{"timer":{"startedAt":started_at,"endsAt":ends_at},"countsDown":true}}}})
+    };
+    let typed: AndroidContent = serde_json::from_value(content(1_000, 2_000)).unwrap();
+    let PresentationStyle::Timer(style) = &typed.presentation.style else {
+        panic!("the style is a timer");
+    };
+    assert_eq!(
+        (
+            style.timer.started_at,
+            style.timer.ends_at,
+            style.counts_down
+        ),
+        (1_000, 2_000, true)
+    );
+    // What Rust writes is what it read: the members that the TypeScript declarations name.
+    assert_eq!(serde_json::to_value(&typed).unwrap(), content(1_000, 2_000));
+    // The template's `Timer` writes the same two members, so one TypeScript `Timer` serves both.
+    let template = Timer {
+        started_at: 1_000,
+        ends_at: 2_000,
+    };
+    assert_eq!(
+        serde_json::to_value(&template).unwrap(),
+        content(1_000, 2_000)["presentation"]["style"]["value"]["timer"]
+    );
+
+    let start = |android: Value| {
+        json!({"activityKey":"mochi:nap","schemaVersion":2,"fallback":"notification",
+            "layout":{"lockScreen":{"type":"text","bind":"title"}},
+            "snapshot":{"revision":0,"values":{"title":"Mochi’s nap"},"android":android}})
+    };
+    assert_eq!(
+        validate_request("start_layout", start(content(1_000, 2_000))),
+        Ok(())
+    );
+    // liveupdate's rules for a timer hold on every platform, before any backend: the end is after the start, and
+    // the value has its two members and no other.
+    assert_eq!(
+        validate_request("start_layout", start(content(2_000, 2_000))),
+        Err(Error::invalid())
+    );
+    for (pointer, value) in [
+        ("/presentation/style/value/timer/endsAt", json!(null)),
+        ("/presentation/style/value/timer/ends_at", json!(3_000)),
+        ("/presentation/style/value/countsDown", json!("yes")),
+    ] {
+        let mut broken = content(1_000, 2_000);
+        let (parent, member) = pointer.rsplit_once('/').unwrap();
+        broken.pointer_mut(parent).unwrap()[member] = value;
+        assert_eq!(
+            validate_request("start_layout", start(broken)),
+            Err(Error::invalid()),
+            "{pointer}"
+        );
+    }
+}
+
 /// Tauri reads a request from JSON text with this crate's serde_json, so every number must
 /// arrive as the double that JavaScript wrote.
 // TP-CONTRACT-6
