@@ -1,55 +1,127 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
 
-- The plugin is an adapter of the [`liveactivity`](https://crates.io/crates/liveactivity) crate 0.2. The contract and
-  its checks, the lifecycle, the iOS backend on activitykit, the Android backend on liveupdate and the projection of a
-  layout onto a notification are that crate's; the plugin keeps Tauri's commands, events and configuration, the
-  Android permissions and their dialog, the Kotlin side and the JavaScript API. `tauri_plugin_live_activity`
-  re-exports the crate's contract, so the Rust names and the JSON are the same.
-- A layout snapshot takes a `relevance` (iOS: which activity the Dynamic Island shows first) and an `android` content:
-  what the notification shows in Android's own terms, in place of the projection of the layout (a progress with
-  segments and points, metrics, the text of the status chip, action icons). `getCapabilities().androidPresentation`
-  says which styles the device draws. Android keeps the style of an activity's first snapshot and answers
-  `UNSUPPORTED_FEATURE` to another.
-- `updateLayout` takes an `alert` with a title and a body. On iOS the device lights up and an Apple Watch shows it;
-  Android updates silently and names `alert` in the record's `degradedFeatures`.
-- New events: `onStarted` (a layout activity began, also one a push started; iOS), `onState` (a new lifecycle state;
-  on Android, the person dismissed the notification of a layout activity) and `onPermissions` (the permissions after a change in Settings;
-  iOS). Their names are public in Rust: `STARTED_EVENT`, `STATE_EVENT`, `PERMISSIONS_EVENT`.
-- The backend's events reach the plugin one at a time, on one thread: liveactivity's events thread on iOS, the
-  plugin's draining thread on Android. A tap holds that thread until the handlers of `on_action` have run, at most
-  4 seconds, so an event behind a tap comes after that tap's handlers, where 0.6 sent a push event at once. A Rust
-  listener of an event that panics is caught in the plugin's sink, as in 0.6: the thread, the taps and the events to
-  JavaScript go on, but Tauri then delivers nothing more to any Rust listener of the app.
-- Android: the plugin's permissions read the notification settings through liveupdate's adapter alone, the
-  `capabilities` that `getCapabilities` reads, so `notifications` is `granted` exactly when liveupdate may post, and
-  the first `checkPermissions` creates liveupdate's notification channel when it was not there. The plugin's own
-  reading of the channel is gone, with a validator of ids that nothing called since 0.5 and Gradle properties of
-  fixture tests that left with it; the R8 rule that kept `ActionRegistration`, a class that 0.5 renamed, keeps
-  `EventRegistration`.
-- Known: in an Android content, a metric's `stopwatch` and `countdown` values are `INVALID_INPUT` on Android.
-  liveupdate 0.1 writes their member in snake case and its Android side reads camel case; `integer`, `decimal` and
-  `text` values work.
-- Known, since 0.5.0: on Android 16 a layout that shows a `progress`, and an Android content of the `progress`
-  style, are not posted, and the start fails with `NATIVE_ERROR`. liveupdate 0.1's Android side gives every segment
-  and point of the system's progress a semantic style with a method that Android 17 added. It is Android 16 alone,
-  and the progress template is not affected. The [usage guide](docs/usage.md#android) says what an app can show there
-  meanwhile.
-- The reference validator `tools/validate-request.mjs` checks the new members beside activitykit's schema. One of
-  activitykit's fixtures, which uses `relevance` as its example of an unknown member, is valid here.
+The plugin is an adapter of the [`liveactivity`](https://crates.io/crates/liveactivity) crate 0.5.1, which runs iOS on
+activitykit 0.5.0 and Android on liveupdate 0.3.2. The contract and its checks, the lifecycle, the two backends and the
+projection of a layout onto a notification are that crate's; the plugin keeps Tauri's commands, events and
+configuration, the Android permissions and their dialog, the Kotlin side and the JavaScript API.
+`tauri_plugin_live_activity` re-exports the crate's contract, so the Rust names and the JSON are the same.
+
+Layouts:
+
+- Two nodes are new. `link` is a tap that opens its URL (`layout.link(url, child)`, JSX `<Link url>`), and `toggle` is a
+  switch beside its label that shows a boolean value (`layout.toggle(actionId, key, child)`, JSX `<Toggle actionId bind>`).
+  A tap on a toggle comes through `onAction` with `on`, the state the person asked for; the switch moves only with an
+  update.
+- Every node takes `accessibility`, `transition`, `privacy` and `ifStale` through the builders' options and as JSX props.
+  `ifStale` is drawn on iOS without the app running. Android draws the layout as it is while fresh and names
+  `layout.ifStale`.
+- `layout.url` is what a tap on the activity opens. A style takes `contentTransition`. The Dynamic Island takes `priority`,
+  `belowIfTooWide` and `margins`.
+- On Android a `link` is an action that opens its URL, and `layout.url` is what a tap on the notification opens, where the
+  device offers `links`. The app declares the URL's scheme in an intent filter of its activity; without one the record
+  names `layout.link` and `layout.url`.
+- A timer beside a progress is the clock in the notification's header. An accessibility label stands in for a node that a
+  notification cannot draw. A toggle is an action titled by its label, with a check mark before it while the value is on.
+
+Snapshots:
+
+- A layout snapshot takes a `relevance` (iOS: which of the app's activities the Dynamic Island shows first) and an
+  `android` content: what the notification shows in Android's own terms, in place of the projection of the layout (a
+  progress with segments and points, metrics, the text of the status chip, action icons).
+  `getCapabilities().androidPresentation` says which styles the device draws and what it offers beyond them.
+- `updateLayout` takes an `alert` with a title and a body. On iOS the device lights up and an Apple Watch shows it.
+
+Starts:
+
+- `scheduled` (`{ at, alert }`) starts the activity at a later time. On iOS 26 the record is `pending` until then, an update
+  before it began is `CONFLICT`, and `onState` reports `active` when it begins. Android and older iOS answer
+  `UNSUPPORTED_FEATURE`, and nothing is kept.
+- `ios` (`{ transient }`, iOS 18) asks for a transient activity; before iOS 18 it is `UNSUPPORTED_FEATURE`. Android ignores
+  it. The React hook `useLiveActivity` takes `ios` as well.
+- The Android start options are `publicVersion`, what a secure lock screen shows of a private activity, and `placement`,
+  `foreground` for a notification that a foreground service of the app holds. A device that does not offer
+  `foregroundPlacement` answers `UNSUPPORTED_FEATURE` to the placement.
+
+Android content (`snapshot.android`):
+
+- A presentation takes `openUrl`, and an action takes `openUrl` too: an action that opens a URL sends no tap, and
+  `onOpened` reports it. Also new are `chronometer`, `alert`, `publicVersion`, `smallIcon`, `accentColor` and `subText`.
+  Each is behind a capability in `getCapabilities().androidPresentation`, and a content that uses a member the device
+  does not offer is `UNSUPPORTED_FEATURE`.
+- A snapshot may have another notification style than the activity's first where the device offers `styleChange`.
+  An end with the policy `after` keeps the last content on screen until its time where the device offers `delayedEnd`.
+- A metric's `stopwatch` and `countdown` values are written `startedAt` and `endsAt` and are posted.
+- A `progress` layout and an Android content of the `progress` style are posted on Android 16.
+
+Alerts:
+
+- `alert.sound` names a file of the app's bundle on iOS. Android alerts with the sound of its channel, which the person
+  chooses; the record names `alert.sound` in `degradedFeatures`.
+- An update's alert alerts again on Android where the device offers `alert`. Before 0.7.0 every Android update was silent.
+
+Events:
+
+- New events: `onStarted` (a layout activity began, also one a push started; iOS), `onState` (a new lifecycle state)
+  and `onPermissions` (the permissions after a change in Settings; iOS). Their names are public in Rust:
+  `STARTED_EVENT`, `STATE_EVENT`, `PERMISSIONS_EVENT`.
+- The backend's events reach the plugin one at a time: on liveactivity's events thread on iOS; on Android on the
+  plugin's events thread, or on the thread of a command whose call made a state due. A tap holds its thread until the
+  handlers of `on_action` have run, at most 4 seconds, so an event behind a tap comes after that tap's handlers, where
+  0.6 sent a push event at once. A Rust listener of an event that panics is caught in the plugin's sink, as in 0.6:
+  the thread, the taps and the events to JavaScript go on, but Tauri then delivers nothing more to any Rust listener
+  of the app.
+- An `onAction` payload has `on` for a toggle. It is absent for a button.
+- On Android `onState` reports `active`, `stale`, `ended` and `dismissed`, each once, for templates and layouts, with the
+  activity's key. The plugin's events thread wakes at an activity's stale time, so `stale` arrives while the app runs
+  without a call. On iOS an end that removes an activity at once may be reported as `dismissed` alone.
+- `onOpened` (`live-activity://opened`, Rust `OPENED_EVENT`) reports that the person opened the app from an activity's
+  notification (Android), and by which action when it was one that opens a URL. The plugin hands the opening intents to
+  liveupdate itself, so an app writes no Kotlin for it. The URL comes to the app as any deep link.
+
+Android library:
+
+- The plugin's Android library carries liveupdate 0.3.2's adapter. Its Gradle file adds `androidx.activity:activity:1.6.0`,
+  which Tauri's own activity already brings.
+- The plugin's permissions read the notification settings through liveupdate's adapter alone, the `capabilities` that
+  `getCapabilities` reads, so `notifications` is `granted` exactly when liveupdate may post, and the first
+  `checkPermissions` creates liveupdate's notification channels when they were not there. The plugin's own reading of
+  the channel is gone, with a validator of ids that nothing called since 0.5 and Gradle properties of fixture tests
+  that left with it; the R8 rule that kept `ActionRegistration`, a class that 0.5 renamed, keeps `EventRegistration`.
+
+Checks:
+
+- The reference validator `tools/validate-request.mjs` follows activitykit 0.5's schema and checks what liveactivity
+  takes beside it: a relevance, the outline of an Android content, an alert with its sound, and the `ios`, `scheduled`
+  and Android options of a start. One of activitykit's fixtures, which uses `relevance` as its example of an unknown
+  member, is valid here.
 - `docs/spec.md` lists what the plugin proves itself and, apart, the promises that liveactivity's tests prove. New
-  there: TP-ANDROID-13, the Android permissions, with the Kotlin tests of their policy, and TP-ANDROID-14: one
-  fixture of Android contents of every style, which the TypeScript declarations, the Rust models and, on a device,
-  liveupdate's Android side are each compared with. That device test found the two known differences above.
-- The guides describe the adapter: who checks and keeps what, the `relevance`, the `alert`, the Android content and
-  the events of an activity's life ([usage](docs/usage.md#android-content)). The Rust examples of the README and of
-  the usage guide build their requests with `LayoutSnapshot::new` and `LayoutUpdateInput::new`: the struct literals
-  they showed for 0.6 no longer compile.
-- Breaking in Rust: `LayoutSnapshot`, `LayoutUpdateInput` and `Capabilities` have members more, `Alert` and
-  `AndroidOptions` are built with `new`, and the state enums are `#[non_exhaustive]`, so a `match` on them needs a
-  `_` arm. `LayoutSnapshot::new`, `LayoutStartInput::new`, `LayoutUpdateInput::new` and `LayoutEndInput::new` build
-  the requests. In TypeScript every new member is optional.
+  there: TP-ANDROID-13, the Android permissions, with the Kotlin tests of their policy; TP-ANDROID-14, one fixture of
+  Android contents of every style, which the TypeScript declarations, the Rust models and, on a device, liveupdate's
+  Android side are each compared with; TP-ANDROID-15, the events thread that follows liveupdate's next check;
+  TP-ANDROID-16, the opening intents; and TP-EVENT-2, the opened event.
+
+Known:
+
+- On Android 16 a notification whose time is more than two weeks past is not shown, and the app gets no error. This is a
+  timer whose start or end lies that far before the post. liveupdate answers the post as shown.
+
+Breaking:
+
+- TypeScript: the members of `AndroidMetricValue` are camelCase, `startedAt` and `endsAt`.
+- `onState` reports more on Android: `active`, `stale` and `ended` as well as `dismissed`. An app that took its only
+  Android state for `dismissed` must handle the others.
+- An update's alert alerts on Android where the device offers `alert`, so an Android app that counted on a silent update
+  now alerts.
+- Rust: `ActionEvent` has `on`, `Alert` has `sound`, `LayoutStartInput` has `ios` and `scheduled`, the layout (`LayoutRegions`)
+  has `url`, `Element` has the variant `Toggle`, `Node` has `if_stale`, and `AndroidPresentation` has more members, built
+  with `AndroidPresentation::new(style)`. A struct literal of any of these names the new members, and a match over
+  `Element` needs an arm for `Toggle`. `LayoutSnapshot`, `LayoutUpdateInput` and `Capabilities` have members more than
+  in 0.6, `Alert` and `AndroidOptions` are built with `new`, and the state enums are `#[non_exhaustive]`, so a `match`
+  on them needs a `_` arm. `LayoutSnapshot::new`, `LayoutStartInput::new`, `LayoutUpdateInput::new` and
+  `LayoutEndInput::new` build the requests.
+
 
 ## 0.6.0
 

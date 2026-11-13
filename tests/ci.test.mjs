@@ -18,7 +18,7 @@ test('liveactivity is one line of Cargo.toml, brings both engines, and the crate
   assert.doesNotMatch(read('build.rs'), /ios_path/);
   assert.doesNotMatch(manifest, /"\/ios\/|"\/templates\//);
   for (const gone of ['ios', 'templates']) assert.equal(existsSync(new URL(`../${gone}`, import.meta.url)), false, gone);
-  assert.match(read('Cargo.lock'), /name = "activitykit"\nversion = "0\.3\.\d+"\nsource = "registry\+https:\/\/github\.com\/rust-lang\/crates\.io-index"/);
+  assert.match(read('Cargo.lock'), /name = "activitykit"\nversion = "0\.5\.\d+"\nsource = "registry\+https:\/\/github\.com\/rust-lang\/crates\.io-index"/);
 });
 
 const root = new URL('..', import.meta.url);

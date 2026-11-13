@@ -132,6 +132,12 @@ and may not run at all while the web view is suspended. Taps that come before th
   With Face ID matched and the Lock Screen still up it runs at once. A native app's own `.alwaysAllowed` intent
   behaved the same ([Validation record](#validation-record)).
 - A tap does not change the activity. Update it from the handler if the button should change.
+- A `toggle` shows its switch from iOS 17; before it shows its label alone. Its tap comes to `onAction` and
+  `on_action` with `on`, the state the person asked for, and the switch moves only with an update.
+- A `link` opens the app with its URL. The app receives the URL as any URL it is opened with (`onOpenURL` or the
+  scene's URL contexts), and no event reports it; `onOpened` is Android's. `layout.url` does the same for a tap on
+  the activity, on the Lock Screen and in each presentation of the Dynamic Island. The URL is checked for its form
+  only, and the app decides what it follows.
 
 ## Permissions
 
@@ -153,6 +159,12 @@ prompt of its own:
 - A start needs the app in the foreground. ActivityKit refuses a start from the background, which answers
   `NOT_FOREGROUND`; a start right after the app left the foreground may still succeed.
 - The system ends an activity after 8 hours and removes it from the Lock Screen after 12.
+- A start with `scheduled` (`{ at, alert }`) begins at that time (iOS 26). Until then the record is `pending`: the key
+  is held, the activity can be ended, and an update is `CONFLICT`. An older iOS answers `UNSUPPORTED_FEATURE`, and
+  nothing is kept.
+- `ios: { transient: true }` asks for a transient activity (iOS 18). By Apple's description the expanded Dynamic Island
+  shows it, and the system ends it when the person locks the device, collapses that presentation or leaves the app.
+  Before iOS 18 it is `UNSUPPORTED_FEATURE`.
 - Every start, update and end goes out at the request's revision, as in 0.3. activitykit's Swift layer takes a higher
   revision than the accepted one, answers the accepted one with the same values and stale date as done, and refuses a
   lower one (`STALE_REVISION`) or the accepted one with other values (`CONFLICT`). An end without a snapshot ends at
@@ -170,13 +182,15 @@ prompt of its own:
   one with the highest. A snapshot without one keeps the activity's score, which is 0 at first.
 - An update is silent unless it carries an `alert` (a title and a body): the device then lights up, the Dynamic
   Island expands, or without one the Lock Screen presentation shows as a banner, and an Apple Watch shows the two
-  texts.
+  texts. With `sound` (a file name such as `chime.aiff`) the alert plays that file of the app's bundle or of
+  `Library/Sounds`; without it the system plays its default sound.
 - `staleAt` becomes ActivityKit's stale date. Each snapshot has its own; one without it clears the date. The state is
   what ActivityKit reports: `pending`, `active`, `stale`, `ended`, `dismissed` or `unknown`. ActivityKit has not been
   seen to report `stale` on a simulator, so no test asserts it.
 - While the app runs, every new state of an activity comes to `onState`, and a layout activity that began, also one
   that a push started, to `onStarted` with its record. What changed while the app did not run is in the records of
   `list()` and `listLayout()`.
+- An end that removes an activity at once may be reported as `dismissed` alone, with no `ended`: take either as the end.
 - A successful request does not prove that anything was shown: records keep `visibility: 'unknown'`.
 
 End policies:

@@ -1,6 +1,7 @@
-//! The events of the contract on Tauri's event API. The backend reports them one at a time on one thread:
-//! liveactivity's events thread on iOS, the plugin's draining thread on Android. Tauri runs the app's Rust listeners
-//! inline in an emit, on that thread: one that blocks delays the taps and the events behind it.
+//! The events of the contract on Tauri's event API. The backend reports them one at a time: on liveactivity's
+//! events thread on iOS; on Android on the plugin's draining thread, or on the thread of a command whose call made
+//! a state due. Tauri runs the app's Rust listeners inline in an emit, on that thread: one that blocks delays the
+//! taps and the events behind it.
 
 use crate::actions::Actions;
 use liveactivity::Event;
@@ -23,9 +24,12 @@ pub const UPDATED_EVENT: &str = "live-activity://updated";
 /// started or one a push started (iOS).
 pub const STARTED_EVENT: &str = "live-activity://started";
 /// The Tauri event that carries a [`StateEvent`](crate::StateEvent): a new lifecycle state of an activity. iOS
-/// reports every change while the app runs; Android reports that the person dismissed the notification of a layout
-/// activity.
+/// reports the changes ActivityKit tells of while the app runs. Android reports the state an activity has when the
+/// plugin looks, each once: `active`, `stale`, `ended` and `dismissed`.
 pub const STATE_EVENT: &str = "live-activity://state";
+/// The Tauri event that carries an [`OpenedEvent`](crate::OpenedEvent): the person opened the app from the
+/// notification of an activity (Android).
+pub const OPENED_EVENT: &str = "live-activity://opened";
 /// The Tauri event that carries the [`Permissions`](crate::Permissions) after the person changed them in
 /// Settings (iOS).
 pub const PERMISSIONS_EVENT: &str = "live-activity://permissions";
@@ -76,6 +80,9 @@ pub(crate) fn sink_within<R: Runtime>(
             }
             Event::Permissions(permissions) => {
                 let _ = app.emit(PERMISSIONS_EVENT, permissions);
+            }
+            Event::Opened(opened) => {
+                let _ = app.emit(OPENED_EVENT, opened);
             }
             _ => {}
         }));

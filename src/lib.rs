@@ -22,6 +22,8 @@ mod commands;
 mod config;
 #[cfg(all(test, desktop))]
 mod desktop_ipc_tests;
+#[cfg(any(target_os = "android", test))]
+mod drain;
 mod events;
 #[cfg(target_os = "ios")]
 mod ios;
@@ -31,8 +33,8 @@ mod types_tests;
 
 pub use config::{AndroidConfig, Config, Receipts};
 pub use events::{
-    ACTION_EVENT, PERMISSIONS_EVENT, PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT, STARTED_EVENT,
-    STATE_EVENT, UPDATED_EVENT,
+    ACTION_EVENT, OPENED_EVENT, PERMISSIONS_EVENT, PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT,
+    STARTED_EVENT, STATE_EVENT, UPDATED_EVENT,
 };
 /// The contract: the requests, records, layout types, errors and checks.
 pub use liveactivity::contract::*;
@@ -74,7 +76,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R, Option<Config>> {
             #[cfg(target_os = "ios")]
             let plugin = ios::init(app, _api)?;
             #[cfg(desktop)]
-            let plugin = service::connect(app, liveactivity::UnsupportedBackend, None)?;
+            let plugin = service::connect(app, liveactivity::UnsupportedBackend)?;
             app.manage(plugin);
             Ok(())
         })

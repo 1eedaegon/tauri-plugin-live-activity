@@ -2,9 +2,10 @@
 //! the error codes against those of the contract and those that the Kotlin side raises.
 
 use crate::{
-    ActionEvent, ActivityRecord, ActivityState, AndroidContent, AndroidPresentation, Backend,
-    Capabilities, ERROR_CODES, FeatureSupport, LayoutActivityRecord, LayoutSnapshot,
-    PermissionState, Permissions, PresentationCapabilities, PresentationStyle, PromotionState,
+    ActionEvent, ActivityRecord, ActivityState, AndroidContent, AndroidOptions, AndroidPlacement,
+    AndroidPresentation, AndroidVisibility, Backend, Capabilities, ERROR_CODES, FeatureSupport,
+    LayoutActivityRecord, LayoutSnapshot, OpenedEvent, PermissionState, Permissions,
+    PresentationCapabilities, PresentationStyle, PromotionState, PublicVersion,
     PushToStartTokenEvent, PushTokenEvent, SemanticStyle, Snapshot, StartedEvent, StateEvent,
     Template, UpdatedEvent, Value, Visibility,
 };
@@ -23,28 +24,38 @@ fn types() -> String {
     source("guest-js/types.ts")
 }
 
-/// The string literals of `export type NAME = 'a' | 'b' …;`.
-fn union(ts: &str, name: &str) -> BTreeSet<String> {
-    let start = ts
-        .find(&format!("export type {name} ="))
-        .unwrap_or_else(|| panic!("no type {name}"));
-    let rest = &ts[start..];
-    let body = &rest[..rest.find(';').unwrap()];
-    body.split('\'')
+/// The string literals of `'a' | 'b' …`.
+fn literals(written: &str) -> BTreeSet<String> {
+    written
+        .split('\'')
         .skip(1)
         .step_by(2)
         .map(str::to_owned)
         .collect()
 }
 
-/// The members of `export interface NAME { … }`, each with whether it is optional.
-fn members(ts: &str, name: &str) -> BTreeMap<String, bool> {
+/// The string literals of `export type NAME = 'a' | 'b' …;`.
+fn union(ts: &str, name: &str) -> BTreeSet<String> {
+    let start = ts
+        .find(&format!("export type {name} ="))
+        .unwrap_or_else(|| panic!("no type {name}"));
+    let rest = &ts[start..];
+    literals(&rest[..rest.find(';').unwrap()])
+}
+
+/// What stands between the braces of `export interface NAME { … }`.
+fn interface<'a>(ts: &'a str, name: &str) -> &'a str {
     let start = ts
         .find(&format!("export interface {name} {{"))
         .unwrap_or_else(|| panic!("no interface {name}"));
     let body = &ts[start..];
-    let body = &body[body.find('{').unwrap() + 1..body.find("\n}").unwrap()];
-    body.lines()
+    &body[body.find('{').unwrap() + 1..body.find("\n}").unwrap()]
+}
+
+/// The members of `export interface NAME { … }`, each with whether it is optional.
+fn members(ts: &str, name: &str) -> BTreeMap<String, bool> {
+    interface(ts, name)
+        .lines()
         .filter_map(|line| line.trim().strip_prefix("readonly "))
         .map(|member| {
             let name: String = member
@@ -55,6 +66,18 @@ fn members(ts: &str, name: &str) -> BTreeMap<String, bool> {
             (name, optional)
         })
         .collect()
+}
+
+/// What `export interface NAME { … }` declares its member `member` to be, as it is written.
+fn declared(ts: &str, name: &str, member: &str) -> String {
+    let prefix = format!("readonly {member}");
+    interface(ts, name)
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix(prefix.as_str()))
+        .find_map(|rest| rest.trim_start_matches('?').strip_prefix(": "))
+        .unwrap_or_else(|| panic!("{name} has no {member}"))
+        .trim_end_matches(';')
+        .to_owned()
 }
 
 /// The member of the union `export type NAME = | {…} | {…};` whose `kind` is `kind`, as it is written.
@@ -98,7 +121,7 @@ fn names<T: Serialize>(values: &[T]) -> BTreeSet<String> {
         .collect()
 }
 
-/// The values of each state enum that liveactivity 0.2 writes. The enums may grow, so a new value shows here as a
+/// The values of each state enum that liveactivity 0.5 writes. The enums may grow, so a new value shows here as a
 /// union of TypeScript that lacks it only once it is listed: the fixtures of each release are the reminder.
 fn every_activity_state() -> Vec<ActivityState> {
     use ActivityState::*;
@@ -136,6 +159,17 @@ fn every_promotion_state() -> Vec<PromotionState> {
 fn every_semantic_style() -> Vec<SemanticStyle> {
     use SemanticStyle::*;
     vec![Unspecified, Info, Safe, Caution, Danger]
+}
+
+/// The lock screen visibilities and the placements of a start on Android.
+fn every_android_visibility() -> Vec<AndroidVisibility> {
+    use AndroidVisibility::*;
+    vec![Public, Private, Secret]
+}
+
+fn every_android_placement() -> Vec<AndroidPlacement> {
+    use AndroidPlacement::*;
+    vec![Tagged, Foreground]
 }
 
 /// The code literals that `marker`s in the files under `folder` with `suffix` raise, outside of tests.
@@ -234,18 +268,68 @@ fn the_typescript_timer_style_is_what_rust_reads_and_writes() {
         "value":{"timer":{"startedAt":1000,"endsAt":2000},"countsDown":true}});
     let style: PresentationStyle = serde_json::from_value(sent.clone()).unwrap();
     assert_eq!(serde_json::to_value(&style).unwrap(), sent);
-    let declared = variant(&ts, "AndroidStyle", "timer");
-    for key in sent["value"].as_object().unwrap().keys() {
-        assert!(
-            declared.contains(&format!("readonly {key}: ")),
-            "{declared} lacks {key}"
-        );
-    }
+    // The style and the chronometer of a presentation are one model of Rust, and one declaration of TypeScript.
+    let PresentationStyle::Timer(clock) = style else {
+        panic!("{sent} is no timer style");
+    };
+    let beside = AndroidPresentation {
+        chronometer: Some(clock.clone()),
+        ..AndroidPresentation::new(PresentationStyle::Standard)
+    };
+    assert_eq!(
+        serde_json::to_value(&beside).unwrap()["chronometer"],
+        sent["value"]
+    );
+    let timer_variant = variant(&ts, "AndroidStyle", "timer");
+    assert!(
+        timer_variant.contains("readonly value: AndroidTimerStyle }"),
+        "{timer_variant}"
+    );
+    assert_eq!(
+        declared(&ts, "AndroidPresentation", "chronometer"),
+        "AndroidTimerStyle"
+    );
+    assert_eq!(members(&ts, "AndroidTimerStyle"), written(&clock, &clock));
     // The style holds liveupdate's `Timer`, which the plugin does not re-export. TypeScript declares it as its one
     // `Timer`, the template's, whose members are those that liveupdate's writes.
-    assert!(declared.contains("readonly timer: Timer;"), "{declared}");
+    assert_eq!(declared(&ts, "AndroidTimerStyle", "timer"), "Timer");
     let timer = &sent["value"]["timer"];
     assert_eq!(members(&ts, "Timer"), written(timer, timer));
+}
+
+// TP-JS-7
+#[test]
+fn the_typescript_options_of_a_start_on_android_are_what_rust_reads_and_writes() {
+    let ts = types();
+    let version = PublicVersion {
+        title: "Mochi".into(),
+        status: "An appointment".into(),
+    };
+    assert_eq!(
+        members(&ts, "AndroidPublicVersion"),
+        written(&version, &version)
+    );
+    // One declaration for what a locked screen shows, in the options of a start and in a content.
+    for holder in ["LayoutAndroidOptions", "AndroidPresentation"] {
+        assert_eq!(
+            declared(&ts, holder, "publicVersion"),
+            "AndroidPublicVersion",
+            "{holder}"
+        );
+    }
+    let bare = AndroidOptions::new(AndroidVisibility::Private);
+    let mut full = bare.clone();
+    full.public_version = Some(version);
+    full.placement = Some(AndroidPlacement::Foreground);
+    assert_eq!(members(&ts, "LayoutAndroidOptions"), written(&full, &bare));
+    assert_eq!(
+        literals(&declared(&ts, "LayoutAndroidOptions", "visibility")),
+        names(&every_android_visibility())
+    );
+    assert_eq!(
+        literals(&declared(&ts, "LayoutAndroidOptions", "placement")),
+        names(&every_android_placement())
+    );
 }
 
 // TP-JS-7
@@ -299,13 +383,7 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
     let content = AndroidContent {
         title: "On time".into(),
         status: "Gate 4".into(),
-        presentation: AndroidPresentation {
-            style: PresentationStyle::Standard,
-            short_critical_text: None,
-            large_icon: None,
-            actions: Vec::new(),
-            samsung_now_bar: None,
-        },
+        presentation: AndroidPresentation::new(PresentationStyle::Standard),
     };
     let full = LayoutSnapshot {
         stale_at: Some(5),
@@ -332,16 +410,34 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
         members(&ts, "LayoutActivityRecord"),
         written(&layout, &layout)
     );
+    // A tap on a toggle says which state the person asked for; a tap on a button says none.
     let tap = ActionEvent {
         action_id: "pet".into(),
         activity_id: "a".into(),
         activity_key: Some("k".into()),
+        on: Some(true),
     };
     let unkeyed = ActionEvent {
         activity_key: None,
+        on: None,
         ..tap.clone()
     };
     assert_eq!(members(&ts, "ActionEvent"), written(&tap, &unkeyed));
+    // An opening by an action names it; one by the notification itself names none.
+    let opened = OpenedEvent {
+        activity_id: "a".into(),
+        activity_key: Some("k".into()),
+        action_id: Some("map".into()),
+    };
+    let unkeyed_opening = OpenedEvent {
+        activity_key: None,
+        action_id: None,
+        ..opened.clone()
+    };
+    assert_eq!(
+        members(&ts, "OpenedEvent"),
+        written(&opened, &unkeyed_opening)
+    );
     let token = PushTokenEvent {
         activity_id: "a".into(),
         activity_key: Some("k".into()),

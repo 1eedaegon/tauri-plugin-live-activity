@@ -6,7 +6,7 @@ use crate::{
     events::{self, ACTION_EVENT},
 };
 use liveactivity::{LiveActivityBackend, wait};
-use std::{marker::PhantomData, sync::mpsc};
+use std::marker::PhantomData;
 use tauri::{AppHandle, Emitter, Runtime};
 
 /// The plugin on `backend`: its taps go to the handlers of `on_action` and to JavaScript, its push events to
@@ -14,7 +14,6 @@ use tauri::{AppHandle, Emitter, Runtime};
 pub(crate) fn connect<R: Runtime>(
     app: &AppHandle<R>,
     backend: impl LiveActivityBackend,
-    keep: Option<mpsc::Sender<()>>,
 ) -> Result<LiveActivity<R>> {
     let emitter = app.clone();
     let actions = actions::spawn(move |event| {
@@ -27,7 +26,6 @@ pub(crate) fn connect<R: Runtime>(
     Ok(LiveActivity {
         live,
         actions,
-        _keep: keep,
         runtime: PhantomData,
     })
 }
@@ -38,8 +36,6 @@ pub(crate) fn connect<R: Runtime>(
 pub struct LiveActivity<R: Runtime> {
     pub(crate) live: liveactivity::LiveActivity,
     actions: Actions,
-    /// Android: keeps the thread that drains the taps waiting; it ends when the plugin does.
-    _keep: Option<mpsc::Sender<()>>,
     runtime: PhantomData<fn() -> R>,
 }
 
@@ -94,9 +90,9 @@ impl<R: Runtime> LiveActivity<R> {
         wait(self.live.write_image(name, png))
     }
 
-    /// Calls `handler` for every tap on a button node, on a thread of the plugin and never on the main thread, so the
-    /// handler may call the plugin. Handlers stay for the life of the plugin. Taps that arrive before the first
-    /// handler wait for it.
+    /// Calls `handler` for every tap on a button or a toggle node, on a thread of the plugin and never on the main
+    /// thread, so the handler may call the plugin. Handlers stay for the life of the plugin. Taps that arrive before
+    /// the first handler wait for it.
     ///
     /// Register handlers on the built `App`, before `App::run`, or in the setup of a plugin, and not in
     /// `Builder::setup`: when the system launches the app in the background for a tap, `Builder::setup` may never

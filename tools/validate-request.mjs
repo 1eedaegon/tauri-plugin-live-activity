@@ -1,7 +1,9 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import schema from '../contracts/request.schema.json' with { type: 'json' };
 
-const ajv = new Ajv2020({ strict: true, allErrors: true, ownProperties: true });
+// activitykit's schema says `if` a member is there `then` another is, without repeating the type and the properties
+// around them, which two of Ajv's strict checks ask for; the others stay.
+const ajv = new Ajv2020({ strict: true, strictRequired: false, strictTypes: false, allErrors: true, ownProperties: true });
 const isLayout = (command) => typeof command === 'string' && command.endsWith('_layout');
 // One view of the schema per contract version, so that a request is reported against its own version only.
 const view = (layout) => ajv.compile({
@@ -14,9 +16,11 @@ const validateLayoutShape = view(true);
 
 const MAX_WEIGHT = 3584;
 const MAX_DEPTH = 8;
-const MAX_BUTTONS = 4;
+// Buttons, links and toggles of one region, together.
+const MAX_CONTROLS = 4;
+const CONTROLS = ['button', 'link', 'toggle'];
 const MAX_TIME = 8640000000000000;
-// Region below layout, most nodes, whether it may hold buttons.
+// Region below layout, most nodes, whether it may hold buttons, links and toggles.
 const REGIONS = [
   ['lockScreen', 40, true],
   ['island/expanded/leading', 12, true],
@@ -35,13 +39,20 @@ const RANGES = {
   start: [isTime, `must name an integer from 0 to ${MAX_TIME}`],
   end: [isTime, `must name an integer from 0 to ${MAX_TIME}`],
 };
-const { colorName, fontWeight, hex } = schema.$defs;
+const { colorName, fileName, fontWeight, hex, url } = schema.$defs;
 const HEX = new RegExp(hex.pattern);
+const FILE_NAME = new RegExp(fileName.pattern);
+const URL_FORM = new RegExp(url.pattern);
 const isColor = (value) => colorName.enum.includes(value) || (typeof value === 'string' && HEX.test(value));
+const isFileName = (value) => typeof value === 'string' && FILE_NAME.test(value);
+const isUrl = (value) => typeof value === 'string' && value.length <= url.maxLength && URL_FORM.test(value);
 const between = (low, high) => (value) => typeof value === 'number' && value >= low && value <= high;
 // The value a bound member names must be what the member takes as a literal; a color cannot be a
 // light and dark pair, because a value is a string, a number or a boolean.
 const COLOR = [isColor, 'must name a color value'];
+const LINK = [isUrl, 'must name a URL value'];
+// A member of a node's accessibility reads a value of any type.
+const SPOKEN = [() => true];
 const BINDABLE = {
   color: COLOR,
   background: COLOR,
@@ -67,36 +78,79 @@ const TOO_HEAVY = { valid: false, issues: [{ path: '/input', message: `must weig
 
 const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
 /** 1 to `max` code points, at least one of them not whitespace. */
-const isText = (value, max) => typeof value === 'string' && [...value].length <= max && /\S/u.test(value);
-const hasOnly = (value, members) => Object.keys(value).every((key) => members.includes(key)) && members.every((key) => Object.hasOwn(value, key));
+const isText = (value, max) => typeof value === 'string' && [...value].length <= max && /\S/u.test(value) && value.isWellFormed();
+/** Every member of `needed`, and beside them none but those of `optional`. */
+const hasOnly = (value, needed, optional = []) => needed.every((key) => Object.hasOwn(value, key))
+  && Object.keys(value).every((key) => needed.includes(key) || optional.includes(key));
 const ANDROID_STYLES = ['standard', 'bigText', 'progress', 'timer', 'metric'];
+const PLACEMENTS = ['tagged', 'foreground'];
+const isAlert = (alert) => isRecord(alert) && hasOnly(alert, ['title', 'body'], ['sound']) && isText(alert.title, 120)
+  && isText(alert.body, 240) && (!Object.hasOwn(alert, 'sound') || isFileName(alert.sound));
+const isPublicVersion = (version) => isRecord(version) && hasOnly(version, ['title', 'status'])
+  && isText(version.title, 120) && isText(version.status, 240);
+// The members of an input that only the liveactivity crate takes, by command: what each must be, and what an issue says.
+const BESIDE = {
+  start_layout: {
+    ios: [(ios) => isRecord(ios) && hasOnly(ios, ['transient']) && typeof ios.transient === 'boolean', 'must have transient, a boolean, and no other member'],
+    scheduled: [
+      (scheduled) => isRecord(scheduled) && hasOnly(scheduled, ['at', 'alert']) && isTime(scheduled.at) && isAlert(scheduled.alert),
+      `must have a time from 0 to ${MAX_TIME} and an alert`,
+    ],
+  },
+  update_layout: {
+    alert: [isAlert, 'must have a title of 1 to 120 and a body of 1 to 240 characters, and for a sound the name of its file'],
+  },
+};
+
+/** The value key that the liveactivity crate keeps for the templates of contract v1. */
+const TEMPLATE_MARKER = 'liveActivityTemplate';
 
 /**
  * What the liveactivity crate's contract takes beside activitykit's, whose schema this file compiles: a `relevance`
- * and an `android` content in a snapshot, and an `alert` with an update. They are checked here and left out of the
- * request that the schema sees. Of an Android content this reference checks the outline; its presentation is the
- * liveupdate crate's, which the Rust side checks in full.
+ * and an `android` content in a snapshot, an `alert` with an update, and with a start the options `ios`, a
+ * `scheduled` time with its alert, and a `publicVersion` and a `placement` among the options `android`. They are
+ * checked here and left out of the request that the schema sees; on another command they stay, and the schema
+ * refuses them. Of an Android content this reference checks the outline; its presentation is the liveupdate
+ * crate's, which the Rust side checks in full. That crate also keeps one value key to itself, which marks the
+ * templates of contract v1 on iOS: a layout request has no value under it.
  */
 function besideTheSchema(request) {
   const issues = [];
   if (!isLayout(request?.command) || !isRecord(request.input)) return { issues, request };
-  const { alert, ...input } = request.input;
-  if (request.command !== 'update_layout' && Object.hasOwn(request.input, 'alert')) return { issues, request };
-  if (Object.hasOwn(request.input, 'alert')) {
-    const valid = isRecord(alert) && hasOnly(alert, ['title', 'body']) && isText(alert.title, 120) && isText(alert.body, 240);
-    if (!valid) issues.push({ path: '/input/alert', message: 'must have a title of 1 to 120 and a body of 1 to 240 characters' });
+  const report = (path, message) => {
+    issues.push({ path: `/input/${path}`, message });
+  };
+  const checks = BESIDE[request.command] ?? {};
+  for (const [member, [fits, message]] of Object.entries(checks)) {
+    if (Object.hasOwn(request.input, member) && !fits(request.input[member])) report(member, message);
+  }
+  const input = Object.fromEntries(Object.entries(request.input).filter(([member]) => !Object.hasOwn(checks, member)));
+  const isStart = request.command === 'start_layout';
+  // A start is private unless it says otherwise, and only a private activity has a public version.
+  const isPrivate = !isRecord(input.android) || input.android.visibility === 'private';
+  if (isStart && isRecord(input.android)) {
+    const { publicVersion, placement, ...android } = input.android;
+    if (Object.hasOwn(input.android, 'placement') && !PLACEMENTS.includes(placement)) report('android/placement', 'must be tagged or foreground');
+    if (Object.hasOwn(input.android, 'publicVersion') && !(isPrivate && isPublicVersion(publicVersion))) {
+      report('android/publicVersion', 'must have a title of 1 to 120 and a status of 1 to 240 characters, and the visibility private');
+    }
+    input.android = android;
   }
   if (isRecord(input.snapshot)) {
     const { relevance, android, ...snapshot } = input.snapshot;
-    if (Object.hasOwn(input.snapshot, 'relevance') && !Number.isFinite(relevance)) {
-      issues.push({ path: '/input/snapshot/relevance', message: 'must be a finite number' });
+    if (isRecord(snapshot.values) && Object.hasOwn(snapshot.values, TEMPLATE_MARKER)) {
+      report(`snapshot/values/${TEMPLATE_MARKER}`, 'must not be a value key of a layout: it marks the templates');
     }
+    if (Object.hasOwn(input.snapshot, 'relevance') && !Number.isFinite(relevance)) report('snapshot/relevance', 'must be a finite number');
     if (Object.hasOwn(input.snapshot, 'android')) {
       const valid = isRecord(android) && hasOnly(android, ['title', 'status', 'presentation'])
         && isText(android.title, 120) && isText(android.status, 240)
         && isRecord(android.presentation) && isRecord(android.presentation.style)
         && ANDROID_STYLES.includes(android.presentation.style.kind);
-      if (!valid) issues.push({ path: '/input/snapshot/android', message: 'must have a title, a status and a presentation with a style' });
+      if (!valid) report('snapshot/android', 'must have a title, a status and a presentation with a style');
+      else if (isStart && !isPrivate && Object.hasOwn(android.presentation, 'publicVersion')) {
+        report('snapshot/android/presentation/publicVersion', 'must come with the visibility private');
+      }
     }
     input.snapshot = snapshot;
   }
@@ -204,29 +258,39 @@ function layoutIssues({ layout, styles = {}, snapshot: { values } }) {
     issues.push({ path, message });
   };
   const isNumber = (key) => typeof values[key] === 'number';
+  // A bound member names a value that fits what the member takes as a literal.
+  const bound = (path, [fits, outside], given) => {
+    if (typeof given !== 'object' || !Object.hasOwn(given, 'bind')) return;
+    if (!Object.hasOwn(values, given.bind)) report(path, 'must name a value');
+    else if (!fits(values[given.bind])) report(path, outside);
+  };
 
-  for (const [region, mostNodes, buttonsAllowed] of REGIONS) {
+  for (const [region, mostNodes, controlsAllowed] of REGIONS) {
     const root = region.split('/').reduce((part, key) => part?.[key], layout);
     if (!root) continue;
     const top = `/input/layout/${region}`;
-    const count = { nodes: 0, buttons: 0 };
-    const visit = (node, path, depth, inButton) => {
+    const count = { nodes: 0, controls: 0 };
+    // `inside` is the type of the button, link or toggle that holds the node, if one does.
+    const visit = (node, path, depth, inside) => {
       // The walk stops here, so its depth stays bounded however deep the tree is.
       if (depth > MAX_DEPTH) return report(path, `must be at most ${MAX_DEPTH} levels deep`);
       count.nodes += 1;
-      if (node.type === 'button') {
-        count.buttons += 1;
-        if (!buttonsAllowed) report(path, 'must not be a button in this region');
-        if (inButton) report(path, 'must not be inside a button');
+      if (CONTROLS.includes(node.type)) {
+        count.controls += 1;
+        if (!controlsAllowed) report(path, `must not be a ${node.type} in this region`);
+        if (inside) report(path, `must not be inside a ${inside}`);
       }
       if (node.style !== undefined && !Object.hasOwn(styles, node.style)) report(`${path}/style`, 'must name a style');
       if (node.type === 'text' && hasLoneSurrogate(node.value)) report(`${path}/value`, LONE_SURROGATE);
       for (const member of REFERENCES) {
         const key = node[member];
         if (key === undefined) continue;
-        const numeric = member !== 'if' && member !== 'unless' && node.type !== 'text';
+        // A condition and a text read a value of any type, a toggle shows a boolean, the others read a number.
+        const flag = node.type === 'toggle' && member === 'bind';
+        const numeric = !flag && member !== 'if' && member !== 'unless' && node.type !== 'text';
         const [fits, outside] = RANGES[member] ?? [() => true];
         if (!Object.hasOwn(values, key)) report(`${path}/${member}`, 'must name a value');
+        else if (flag && typeof values[key] !== 'boolean') report(`${path}/${member}`, 'must name a boolean value');
         else if (numeric && !isNumber(key)) report(`${path}/${member}`, 'must name a number value');
         else if (numeric && !fits(values[key])) report(`${path}/${member}`, outside);
       }
@@ -234,29 +298,29 @@ function layoutIssues({ layout, styles = {}, snapshot: { values } }) {
       if (timed && values[node.end] <= values[node.start]) report(`${path}/end`, 'must name a value later than start');
       if (node.type === 'gauge' && !((node.min ?? 0) < (node.max ?? 1))) report(path, 'must have min below max');
       if (node.type === 'path' && !isPathData(node.d)) report(`${path}/d`, 'must be valid SVG path data');
+      if (node.type === 'link') bound(`${path}/url`, LINK, node.url);
+      for (const [member, spoken] of Object.entries(node.accessibility ?? {})) {
+        bound(`${path}/accessibility/${member}`, SPOKEN, spoken);
+        if (hasLoneSurrogate(spoken)) report(`${path}/accessibility/${member}`, LONE_SURROGATE);
+      }
       // A prop is a literal or a binding; prop names are input, so the path does not spell them.
       for (const prop of Object.values(node.props ?? {})) {
         if (typeof prop === 'object' && !Object.hasOwn(values, prop.bind)) report(`${path}/props/*`, 'must name a value');
         if (hasLoneSurrogate(prop)) report(`${path}/props/*`, LONE_SURROGATE);
       }
-      node.children?.forEach((child, index) => visit(child, `${path}/children/${index}`, depth + 1, inButton));
-      if (node.child) visit(node.child, `${path}/child`, depth + 1, true);
+      node.children?.forEach((child, index) => visit(child, `${path}/children/${index}`, depth + 1, inside));
+      if (node.child) visit(node.child, `${path}/child`, depth + 1, node.type);
     };
-    visit(root, top, 1, false);
+    visit(root, top, 1);
     if (count.nodes > mostNodes) report(top, `must have at most ${mostNodes} nodes`);
-    if (count.buttons > MAX_BUTTONS) report(top, `must have at most ${MAX_BUTTONS} buttons`);
+    if (count.controls > MAX_CONTROLS) report(top, `must have at most ${MAX_CONTROLS} buttons, links and toggles`);
   }
 
   // Bound members, in every style whether a node uses it or not.
-  const bound = (path, member, given) => {
-    if (typeof given !== 'object' || !Object.hasOwn(given, 'bind')) return;
-    const [fits, outside] = BINDABLE[member];
-    if (!Object.hasOwn(values, given.bind)) report(path, 'must name a value');
-    else if (!fits(values[given.bind])) report(path, outside);
-  };
-  for (const tint of ['background', 'keyline']) bound(`/input/layout/${tint}`, 'color', layout[tint]);
+  for (const tint of ['background', 'keyline']) bound(`/input/layout/${tint}`, COLOR, layout[tint]);
+  bound('/input/layout/url', LINK, layout.url);
   for (const style of Object.values(styles)) {
-    for (const member of Object.keys(BINDABLE)) bound(`/input/styles/*/${member}`, member, style[member]);
+    for (const [member, rule] of Object.entries(BINDABLE)) bound(`/input/styles/*/${member}`, rule, style[member]);
   }
   return issues;
 }

@@ -241,10 +241,13 @@ mod changing_styles {
                 island: None,
                 background: None,
                 keyline: None,
+                url: None,
             },
             styles: Some(BTreeMap::from([("status".to_string(), style)])),
             snapshot: delivery(0, "On time", "green"),
             android: None,
+            ios: None,
+            scheduled: None,
             push: None,
         }
     }
@@ -445,6 +448,210 @@ fn an_android_content_with_a_timer_style_reads_from_json_and_is_checked_in_full(
             "{pointer}"
         );
     }
+}
+
+/// What the liveactivity crate takes with a start beside activitykit's schema, and the sound of an alert: the
+/// requests that tests/layout-requests.test.mjs gives the reference validator, with the same verdicts.
+// TP-CONTRACT-8, TP-RUST-3
+#[test]
+fn the_options_of_a_start_and_the_sound_of_an_alert_get_the_verdicts_of_the_reference_validator() {
+    let started = |member: &str, value: Value| {
+        let mut input = json!({"activityKey":"demo:1","schemaVersion":2,"fallback":"none",
+            "layout":{"lockScreen":{"type":"text","value":"a"}},"snapshot":{"revision":0,"values":{}}});
+        input[member] = value;
+        validate_request("start_layout", input)
+    };
+    let updated = |member: &str, value: Value| {
+        let mut input = json!({"id":"opaque-handle-1","snapshot":{"revision":1,"values":{}}});
+        input[member] = value;
+        validate_request("update_layout", input)
+    };
+    let alert = || json!({"title":"Your ride","body":"It starts now"});
+    let with = |mut object: Value, member: &str, value: Value| {
+        object[member] = value;
+        object
+    };
+    let refused = Err(Error::invalid());
+
+    // The sound of an alert is the name of a file, as an image's is.
+    for sound in ["chime.aiff", "a", "0", "A_b-c.d", &"a".repeat(64)] {
+        let sounding = with(alert(), "sound", json!(sound));
+        assert_eq!(updated("alert", sounding), Ok(()), "{sound}");
+    }
+    let long = "a".repeat(65);
+    for sound in [
+        json!(""),
+        json!(".aiff"),
+        json!("-a"),
+        json!("a b"),
+        json!("sounds/chime.aiff"),
+        json!(long),
+        json!("é.aiff"),
+        json!("chime.aiff\n"),
+        json!(1),
+        json!(null),
+        json!(["a"]),
+    ] {
+        let sounding = with(alert(), "sound", sound.clone());
+        assert_eq!(updated("alert", sounding), refused, "{sound}");
+    }
+
+    // The options of a start on iOS.
+    for transient in [true, false] {
+        assert_eq!(started("ios", json!({"transient":transient})), Ok(()));
+    }
+    for ios in [
+        json!({}),
+        json!({"transient":"yes"}),
+        json!({"transient":1}),
+        json!({"transient":null}),
+        json!({"transient":true,"extra":1}),
+        json!(null),
+        json!([]),
+        json!(true),
+    ] {
+        assert_eq!(started("ios", ios.clone()), refused, "{ios}");
+    }
+
+    // A scheduled start: a time and the alert shown then.
+    for at in [0u64, 1_900_000_000_000, 8_640_000_000_000_000] {
+        let scheduled = json!({"at":at,"alert":alert()});
+        assert_eq!(started("scheduled", scheduled), Ok(()), "{at}");
+    }
+    let sounding = with(alert(), "sound", json!("chime.aiff"));
+    assert_eq!(
+        started("scheduled", json!({"at":1,"alert":sounding})),
+        Ok(())
+    );
+    for scheduled in [
+        json!({}),
+        json!({"at":1}),
+        json!({"alert":alert()}),
+        json!({"at":-1,"alert":alert()}),
+        json!({"at":0.5,"alert":alert()}),
+        json!({"at":8_640_000_000_000_001u64,"alert":alert()}),
+        json!({"at":"1","alert":alert()}),
+        json!({"at":null,"alert":alert()}),
+        json!({"at":1,"alert":null}),
+        json!({"at":1,"alert":{"title":"a"}}),
+        json!({"at":1,"alert":with(alert(), "title", json!(" "))}),
+        json!({"at":1,"alert":with(alert(), "sound", json!("a b"))}),
+        json!({"at":1,"alert":with(alert(), "extra", json!(1))}),
+        json!({"at":1,"alert":alert(),"extra":1}),
+        json!(null),
+        json!([]),
+        json!(1),
+    ] {
+        assert_eq!(
+            started("scheduled", scheduled.clone()),
+            refused,
+            "{scheduled}"
+        );
+    }
+
+    // The options of a start on Android: a public version, of a private activity only, and a placement.
+    let public_version = || json!({"title":"Delivery","status":"On the way"});
+    for android in [
+        json!({"visibility":"private"}),
+        json!({"visibility":"private","publicVersion":public_version(),"placement":"foreground"}),
+        json!({"visibility":"public","placement":"tagged"}),
+        json!({"visibility":"secret","placement":"foreground"}),
+        json!({"visibility":"private","publicVersion":{"title":"😀".repeat(120),"status":"한".repeat(240)}}),
+    ] {
+        assert_eq!(started("android", android.clone()), Ok(()), "{android}");
+    }
+    for placement in [
+        json!("Tagged"),
+        json!("service"),
+        json!(""),
+        json!(null),
+        json!(1),
+        json!(["tagged"]),
+    ] {
+        let android = json!({"visibility":"private","placement":placement});
+        assert_eq!(started("android", android), refused, "{placement}");
+    }
+    for wrong in [
+        json!({}),
+        json!({"title":"a"}),
+        json!({"status":"b"}),
+        json!({"title":"","status":"b"}),
+        json!({"title":"a","status":" "}),
+        json!({"title":"a".repeat(121),"status":"b"}),
+        json!({"title":"a","status":"b".repeat(241)}),
+        with(public_version(), "extra", json!(1)),
+        json!({"title":1,"status":"b"}),
+        json!(null),
+        json!([]),
+        json!("a"),
+    ] {
+        let android = json!({"visibility":"private","publicVersion":wrong});
+        assert_eq!(started("android", android), refused, "{wrong}");
+    }
+    for visibility in ["public", "secret"] {
+        let android = json!({"visibility":visibility,"publicVersion":public_version()});
+        assert_eq!(started("android", android), refused, "{visibility}");
+    }
+    for android in [
+        json!({"visibility":"hidden"}),
+        json!({"placement":"tagged"}),
+        json!({"visibility":"private","lights":true}),
+    ] {
+        assert_eq!(started("android", android.clone()), refused, "{android}");
+    }
+
+    // The public version of a snapshot's Android content is of a private activity too, which a start is unless it
+    // says otherwise. An update does not say how its activity started: there only Android knows.
+    let showing = |android: Option<&str>| {
+        let mut input = json!({"activityKey":"demo:1","schemaVersion":2,"fallback":"none",
+            "layout":{"lockScreen":{"type":"text","value":"a"}},
+            "snapshot":{"revision":0,"values":{},"android":{"title":"On time","status":"Gate 4",
+                "presentation":{"style":{"kind":"standard"},"publicVersion":public_version()}}}});
+        if let Some(visibility) = android {
+            input["android"] = json!({"visibility":visibility});
+        }
+        input
+    };
+    for (visibility, verdict) in [
+        (None, Ok(())),
+        (Some("private"), Ok(())),
+        (Some("public"), refused.clone()),
+        (Some("secret"), refused.clone()),
+    ] {
+        assert_eq!(
+            validate_request("start_layout", showing(visibility)),
+            verdict,
+            "{visibility:?}"
+        );
+    }
+    assert_eq!(
+        updated("snapshot", showing(None)["snapshot"].clone()),
+        Ok(())
+    );
+
+    // Each member belongs to its command.
+    for (member, value) in [
+        ("ios", json!({"transient":true})),
+        ("scheduled", json!({"at":1,"alert":alert()})),
+        ("android", json!({"visibility":"private"})),
+    ] {
+        assert_eq!(updated(member, value), refused, "{member}");
+    }
+    assert_eq!(started("alert", alert()), refused);
+    for (member, value) in [("alert", alert()), ("ios", json!({"transient":true}))] {
+        let end = with(json!({"id":"a","policy":{"kind":"default"}}), member, value);
+        assert_eq!(validate_request("end_layout", end), refused, "{member}");
+    }
+
+    // A typed start writes the members as it read them.
+    let mut full = showing(Some("private"));
+    full["android"] =
+        json!({"visibility":"private","publicVersion":public_version(),"placement":"foreground"});
+    full["ios"] = json!({"transient":true});
+    full["scheduled"] = json!({"at":1,"alert":with(alert(), "sound", json!("chime.aiff"))});
+    let typed: LayoutStartInput = serde_json::from_value(full.clone()).unwrap();
+    assert_eq!(typed.validate(), Ok(()));
+    assert_eq!(serde_json::to_value(&typed).unwrap(), full);
 }
 
 /// Tauri reads a request from JSON text with this crate's serde_json, so every number must

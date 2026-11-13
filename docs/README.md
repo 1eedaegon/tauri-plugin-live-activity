@@ -7,10 +7,10 @@ Installation and a short example are in the [README](../README.md)
 | Guide | Contents |
 | --- | --- |
 | [Specification](spec.md) | Every requirement the plugin proves itself, one per row, with the tests that prove it, and apart the promises that the liveactivity crate's tests prove |
-| [Usage](usage.md) | What `setup` does and the same steps by hand, every layout node with captures, styles that an update changes (in TypeScript and Rust), buttons in Rust, the Dynamic Island and the relevance of an activity, Android, the Android content of a snapshot and the Samsung Now Bar, revisions, timestamps, alerts and ends with final content, the events of an activity's life, pushes, fonts, drawn images and custom SwiftUI views, the progress and timer templates, the plugin configuration |
+| [Usage](usage.md) | What `setup` does and the same steps by hand, every layout node with captures, styles that an update changes (in TypeScript and Rust), buttons in Rust, links and toggles, scheduled and transient starts, the Dynamic Island and the relevance of an activity, Android, the Android content of a snapshot and the Samsung Now Bar, revisions, timestamps, alerts and ends with final content, the events of an activity's life, pushes, fonts, drawn images and custom SwiftUI views, the progress and timer templates, the plugin configuration |
 | [Request contract](request-contract.md) | Every field and limit of a request, what the liveactivity crate's contract takes beside activitykit's schema, and who checks what |
 | [iOS setup](ios-integration.md) | The widget extension and the app target on activitykit's Swift products, the Info.plist keys, the App Group, fonts, custom views, buttons, permissions and end policies, the migration from 0.3, and the simulator tests |
-| [Android setup](android-integration.md) | Notification permission, promotion, what the plugin's Kotlin does beside liveupdate's adapter, the projection of a layout, buttons, the Samsung Now Bar, state recovery and limits |
+| [Android setup](android-integration.md) | Notification permission, promotion, what the plugin's Kotlin does beside liveupdate's adapter, the projection of a layout, buttons, links, the opened event, a foreground service, the Samsung Now Bar, state recovery and limits |
 | [Validation](validation.md) | Test, emulator and packaging results |
 | [Releases](releasing.md) | The publish workflow and the registry setup |
 | [Demo app](../examples/demo/README.md) | How to run it, lifecycle checks through the real bridge, and the UI tests on an iOS Simulator |

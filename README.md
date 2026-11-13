@@ -121,7 +121,7 @@ export function Delivery({ order }: { order: Order }) {
 
 `layout` and `styles` are read at start: change the `activityKey` to start a new activity. A refused request
 lands in `error`. One component per node: `VStack`, `HStack`, `ZStack`, `Spacer`, `Divider`, `Text`,
-`SFSymbol`, `Image`, `Path`, `Progress`, `Gauge`, `TimerText`, `Button`, `Custom`, with the node's members as
+`SFSymbol`, `Image`, `Path`, `Progress`, `Gauge`, `TimerText`, `Button`, `Link`, `Toggle`, `Custom`, with the node's members as
 props. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#tsx-and-react)
 
 ## Rust
@@ -150,11 +150,13 @@ fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
         fallback: Fallback::Notification,
         layout: Layout {
             lock_screen: Element::Text { value: None, bind: Some("status".into()) }.into(),
-            island: None, background: None, keyline: None,
+            island: None, background: None, keyline: None, url: None,
         },
         styles: None,
         snapshot: snapshot(0, "On time"),
         android: None, // Android only: `AndroidOptions::new(visibility)` for the lock screen
+        ios: None,     // iOS only: `IosOptions::new(transient)` for a transient activity (iOS 18)
+        scheduled: None, // iOS 26: `ScheduledStart::new(at, alert)` starts it later
         push: None,    // iOS only: `Some(LayoutPush::Token)` asks for the activity's APNs token
     };
     let activity = app.live_activity().start_layout(input)?;
@@ -197,9 +199,11 @@ await updateLayout({ id: snack.id, snapshot: { revision: 1, values: { title: 'Mo
 await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 ```
 
-The layout stays as it started; each update sends every value again, with a higher revision. Taps come to
+A start may also carry `scheduled: { at, alert }` to begin later (iOS 26), and `ios: { transient: true }` for a transient
+activity (iOS 18). The layout stays as it started; each update sends every value again, with a higher revision. Taps come to
 `onAction`, push tokens and pushed content to `onPushToken`, `onPushToStartToken` and `onUpdated`, and what happens
-to an activity outside the app's calls to `onState`, `onStarted` and `onPermissions`.
+to an activity outside the app's calls to `onState`, `onStarted`, `onOpened` (Android: the person opened the app from an
+activity's notification) and `onPermissions`.
 
 A snapshot may also carry a `relevance`, which decides which of the app's activities the Dynamic Island shows, and
 an `android` content, the notification in Android's own terms (a segmented progress, metrics, the chip text) in
@@ -218,6 +222,8 @@ place of the projection of the layout; `updateLayout` takes an `alert`, which li
 | `progress` | a number from 0 to 1, as a ring or a bar | yes | the first one is the notification's bar |
 | `timerText` | a count down to `end` or up from `start`, kept by the system | yes | the chronometer |
 | `button` | a tap for `onAction` / `on_action` | iOS 17+ | up to three actions |
+| `link` | a tap that opens its URL in the app | iOS | an action that opens the URL (where the device offers `links`) |
+| `toggle` | a switch of a boolean value; a tap comes as `on` | iOS 17+ | an action titled by its label, with a check mark while on |
 | `vstack`, `hstack`, `zstack`, `spacer`, `divider` | arrangement | yes | flattened |
 | `custom` | a SwiftUI view of your own, by name | yes | no |
 
@@ -265,9 +271,8 @@ at most 1 MiB and 1224 × 480 pixels. [More](https://github.com/1eedaegon/tauri-
   configuration sets `"receipts": "redacted"`.
 - A button's tap waits for the Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.
 - Pushes are iOS only. Android shows an ongoing notification, promoted to a Live Update where the system allows it.
-- On Android 16 a layout that shows a progress, and an Android content of the `progress` style, are not posted for
-  now (`NATIVE_ERROR`): liveupdate 0.1 calls a method there that Android 17 added. The progress template is not
-  affected. [What to show there meanwhile](docs/usage.md#android).
+- Android 16 shows nothing of a notification whose time is more than two weeks past, and the app is told nothing. This
+  is a timer whose start or end lies that far before the post.
 - Keep the npm package and the crate on the same minor version.
 
 ## Samsung Now Bar

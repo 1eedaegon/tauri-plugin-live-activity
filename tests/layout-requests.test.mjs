@@ -17,12 +17,16 @@ const layout = (tree, values = {}, rest = {}) => ({
 });
 const start = (lockScreen, values, rest) => layout({ lockScreen }, values, rest);
 const COLOR = 'must name a color value';
+const NO_URL = 'must name a URL value';
 /** A literal text in the style `s`. */
 const styled = (style, values) => start({ type: 'text', value: 'a', style: 's' }, values, { styles: { s: style } });
 const update = (values) => ({ command: 'update_layout', input: { id: 'opaque-handle-1', snapshot: { revision: 1, values } } });
 const text = (value = 'a', rest = {}) => ({ type: 'text', value, ...rest });
 const stack = (children) => ({ type: 'vstack', children });
 const button = (child = text()) => ({ type: 'button', actionId: 'pause', child });
+const link = (url = 'app://a', child = text()) => ({ type: 'link', url, child });
+const toggle = (bind = 'on', child = text()) => ({ type: 'toggle', actionId: 'mute', bind, child });
+const CONTROLS = 'must have at most 4 buttons, links and toggles';
 const nested = (levels, leaf = text()) => (levels ? stack([nested(levels - 1, leaf)]) : leaf);
 const chain = (levels) => {
   let node = text();
@@ -169,9 +173,44 @@ for (const [name, request, expected] of [
     [`${ISLAND}/minimal`, 'must not be a button in this region'],
   ]],
   ['a button inside a button', start(button(stack([button()]))), [[`${LOCK}/child/children/0`, 'must not be inside a button']]],
-  ['a fifth button in the lock screen', start(stack(repeat(5, button))), [[LOCK, 'must have at most 4 buttons']]],
+  ['a fifth button in the lock screen', start(stack(repeat(5, button))), [[LOCK, CONTROLS]]],
   ['a fifth button in an expanded region', layout({ lockScreen: text(), island: { expanded: { bottom: stack(repeat(5, button)) } } }), [
-    [`${ISLAND}/expanded/bottom`, 'must have at most 4 buttons'],
+    [`${ISLAND}/expanded/bottom`, CONTROLS],
+  ]],
+  ['links and toggles outside the lock screen and the expanded regions', layout({
+    lockScreen: link(),
+    island: { expanded: { center: toggle() }, compactLeading: link(), compactTrailing: stack([toggle()]), minimal: link() },
+  }, { on: true }), [
+    [`${ISLAND}/compactLeading`, 'must not be a link in this region'], [`${ISLAND}/compactTrailing/children/0`, 'must not be a toggle in this region'],
+    [`${ISLAND}/minimal`, 'must not be a link in this region'],
+  ]],
+  ['a link inside a button and a toggle inside a link', start(stack([button(link()), link('app://a', stack([toggle()]))]), { on: true }), [
+    [`${LOCK}/children/0/child`, 'must not be inside a button'], [`${LOCK}/children/1/child/children/0`, 'must not be inside a link'],
+  ]],
+  ['a button and a link inside a toggle', start(stack([toggle('on', button()), toggle('on', stack([text(), link()]))]), { on: false }), [
+    [`${LOCK}/children/0/child`, 'must not be inside a toggle'], [`${LOCK}/children/1/child/children/1`, 'must not be inside a toggle'],
+  ]],
+  ['a fifth among buttons, links and toggles', start(stack([button(), button(), link(), link(), toggle()]), { on: false }), [[LOCK, CONTROLS]]],
+  ['four in the lock screen and five in an expanded region', layout({
+    lockScreen: stack([button(), link(), toggle(), toggle()]), island: { expanded: { leading: stack([...repeat(3, link), ...repeat(2, toggle)]) } },
+  }, { on: true }), [[`${ISLAND}/expanded/leading`, CONTROLS]]],
+  ['a toggle whose flag is no boolean or names no value', start(stack([toggle('word'), toggle('count'), toggle('absent')]), { word: 'true', count: 1 }), [
+    [`${LOCK}/children/0/bind`, 'must name a boolean value'], [`${LOCK}/children/1/bind`, 'must name a boolean value'],
+    [`${LOCK}/children/2/bind`, 'must name a value'],
+  ]],
+  ['bound URLs that name no value or no URL', layout({
+    lockScreen: stack([link({ bind: 'absent' }), link({ bind: 'count' }), link({ bind: 'word' }), link({ bind: 'flag' })]), url: { bind: 'empty' },
+  }, { count: 1, word: 'no scheme', flag: true, empty: '' }), [
+    [`${LOCK}/children/0/url`, 'must name a value'], [`${LOCK}/children/1/url`, NO_URL], [`${LOCK}/children/2/url`, NO_URL],
+    [`${LOCK}/children/3/url`, NO_URL], ['/input/layout/url', NO_URL],
+  ]],
+  ['a layout URL that names no value', layout({ lockScreen: text(), url: { bind: 'target' } }), [['/input/layout/url', 'must name a value']]],
+  ['accessibility members that name no value', start(stack([
+    text('a', { accessibility: { label: { bind: 'absent' }, value: 'now', hint: { bind: 'word' } } }),
+    button(text('b', { accessibility: { value: { bind: 'absent' } } })),
+  ]), { word: 'a' }), [[`${LOCK}/children/0/accessibility/label`, 'must name a value'], [`${LOCK}/children/1/child/accessibility/value`, 'must name a value']]],
+  ['a lone surrogate in an accessibility member', start(text('a', { accessibility: { label: 'a', hint: 'a\ud800' } })), [
+    [`${LOCK}/accessibility/hint`, LONE_SURROGATE],
   ]],
   ['broken references inside an island region and a button', layout({
     lockScreen: button({ type: 'text', bind: 'title' }),
@@ -224,9 +263,31 @@ for (const [d, valid] of [
   });
 }
 
+// A URL is checked by the schema where it is a literal and by this file where a value holds it: the same form.
+for (const [url, valid] of [
+  ['a:b', true], ['App+x.y-z://host/path?q=1#top', true], ['app:%4F%4f', true], ["app:-._~:/?#[]@!$&'()*+,;=", true], [`app:${'a'.repeat(996)}`, true],
+  ['app:', false], [':a', false], ['app', false], ['', false], ['1app:a', false], ['-app:a', false], ['a_b:c', false], ['a/b:c', false],
+  ['app:a b', false], ['app:%', false], ['app:%4', false], ['app:%zz', false], ['app:%%41', false], ['app:%4g', false], ['app:é', false],
+  ['app:a\n', false], ['app:"', false], ['app:<a>', false], ['app:a\\b', false], ['app:^', false], ['app:`', false], ['app:{a}', false],
+  ['app:a|b', false], ['app:\u007f', false],
+]) {
+  test(`the URL ${JSON.stringify(url.length > 40 ? `${url.slice(0, 40)}…` : url)} is ${valid ? 'valid' : 'invalid'}, as a literal and as a value`, () => {
+    assert.equal(validateRequest(layout({ lockScreen: link(url), url })).valid, valid);
+    const bound = layout({ lockScreen: link({ bind: 'target' }), url: { bind: 'target' } }, { target: url });
+    assert.deepEqual(validateRequest(bound), valid ? { valid: true, issues: [] } : {
+      valid: false, issues: issues([[`${LOCK}/url`, NO_URL], ['/input/layout/url', NO_URL]]),
+    });
+  });
+}
+
 test('reads values and styles as own members only', () => {
   assert.deepEqual(validateRequest(start({ type: 'text', bind: 'constructor', style: 'toString' })).issues, issues([
     [`${LOCK}/style`, 'must name a style'], [`${LOCK}/bind`, 'must name a value'],
+  ]));
+  const inherited = start(stack([link({ bind: 'constructor' }), toggle('toString'), text('a', { accessibility: { label: { bind: 'valueOf' } } })]));
+  assert.deepEqual(validateRequest(inherited).issues, issues([
+    [`${LOCK}/children/0/url`, 'must name a value'], [`${LOCK}/children/1/bind`, 'must name a value'],
+    [`${LOCK}/children/2/accessibility/label`, 'must name a value'],
   ]));
   const named = start({ type: 'progress', bind: 'valueOf', style: 'constructor' }, { valueOf: 0.5 }, { styles: { constructor: { size: 12 } } });
   assert.deepEqual(validateRequest(named), { valid: true, issues: [] });
@@ -336,6 +397,18 @@ test('error results survive a later validation and do not echo input', () => {
     start({ type: 'custom', name: 'ring', props: { [`${secret}_prop`]: { bind: `${secret}_key` } } }),
     start({ type: 'custom', name: `${secret} view`, props: { [`${secret} prop`]: secret } }),
     start(stack([{ type: 'custom', name: 'ring', props: { [`${secret}_prop`]: null } }])),
+    start(link({ bind: `${secret}_key` })),
+    start(link(`${secret} url`)),
+    layout({ lockScreen: text(), url: { bind: 'target' } }, { target: `${secret} url` }),
+    start(toggle(`${secret}_key`)),
+    start({ ...toggle(), actionId: `${secret} id` }, { on: true }),
+    start(text('a', { accessibility: { label: { bind: `${secret}_key` } } })),
+    start(text('a', { accessibility: { [`${secret}_member`]: secret } })),
+    start(text('a', { transition: secret, privacy: secret, ifStale: secret })),
+    layout({ lockScreen: text(), island: { minimal: text(), margins: { [secret]: 1 }, expanded: { priority: { [secret]: 1 }, belowIfTooWide: [secret] } } }),
+    start(text(), {}, { ios: { [secret]: secret }, scheduled: { at: secret, alert: { title: secret, body: secret, sound: `${secret} sound` } } }),
+    start(text(), {}, { android: { visibility: 'public', publicVersion: { title: secret, status: secret }, placement: secret } }),
+    { command: 'update_layout', input: { ...update({}).input, alert: { title: secret, body: '', sound: secret } } },
   ].map(validateRequest);
   const red = styled({ color: { bind: 'tone' } }, { tone: 'red' }).input;
   results.push(validateLayoutUpdate(red, update({ tone: secret }).input), validateLayoutUpdate(red, update({ [`${secret}_key`]: 'red' }).input));
@@ -405,6 +478,31 @@ test('the fixture file holds JSON only as JSON.stringify writes it', () => {
 });
 
 // TP-CONTRACT-8
+test('refuses the value key that the liveactivity crate keeps for the templates, in a start, an update and an end', () => {
+  const marked = { liveActivityTemplate: 'progress' };
+  const path = '/input/snapshot/values/liveActivityTemplate';
+  const started = start(text(), {}).input;
+  for (const [request, plain] of [
+    [{ command: 'start_layout', input: { ...started, snapshot: { revision: 0, values: marked } } },
+      { command: 'start_layout', input: { ...started, snapshot: { revision: 0, values: { template: 'progress' } } } }],
+    [{ command: 'update_layout', input: { id: 'a', snapshot: { revision: 1, values: marked } } },
+      { command: 'update_layout', input: { id: 'a', snapshot: { revision: 1, values: { template: 'progress' } } } }],
+    [{ command: 'end_layout', input: { id: 'a', policy: { kind: 'default' }, snapshot: { revision: 2, values: marked } } },
+      { command: 'end_layout', input: { id: 'a', policy: { kind: 'default' }, snapshot: { revision: 2, values: {} } } }],
+  ]) {
+    const result = validateRequest(request);
+    assert.equal(result.valid, false, request.command);
+    assert.equal(result.issues[0].path, path);
+    assert.deepEqual(validateRequest(plain), { valid: true, issues: [] }, request.command);
+  }
+  // Whatever the value is.
+  for (const value of [true, 1, '']) {
+    const request = { command: 'update_layout', input: { id: 'a', snapshot: { revision: 1, values: { liveActivityTemplate: value } } } };
+    assert.equal(validateRequest(request).issues[0].path, path);
+  }
+});
+
+// TP-CONTRACT-8
 test('takes what the liveactivity crate adds to a snapshot and to an update', () => {
   const content = { title: 'On time', status: 'Gate 4', presentation: { style: { kind: 'standard' }, shortCriticalText: '4 min' } };
   const rich = (snapshot = {}, rest = {}) => ({
@@ -433,7 +531,7 @@ test('takes what the liveactivity crate adds to a snapshot and to an update', ()
     null, [], { ...content, title: ' ' }, { ...content, status: 'x'.repeat(241) }, { ...content, extra: 1 },
     { title: 'a', status: 'b' }, { ...content, presentation: { style: { kind: 'custom' } } }, { ...content, presentation: [] },
   ]) refused(rich({ android: wrong }), '/input/snapshot/android');
-  for (const wrong of [null, {}, { title: '', body: 'b' }, { title: 'a', body: ' ' }, { title: 'a', body: 'b', sound: 'c' }, { title: 'a'.repeat(121), body: 'b' }]) {
+  for (const wrong of [null, {}, { title: '', body: 'b' }, { title: 'a', body: ' ' }, { title: 'a', body: 'b', extra: 'c' }, { title: 'a'.repeat(121), body: 'b' }]) {
     refused(rich({}, { alert: wrong }), '/input/alert');
   }
   // An alert comes with an update only: on a start it is an unknown member, as the schema says.
@@ -442,4 +540,97 @@ test('takes what the liveactivity crate adds to a snapshot and to an update', ()
   const both = validateRequest(rich({ relevance: 'high', extra: 1 }));
   assert.equal(both.valid, false);
   assert.ok(both.issues.every(({ path }) => path !== '/input/snapshot/relevance'));
+});
+
+// TP-CONTRACT-8
+test('takes what the liveactivity crate adds to a start and the sound of an alert', () => {
+  const valid = { valid: true, issues: [] };
+  const alert = { title: 'Your ride', body: 'It starts now' };
+  const started = (rest) => start(text(), {}, rest);
+  const updated = (rest) => ({ command: 'update_layout', input: { ...update({}).input, ...rest } });
+  const paths = (request) => validateRequest(request).issues.map(({ path }) => path);
+  const refused = (request, ...expected) => assert.deepEqual(paths(request), expected, JSON.stringify(request));
+
+  // The sound of an alert is the name of a file, as an image's is.
+  for (const sound of ['chime.aiff', 'a', '0', 'A_b-c.d', 'a'.repeat(64)]) assert.deepEqual(validateRequest(updated({ alert: { ...alert, sound } })), valid, sound);
+  for (const sound of ['', '.aiff', '-a', 'a b', 'sounds/chime.aiff', 'a'.repeat(65), 'é.aiff', 'chime.aiff\n', 1, null, ['a']]) {
+    refused(updated({ alert: { ...alert, sound } }), '/input/alert');
+  }
+  // A lone surrogate is no text of an alert either.
+  refused(updated({ alert: { ...alert, title: 'a\ud800' } }), '/input/alert');
+  refused(started({ scheduled: { at: 1, alert: { ...alert, body: '\udc00' } } }), '/input/scheduled');
+
+  // The options of a start on iOS.
+  for (const transient of [true, false]) assert.deepEqual(validateRequest(started({ ios: { transient } })), valid);
+  for (const ios of [{}, { transient: 'yes' }, { transient: 1 }, { transient: null }, { transient: true, extra: 1 }, null, [], true]) {
+    refused(started({ ios }), '/input/ios');
+  }
+
+  // A scheduled start: a time and the alert shown then.
+  for (const at of [0, 1_900_000_000_000, 8640000000000000]) assert.deepEqual(validateRequest(started({ scheduled: { at, alert } })), valid, `${at}`);
+  assert.deepEqual(validateRequest(started({ scheduled: { at: 1, alert: { ...alert, sound: 'chime.aiff' } }, ios: { transient: false } })), valid);
+  for (const scheduled of [
+    {}, { at: 1 }, { alert }, { at: -1, alert }, { at: 0.5, alert }, { at: 8640000000000001, alert }, { at: '1', alert }, { at: null, alert },
+    { at: 1, alert: null }, { at: 1, alert: { title: 'a' } }, { at: 1, alert: { ...alert, title: ' ' } }, { at: 1, alert: { ...alert, sound: 'a b' } },
+    { at: 1, alert: { ...alert, extra: 1 } }, { at: 1, alert, extra: 1 }, null, [], 1,
+  ]) refused(started({ scheduled }), '/input/scheduled');
+
+  // The options of a start on Android: a public version, of a private activity only, and a placement.
+  const publicVersion = { title: 'Delivery', status: 'On the way' };
+  for (const android of [
+    { visibility: 'private' }, { visibility: 'private', publicVersion, placement: 'foreground' }, { visibility: 'public', placement: 'tagged' },
+    { visibility: 'secret', placement: 'foreground' }, { visibility: 'private', publicVersion: { title: '😀'.repeat(120), status: '한'.repeat(240) } },
+  ]) assert.deepEqual(validateRequest(started({ android })), valid, JSON.stringify(android));
+  for (const placement of ['Tagged', 'service', '', null, 1, ['tagged']]) refused(started({ android: { visibility: 'private', placement } }), '/input/android/placement');
+  for (const wrong of [
+    {}, { title: 'a' }, { status: 'b' }, { title: '', status: 'b' }, { title: 'a', status: ' ' }, { title: 'a'.repeat(121), status: 'b' },
+    { title: 'a', status: 'b'.repeat(241) }, { ...publicVersion, extra: 1 }, { title: 1, status: 'b' }, null, [], 'a',
+  ]) refused(started({ android: { visibility: 'private', publicVersion: wrong } }), '/input/android/publicVersion');
+  for (const visibility of ['public', 'secret']) refused(started({ android: { visibility, publicVersion } }), '/input/android/publicVersion');
+
+  // The public version of a snapshot's Android content is of a private activity too, which a start is unless it says
+  // otherwise. An update does not say how its activity started: there only Android knows.
+  const content = { title: 'On time', status: 'Gate 4', presentation: { style: { kind: 'standard' }, publicVersion } };
+  const showing = (rest) => {
+    const { command, input } = started(rest);
+    return { command, input: { ...input, snapshot: { ...input.snapshot, android: content } } };
+  };
+  for (const rest of [{}, { android: { visibility: 'private' } }]) assert.deepEqual(validateRequest(showing(rest)), valid);
+  for (const visibility of ['public', 'secret']) refused(showing({ android: { visibility } }), '/input/snapshot/android/presentation/publicVersion');
+  assert.deepEqual(validateRequest(updated({ snapshot: { revision: 1, values: {}, android: content } })), valid);
+
+  // Every issue beside the schema is reported at once.
+  refused(
+    started({ ios: {}, scheduled: {}, android: { visibility: 'public', publicVersion, placement: 'service' } }),
+    '/input/ios', '/input/scheduled', '/input/android/placement', '/input/android/publicVersion',
+  );
+  // Each member belongs to its command: elsewhere it is an unknown member, as the schema says.
+  for (const request of [
+    updated({ ios: { transient: true } }), updated({ scheduled: { at: 1, alert } }), updated({ android: { visibility: 'private' } }),
+    started({ alert }), { command: 'end_layout', input: { id: 'a', policy: { kind: 'default' }, alert } },
+    { command: 'end_layout', input: { id: 'a', policy: { kind: 'default' }, ios: { transient: true } } },
+  ]) {
+    const result = validateRequest(request);
+    assert.equal(result.valid, false, JSON.stringify(request));
+    assert.ok(result.issues.some(({ path, message }) => path === '/input' && message === 'must NOT have additional properties'), JSON.stringify(result.issues));
+  }
+  // What the schema refuses is reported, and not these members beside it.
+  for (const request of [
+    started({ ios: {}, extra: 1 }), started({ android: { visibility: 'hidden', publicVersion, placement: 'service' } }),
+    started({ android: { placement: 'tagged' } }), started({ android: { visibility: 'private', publicVersion, lights: true } }),
+  ]) {
+    const found = paths(request);
+    assert.notEqual(found.length, 0, JSON.stringify(request));
+    for (const beside of ['/input/ios', '/input/android/placement', '/input/android/publicVersion']) assert.equal(found.includes(beside), false, beside);
+  }
+
+  // The request is read and left as it was.
+  const freeze = (value) => {
+    if (value && typeof value === 'object') Object.values(value).forEach(freeze);
+    return Object.freeze(value);
+  };
+  const full = freeze(showing({ android: { visibility: 'private', publicVersion, placement: 'foreground' }, ios: { transient: true }, scheduled: { at: 1, alert } }));
+  const before = JSON.stringify(full);
+  assert.deepEqual(validateRequest(full), valid);
+  assert.equal(JSON.stringify(full), before);
 });

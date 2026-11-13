@@ -106,10 +106,10 @@ const options = (more = {}) => ({ activityKey: 'delivery:42', layout, values, ..
 test('mounting starts the activity at revision 0 and reports it active', async () => {
   const native = plugin({ hold: ['start_layout'] });
   const styles = { card: { padding: 16 } };
-  const view = await mount(options({ styles, android: { visibility: 'public' } }));
+  const view = await mount(options({ styles, android: { visibility: 'public' }, ios: { transient: true } }));
   assert.deepEqual(native.named('start_layout'), [{
     activityKey: 'delivery:42', schemaVersion: 2, fallback: 'notification', layout, styles,
-    snapshot: { revision: 0, values }, android: { visibility: 'public' },
+    snapshot: { revision: 0, values }, android: { visibility: 'public' }, ios: { transient: true },
   }]);
   assert.equal(view.state.status, 'starting');
   assert.equal(view.state.record, undefined);

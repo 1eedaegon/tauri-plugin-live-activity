@@ -3,8 +3,12 @@ package io.github.eedaegon.liveactivity
 import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
+import android.webkit.WebView
+import androidx.activity.ComponentActivity
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.Permission
@@ -28,12 +32,48 @@ class EventRegistration {
 
 /**
  * The Android side of the plugin: notification permissions, and liveupdate's Android adapter, which the plugin's
- * Rust drives for templates and layouts alike. liveupdate's receivers store taps and dismissals; this plugin only
- * tells Rust to drain them.
+ * Rust drives for templates and layouts alike. liveupdate's receivers store taps and dismissals; this plugin tells
+ * Rust to drain them, and hands liveupdate the intents that open the app, so that an opening from a notification is
+ * stored as well.
  */
 @TauriPlugin(permissions = [Permission(strings = [Manifest.permission.POST_NOTIFICATIONS], alias = "notifications")])
 class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
     private val preferences = activity.getSharedPreferences(PLUGIN_PREFERENCES, Context.MODE_PRIVATE)
+
+    /** Whether Android restored the activity, once that was read from its saved state. */
+    private var restored: Boolean? = null
+
+    /**
+     * The intent the activity was created for: liveupdate stores an opening when one of its notifications sent it.
+     * An activity that Android restored gets the intent of its first creation again, which was counted then.
+     */
+    override fun load(webView: WebView) {
+        super.load(webView)
+        activity.runOnUiThread {
+            if (!restoredByAndroid()) LiveUpdateEvents.opened(activity, activity.intent)
+        }
+    }
+
+    /** An intent that brought the running activity forward. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        LiveUpdateEvents.opened(activity, intent)
+    }
+
+    /**
+     * Whether Android created this activity again from its saved state, as after it ended the process in the
+     * background. The plugin leaves a mark in the saved state of the activity it loads in, and finds one only in an
+     * activity that was restored. The registry gives the mark once, so the answer is kept for a second load. An
+     * activity without a saved state registry counts as new.
+     */
+    private fun restoredByAndroid(): Boolean = restored ?: try {
+        val registry = (activity as? ComponentActivity)?.savedStateRegistry
+        val marked = registry?.consumeRestoredStateForKey(SAVED_STATE) != null
+        registry?.registerSavedStateProvider(SAVED_STATE) { Bundle() }
+        marked
+    } catch (_: Exception) {
+        false
+    }.also { restored = it }
 
     @Command
     override fun checkPermissions(invoke: Invoke) = respond(invoke) { permissions() }
@@ -138,5 +178,8 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
     private companion object {
         /** Under the app's files: the pictures of `writeImage`, which liveupdate takes as app files. */
         const val IMAGE_FOLDER = "tauri-live-activity/images"
+
+        /** The plugin's mark in an activity's saved state. */
+        const val SAVED_STATE = "io.github.eedaegon.liveactivity.loaded"
     }
 }

@@ -6,7 +6,8 @@ import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import * as layout from '../dist-js/layout.js';
 import {
-  Button, Custom, Divider, Gauge, HStack, Image, Path, Progress, SFSymbol, Spacer, Text, TimerText, VStack, ZStack,
+  Button, Custom, Divider, Gauge, HStack, Image, Link, Path, Progress, SFSymbol, Spacer, Text, TimerText, Toggle, VStack,
+  ZStack,
 } from '../dist-js/jsx/index.js';
 import { jsx, jsxs } from '../dist-js/jsx/jsx-runtime.js';
 import { jsxDEV } from '../dist-js/jsx/jsx-dev-runtime.js';
@@ -18,7 +19,10 @@ const fixtures = join(root, 'tests/jsx');
 const tsc = join(root, 'node_modules/.bin/tsc');
 after(() => rmSync(join(fixtures, 'out'), { recursive: true, force: true }));
 
-const { bound, button, custom, divider, gauge, hstack, image, path, progress, spacer, symbol, text, timerText, vstack, zstack } = layout;
+const {
+  bind, bound, button, custom, divider, gauge, hstack, image, link, path, progress, spacer, symbol, text, timerText, toggle,
+  vstack, zstack,
+} = layout;
 const mochi = text('Mochi');
 
 /** The nodes that tests/jsx/elements.tsx writes, made with the builders. */
@@ -38,7 +42,14 @@ const expected = {
   gauge: gauge('level', { min: 0, max: 10 }),
   timer: timerText('from', 'to', { countsDown: false }),
   button: button('pet', text('Pet Mochi'), { style: 'action' }),
+  link: link('myapp://mochi/7', text('Open'), { style: 'action' }),
+  boundLink: link(bind('target'), symbol('map')),
+  toggle: toggle('mute', 'muted', text('Mute'), { unless: 'locked' }),
   custom: custom('Paw', { props: { size: 3 } }),
+  stale: text('No signal', { ifStale: true, transition: 'slide' }),
+  fresh: bound('eta', { ifStale: false, privacy: 'sensitive' }),
+  spoken: progress('done', { accessibility: { label: 'Snack', value: bind('percent'), hint: 'Opens the app' } }),
+  hidden: symbol('sparkles', { accessibility: { hidden: true } }),
 };
 
 // TP-JSX-1
@@ -59,7 +70,14 @@ test('each component returns the node of its layout builder', () => {
     gauge: Gauge({ bind: 'level', min: 0, max: 10 }),
     timer: TimerText({ start: 'from', end: 'to', countsDown: false }),
     button: Button({ actionId: 'pet', style: 'action', children: text('Pet Mochi') }),
+    link: Link({ url: 'myapp://mochi/7', style: 'action', children: text('Open') }),
+    boundLink: Link({ url: bind('target'), children: symbol('map') }),
+    toggle: Toggle({ actionId: 'mute', bind: 'muted', unless: 'locked', children: text('Mute') }),
     custom: Custom({ name: 'Paw', props: { size: 3 } }),
+    stale: Text({ ifStale: true, transition: 'slide', children: 'No signal' }),
+    fresh: Text({ bind: 'eta', ifStale: false, privacy: 'sensitive' }),
+    spoken: Progress({ bind: 'done', accessibility: { label: 'Snack', value: bind('percent'), hint: 'Opens the app' } }),
+    hidden: SFSymbol({ name: 'sparkles', accessibility: { hidden: true } }),
   };
   assert.deepEqual(made, expected);
   // No member is undefined, as with the builders (TP-JS-6).
@@ -125,8 +143,11 @@ test('stacks flatten arrays and leave out booleans, null and undefined', () => {
     assert.deepEqual(node.children, [a, b]);
   }
   assert.deepEqual(HStack({ children: a }).children, [a]);
-  // A button's one child may come as an array of one, as JSX passes a lone expression in some compilers.
+  // A button's one child may come as an array of one, as JSX passes a lone expression in some compilers; so may a
+  // link's and a toggle's.
   assert.deepEqual(Button({ actionId: 'pet', children: [a] }), button('pet', a));
+  assert.deepEqual(Link({ url: 'app://a', children: [a] }), link('app://a', a));
+  assert.deepEqual(Toggle({ actionId: 'mute', bind: 'muted', children: [a] }), toggle('mute', 'muted', a));
 });
 
 // TP-JSX-3
@@ -153,6 +174,12 @@ test('wrong children are a TypeError that names the component', () => {
     [() => Text({ children: [a] }), 'Text'],
     [() => Button({ actionId: 'pet', children: [] }), 'Button'],
     [() => Button({ actionId: 'pet', children: 'Pet' }), 'Button'],
+    [() => Link({ url: 'app://a' }), 'Link'],
+    [() => Link({ url: 'app://a', children: [a, a] }), 'Link'],
+    [() => Link({ url: 'app://a', children: 'Open' }), 'Link'],
+    [() => Toggle({ actionId: 'mute', bind: 'muted' }), 'Toggle'],
+    [() => Toggle({ actionId: 'mute', bind: 'muted', children: [] }), 'Toggle'],
+    [() => Toggle({ actionId: 'mute', bind: 'muted', children: [a, a] }), 'Toggle'],
     [() => Image({}), 'Image'],
     [() => Image({ asset: 'badge', file: 'badge.png' }), 'Image'],
     [() => VStack({ children: ['loose text'] }), 'VStack'],
@@ -199,4 +226,40 @@ test("the demo's buttons example in TSX is the builders' request and passes the 
   const written = { ...built, layout: { ...built.layout, lockScreen } };
   assert.deepEqual(written, built);
   assert.deepEqual(validateRequest({ command: 'start_layout', input: JSON.parse(JSON.stringify(written)) }), { valid: true, issues: [] });
+});
+
+// TP-JSX-5
+test('a lock screen in TSX with a link, a toggle and the members any node may carry passes the reference validator', async () => {
+  const compiled = spawnSync(tsc, ['-p', join(fixtures, 'tsconfig.json')], { encoding: 'utf8' });
+  assert.equal(compiled.status, 0, compiled.stdout + compiled.stderr);
+  const { recorder } = await import(join(fixtures, 'out/elements.js'));
+  const built = vstack([
+    hstack([
+      symbol('mic.fill', { accessibility: { hidden: true } }),
+      bound('elapsed', { ifStale: false, privacy: 'sensitive' }),
+      text('Paused', { ifStale: true, transition: 'opacity' }),
+    ], { spacing: 8 }),
+    progress('level', { accessibility: { label: 'Input level', value: bind('percent') } }),
+    hstack([
+      toggle('mute', 'muted', text('Mute')),
+      link(bind('target'), text('Open')),
+      link('myapp://recordings', symbol('list.bullet', { accessibility: { label: 'All recordings' } })),
+      button('stop', text('Stop')),
+    ], { spacing: 8 }),
+  ], { spacing: 8, accessibility: { label: 'Recorder' } });
+  assert.deepEqual(recorder, built);
+  const values = { elapsed: '0:42', level: 0.4, percent: '40 percent', muted: false, target: 'myapp://recordings/7' };
+  const request = (lockScreen, given = values) => ({
+    command: 'start_layout',
+    input: JSON.parse(JSON.stringify({
+      activityKey: 'recorder:7', schemaVersion: 2, fallback: 'notification', layout: { lockScreen, url: bind('target') },
+      snapshot: { revision: 0, values: given, staleAt: 1_790_000_900_000 },
+    })),
+  });
+  assert.deepEqual(validateRequest(request(recorder)), { valid: true, issues: [] });
+  assert.deepEqual(validateRequest(request(recorder)), validateRequest(request(built)));
+  // The validator reads what the elements say: a flag that is no boolean and a target that is no URL are refused.
+  assert.deepEqual(validateRequest(request(recorder, { ...values, muted: 'no', target: 'recordings' })).issues.map(({ path }) => path), [
+    '/input/layout/lockScreen/children/2/children/0/bind', '/input/layout/lockScreen/children/2/children/1/url', '/input/layout/url',
+  ]);
 });

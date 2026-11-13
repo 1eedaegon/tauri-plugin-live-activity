@@ -5,8 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 
-internal const val LIVE_UPDATE_ACTION = "io.github.eedaegon.liveupdate.ACTION"
-internal const val LIVE_UPDATE_DISMISSED = "io.github.eedaegon.liveupdate.DISMISSED"
+internal const val LIVE_UPDATE_ACTION = "io.github.1eedaegon.liveupdate.ACTION"
+internal const val LIVE_UPDATE_DISMISSED = "io.github.1eedaegon.liveupdate.DISMISSED"
 internal const val ACTIVITY_ID_EXTRA = "activityId"
 internal const val ACTION_ID_EXTRA = "actionId"
 

@@ -5,7 +5,9 @@ crates.io. `0.1.0-alpha.4` added search metadata; it is published on both regist
 was checked in a real Tauri app. `0.2.0` is a regular release. It adds layouts (request
 contract v2) and buttons. The OS minimums stay the same, and the table below gives the OS
 requirements of the new features. 0.5 moves iOS onto the activitykit crate and raises the
-iPhone minimum to iOS 16.2. Both registries use the name
+iPhone minimum to iOS 16.2. 0.7 moves Android onto liveupdate 0.3.2 and adds the features whose
+floors are in the table below: links and toggles, the scheduled and transient starts, and the
+Android notification styles, each of which the device reports in `getCapabilities()`. Both registries use the name
 `tauri-plugin-live-activity`. This page sets what is supported;
 [platform coverage](platform-coverage.md) records the tests that actually ran.
 
@@ -22,7 +24,14 @@ iPhone minimum to iOS 16.2. Both registries use the name
 | Android Live Updates | Android 16 / API 36+ | Promotion request after eligibility and user-setting checks; the result is read from the OS flag |
 | iPhone layouts (v2) | iOS 16.2+ | activitykit's widget, `ActivityKitLayoutWidget`, draws the layout tree; on iPad the iPadOS 17+ rule above applies |
 | iPhone layout buttons | iOS 17+ | activitykit's `ActivityKitActionIntent` brings the tap to the app process |
-| Android layouts (v2) | Android 8.0 / API 26+ | Shown in part as a notification (title, body, progress bar, chronometer, up to three buttons); the rest is listed in `degradedFeatures` |
+| iPhone layout toggles | iOS 17+ | The switch; before it the label alone. A tap comes as `on` |
+| iPhone transient activity | iOS 18+ | `ios: { transient: true }`; `UNSUPPORTED_FEATURE` before |
+| iPhone scheduled start | iOS 26+ | `scheduled`, the record is `pending` until it begins; `UNSUPPORTED_FEATURE` before, and on Android |
+| Android layouts (v2) | Android 8.0 / API 26+ | Shown in part as a notification (title, body, progress bar, chronometer, up to three actions: buttons, links and toggles); the rest is listed in `degradedFeatures` |
+| Android notification styles | Android 8.0 / API 26+, by the device | Standard and big text everywhere; the progress style with segments and points from Android 16 (`progressStyle`), the metric style from Android 17 (`metricStyle`). `getCapabilities().androidPresentation` says which the device draws and offers |
+| Android links | Where the device offers `links` | A layout's `url` and a `link` open the app's URL; the app declares the scheme in an intent filter |
+| Android alerts of an update | Where the device offers `alert` | An update's alert alerts again; elsewhere the update is silent and the record names `alert` |
+| Android end `after` | Where the device offers `delayedEnd` | The last content stays until its time; elsewhere `UNSUPPORTED_FEATURE` |
 | Samsung Now Bar extras | Android 17 / API 37+ | With `android.samsungNowBar` on, adds One UI's text extras. Does not put the app on Samsung's allow list |
 | macOS, Windows, Linux | No activity backend | Capability queries and a stable unsupported error; no desktop notification fallback yet |
 | watchOS, CarPlay, iPhone activities on a Mac | Not a target of their own | Secondary surfaces that the host widget and the OS forward to; they need their own device checks |
@@ -99,11 +108,11 @@ setting ships as a new version, with the same version on both registries. A publ
 version is never overwritten. A desktop fallback enters the table above only after its
 backend and contract are tested.
 
-`0.2.0` is a regular release, but it comes before 1.0, so a minor version may change the
-public API. The [0.2.0 validation record](validation.md) separates what was checked from
-what was not, including old Apple runtimes, physical iPhones and iPads, and how Samsung
-One UI shows, permits and dismisses activities. A simulator pass does not stand in for a
-device check.
+Before 1.0 a minor version may change the public API; 0.7 changes Rust callers and TypeScript members as its
+changelog lists. The [0.2.0 validation record](validation.md) separates what was checked from what was not,
+including old Apple runtimes, physical iPhones and iPads, and how Samsung One UI shows, permits and dismisses
+activities. The Android changes of 0.7 have no validation record in this folder yet. A simulator pass does not
+stand in for a device check.
 
 ## Display and lifetime
 
@@ -112,8 +121,10 @@ device check.
   or after it is killed.
 - The plugin does not get around a dismissal by the user or a revoked permission by
   posting again. After a restart it reconciles stored IDs with the OS state.
-- APNs, FCM and background work are not in this release. Since 0.2.0, buttons work in
-  layout activities only.
+- Pushes are iOS only, and FCM and background work are not in this release: the plugin runs no background task.
+  Since 0.2.0, buttons, links and toggles work in layout activities only.
+- On Android 16 a notification whose time is more than two weeks past shows nothing, and the app is told nothing:
+  a timer whose start or end lies that far before the post. The post is answered as shown.
 - The plugin picks the notification fallback only with `fallback: "notification"`.
   `none` does not stop the OS from hiding the activity or demoting it later.
 - iOS `staleAt` is passed to ActivityKit. An automatic stale transition that the current

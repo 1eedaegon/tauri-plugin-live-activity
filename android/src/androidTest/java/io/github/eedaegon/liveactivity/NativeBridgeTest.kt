@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.drawable.Icon
 import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -140,9 +141,47 @@ class NativeBridgeTest {
     }
 
     /**
+     * An intent that one of liveupdate's notifications opened the app with carries the activity it came from, and the
+     * action when one opened it. The plugin hands liveupdate each intent that brings the activity forward; liveupdate
+     * stores an opening for an activity it knows, takes the marks off the intent, and tells the plugin to drain.
+     */
+    // TP-ANDROID-16
+    @Test
+    fun anIntentOfANotificationIsStoredOnceAsAnOpeningOfItsActivity() {
+        val heard = AtomicInteger()
+        plugin.registerEventSink { heard.incrementAndGet() }
+        try {
+            liveUpdate("write", JSONObject().put("records", JSONArray().put(record())))
+            liveUpdate("events")
+            val opening = { id: String -> Intent(context, TestHostActivity::class.java).putExtra(OPENED_ACTIVITY, id) }
+            val byALink = opening(ACTIVITY_ID).putExtra(OPENED_ACTION, "link:1")
+            instrumentation.runOnMainSync { plugin.onNewIntent(byALink) }
+            assertEquals(1, heard.get())
+            val events = liveUpdate("events").getJSONObject("data").getJSONArray("events")
+            assertEquals(1, events.length())
+            assertEquals(ACTIVITY_ID, events.getJSONObject(0).getString("activityId"))
+            val kind = events.getJSONObject(0).getJSONObject("kind")
+            assertEquals("opened", kind.getString("kind"))
+            assertEquals("link:1", kind.getString("actionId"))
+
+            // The same intent again, an intent for an activity liveupdate does not know, and one of another kind.
+            instrumentation.runOnMainSync {
+                plugin.onNewIntent(byALink)
+                plugin.onNewIntent(opening("no-such-activity"))
+                plugin.onNewIntent(Intent(context, TestHostActivity::class.java))
+            }
+            assertEquals(1, heard.get())
+            assertEquals(0, liveUpdate("events").getJSONObject("data").getJSONArray("events").length())
+        } finally {
+            LiveUpdateEvents.setListener(null)
+        }
+    }
+
+    /**
      * The contents of tests/fixtures/android/contents.json, which the Rust models write as they stand there
      * (tests/android_contents.rs), each in the record of a first snapshot. What Android then holds is read back: that it
-     * draws it is Android's.
+     * draws it is Android's. What a content needs of the app is here: the picture of its icons from files, and an
+     * activity that opens its URLs (the manifest of the device tests).
      */
     // TP-ANDROID-14
     @Test
@@ -153,12 +192,17 @@ class NativeBridgeTest {
         val styles = liveUpdate("capabilities").getJSONObject("data").getJSONObject("presentation")
         assertEquals(Build.VERSION.SDK_INT >= 36, styles.getBoolean("progressStyle"))
         assertEquals(Build.VERSION.SDK_INT >= 37, styles.getBoolean("metricStyle"))
+        // What a presentation has beside its style is offered on every Android, so the fixture has one answer for it.
+        for (offered in listOf("chronometer", "links", "alert", "publicVersion", "branding")) {
+            assertTrue(offered, styles.getBoolean(offered))
+        }
+        val shift = System.currentTimeMillis() - times(cases).minOf { (holder, name) -> holder.getLong(name) }
         val badge = writeBadge()
         try {
             for (index in 0 until cases.length()) {
                 val case = cases.getJSONObject(index)
                 inCase(case.getString("name")) {
-                    val content = startingNow(case.getJSONObject("content"))
+                    val content = moved(case.getJSONObject("content"), shift)
                     val (answer, detail) = answerTo(contentRecord(content))
                     assertEquals(detail, expected(case), answer)
                     if (answer == "ok") {
@@ -183,23 +227,31 @@ class NativeBridgeTest {
         if (Build.VERSION.SDK_INT == 36 && case.has("android16")) case.getString("android16") else case.getString("android")
 
     /**
-     * [content] with the timer of its style moved to begin now. The times of the fixture are of the day it was
-     * written, and Android 16 ignores a notification whose time is more than two weeks past without telling the app.
+     * [content] with each of its times [shift] later: the timer of a timer style or of a chronometer, the start of a
+     * stopwatch and the end of a countdown. The times of the fixture are of the day it was written, and Android 16
+     * ignores a notification whose time is more than two weeks past without telling the app. The shift is the one
+     * that moves the earliest time of the fixture to now.
      */
-    private fun startingNow(content: JSONObject): JSONObject {
+    private fun moved(content: JSONObject, shift: Long): JSONObject {
         val moved = JSONObject(content.toString())
-        val style = moved.getJSONObject("presentation").getJSONObject("style")
-        val timer = style.optJSONObject("value")?.optJSONObject("timer") ?: return moved
-        val shift = System.currentTimeMillis() - timer.getLong("startedAt")
-        timer.put("startedAt", timer.getLong("startedAt") + shift).put("endsAt", timer.getLong("endsAt") + shift)
+        times(moved).forEach { (holder, name) -> holder.put(name, holder.getLong(name) + shift) }
         return moved
+    }
+
+    /** The times that [value] holds, each as the object that holds it and its name there. */
+    private fun times(value: Any?): List<Pair<JSONObject, String>> = when (value) {
+        is JSONObject -> value.keys().asSequence().toList().flatMap { name ->
+            if (name in TIMES) listOf(value to name) else times(value.get(name))
+        }
+        is JSONArray -> (0 until value.length()).flatMap { times(value.get(it)) }
+        else -> emptyList()
     }
 
     /**
      * What liveupdate's Android side answers to a post of [record], `ok` or the code of its refusal, and the answer
-     * in full. The one method that liveupdate 0.1 calls and Android 16 lacks is `NATIVE_ERROR`: Tauri, which calls the
-     * command, rejects it when it throws, and the Rust side knows no more of a rejected command. Another missing
-     * method would be a difference that the fixture does not name.
+     * in full. The one method that liveupdate, up to 0.3.1, calls and Android 16 lacks is `NATIVE_ERROR`: Tauri, which
+     * calls the command, rejects it when it throws, and the Rust side knows no more of a rejected command. Another
+     * missing method would be a difference that the fixture does not name.
      */
     private fun answerTo(record: JSONObject): Pair<String, String> = try {
         val answer = innerResponse("post", JSONObject().put("record", record))
@@ -225,13 +277,15 @@ class NativeBridgeTest {
                 assertEquals(value.textOrNull("summary"), extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString())
             }
             "progress" -> assertEquals(value.getInt("progress"), extras.getInt(Notification.EXTRA_PROGRESS, -1))
-            "timer" -> {
-                val countsDown = value.getBoolean("countsDown")
-                val shown = value.getJSONObject("timer").getLong(if (countsDown) "endsAt" else "startedAt")
-                assertTrue(extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
-                assertEquals(countsDown, extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN))
-                assertEquals(shown, notification.`when`)
-            }
+        }
+        // The clock of the header is the timer style's, or the chronometer's beside another style.
+        val clock = if (style.getString("kind") == "timer") value else presentation.optJSONObject("chronometer")
+        if (clock != null) {
+            val countsDown = clock.getBoolean("countsDown")
+            val shown = clock.getJSONObject("timer").getLong(if (countsDown) "endsAt" else "startedAt")
+            assertTrue(extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
+            assertEquals(countsDown, extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN))
+            assertEquals(shown, notification.`when`)
         }
         val actions = presentation.optJSONArray("actions") ?: JSONArray()
         val titles = (0 until actions.length()).map { actions.getJSONObject(it).getString("title") }
@@ -240,6 +294,55 @@ class NativeBridgeTest {
         if (Build.VERSION.SDK_INT >= 36) {
             assertEquals(presentation.textOrNull("shortCriticalText"), notification.shortCriticalText)
         }
+        assertOpens(presentation, notification)
+        assertAlerts(presentation.optBoolean("alert"), notification)
+        assertBrands(presentation, notification)
+    }
+
+    /**
+     * What Android holds of the URLs of [presentation]: a tap on the notification, and one on an action with a URL,
+     * starts an activity of the app, and a tap on another action is sent to liveupdate's receiver. Without a URL a
+     * tap on the notification opens the launch activity of the app, where it has one.
+     */
+    private fun assertOpens(presentation: JSONObject, notification: Notification) {
+        val launches = context.packageManager.getLaunchIntentForPackage(context.packageName) != null
+        assertEquals("a content intent", presentation.has("openUrl") || launches, notification.contentIntent != null)
+        // What a pending intent starts can be asked from Android 12 on.
+        if (Build.VERSION.SDK_INT < 31) return
+        notification.contentIntent?.let { assertTrue("the content intent starts an activity", it.isActivity) }
+        val actions = presentation.optJSONArray("actions") ?: JSONArray()
+        notification.actions.orEmpty().forEachIndexed { index, shown ->
+            val opens = actions.getJSONObject(index).has("openUrl")
+            assertEquals("${shown.title} starts an activity", opens, shown.actionIntent.isActivity)
+            assertEquals("${shown.title} is sent to a receiver", !opens, shown.actionIntent.isBroadcast)
+        }
+    }
+
+    /** A revision that alerts is on a channel that may, and is not told to alert only once; any other is quiet. */
+    private fun assertAlerts(alerts: Boolean, notification: Notification) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val importance = manager.getNotificationChannel(notification.channelId).importance
+        assertEquals("a channel that alerts", alerts, importance >= NotificationManager.IMPORTANCE_HIGH)
+        assertEquals("alerts again", alerts, (notification.flags and Notification.FLAG_ONLY_ALERT_ONCE) == 0)
+    }
+
+    /** What Android holds of the public version, the sub text, the accent color and the small icon of [presentation]. */
+    private fun assertBrands(presentation: JSONObject, notification: Notification) {
+        presentation.optJSONObject("publicVersion")?.let { locked ->
+            val public = notification.publicVersion?.extras
+            assertEquals(locked.getString("title"), public?.getCharSequence(Notification.EXTRA_TITLE)?.toString())
+            assertEquals(locked.getString("status"), public?.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        }
+        val subText = notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
+        assertEquals(presentation.textOrNull("subText"), subText)
+        if (presentation.has("accentColor")) {
+            assertEquals(presentation.getLong("accentColor").toInt(), notification.color)
+        }
+        // The small icon is the resource that the content names, or liveupdate's own. Android tells from Android 9 on.
+        if (Build.VERSION.SDK_INT < 28) return
+        val named = presentation.optJSONObject("smallIcon")?.getString("value") ?: OWN_ICON
+        assertEquals(Icon.TYPE_RESOURCE, notification.smallIcon.type)
+        assertEquals(context.resources.getIdentifier(named, "drawable", context.packageName), notification.smallIcon.resId)
     }
 
     private fun JSONObject.textOrNull(name: String): String? = if (has(name)) getString(name) else null
@@ -339,7 +442,8 @@ class NativeBridgeTest {
 
     /**
      * The schema-v2 record of a first snapshot that shows [content]: the snapshot is the content with a revision, and
-     * the template is the kind of its style.
+     * the template is the kind of its style. The activity is private, as one is whose start names no visibility:
+     * only such a one has a public version.
      */
     private fun contentRecord(content: JSONObject): JSONObject {
         val snapshot = JSONObject(content.toString()).put("revision", 0)
@@ -369,5 +473,15 @@ class NativeBridgeTest {
 
     private companion object {
         const val ACTIVITY_ID = "plugin-instrumentation-activity"
+
+        /** The small icon of a notification whose content names none: liveupdate's drawable, which the library carries. */
+        const val OWN_ICON = "liveupdate_status"
+
+        /** The members of a content that are times, in epoch milliseconds. */
+        val TIMES = setOf("startedAt", "endsAt")
+
+        /** The marks of an intent that one of liveupdate's notifications opens the app with. */
+        const val OPENED_ACTIVITY = "io.github.1eedaegon.liveupdate.activityId"
+        const val OPENED_ACTION = "io.github.1eedaegon.liveupdate.actionId"
     }
 }

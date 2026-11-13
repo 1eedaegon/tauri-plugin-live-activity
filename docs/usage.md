@@ -212,8 +212,7 @@ again then.
 Captures: iOS 26.3 on the iPhone 17 simulator, Android 16 on an emulator. The demo adds
 Mochi's colors and padding to the code shown here. The iOS captures were made with 0.3, before
 the renderer moved from the plugin into activitykit. The Android captures were made before 0.5.0,
-when the plugin posted the notification itself; since then Android 16 gets no notification for a
-layout with a progress, as [Android](#android) says under Known.
+when the plugin posted the notification itself.
 
 With a layout the app designs the activity itself: a tree of nodes, a table of styles and a
 map of values. On iOS activitykit's widget, `ActivityKitLayoutWidget`, draws it, with no SwiftUI
@@ -339,10 +338,12 @@ fn start_input() -> LayoutStartInput {
         activity_key: "mochi:snack".into(),
         schema_version: 2,
         fallback: Fallback::Notification,
-        layout: Layout { lock_screen: status, island: None, background: None, keyline: None },
+        layout: Layout { lock_screen: status, island: None, background: None, keyline: None, url: None },
         styles: Some(BTreeMap::from([("status".to_string(), style)])),
         snapshot: delivery(0, "On time", "green"),
         android: None,
+        ios: None,
+        scheduled: None,
         push: None,
     }
 }
@@ -365,18 +366,20 @@ The limits:
 
 - Only these members can be bound: `color`, `background` and `tint` (a color name or a hex
   color), `size` (a number from 6 to 96), `opacity` (0 to 1), `cornerRadius` (0 to 64),
-  `weight` (a weight name), and the layout's `background` and `keyline` (a color).
+  `weight` (a weight name), the layout's `background`, `keyline` and `url`, the `url` of a `link`,
+  the `label`, `value` and `hint` of a node's `accessibility` (a value of any type, read as text), and
+  the props of a `custom` node.
 - A bound color cannot be a light and dark pair, because a value is a string, a number or a
   boolean. Color names such as `primary` or `red` follow the appearance; a hex color does not.
 - The tree and every other member are fixed after start: `font`, `design`, `monospacedDigit`,
-  `lineLimit`, `minimumScaleFactor`, `alignment`, `padding`, `frame`, `buttonStyle` and the
-  members of nodes. To change them, end the activity and start it again.
+  `lineLimit`, `minimumScaleFactor`, `alignment`, `padding`, `frame`, `buttonStyle`,
+  `contentTransition` and the members of nodes. To change them, end the activity and start it again.
 - The value must exist at start and fit the member. Every update is checked again; a value
   that does not fit fails with `INVALID_INPUT`, and the activity keeps what it showed.
 - Every update sends all values again. Layout, styles and values share the weight limit of
   3584, and each binding counts toward it.
 - Android draws no styles: the status text changes, its color does not.
-- A crate of 0.2.x rejects bindings with `INVALID_INPUT`. Keep the npm package and the crate on
+- A plugin before 0.3 rejects bindings with `INVALID_INPUT`. Keep the npm package and the crate on
   the same minor version.
 - On iOS, `ActivityKitLayoutWidget` passes the values to the background and keyline tints too.
 
@@ -483,8 +486,7 @@ A progress view shows a number from 0 to 1 as a bar or a ring.
   </tr>
 </table>
 
-Android turns the first progress view into the notification's bar. The capture is from before 0.5.0:
-on Android 16 that notification is not posted for now, as Known under [Android](#android) says.
+Android turns the first progress view into the notification's bar. The capture is from before 0.5.0.
 
 ### Timer
 
@@ -594,9 +596,47 @@ in Rust when it must not be lost. `onAction` needs `core:event:default`, which a
 </table>
 
 The demo's Rust handler counts the pets and updates the status. Buttons need iOS 17
-(`getCapabilities()` reports `actions`). Android shows up to three buttons as notification
-actions. On Android, a tap that starts a killed app waits in memory and is lost if the Tauri
-runtime does not start.
+(`getCapabilities()` reports `actions`). Android shows up to three actions, buttons, links and
+toggles together, as notification actions. Android stores a tap that starts a killed app, and the
+plugin delivers it when it starts.
+
+### Links and toggles
+
+A `link` opens the app with its URL, which the app receives as any URL it is opened with; no event
+reports it on iOS. A `toggle` shows the boolean value of its key beside its label. A tap reports the
+action with `on`, the state the person asked for, and does not move the switch: send an update with
+the new value, or none to refuse the change.
+
+```ts
+const { vstack, bound, text, link, toggle } = layout;
+
+layout: {
+  lockScreen: vstack([
+    bound('title'),
+    link('myapp://delivery/7', text('Open the delivery')),
+    toggle('ring', 'muted', text('Mute')),
+  ], { alignment: 'leading' }),
+  url: 'myapp://delivery/7',
+},
+snapshot: { revision: 0, values: { title: 'Mochi’s snack', muted: false } },
+```
+
+```ts
+import { onAction, updateLayout } from 'tauri-plugin-live-activity';
+
+await onAction(async ({ actionId, activityId, on }) => {
+  // revision and values are the last ones this app sent for the activity.
+  if (actionId === 'ring' && on !== undefined) {
+    await updateLayout({ id: activityId, snapshot: { revision: revision + 1, values: { ...values, muted: on } } });
+  }
+});
+```
+
+On Android a `link` is an action of the notification that opens its URL, and `layout.url` is what a
+tap on the notification opens, where the device offers `links`. The app declares the URL's scheme
+in an intent filter of one of its activities ([Android setup](android-integration.md#links)); without
+one the snapshot is shown without its links, and the record names `layout.link` and `layout.url`. A
+toggle is an action titled by its label, with a check mark before it while on, and its tap has `on`.
 
 ### Dynamic Island
 
@@ -645,6 +685,17 @@ await updateLayout({ id: snack.id, snapshot: { revision: 2, values, relevance: 9
 In Rust it is `snapshot.relevance = Some(90.0)` on a `LayoutSnapshot::new(revision, values)`. Android ignores the
 member, and an Android record does not repeat it.
 
+The parts take more options. `expanded.priority` gives the width first to a region (a number from 0 to
+100 per region), `expanded.belowIfTooWide` names the regions that go below the camera when they are too
+wide to stand beside it, and `margins` sets the margins of a presentation as a style's `padding`:
+
+```ts
+island: {
+  expanded: { leading: image('mochi'), center: bound('title'), trailing: bound('eta'), priority: { center: 10 }, belowIfTooWide: ['trailing'] },
+  margins: { expanded: 8, compactLeading: [0, 4, 0, 4] },
+},
+```
+
 ### Android
 
 A notification cannot draw a layout. Android takes these parts of the lock screen tree, in
@@ -655,8 +706,10 @@ order, with the current values:
 | first `text` | title |
 | second `text` | body |
 | first `progress` | progress bar |
-| first `timerText` | chronometer |
-| up to three `button`s | actions, labelled with their first text |
+| first `timerText` | chronometer; beside a progress, the clock in the header |
+| up to three `button`s, `link`s and `toggle`s, in the order of the tree | actions: a button's tap reaches the app, a link opens its URL, a toggle is titled by its label with a check mark while on |
+| `layout.url` | what a tap on the notification opens, where the device offers `links` |
+| an `accessibility` label or value on a node the notification cannot draw | a text in its place |
 | `android.visibility` | lock screen visibility: `public`, `private` (default) or `secret` |
 
 Everything else is listed in `degradedFeatures`, here `layout.symbol` and `layout.styles`:
@@ -683,16 +736,9 @@ The capture is after an update to `Fast asleep` and `0.6`. On Android 16 and lat
 requests promotion to a Live Update where the app may post one; `promotionState` reports what
 Android did.
 
-Known: on Android 16 the notification of a layout with a progress is not posted, and the capture
-above is from before 0.5.0. liveupdate 0.1's Android side gives every segment and point of the
-system's progress a semantic style, with a method that Android 17 added. So on Android 16 the start
-of a layout whose Lock Screen tree shows a `progress` fails with `NATIVE_ERROR`, and so does the
-start of an [Android content](#android-content) of the `progress` style. It is Android 16 alone:
-Android 17 has the method, below Android 16 liveupdate draws a plain bar without it, and the
-[progress template](#progress-template) always uses the plain bar. Until liveupdate guards that
-call, give the snapshots of such an activity an Android content of another style on Android 16,
-which is where `getCapabilities().androidPresentation` reports `progressStyle` without
-`metricStyle`: for example `standard`, with the percentage as its `shortCriticalText`.
+Known: on Android 16 a notification whose time is more than two weeks past is not shown, and the app
+is told nothing. This is a timer whose start or end lies that far before the post; the post is answered
+as shown. Measured on an Android 16 emulator: 13 days shows, 15 days does not.
 
 ### Android content
 
@@ -748,13 +794,17 @@ const delivery = await startLayout({
   `writeImage` wrote (`{ kind: 'appFile', value }`). `samsungNowBar: { primary?, secondary? }` gives the Now Bar its
   own two lines.
 - A tap on one of the content's actions comes through `onAction` and `on_action`, like a tap on a button node.
-- A metric's `stopwatch` and `countdown` values are declared but cannot be shown yet: liveupdate 0.1 writes their
-  member in snake case (`started_at`, `ends_at`) and its Android side reads camel case, so such a snapshot is
-  `INVALID_INPUT` on Android. Use `integer`, `decimal` and `text`.
-- On Android 16 a content of the `progress` style is `NATIVE_ERROR` for now, like the progress of a layout there:
-  see Known under [Android](#android).
-- Android keeps the notification style of an activity's first snapshot and answers `UNSUPPORTED_FEATURE` to a content
-  of another style: give a content with every snapshot of an activity, or with none.
+- A metric's `stopwatch` (`{ startedAt }`) and `countdown` (`{ endsAt }`) values are posted.
+- A snapshot may have another notification style than the activity's first where the device offers
+  `styleChange`. Elsewhere it is `UNSUPPORTED_FEATURE`, and the activity keeps what it shows.
+- A presentation takes `openUrl`, a `chronometer`, an `alert` (this revision alerts again), a
+  `publicVersion`, a `smallIcon`, an `accentColor` and a `subText`. Each is behind a capability of
+  `getCapabilities().androidPresentation`: `links`, `chronometer`, `alert`, `publicVersion` and
+  `branding` (the small icon, the color and the sub text). A content that uses a member its device
+  does not offer is `UNSUPPORTED_FEATURE`, except the alert: it is left out and `alert` is named in
+  `degradedFeatures`.
+- An action takes `openUrl` too. Such an action opens the URL in the app and sends no tap; `onOpened`
+  reports it with the action's `id`.
 - The Android record keeps the content in its snapshot, and its `degradedFeatures` names nothing of the layout,
   since the content is what Android shows; an iOS record does not repeat it. Every platform checks the content, so a request is valid everywhere or nowhere.
 - In Rust it is `snapshot.android = Some(AndroidContent { title, status, presentation })`. `AndroidContent` is the
@@ -843,14 +893,15 @@ app.live_activity().end_layout(LayoutEndInput { id, policy: EndPolicy::Default {
   so the record's revision is one higher.
 - On iOS, `immediate` removes the activity at once, `default` keeps it on the Lock Screen for up to four hours, and
   `after` until the given time or four hours after the end, whichever comes first; a time in the past removes it at
-  once. Android removes the notification on every end and answers `after` with `UNSUPPORTED_FEATURE`; the final
-  content is in the record.
+  once. Android removes the notification on `immediate` and `default`. `after` keeps the last content, no longer
+  ongoing, until its time where the device offers `delayedEnd`; elsewhere it is `UNSUPPORTED_FEATURE` and the
+  activity stays. The final content is in the record.
 - Ending again answers the record; an update after the end fails with `NOT_FOUND`. On iOS, after a relaunch, ending
   again an activity that ended at once, and that the system no longer lists, fails with `NOT_FOUND`. The v1 `end`
   takes no final content.
 
-A record's `state` is `pending`, `active`, `stale`, `ended`, `dismissed` or `unknown`. `pending` is iOS 26's state of
-a scheduled start, which the plugin does not make. Rust's `ActivityState` may gain states: match it with a `_` arm.
+A record's `state` is `pending`, `active`, `stale`, `ended`, `dismissed` or `unknown`. `pending` is the state of a
+scheduled start that has not begun yet (see [Scheduled and transient starts](#scheduled-and-transient-starts)). Rust's `ActivityState` may gain states: match it with a `_` arm.
 
 An update is silent unless it carries an `alert`, a title of 1 to 120 code points and a body of 1 to 240:
 
@@ -863,9 +914,38 @@ await updateLayout({
 ```
 
 On iOS the device lights up, the Dynamic Island expands (without one, the Lock Screen presentation shows as a
-banner) and an Apple Watch shows the title and the body. Android updates silently and names `alert` in that
-record's `degradedFeatures`. In Rust: `update.alert = Some(Alert::new(title, body))` on a
-`LayoutUpdateInput::new(id, snapshot)`.
+banner) and an Apple Watch shows the title and the body. On Android the notification alerts again with that
+revision, where the device offers `alert`; elsewhere the update is silent and the record names `alert` in
+`degradedFeatures`. `sound` names a sound of the app's bundle on iOS (a file name such as `chime.aiff`, 1 to 64
+ASCII letters, digits, `.`, `_` and `-`). Android alerts with the sound of its channel and names `alert.sound`.
+In Rust: `update.alert = Some(Alert::new(title, body))` on a `LayoutUpdateInput::new(id, snapshot)`, with
+`.with_sound(name)` for a sound.
+
+### Scheduled and transient starts
+
+`scheduled` starts the activity at a later time (iOS 26). `at` is epoch milliseconds, and the alert is
+required: the system shows it when the activity begins. Until then the record is `pending`: the key is
+held, the activity can be ended, and an update is `CONFLICT`, since the activity begins with the content of
+its start. `onState` reports `active` when it begins.
+
+```ts
+await startLayout({
+  activityKey: 'mochi:ride',
+  schemaVersion: 2,
+  fallback: 'notification',
+  layout,
+  snapshot: { revision: 0, values: { title: 'Mochi’s ride', status: 'Waiting for the car' } },
+  scheduled: { at: Date.now() + 60 * 60_000, alert: { title: 'Your ride', body: 'It starts now', sound: 'chime.aiff' } },
+});
+```
+
+Before iOS 26 and on Android a start with `scheduled` answers `UNSUPPORTED_FEATURE` and keeps nothing: a
+notification is posted when it is asked for, so the app starts the activity itself when the time comes.
+
+`ios: { transient: true }` asks for a transient activity (iOS 18). By Apple's description it shows in the
+expanded Dynamic Island, and the system ends it when the person locks the device, collapses that
+presentation or leaves the app. Before iOS 18 it is `UNSUPPORTED_FEATURE`; Android ignores the option. The
+React hook takes `ios` as well, and not `scheduled`.
 
 ### Starts, states and permission changes
 
@@ -881,16 +961,20 @@ await onPermissions(permissions => { /* the person changed them in Settings (iOS
 
 | Event | Function | iOS | Android |
 | --- | --- | --- | --- |
-| `live-activity://state` | `onState` | every new lifecycle state of an activity, of a template or a layout, while the app runs | `dismissed`, when the person removed the notification of a layout activity |
+| `live-activity://state` | `onState` | every new lifecycle state of an activity, of a template or a layout, while the app runs | `active`, `stale`, `ended` and `dismissed`, each once, for templates and layouts; `stale` arrives at the stale time while the app runs |
+| `live-activity://opened` | `onOpened` | none | the person opened the app from an activity's notification, by the notification or by an action that opens a URL |
 | `live-activity://started` | `onStarted` | a layout activity began: one the app started, or one a push started | none |
 | `live-activity://permissions` | `onPermissions` | Live Activities or frequent pushes were turned on or off in Settings | none |
 
 An event reaches only the listeners there are when it goes out. What happened while the app did not run, or before
 the page listened, is in the records: `list()` and `listLayout()` at launch give every activity with its state, and
-`checkPermissions()` the permissions. On Android liveupdate stores the dismissal of a layout activity's notification
-as it stores a tap, and the plugin reports it when it drains them: at once while the app's process lives, else when
-the app starts. A template's notification reports none: its dismissal shows in `list()`. The event names
-are public in Rust (`STATE_EVENT`, `STARTED_EVENT`, `PERMISSIONS_EVENT`) for `app.listen`.
+`checkPermissions()` the permissions. On Android liveupdate stores the dismissal of a notification as it stores a tap, and the plugin reports it
+when it drains them: at once while the app's process lives, else when the app starts. The plugin's events
+thread also wakes at an activity's stale time. `onOpened` gives `{ activityId, activityKey, actionId }`:
+`actionId` is absent when the person tapped the notification itself, `link:<n>` for the nth `link` of the
+lock screen tree, and the id of an action of an Android content otherwise. The URL comes to the app as any
+deep link. The event names are public in Rust (`STATE_EVENT`, `STARTED_EVENT`, `PERMISSIONS_EVENT`,
+`OPENED_EVENT`) for `app.listen`.
 
 On iOS a start needs the app in the foreground and fails with `NOT_FOREGROUND` otherwise. The system ends an iOS
 activity after 8 hours and removes it from the Lock Screen after 12. [iOS integration](ios-integration.md) has the
@@ -976,10 +1060,10 @@ const lockScreen = (
 ```
 
 There is one component per node: `VStack`, `HStack`, `ZStack`, `Spacer`, `Divider`, `Text`, `SFSymbol`, `Image`, `Path`,
-`Progress`, `Gauge`, `TimerText`, `Button` and `Custom`. Their props are the node's members, and `bind` comes from the
+`Progress`, `Gauge`, `TimerText`, `Button`, `Link`, `Toggle` and `Custom`. Their props are the node's members, and `bind` comes from the
 same entry. `Text` shows its children, strings and numbers joined, or with `bind` the value of a key. A stack takes
 nodes and arrays of them and leaves out booleans, `null` and `undefined`, so `{late && <Text>Late</Text>}` and `.map`
-work. A `Button` holds exactly one node; an `Image` takes `asset` or `file`. Wrong children are a `TypeError` that
+work. A `Button`, a `Link` or a `Toggle` holds exactly one node, its label for a toggle; an `Image` takes `asset` or `file`. Wrong children are a `TypeError` that
 names the component. There are no HTML elements and no fragments: `<div>` does not compile, and `<>` neither loads nor
 bundles. Put the children in a stack.
 
@@ -1009,7 +1093,7 @@ function Delivery({ order }: { order: Order }) {
   `status` goes from `idle` to `starting` and `active`; `record` is the plugin's newest record.
 - A render whose `values` differ from the last sent ones sends them all as an update at the next revision. One request
   is in flight at a time; values that change meanwhile go out once it answers, the newest only.
-- `layout`, `styles`, `fallback`, `android` and `push` are read at start. To change them, end the activity and start
+- `layout`, `styles`, `fallback`, `android`, `ios` and `push` are read at start. To change them, end the activity and start
   it again, for example with another `activityKey`, which ends the running activity and starts one for the new key.
 - Unmount, or `enabled: false`, ends the activity with `endPolicy` (`immediate` unless given). React's Strict Mode
   neither ends nor restarts it.

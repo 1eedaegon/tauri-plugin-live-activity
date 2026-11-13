@@ -5,8 +5,9 @@ its own target SDK and supplies its usual Tauri Android project. Register the Ru
 plugin and grant the Tauri command permissions, as the [usage guide](usage.md#install) shows.
 The plugin manifest merges `POST_NOTIFICATIONS` and `POST_PROMOTED_NOTIFICATIONS` and
 liveupdate's two receivers, which are not exported: one for button taps and one for
-dismissals. No foreground service, network client, custom `RemoteViews`, or background task
-scheduler is installed.
+dismissals. The plugin installs no foreground service, network client, custom `RemoteViews` or
+background task scheduler. A foreground service for the `foreground` placement is the app's own
+([A foreground service](#a-foreground-service)).
 
 Every activity, template or layout, runs on the [`liveupdate`](https://crates.io/crates/liveupdate)
 crate, driven by the Android backend of the [`liveactivity`](https://crates.io/crates/liveactivity)
@@ -17,8 +18,8 @@ library carries liveupdate's own Android adapter, copied from the crate
 the plugin's): a framework adapter with seven bounded operations, which stores Rust's receipts,
 posts and cancels notifications, observes them, and drains the taps and dismissals its
 receivers stored. The plugin's own Kotlin is the permission commands, the image folder and a
-channel that wakes Rust when an event is stored. Kotlin implements no lifecycle and draws no
-layout of its own, and it reads the notification settings through liveupdate's adapter alone.
+channel that wakes Rust when an event is stored, and the hand-over of the intent that opened the app from
+a notification ([Opened](#opened)). Kotlin implements no lifecycle and draws no layout of its own, and it reads the notification settings through liveupdate's adapter alone.
 
 Set `bundle.android.minSdkVersion` to `26` or higher in `tauri.conf.json`;
 `npx tauri-plugin-live-activity setup` does this, and sets `minSdk` in an existing
@@ -48,9 +49,11 @@ liveupdate's channel, as `getCapabilities` does; for an app that targets Android
 Android 13 shows its own dialog when an app creates its first channel.
 
 Progress uses a standard Android notification and timers use the system countdown
-chronometer. liveupdate's channel, `liveupdate-rs.v1`, starts at low importance.
+chronometer. liveupdate's channel, `liveupdate-rs.v1`, starts at low importance; an update that alerts
+posts on its alert channel, `liveupdate-rs.alerts.v1` ("Live update alerts", high importance).
 Users retain control of channel importance and visibility. Updates request
-`onlyAlertOnce`, and notification clicks open the host app. Template (v1) activities
+`onlyAlertOnce`, and notification clicks open the host app, or the URL of `layout.url` or of a
+presentation's `openUrl` where the device offers `links`. Template (v1) activities
 have no actions; layout (v2) activities can, see [Buttons](#buttons).
 
 On Android 16+ the adapter checks `canPostPromotedNotifications()` and channel
@@ -64,8 +67,9 @@ unavailable before posting. The OS can still decline or subsequently remove
 promotion. An observed `notPromoted` result includes `nativeLiveActivity` in
 `degradedFeatures`. Notification permission denial is always an error.
 
-`end` supports `immediate` and `default`, both removing the Android notification.
-The `after` policy returns `UNSUPPORTED_FEATURE` before removal.
+`end` supports `immediate` and `default`, both removing the Android notification. The `after` policy
+keeps the last content on screen, no longer ongoing, until its time, where the device offers `delayedEnd`;
+elsewhere it returns `UNSUPPORTED_FEATURE` before removal.
 
 ## Ordering, dismissal, and recovery
 
@@ -119,9 +123,10 @@ The lifecycle has the public guarantees of v1: an idempotent start compares the 
 request (`android` included) and answers `CONFLICT` for another request under a running
 key, `STALE_REVISION` for a lower revision, `CONFLICT` for the same revision with other
 values, `NOT_FOUND` for an unknown, ended or dismissed id, tombstones after a swipe or an
-end, `UNSUPPORTED_FEATURE` for `after`, and liveupdate's limits (32 active records and 128
-tombstones, templates and layouts together). An update must keep the keys and value types
-of the start. The record carries the layout snapshot the app sent, not the projection.
+end, `UNSUPPORTED_FEATURE` for `after` where the device does not offer `delayedEnd`, and
+liveupdate's limits (32 active records and 128 tombstones, templates and layouts together). An
+update must keep the keys and value types of the start. The record carries the layout snapshot
+the app sent, not the projection.
 
 The template of a notification is fixed when it is posted, so liveactivity chooses it from
 the tree, conditions aside, and keeps it for the generation: the first `progress` gives
@@ -134,20 +139,25 @@ first) with the current values and the `if`/`unless` conditions applied:
 | first shown `text` | title, cut to 120 code points; the app's name when the layout shows no text, because a notification without a title cannot be promoted |
 | second shown `text` | the status line, cut to 240; with `BigTextStyle` for a BigText template. Without a second text the status is the chip text, then the title |
 | first shown `progress` | the progress bar, clamped to 0..1; 0 while the node is hidden |
-| first shown `timerText` | the chronometer: counting down to `end`, or up from `start` with `countsDown: false`; the tree's first timer while it is hidden |
-| up to three `button`s | actions, titled with the first shown text inside the button (cut to 64), without an icon or authentication |
+| first shown `timerText` | the chronometer: counting down to `end`, or up from `start` with `countsDown: false`; the tree's first timer while it is hidden. Beside a progress it is the clock in the header, where the device offers `chronometer` |
+| up to three `button`s, `link`s and `toggle`s, in document order | actions, titled with the first shown text inside the node (cut to 64), or with the label of the first node inside that has a text, then the node's own label. A `link` opens its URL; a `toggle` has a check mark before its title while its value is on |
+| `layout.url` | the URL a tap on the notification opens, where the device offers `links` |
+| a shown `symbol`, `path`, `gauge`, `custom`, `spacer`, `divider` or asset `image` with an `accessibility` label or value | a text in its place among the texts, from the label, the value, or both |
 | first `image` with a `file` source | large icon: the PNG that `writeImage` wrote, when it is at most 1024 pixels a side and 1 MiB; nothing when it is missing |
 | `android.visibility` | lock screen visibility: `public`, `private` (also when absent) or `secret` |
 
-Texts inside a button only label it. A button without a shown text, a fourth button, a
-second progress or timer, a timer under a Progress template and every other shown node
-are left out and named once in `degradedFeatures` as `layout.<type>` (for example
-`layout.symbol`, `layout.spacer`, a third text as `layout.text`, an asset image or a second
-file image as `layout.image`, a custom view as `layout.custom`). `layout.island`,
-`layout.styles`, `layout.background` and `layout.keyline` are added when the request has
-them: a notification draws no styles, so a bound color changes nothing on Android. A node
-hidden by its condition is not listed. liveupdate's own `nativeLiveActivity` comes first.
-The list is computed from the current values, so it can change with an update.
+Texts inside an action only label it. A button, link or toggle without a title, a fourth action or
+with an `actionId` that is taken, a second progress or timer, a timer under a Progress template where
+the device has no `chronometer`, and every other shown node are left out and named once in
+`degradedFeatures` as `layout.<type>` (for example `layout.symbol`, `layout.spacer`, a third text as
+`layout.text`, an asset image or a second file image as `layout.image`, a custom view as
+`layout.custom`). Among the other names, `layout.ifStale` is listed when a node has `ifStale`, since
+Android draws the layout as it is while fresh; `layout.transition` for a shown node with a
+`transition`; and `layout.privacy` for a shown node with `privacy` when `android.visibility` is
+`public`. `layout.island`, `layout.styles`, `layout.background` and `layout.keyline` are added when the
+request has them: a notification draws no styles, so a bound color changes nothing on Android. A node
+hidden by its condition is not listed. liveupdate's own `nativeLiveActivity` comes first. The list is
+computed from the current values, so it can change with an update.
 
 The status chip text (`setShortCriticalText`, API 36+) is the percentage (`65%`) when a
 progress shows and no timer. With a timer it is left out so that the chip shows the
@@ -159,51 +169,54 @@ A snapshot may say what Android shows in Android's own terms instead: an `androi
 a title, a status and one of liveupdate's presentations (a progress with segments and points,
 metrics, the chip text, actions with icons). It replaces the projection for that snapshot, its
 record lists nothing of the layout in `degradedFeatures`, and a tap on one of its actions comes
-through `on_action` like a button's. The style of the first snapshot is the activity's: a content
-of another style answers `UNSUPPORTED_FEATURE`. `getCapabilities().androidPresentation` reports
-which styles the device draws ([usage](usage.md#android-content)). An `alert` with an update is
-iOS's: Android updates silently and names `alert` in that record's `degradedFeatures`.
+through `on_action` like a button's; an action with `openUrl` opens its URL and sends no tap. A
+snapshot may have another notification style than the activity's first where the device offers
+`styleChange`; elsewhere a content of another style answers `UNSUPPORTED_FEATURE`.
+`getCapabilities().androidPresentation` reports which styles the device draws and which members it
+offers ([usage](usage.md#android-content)).
 
-Known: on Android 16 liveupdate 0.1 does not post its Progress style. `NotificationRenderer`
-calls `setSemanticStyle` on every segment and point of `Notification.ProgressStyle`, a method
-of API 37, so the command ends in a `NoSuchMethodError`; Tauri rejects it and the Rust side
-reports `NATIVE_ERROR`. It holds for a projected layout and for an `android` content of the
-`progress` style, on Android 16 alone: Android 17 has the method, below Android 16 liveupdate
-draws the plain bar (`setProgress`) without it, and so do the templates of contract v1 on every
-Android. Android's own `ProgressStyle` without semantic styles posts on an Android 16 emulator
-and keeps its progress, so an adapter that guards the call will post.
-`tests/fixtures/android/contents.json` names the difference (`android16`), and the
-instrumented test reads it on an Android 16 device. What an app can show on Android 16
-meanwhile is in the [usage guide](usage.md#android).
+An update's `alert` alerts again where the device offers `alert`; elsewhere the update is silent and
+the record names `alert` in `degradedFeatures`. Android alerts with the sound of its channel, so a
+`sound` is not played, and the record names `alert.sound`.
 
-Android 16 also ignores a notification whose time is more than two weeks past, without an
-error: on the emulator one of 13 days ago shows and one of 15 days ago does not (`Ignored
-enqueue for old … notification` in the log). liveupdate sets the time for a timer alone, to
-its end when it counts down and to its start when it counts up, so a timer that ended or began
-longer ago is answered as posted and shows nothing.
+Layouts with a `progress`, and contents of the `progress` style, are posted on Android 16. The adapter
+the plugin carries is liveupdate 0.3.2's, which does not call the method that only Android 17 has. Below
+Android 16 liveupdate posts the plain bar, as the progress template does on every Android.
+
+Known: on Android 16 a notification whose time is more than two weeks past is not shown, and the app is
+told nothing: the post is answered as shown. liveupdate sets the time of a timer alone, its end when it
+counts down and its start when it counts up, so a timer that ended or began more than two weeks before
+the post shows nothing. Measured on an Android 16 emulator: a time 13 days ago shows, one 15 days ago does
+not.
 
 The notification keeps what a Live Update needs, as liveupdate posts it: ongoing, a title,
 a system style, no custom views, not colorized, not a group summary, liveupdate's
-low-importance channel (`liveupdate-rs.v1`) and a content intent that opens the app.
+low-importance channel (`liveupdate-rs.v1`) and a content intent that opens the app, or the URL of
+`layout.url` or of the presentation's `openUrl` where the device offers `links`.
 Promotion is requested when the settings allow it; `fallback: 'none'` fails the start with
 `UNSUPPORTED_FEATURE` otherwise.
 
 ## Buttons
 
-Each projected button becomes a notification action whose immutable `PendingIntent` goes
-to liveupdate's `LiveUpdateActionReceiver`, which is not exported. The receiver stores the
-tap in liveupdate's durable event queue (the newest 128) and calls the listener that the
-plugin registered (`LiveUpdateEvents.setListener`), which wakes a thread of the plugin
-(`live-activity-events`). That thread drains `LiveUpdate::events()`, adds the `activityKey`
-of a known activity, drops a tap on an action id that neither a button of the activity's layout
-nor an Android content it has shown declared,
-and hands each tap to the handlers of `on_action` on the plugin's actions thread, never the
-main thread, so a handler may call the plugin. The thread drains once more when the plugin
-starts, so a tap stored while the app did not run arrives when it does. The dismissal of a
-layout activity's notification is stored and drained the same way and comes as a
-`live-activity://state` event (`onState`) with the state `dismissed`. A template's notification
-has no delete intent and reports none. `list` and `listLayout` reconcile both with the
-notifications Android shows.
+Each projected action of a button, a link or a toggle becomes a notification action. A button's action
+carries an immutable `PendingIntent` to liveupdate's `LiveUpdateActionReceiver`, which is not exported.
+The receiver stores the tap in liveupdate's durable event queue (the newest 128) and calls the listener
+that the plugin registered (`LiveUpdateEvents.setListener`), which wakes a thread of the plugin
+(`live-activity-events`). That thread drains `LiveUpdate::events()`, adds the `activityKey` of a known
+activity, drops a tap on an action id that neither the activity's layout nor an Android content it has
+shown declared, and hands each tap to the handlers of `on_action` on the plugin's actions thread, never
+the main thread, so a handler may call the plugin. The thread drains once more when the plugin starts,
+so a tap stored while the app did not run arrives when it does.
+
+A toggle's tap has `on`: the state the person asked for, the other one than the value of the activity's
+latest snapshot, read when the tap is handed over. A link's action sends no tap; it opens its URL
+([Links](#links)).
+
+The dismissal of a notification is stored and drained the same way, and the plugin reports it as the
+state `dismissed` (`live-activity://state`, `onState`). Each state that an activity has when the plugin
+looks is reported once: `active`, `stale`, `ended` and `dismissed`, for templates and layouts alike. The
+events thread also wakes at an activity's stale time, so `stale` arrives while the app runs. `list` and
+`listLayout` reconcile both with the notifications Android shows.
 
 When the app's process was killed, a tap starts the process and runs liveupdate's receiver,
 which stores the tap; Android starts no activity for it, so the Tauri runtime is not
@@ -211,6 +224,48 @@ loaded. The tap reaches `on_action` when the Tauri runtime starts in a later pro
 example because the user opens the app. An action that must work without the app's UI,
 such as a recording toggle handled by a foreground service, needs a native target in the
 host app; the plugin does not provide one.
+
+## Links
+
+A layout's `url` is what a tap on the notification opens, and each `link` node is an action that opens its
+URL. Both need no Kotlin in the app, only one of its activities that declares the URL's scheme: liveupdate
+opens a URL with `ACTION_VIEW` inside the app's own package, so the activity needs an intent filter for it:
+
+```xml
+<activity android:name=".MainActivity" android:exported="true">
+    <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:scheme="myapp" />
+    </intent-filter>
+</activity>
+```
+
+A URL has a lowercase scheme, and it is none of `intent`, `content`, `file`, `javascript`, `data` and
+`android-app`. Without such an activity a layout's links are left out and named (`layout.url` and
+`layout.link` in `degradedFeatures`), and a tap opens the launch activity. A content whose URL no activity
+opens is `INVALID_INPUT`, and nothing is posted.
+
+### Opened
+
+The person opened the app from a notification of an activity: the notification itself, or an action that
+opens a URL. The plugin's Kotlin hands the intent of each opening to liveupdate (`LiveUpdateEvents.opened`),
+when the activity is created with a new intent and when a running one gets a new intent, so an app writes no
+Kotlin for it. liveupdate stores the opening with the activity and the action, and the events thread reports
+it as `live-activity://opened` (`onOpened`, Rust `OPENED_EVENT`) with the activity's id and key. The action is
+absent when the person tapped the notification itself; otherwise it is `link:<n>` for the nth `link` of the
+lock screen tree, or the id of an action of an Android content. The URL itself reaches the app as any deep
+link, through the activity that declares its scheme.
+
+## A foreground service
+
+A start with `android: { placement: 'foreground' }` asks for the notification to be the one that a foreground
+service of the app holds, so that the service shows no second one. The service, its type and its permission
+are the app's; the plugin's library declares none. The service attaches the activity's notification with
+`LiveUpdateForeground.attach(service, foregroundServiceType)`, which answers false when no activity holds the
+placement, and the app's `LiveUpdateForeground.setListener` stops the service when the notification is released
+(an end). One running activity holds the placement at a time: a second is `SYSTEM_LIMIT`. A device that does not
+offer `foregroundPlacement` answers `UNSUPPORTED_FEATURE`. Without a service the notification is an ordinary one.
 
 ## Samsung Now Bar
 
