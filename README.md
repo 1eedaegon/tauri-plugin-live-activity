@@ -265,6 +265,9 @@ at most 1 MiB and 1224 × 480 pixels. [More](https://github.com/1eedaegon/tauri-
   configuration sets `"receipts": "redacted"`.
 - A button's tap waits for the Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.
 - Pushes are iOS only. Android shows an ongoing notification, promoted to a Live Update where the system allows it.
+- On Android 16 a layout that shows a progress, and an Android content of the `progress` style, are not posted for
+  now (`NATIVE_ERROR`): liveupdate 0.1 calls a method there that Android 17 added. The progress template is not
+  affected. [What to show there meanwhile](docs/usage.md#android).
 - Keep the npm package and the crate on the same minor version.
 
 ## Samsung Now Bar

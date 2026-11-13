@@ -263,6 +263,9 @@ keyline: '#A3D9C2', // 아일랜드 테두리 색
   `"receipts": "redacted"`를 주면 가립니다.
 - 버튼 탭은 Rust `on_action` 핸들러를 최대 4초 기다립니다. JavaScript 리스너는 기다리지 않습니다.
 - 푸시는 iOS만. Android는 진행 중 알림을 보여 주고, 시스템이 허용하는 곳에서는 Live Update로 올립니다.
+- Android 16에서는 지금 진행률(progress)을 보여 주는 레이아웃과 `progress` 스타일의 Android content가 게시되지
+  않습니다(`NATIVE_ERROR`). liveupdate 0.1이 Android 17에 추가된 메서드를 거기서 부르기 때문이고, progress 템플릿은
+  해당하지 않습니다. [그동안 보여 줄 수 있는 것](docs/usage.md#android).
 - npm 패키지와 크레이트는 같은 마이너 버전으로 맞춥니다.
 
 ## Samsung Now Bar

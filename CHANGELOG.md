@@ -31,10 +31,17 @@
 - Known: in an Android content, a metric's `stopwatch` and `countdown` values are `INVALID_INPUT` on Android.
   liveupdate 0.1 writes their member in snake case and its Android side reads camel case; `integer`, `decimal` and
   `text` values work.
+- Known, since 0.5.0: on Android 16 a layout that shows a `progress`, and an Android content of the `progress`
+  style, are not posted, and the start fails with `NATIVE_ERROR`. liveupdate 0.1's Android side gives every segment
+  and point of the system's progress a semantic style with a method that Android 17 added. It is Android 16 alone,
+  and the progress template is not affected. The [usage guide](docs/usage.md#android) says what an app can show there
+  meanwhile.
 - The reference validator `tools/validate-request.mjs` checks the new members beside activitykit's schema. One of
   activitykit's fixtures, which uses `relevance` as its example of an unknown member, is valid here.
 - `docs/spec.md` lists what the plugin proves itself and, apart, the promises that liveactivity's tests prove. New
-  there: TP-ANDROID-13, the Android permissions, with the Kotlin tests of their policy.
+  there: TP-ANDROID-13, the Android permissions, with the Kotlin tests of their policy, and TP-ANDROID-14: one
+  fixture of Android contents of every style, which the TypeScript declarations, the Rust models and, on a device,
+  liveupdate's Android side are each compared with. That device test found the two known differences above.
 - The guides describe the adapter: who checks and keeps what, the `relevance`, the `alert`, the Android content and
   the events of an activity's life ([usage](docs/usage.md#android-content)). The Rust examples of the README and of
   the usage guide build their requests with `LayoutSnapshot::new` and `LayoutUpdateInput::new`: the struct literals

@@ -226,6 +226,10 @@ export interface AndroidAction {
   readonly authenticationRequired?: boolean;
 }
 
+/**
+ * On Android 16 a progress is `NATIVE_ERROR` for now: liveupdate 0.1's Android side gives its segments and points a
+ * semantic style with a method that Android 17 added. Below Android 16 it is a plain bar.
+ */
 export interface AndroidProgressStyle {
   /** In the units of the segments, at most their sum. */
   readonly progress: number;

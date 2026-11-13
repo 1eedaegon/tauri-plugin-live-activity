@@ -164,6 +164,24 @@ of another style answers `UNSUPPORTED_FEATURE`. `getCapabilities().androidPresen
 which styles the device draws ([usage](usage.md#android-content)). An `alert` with an update is
 iOS's: Android updates silently and names `alert` in that record's `degradedFeatures`.
 
+Known: on Android 16 liveupdate 0.1 does not post its Progress style. `NotificationRenderer`
+calls `setSemanticStyle` on every segment and point of `Notification.ProgressStyle`, a method
+of API 37, so the command ends in a `NoSuchMethodError`; Tauri rejects it and the Rust side
+reports `NATIVE_ERROR`. It holds for a projected layout and for an `android` content of the
+`progress` style, on Android 16 alone: Android 17 has the method, below Android 16 liveupdate
+draws the plain bar (`setProgress`) without it, and so do the templates of contract v1 on every
+Android. Android's own `ProgressStyle` without semantic styles posts on an Android 16 emulator
+and keeps its progress, so an adapter that guards the call will post.
+`tests/fixtures/android/contents.json` names the difference (`android16`), and the
+instrumented test reads it on an Android 16 device. What an app can show on Android 16
+meanwhile is in the [usage guide](usage.md#android).
+
+Android 16 also ignores a notification whose time is more than two weeks past, without an
+error: on the emulator one of 13 days ago shows and one of 15 days ago does not (`Ignored
+enqueue for old … notification` in the log). liveupdate sets the time for a timer alone, to
+its end when it counts down and to its start when it counts up, so a timer that ended or began
+longer ago is answered as posted and shows nothing.
+
 The notification keeps what a Live Update needs, as liveupdate posts it: ongoing, a title,
 a system style, no custom views, not colorized, not a group summary, liveupdate's
 low-importance channel (`liveupdate-rs.v1`) and a content intent that opens the app.
@@ -283,8 +301,10 @@ what the plugin's own Kotlin decides: the notification permission's state over w
 and Tauri answer, and the permissions over what liveupdate's adapter observes. The
 instrumented tests (`NativeBridgeTest`) run on an emulator or a phone: liveupdate's bounded
 protocol through the plugin's command, with a real notification posted, observed and
-cancelled, the plugin's permissions beside what the adapter observes, and a tap on an action
-through its PendingIntent, which wakes the event sink and drains through the bridge. JaCoCo
+cancelled, the plugin's permissions beside what the adapter observes, a tap on an action
+through its PendingIntent, which wakes the event sink and drains through the bridge, and every
+Android content of `tests/fixtures/android/contents.json` posted and read back from the
+notification that Android holds. JaCoCo
 line coverage of the plugin's own classes must reach 80%; liveupdate's copied adapter is
 left out, since liveupdate tests it. The report is under
 `android/build/reports/jacoco/coverageReport`. The lifecycle, the layout projection and the

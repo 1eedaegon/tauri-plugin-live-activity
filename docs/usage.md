@@ -211,7 +211,9 @@ again then.
 
 Captures: iOS 26.3 on the iPhone 17 simulator, Android 16 on an emulator. The demo adds
 Mochi's colors and padding to the code shown here. The iOS captures were made with 0.3, before
-the renderer moved from the plugin into activitykit.
+the renderer moved from the plugin into activitykit. The Android captures were made before 0.5.0,
+when the plugin posted the notification itself; since then Android 16 gets no notification for a
+layout with a progress, as [Android](#android) says under Known.
 
 With a layout the app designs the activity itself: a tree of nodes, a table of styles and a
 map of values. On iOS activitykit's widget, `ActivityKitLayoutWidget`, draws it, with no SwiftUI
@@ -481,7 +483,8 @@ A progress view shows a number from 0 to 1 as a bar or a ring.
   </tr>
 </table>
 
-Android turns the first progress view into the notification's bar.
+Android turns the first progress view into the notification's bar. The capture is from before 0.5.0:
+on Android 16 that notification is not posted for now, as Known under [Android](#android) says.
 
 ### Timer
 
@@ -680,6 +683,17 @@ The capture is after an update to `Fast asleep` and `0.6`. On Android 16 and lat
 requests promotion to a Live Update where the app may post one; `promotionState` reports what
 Android did.
 
+Known: on Android 16 the notification of a layout with a progress is not posted, and the capture
+above is from before 0.5.0. liveupdate 0.1's Android side gives every segment and point of the
+system's progress a semantic style, with a method that Android 17 added. So on Android 16 the start
+of a layout whose Lock Screen tree shows a `progress` fails with `NATIVE_ERROR`, and so does the
+start of an [Android content](#android-content) of the `progress` style. It is Android 16 alone:
+Android 17 has the method, below Android 16 liveupdate draws a plain bar without it, and the
+[progress template](#progress-template) always uses the plain bar. Until liveupdate guards that
+call, give the snapshots of such an activity an Android content of another style on Android 16,
+which is where `getCapabilities().androidPresentation` reports `progressStyle` without
+`metricStyle`: for example `standard`, with the percentage as its `shortCriticalText`.
+
 ### Android content
 
 The projection takes what a notification can show of a layout. To say what Android shows in its own terms, give the
@@ -737,6 +751,8 @@ const delivery = await startLayout({
 - A metric's `stopwatch` and `countdown` values are declared but cannot be shown yet: liveupdate 0.1 writes their
   member in snake case (`started_at`, `ends_at`) and its Android side reads camel case, so such a snapshot is
   `INVALID_INPUT` on Android. Use `integer`, `decimal` and `text`.
+- On Android 16 a content of the `progress` style is `NATIVE_ERROR` for now, like the progress of a layout there:
+  see Known under [Android](#android).
 - Android keeps the notification style of an activity's first snapshot and answers `UNSUPPORTED_FEATURE` to a content
   of another style: give a content with every snapshot of an activity, or with none.
 - The Android record keeps the content in its snapshot, and its `degradedFeatures` names nothing of the layout,
