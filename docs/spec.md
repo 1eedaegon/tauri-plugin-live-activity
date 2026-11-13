@@ -243,10 +243,10 @@ the plugin's own tests prove that its commands, its Rust API and its events carr
   `tests/android/permission-dialog.mjs` drives the dialog of an installed demo by hand.
 - TP-ANDROID-14: the device test ran on an Android 17 phone, with liveupdate 0.3.2's adapter: every content of the
   fixture was posted there and read back, a progress with its segments, points and icons and the two running
-  metrics among them. It reads back the notification that Android holds, not its picture. This version's test has
-  not run on Android 16, where a progress is posted since liveupdate 0.3.2 by liveupdate's own account, nor below
-  it, where a progress is a plain bar; metrics are drawn from Android 17 on and the Now Bar on a Samsung phone that
-  has one, so elsewhere those contents are only taken. The test calls the plugin's command itself; a method that the device's Android
+  metrics among them. It reads back the notification that Android holds, not its picture. It also ran on an Android 16
+  emulator, where the three contents of the progress style are posted since liveupdate 0.3.2 and their progress was
+  read back; it has not run below Android 16, where a progress is a plain bar. Metrics are drawn from Android 17 on
+  and the Now Bar on a Samsung phone that has one, so elsewhere those contents are only taken. The test calls the plugin's command itself; a method that the device's Android
   lacks is answered by liveupdate's adapter as `NATIVE_ERROR`, which no run here has reached. The record
   around a content, a snapshot with a revision under an origin, is the test's: that liveupdate's Rust writes it so is
   liveupdate's, with its own tests. The timer of the fixture is moved to start now, because Android 16 ignores a

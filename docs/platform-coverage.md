@@ -41,8 +41,8 @@ Layouts and their buttons are new in 0.2.0 and have been tested less than templa
 toggles (iOS 17; the label alone before), links, the scheduled start (iOS 26) and the transient start (iOS 18),
 the Android notification styles that the device reports, and the Android progress on Android 16. What ran is in
 [Android coverage](android-coverage.md#layout-activities-contract-v2-070) (a phone with Android 17) and
-[iOS coverage](ios-coverage.md#070-additions) (CI's simulator suite, and an iPhone with iOS 18 for the contract).
-Android 16 was not run with this version.
+[iOS coverage](ios-coverage.md#070-additions) (CI's simulator suite, and an iPhone with iOS 18 for the contract). The Android device tests also ran on an
+Android 16 emulator, where a progress is posted now.
 
 ## Apple's secondary surfaces
 

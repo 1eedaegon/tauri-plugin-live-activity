@@ -112,7 +112,12 @@ coverage collection on API 26 or 37.
   6.1 s; an intent with the marks of a link of that activity gave one `onOpened` with `actionId: "link:1"`; its end
   gave `ended`.
 
-Not run: Android 16 and earlier with this version, a tap on a toggle or on a link by a person (the opening intent
+The device tests also ran on an Android 16 emulator (API 36), 7 of 7: all 19 contents were posted there, the three
+of the progress style among them, whose posted progress was read back on Android 16 for the first time (the plain
+bar of 1000, the segments and points with icons from the resources, and the icons from files). Android 16 draws no
+metric, so the two that count are only taken there. That image promotes nothing, so promotion is not shown by it.
+
+Not run: Android 15 and earlier with this version, a tap on a toggle or on a link by a person (the opening intent
 came from the shell), the foreground placement with a service of the app, and an activity restored after Android
 ended the process. Android 16 shows nothing of a notification whose time is more than two weeks past
 ([Android setup](android-integration.md#layout-activities-contract-v2)); that was measured on an Android 16

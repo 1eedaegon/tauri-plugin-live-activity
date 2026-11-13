@@ -12,13 +12,14 @@ on Android and the opened event. Rust, TypeScript and JSON change, so it is a mi
 - `npm test` (1744 tests in six suites) and `cargo test` (58), `cargo clippy` for the host and for Android,
   `tools/spec-coverage.sh` (77 requirements, each with a test).
 - The Android library on a Galaxy S23 with Android 17: unit tests and lint, and the device tests, 7 of 7, with every
-  Android content of the fixture posted and read back.
+  Android content of the fixture posted and read back. The device tests on an Android 16 emulator as well, 7 of 7:
+  the three contents of the progress style are posted there, which they were not before liveupdate 0.3.2.
 - The demo on that phone: the lifecycle, the demo's 20 checks, a stale time that passed with no call of the app
   (`stale` after 6.1 s for a time 6 s ahead), an opening intent, and the states of an end.
 - CI of the pull request, which runs the simulator suite for a change of the Rust code, and the main run of the
   release commit.
 
-Not checked: Android 16 and earlier with this version; a tap on a toggle or a link by a person; an activity that
+Not checked: Android 15 and earlier with this version; a tap on a toggle or a link by a person; an activity that
 Android restored after ending the process; on iOS, the new nodes on a Lock Screen and a scheduled start through
 the plugin (an iPhone with iOS 18 ran liveactivity 0.5.0's contract through a test build of the demo:
 [iOS coverage](ios-coverage.md#070-additions)).
