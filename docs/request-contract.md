@@ -4,7 +4,9 @@ Contract v1 is the request input used since `0.1.0-alpha.1`. 0.2.0 leaves it unc
 and adds [contract v2](#request-contract-v2-layout) for layouts. Validator tests in other
 languages reuse `contracts/request.schema.json` and `tests/fixtures/requests.json`.
 `tools/validate-request.mjs` is the reference implementation, for development only. Since 0.5
-the schema file is a copy of the activitykit crate's, which also holds contract v2.
+the schema file is a copy of the activitykit crate's, which also holds contract v2. The contract
+that the plugin carries is the [liveactivity](https://github.com/1eedaegon/liveactivity-rs) crate's,
+on which the plugin runs: it takes [three members beside that schema](#beside-the-schema).
 
 ## Format
 
@@ -65,11 +67,12 @@ tests cover the lifecycle.
 
 JSON Schema checks shape, length, range and the template match. The reference tool also
 checks the order of the timer times. The Rust fixture tests apply the same rules.
-On iOS the plugin's Rust checks a v1 request, turns it into a layout activity
-([below](#the-templates-on-ios)) and checks that as a v2 request; activitykit's Swift layer
-then checks the final encoded size of state and attributes and reports the real OS
-capabilities and permissions. The plugin's Rust and activitykit find the activity by its id and
-compare with the previous revision. On Android the plugin's Rust checks a v1 request and the
+The Rust that checks a request is the liveactivity crate's; the plugin's commands hand every
+request to it and keep no validator of their own. On iOS it checks a v1 request, turns it into a
+layout activity ([below](#the-templates-on-ios)) and checks that as a v2 request; activitykit's
+Swift layer then checks the final encoded size of state and attributes and reports the real OS
+capabilities and permissions. liveactivity and activitykit find the activity by its id and
+compare with the previous revision. On Android liveactivity checks a v1 request and the
 [liveupdate](https://github.com/1eedaegon/liveupdate-rs) crate checks it again, keeps its
 revisions and receipts and finds the activity by its id; the Kotlin side only posts, observes
 and cancels the notification and stores the receipts. Character limits do not replace the 4 KB
@@ -100,9 +103,10 @@ it in a widget extension of the app. The tree is sent once, at start. An update 
 A bound style member reads a value, so an update can change a color, a size or an opacity; the tree
 and every other member stay as they started.
 
-In this section the native layer is activitykit's Swift layer on iOS and the plugin's Kotlin on
-Android. The plugin's Rust validator is activitykit's: the plugin converts each request into
-activitykit's types and checks it there.
+In this section the native layer is activitykit's Swift layer on iOS and, on Android, the
+liveactivity crate's Android backend over liveupdate. The Rust validator is liveactivity's: it reads
+a request in its own types, converts the part that activitykit knows into activitykit's types and
+checks it there, and checks itself what it takes [beside the schema](#beside-the-schema).
 
 `contracts/request.schema.json` holds the shapes of both versions. Its envelope
 `{ "command", "input" }` takes the v1 and the v2 command names.
@@ -150,14 +154,15 @@ returns v1 activities and `list_layout` returns layout activities. On Android th
 A tap on a `button` node reaches the handlers registered with `onAction` and `on_action`. The
 event carries `actionId` and `activityId`, and `activityKey` when it is known.
 
-On iOS the tap comes from activitykit's events. The button's intent returns once the plugin has
-taken the tap, at most 4 seconds after it, before the `on_action` handlers have run. On Android the
-native side waits for the handlers, for at most 4 seconds. The system can launch the app in the
+On iOS the tap comes from activitykit's events. The button's intent returns once the `on_action`
+handlers have run and the tap has gone to JavaScript, at most 4 seconds after it. On Android
+liveupdate's receiver stores the tap, also while the app does not run, and the plugin drains the
+stored taps as they come and when it starts. The system can launch the app in the
 background for a tap; the app's `setup` may then never run, and no web view may exist for
 `onAction`. Register `on_action` handlers on the built `App` before `App::run`, or in the setup of
 a plugin, and not in the app's `setup`.
 
-On Android a notification shows the layout in part. The plugin walks the lock screen tree in
+On Android a notification shows the layout in part. The liveactivity crate walks the lock screen tree in
 document order with the values and conditions applied: the first `text` is the title, the second
 the body, the first `progress` and `timerText` drive the progress bar and the chronometer, and up
 to three `button`s become notification actions labelled with the first text inside them. Every
@@ -165,9 +170,10 @@ other shown node is left out and named once in `degradedFeatures` as `layout.<ty
 as `layout.custom`), followed by `layout.island`, `layout.styles`, `layout.background` and
 `layout.keyline` when the request has them. The first shown `image` whose source is a `file` is the
 notification's large icon and is not listed. `android.visibility` sets the lock screen visibility, `private` when absent. A tap reaches
-`on_action` through the channel that Rust registers at plugin setup; a tap that started a killed
-process waits in memory until the Tauri runtime registers that channel in the same process, and
-is lost if it does not. Android reads a minus zero as 0, so a request with `-0.0`, as serde_json
+`on_action` from liveupdate's durable queue, which the plugin drains when the Kotlin side signals
+a stored event and when the plugin starts: a tap that started a killed process stays stored until
+the Tauri runtime runs. A snapshot with an [`android` content](#beside-the-schema) shows that
+instead of the projection. Android reads a minus zero as 0, so a request with `-0.0`, as serde_json
 writes an f64 minus zero, and the same request with `0` are one request. The details are in
 [Android integration](android-integration.md).
 
@@ -180,8 +186,9 @@ snapshot's fields become its values (`title`, `status`, `progress` with `percent
 and the v1 commands find their activities and the layout commands leave them alone. The records stay
 v1 records. Both versions start through activitykit's keys, so a template and a layout activity
 cannot run under the same `activityKey`: the second start answers `CONFLICT`. The key
-`liveActivityTemplate` is therefore the plugin's: a layout start, update or end whose values hold it
-answers `INVALID_INPUT` on every platform, although activitykit's contract allows it.
+`liveActivityTemplate` is therefore kept by the liveactivity crate, which makes the templates: a
+layout start, update or end whose values hold it answers `INVALID_INPUT` on every platform, although
+activitykit's contract allows it.
 
 ### Requests
 
@@ -197,8 +204,9 @@ answers `INVALID_INPUT` on every platform, although activitykit's contract allow
   "android": { "visibility": "private" }      // optional; "public", "private" or "secret"
 }
 
-// update_layout
-{ "id": "<handle>", "snapshot": { "revision": 1, "values": { "title": "Break" }, "timestamp": 1789999700000 } }
+// update_layout; "alert" is optional
+{ "id": "<handle>", "snapshot": { "revision": 1, "values": { "title": "Break" }, "timestamp": 1789999700000 },
+  "alert": { "title": "Break", "body": "Five minutes" } }
 
 // end_layout: the v1 end with an optional "snapshot", the final content
 { "id": "<handle>", "policy": { "kind": "immediate" }, "snapshot": { "revision": 2, "values": { "title": "Done" } } }
@@ -208,10 +216,38 @@ answers `INVALID_INPUT` on every platform, although activitykit's contract allow
 and `timestamp` are optional in every snapshot. `android`, when present, must carry `visibility`;
 iOS ignores it.
 
+#### Beside the schema
+
+The liveactivity crate's contract takes three members that activitykit's schema does not describe.
+They are optional, never `null`, and checked on every platform, so that a request is valid
+everywhere or nowhere:
+
+| Member | In | Rule | iOS | Android |
+| --- | --- | --- | --- | --- |
+| `relevance` | a snapshot, of a start, an update or an end | a finite number | which of the app's activities the Dynamic Island shows first: the highest wins; without it the activity keeps its score, 0 at first | ignored; the record does not repeat it |
+| `android` | a snapshot | `{ "title", "status", "presentation" }` and no other member: a title of 1 to 120 and a status of 1 to 240 code points, not only whitespace, and a presentation of the liveupdate crate with a `style` | ignored; the record does not repeat it | shown in place of the projection of the layout; the style of an activity's first snapshot stays, and a content of another style is `UNSUPPORTED_FEATURE` |
+| `alert` | `update_layout` | `{ "title", "body" }` and no other member: 1 to 120 and 1 to 240 code points, not only whitespace | the device lights up, the Dynamic Island expands and an Apple Watch shows the two texts | the update is silent, and its record names `alert` in `degradedFeatures` |
+
+```jsonc
+// a snapshot with a relevance and an Android content
+{ "revision": 3, "values": { "title": "Focus" }, "relevance": 80,
+  "android": { "title": "Focus", "status": "12 min left",
+    "presentation": { "style": { "kind": "progress", "value": { "progress": 60, "segments": [{ "length": 100 }] } },
+                      "shortCriticalText": "12 min" } } }
+```
+
+The presentation is liveupdate's own type, and liveupdate's Rust checks it in full: the styles
+`standard`, `bigText`, `progress`, `timer` and `metric`, a chip text of at most 7 code points, up
+to three actions and the rest ([usage](usage.md#android-content)). The reference tool checks the
+outline only: the three members, the two texts and a known `style.kind`. `relevance` is the
+example of an unknown member in one of activitykit's fixtures (`rejects an unknown member in the
+final content`); that request is valid here, in Rust and in the reference tool, and the fixture
+tests say so by name.
+
 `timestamp` is a time by the v1 rule: when the snapshot's content was made. ActivityKit uses it
 from iOS 17.2 to drop content older than what it shows; such a request still succeeds. Without one,
 iOS takes the time the content is sent, and a start's content is always timed when it is sent.
-Android keeps the timestamp in the record; the iOS record leaves it out.
+Android keeps the timestamp in the record as sent, and an iOS record carries that of the accepted content.
 
 The `snapshot` of an end is the final content, checked like an update: the keys and value types of
 the start, `STALE_REVISION` below the accepted revision and `CONFLICT` at it with other values.
@@ -263,7 +299,8 @@ the Rust and Swift tests would fail to read the whole file.
 list of them:
 
 ```jsonc
-{ "id", "activityKey", "schemaVersion": 2, "snapshot": { "revision", "values", "staleAt"?, "timestamp"? },
+{ "id", "activityKey", "schemaVersion": 2,
+  "snapshot": { "revision", "values", "staleAt"?, "timestamp"?, "relevance"?, "android"? },
   "backend", "state", "visibility": "unknown", "degradedFeatures": [...],
   "promotionRequested", "promotionState" }
 ```
@@ -287,8 +324,8 @@ device's limit was reached.
 
 `values` is an object with 0 to 32 entries.
 
-- Key: `^[A-Za-z][A-Za-z0-9_]{0,31}$`, except `liveActivityTemplate`, which the plugin keeps for
-  its templates on iOS.
+- Key: `^[A-Za-z][A-Za-z0-9_]{0,31}$`, except `liveActivityTemplate`, which the liveactivity crate
+  keeps for its templates on iOS.
 - Value: a string of 0 to 1000 Unicode code points, a finite number from -8640000000000000 to
   8640000000000000, or a boolean. The empty string is allowed. `null`, arrays and objects are
   not.
@@ -600,8 +637,10 @@ The JSON Schema checks shapes, ranges and patterns, including the characters all
 shape of a binding (`$defs/bound`), the props of a custom node and `fontFamily` beside `design`. It
 leaves the grammar of `d`, `min` below `max`, lone surrogates, the structural limits, the reference
 rules (the values of bound members and the bindings of props among them) and the weight to the
-validators: activitykit's in Rust and Swift, the plugin's Kotlin and `tools/validate-request.mjs`,
-which check those as well and give the results the fixtures record. The tool checks a request against the definitions of its
+validators: activitykit's in Rust and Swift, liveactivity's Rust around it and
+`tools/validate-request.mjs`, which check those as well and give the results the fixtures record. The
+schema is activitykit's and does not describe `relevance`, `android` or `alert`
+([beside the schema](#beside-the-schema)); a schema of the whole contract would be liveactivity's. The tool checks a request against the definitions of its
 own contract version only, so a v1 request gets the same issues as before v2.
 
 ### Differences from the RFC draft

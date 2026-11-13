@@ -167,9 +167,9 @@ export function onStarted(handler: (event: StartedEvent) => void): Promise<Unlis
 
 /**
  * Receive each new lifecycle state of an activity. iOS reports every change while the app runs, such as `stale`,
- * `ended` and `dismissed`; Android reports `dismissed` when the person removes the notification, when the plugin
- * drains its events. A change while the app did not run is in the activity's record, as `list` and `listLayout`
- * give it.
+ * `ended` and `dismissed`; Android reports `dismissed` when the person removes the notification of a layout
+ * activity, when the plugin drains its events. A change while the app did not run, and the dismissal of a template's
+ * notification on Android, is in the activity's record, as `list` and `listLayout` give it.
  */
 export function onState(handler: (event: StateEvent) => void): Promise<UnlistenFn> {
   return listen<StateEvent>('live-activity://state', event => handler(event.payload));

@@ -257,7 +257,11 @@ export interface AndroidMetric {
   readonly semanticStyle?: AndroidSemanticStyle;
 }
 
-/** The members of a stopwatch and a countdown are written as liveupdate 0.1 writes them, in snake case. */
+/**
+ * The members of a stopwatch and a countdown are written as liveupdate 0.1 writes them, in snake case. Its Android
+ * side reads them in camel case, so a snapshot with one of the two is `INVALID_INPUT` on Android for now: an
+ * integer, a decimal and a text are what a metric can show.
+ */
 export type AndroidMetricValue =
   | { readonly kind: 'integer'; readonly value: { readonly value: number; readonly unit?: string } }
   | { readonly kind: 'decimal'; readonly value: { readonly value: number; readonly unit?: string } }
@@ -619,7 +623,7 @@ export interface StartedEvent {
 
 /**
  * A new lifecycle state of an activity, of a template or a layout. iOS reports every change while the app runs;
- * Android reports that the person dismissed the notification.
+ * Android reports that the person dismissed the notification of a layout activity.
  */
 export interface StateEvent {
   /** Handle of the activity. */

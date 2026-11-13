@@ -28,8 +28,10 @@ tauri::Builder::default()
 ```
 
 Android builds need Android SDK 37. iOS builds need Xcode and XcodeGen, which `tauri ios init`
-asks for too. On iOS the plugin is built on the [activitykit](https://github.com/1eedaegon/activitykit-rs) crate,
-which the plugin's crate takes from GitHub until activitykit is on crates.io.
+asks for too. The plugin is an adapter of the [liveactivity](https://github.com/1eedaegon/liveactivity-rs) crate,
+which runs iOS on [activitykit](https://github.com/1eedaegon/activitykit-rs) and Android on
+[liveupdate](https://github.com/1eedaegon/liveupdate-rs); the three come from crates.io with the plugin's crate, and
+`tauri_plugin_live_activity` re-exports the request and record types.
 
 ### What setup does
 
@@ -324,7 +326,7 @@ use tauri_plugin_live_activity::{
 fn delivery(revision: u64, status: &str, tone: &str) -> LayoutSnapshot {
     let values = [("status", status), ("tone", tone)]
         .map(|(key, text)| (key.to_string(), Value::Text(text.into())));
-    LayoutSnapshot { revision, values: BTreeMap::from(values), stale_at: None, timestamp: None }
+    LayoutSnapshot::new(revision, BTreeMap::from(values))
 }
 
 fn start_input() -> LayoutStartInput {
@@ -347,7 +349,7 @@ fn run_late<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
     let record = app.live_activity().start_layout(start_input())?;
     // Later: every value again, with a higher revision. The status turns red.
     let snapshot = delivery(1, "Running late", "red");
-    let update = LayoutUpdateInput { id: record.id, snapshot };
+    let update = LayoutUpdateInput::new(record.id, snapshot);
     app.live_activity().update_layout(update)?;
     Ok(())
 }
@@ -630,6 +632,16 @@ the island's edge.
 
 iOS 26.3 on the iPhone 17 simulator. Android has no Dynamic Island and lists `layout.island`.
 
+When the app runs several activities, the Dynamic Island shows the one with the highest `relevance`, a number that
+a snapshot may carry, at a start, an update or an end. Without one the activity keeps its score, which is 0 at first:
+
+```ts
+await updateLayout({ id: snack.id, snapshot: { revision: 2, values, relevance: 90 } });
+```
+
+In Rust it is `snapshot.relevance = Some(90.0)` on a `LayoutSnapshot::new(revision, values)`. Android ignores the
+member, and an Android record does not repeat it.
+
 ### Android
 
 A notification cannot draw a layout. Android takes these parts of the lock screen tree, in
@@ -667,6 +679,73 @@ android: { visibility: 'public' },
 The capture is after an update to `Fast asleep` and `0.6`. On Android 16 and later the plugin
 requests promotion to a Live Update where the app may post one; `promotionState` reports what
 Android did.
+
+### Android content
+
+The projection takes what a notification can show of a layout. To say what Android shows in its own terms, give the
+snapshot an `android` content: a title, a status and one of the notification styles of the liveupdate crate. Android
+shows it in place of the projection, and iOS ignores it.
+
+```ts
+import { getCapabilities, layout, startLayout } from 'tauri-plugin-live-activity';
+
+const { vstack, bound, progress } = layout;
+// Which styles the device draws: absent on iOS and desktop.
+const { androidPresentation } = await getCapabilities();
+
+const delivery = await startLayout({
+  activityKey: 'mochi:snack',
+  schemaVersion: 2,
+  fallback: 'notification',
+  layout: { lockScreen: vstack([bound('title'), bound('status'), progress('done')]) },
+  snapshot: {
+    revision: 0,
+    values: { title: 'Mochi’s snack', status: 'On the way', done: 0.6 },
+    android: {
+      title: 'Mochi’s snack',
+      status: '2 stops away',
+      presentation: {
+        style: {
+          kind: 'progress',
+          value: {
+            progress: 60,
+            // Segments of their own colors need Android 16; one segment is a plain bar.
+            segments: androidPresentation?.progressStyle ? [{ length: 60, color: 0xff007f00 }, { length: 40 }] : [{ length: 100 }],
+          },
+        },
+        shortCriticalText: '8 min', // the status chip, at most 7 code points
+        actions: [{ id: 'done', title: 'All done' }],
+      },
+    },
+  },
+});
+```
+
+| `style.kind` | `value` | Shows |
+| --- | --- | --- |
+| `standard` | none | the title and the status |
+| `bigText` | `{ text, summary? }` | a longer text under the title |
+| `progress` | `{ progress, segments, points?, indeterminate?, styledByProgress?, startIcon?, endIcon?, trackerIcon? }` | a bar; its 1 to 32 segments, up to 32 points, colors and icons from Android 16 (`progressStyle`), a plain bar below |
+| `timer` | `{ timer: { startedAt, endsAt }, countsDown }` | the chronometer, counting down to the end or up from the start |
+| `metric` | `{ metrics, criticalMetric? }` | up to three labelled values, each an integer, a decimal or a text; Android 17 (`metricStyle`) |
+
+- The title is 1 to 120 code points and the status 1 to 240. `largeIcon` and an action's `icon` name a drawable or
+  mipmap resource of the app (`{ kind: 'resource', value }`) or a file under the app's files, such as one that
+  `writeImage` wrote (`{ kind: 'appFile', value }`). `samsungNowBar: { primary?, secondary? }` gives the Now Bar its
+  own two lines.
+- A tap on one of the content's actions comes through `onAction` and `on_action`, like a tap on a button node.
+- A metric's `stopwatch` and `countdown` values are declared but cannot be shown yet: liveupdate 0.1 writes their
+  member in snake case (`started_at`, `ends_at`) and its Android side reads camel case, so such a snapshot is
+  `INVALID_INPUT` on Android. Use `integer`, `decimal` and `text`.
+- Android keeps the notification style of an activity's first snapshot and answers `UNSUPPORTED_FEATURE` to a content
+  of another style: give a content with every snapshot of an activity, or with none.
+- The Android record keeps the content in its snapshot, and its `degradedFeatures` names nothing of the layout,
+  since the content is what Android shows; an iOS record does not repeat it. Every platform checks the content, so a request is valid everywhere or nowhere.
+- In Rust it is `snapshot.android = Some(AndroidContent { title, status, presentation })`. `AndroidContent` is the
+  liveactivity crate's, and the presentation types are liveupdate's, re-exported: `AndroidPresentation`,
+  `PresentationStyle`, `ProgressStyle`, `ProgressSegment` and the rest. One is missing: a `TimerStyle` takes
+  liveupdate's `Timer`, which the plugin does not re-export (its `Timer` is the template's). Read a timer style from
+  JSON with `serde_json`, or add the `liveupdate` crate at the version the plugin builds with.
 
 ### Samsung Now Bar
 
@@ -715,7 +794,7 @@ A snapshot may carry a `timestamp`, the time its content was made, in Unix milli
 iOS 17.2 to drop content older than what the activity shows: such an update still succeeds, but the activity keeps
 the newer content. Without one, iOS takes the time the content is sent. iOS records carry the timestamp of the
 accepted content.
-Android keeps the timestamp in the record; the iOS record leaves it out.
+Android keeps the timestamp in the record as sent.
 
 An end can carry final content:
 
@@ -738,7 +817,7 @@ let values = BTreeMap::from([
     ("status".to_string(), Value::Text("Delivered".into())),
     ("done".to_string(), Value::Number(1.0)),
 ]);
-let snapshot = LayoutSnapshot { revision: 3, values, stale_at: None, timestamp: None };
+let snapshot = LayoutSnapshot::new(3, values);
 app.live_activity().end_layout(LayoutEndInput { id, policy: EndPolicy::Default {}, snapshot: Some(snapshot) })?;
 ```
 
@@ -756,6 +835,46 @@ app.live_activity().end_layout(LayoutEndInput { id, policy: EndPolicy::Default {
 
 A record's `state` is `pending`, `active`, `stale`, `ended`, `dismissed` or `unknown`. `pending` is iOS 26's state of
 a scheduled start, which the plugin does not make. Rust's `ActivityState` may gain states: match it with a `_` arm.
+
+An update is silent unless it carries an `alert`, a title of 1 to 120 code points and a body of 1 to 240:
+
+```ts
+await updateLayout({
+  id: snack.id,
+  snapshot: { revision: 4, values: { title: 'Mochi’s snack', status: 'At the door', done: 1 } },
+  alert: { title: 'Snack delivered', body: 'Mochi is waiting at the door' },
+});
+```
+
+On iOS the device lights up, the Dynamic Island expands (without one, the Lock Screen presentation shows as a
+banner) and an Apple Watch shows the title and the body. Android updates silently and names `alert` in that
+record's `degradedFeatures`. In Rust: `update.alert = Some(Alert::new(title, body))` on a
+`LayoutUpdateInput::new(id, snapshot)`.
+
+### Starts, states and permission changes
+
+What happens to an activity outside the app's own calls comes as events:
+
+```ts
+import { onPermissions, onStarted, onState } from 'tauri-plugin-live-activity';
+
+await onState(({ activityId, activityKey, state }) => { /* 'stale', 'ended', 'dismissed', … */ });
+await onStarted(({ record }) => { /* a layout activity began, also one a push started (iOS) */ });
+await onPermissions(permissions => { /* the person changed them in Settings (iOS) */ });
+```
+
+| Event | Function | iOS | Android |
+| --- | --- | --- | --- |
+| `live-activity://state` | `onState` | every new lifecycle state of an activity, of a template or a layout, while the app runs | `dismissed`, when the person removed the notification of a layout activity |
+| `live-activity://started` | `onStarted` | a layout activity began: one the app started, or one a push started | none |
+| `live-activity://permissions` | `onPermissions` | Live Activities or frequent pushes were turned on or off in Settings | none |
+
+An event reaches only the listeners there are when it goes out. What happened while the app did not run, or before
+the page listened, is in the records: `list()` and `listLayout()` at launch give every activity with its state, and
+`checkPermissions()` the permissions. On Android liveupdate stores the dismissal of a layout activity's notification
+as it stores a tap, and the plugin reports it when it drains them: at once while the app's process lives, else when
+the app starts. A template's notification reports none: its dismissal shows in `list()`. The event names
+are public in Rust (`STATE_EVENT`, `STARTED_EVENT`, `PERMISSIONS_EVENT`) for `app.listen`.
 
 On iOS a start needs the app in the foreground and fails with `NOT_FOREGROUND` otherwise. The system ends an iOS
 activity after 8 hours and removes it from the Lock Screen after 12. [iOS integration](ios-integration.md) has the
@@ -793,18 +912,21 @@ subscribing, each token once; the read is in the plugin's `default` permission. 
 page listened is in the activity's record, as `listLayout` gives it.
 
 Push-to-start (iOS 17.2) needs `"pushToStart": true` under `plugins.live-activity` in `tauri.conf.json`, a setting
-that holds for the process like the receipts; an activity a push starts is not announced, it is a listed activity,
-and a start of the app under its key answers `CONFLICT`. Content a push delivers comes as `live-activity://updated`
+that holds for the process like the receipts; an activity a push starts comes to `onStarted` with its record while
+the app runs and is a listed activity, and a start of the app under its key answers `CONFLICT`. Content a push delivers comes as `live-activity://updated`
 with the activity's record when its revision is above every revision the app sent or accepted, so the app's own
 updates do not come this way; a server numbers its pushes above the app's. The record is the activity's state when
 the plugin reads the event: two pushes close together may both report the later one. `checkPermissions` reports
 `frequentPushes`, the switch in Settings behind `NSSupportsLiveActivitiesFrequentUpdates`, `denied` as well when the
 app offers no such switch, and `getCapabilities` reports `push`.
 
-The events go out from the plugin's events thread as they come, without waiting for the handlers of `on_action` or
-for JavaScript. A Rust listener (`app.listen` with `PUSH_TOKEN_EVENT`, `PUSH_TO_START_TOKEN_EVENT` or
-`UPDATED_EVENT`) runs inline on that thread: one that panics is caught, one that blocks delays the taps and the
-events behind it. Rust reads the tokens with `push_tokens()`.
+The events go out as the liveactivity crate reports them, one at a time on its events thread, without waiting for
+JavaScript. A tap is reported on the same thread and holds it until the handlers of `on_action` have run, at most
+4 seconds, so an event behind a tap comes after that tap's handlers. A Rust listener (`app.listen` with
+`PUSH_TOKEN_EVENT`, `PUSH_TO_START_TOKEN_EVENT` or `UPDATED_EVENT`) runs inline on that thread: one that blocks
+delays the taps and the events behind it. One that panics is caught, so that the thread, the taps and the events to
+JavaScript go on, but Tauri then delivers nothing more to any Rust listener of the app: a listener must not panic.
+Rust reads the tokens with `push_tokens()`.
 
 With React, `useLiveActivity` listens for pushes when its options carry `push`, keeps the activity's `pushToken` in
 its state and takes pushed content as its record; the component's values stand as last sent, and their next change
