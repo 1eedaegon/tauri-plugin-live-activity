@@ -23,8 +23,6 @@ android {
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
-        unitTests.all { it.systemProperty("fixturePath", projectDir.parentFile.resolve("tests/fixtures/requests.json").absolutePath) }
-        unitTests.all { it.systemProperty("layoutFixturePath", projectDir.parentFile.resolve("tests/fixtures/layout-requests.json").absolutePath) }
     }
     buildTypes {
         debug {

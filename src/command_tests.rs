@@ -222,30 +222,6 @@ fn desktop_layout_commands_validate_before_they_fail_explicitly() {
     assert_eq!(late, Err(crate::Error::invalid()));
 }
 
-#[test]
-fn capabilities_from_a_native_side_without_layout_decode_as_unsupported() {
-    let mut native = json!({"platform":"android","backend":"androidNotification","start":"supported",
-        "update":"supported","end":"supported","progress":"supported","timer":"supported",
-        "actions":"unsupported","stateObservation":"supported","silentUpdate":"supported",
-        "nativeLiveActivity":"unsupported","maxPayloadBytes":4096});
-    let decode = |data: &Value| {
-        crate::bridge::decode::<crate::Capabilities>(json!({"ok":true,"data":data})).unwrap()
-    };
-    assert_eq!(decode(&native).layout, FeatureSupport::Unsupported);
-    for (word, support) in [
-        ("supported", FeatureSupport::Supported),
-        ("unsupported", FeatureSupport::Unsupported),
-        ("unknown", FeatureSupport::Unknown),
-    ] {
-        native["layout"] = json!(word);
-        assert_eq!(decode(&native).layout, support);
-        assert_eq!(
-            serde_json::to_value(decode(&native)).unwrap()["layout"],
-            word
-        );
-    }
-}
-
 // TP-CONFIG-1
 #[test]
 fn plugin_accepts_an_absent_null_or_redacted_configuration() {

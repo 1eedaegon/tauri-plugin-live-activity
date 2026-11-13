@@ -33,7 +33,6 @@ class EventRegistration {
  */
 @TauriPlugin(permissions = [Permission(strings = [Manifest.permission.POST_NOTIFICATIONS], alias = "notifications")])
 class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
-    private val notifications = AndroidNotifications(activity)
     private val preferences = activity.getSharedPreferences(PLUGIN_PREFERENCES, Context.MODE_PRIVATE)
 
     @Command
@@ -48,9 +47,11 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
             if (kind !in listOf("notifications", "liveActivities", "promotion")) {
                 throw ActivityFailure("INVALID_INPUT", "Unknown permission kind.")
             }
-            if (kind == "notifications" && notificationPermission() in listOf("prompt", "unknown")) {
+            val settings = notificationSettings()
+            val notifications = notificationPermission(settings)
+            if (kind == "notifications" && dialogCanAsk(notifications)) {
                 requestPermissionForAlias("notifications", invoke, "permissionResult")
-            } else respond(invoke) { permissions() }
+            } else respond(invoke) { permissionsOf(settings, notifications) }
         } catch (error: Exception) { failure(invoke, error) }
     }
 
@@ -97,20 +98,21 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
 
     internal fun registerEventSink(sink: () -> Unit) = LiveUpdateEvents.setListener { sink() }
 
-    private fun permissions(): JSONObject = JSONObject().put("notifications", notificationPermission())
-        .put("liveActivities", "notApplicable")
-        .put("promotion", when {
-            Build.VERSION.SDK_INT < 36 -> "notApplicable"
-            notifications.promotionAllowed() -> "granted"
-            else -> "settingsRequired"
-        })
-        .put("frequentPushes", "notApplicable")
+    private fun permissions(): JSONObject =
+        notificationSettings().let { permissionsOf(it, notificationPermission(it)) }
+
+    /**
+     * What liveupdate's adapter observes of the notification settings and of its channel, as its `capabilities` answer
+     * them to Rust. The plugin reads them nowhere else, so its permissions agree with what liveupdate may post.
+     */
+    private fun notificationSettings(): JSONObject =
+        observedSettings(LiveUpdateBridge.invoke(activity, "capabilities", "{}"))
 
     // Tauri can cache DENIED for a cancelled dialog. Only an observed rationale proves
     // a previous denial; otherwise report uncertainty and allow an explicit retry.
-    private fun notificationPermission(): String = notificationPermissionState(
+    private fun notificationPermission(settings: JSONObject): String = notificationPermissionState(
         Build.VERSION.SDK_INT,
-        notifications.notificationsAllowed(),
+        settings.getBoolean("notificationsEnabled"),
         Build.VERSION.SDK_INT < 33 || activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED,
         getPermissionState("notifications")?.toString(),
         Build.VERSION.SDK_INT >= 33 && activity.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS),

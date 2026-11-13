@@ -84,6 +84,37 @@ class NativeBridgeTest {
         assertEquals("INVALID_INPUT", outer.getJSONObject("error").getString("code"))
     }
 
+    // TP-ANDROID-13
+    @Test
+    fun permissionsFollowWhatLiveupdatesAdapterObserves() {
+        val observed = liveUpdate("capabilities").getJSONObject("data")
+        val reply = call("checkPermissions", JSONObject(), plugin::checkPermissions)
+        assertTrue(reply.toString(), reply.getBoolean("ok"))
+        val permissions = reply.getJSONObject("data")
+        // `prepare` granted the runtime permission, and nothing blocked liveupdate's channel.
+        assertTrue(observed.getBoolean("notificationsEnabled"))
+        assertEquals("granted", permissions.getString("notifications"))
+        val promotion = permissions.getString("promotion")
+        assertEquals(Build.VERSION.SDK_INT >= 36, promotion != "notApplicable")
+        assertEquals(observed.getBoolean("promotionEnabled"), promotion == "granted")
+        assertEquals("notApplicable", permissions.getString("liveActivities"))
+        assertEquals("notApplicable", permissions.getString("frequentPushes"))
+    }
+
+    // TP-ANDROID-13
+    @Test
+    fun aRequestThatNeedsNoDialogAnswersThePermissions() {
+        // With notifications allowed Android has nothing to ask, and the other kinds have no dialog at all.
+        for (kind in listOf("notifications", "promotion", "liveActivities")) {
+            val reply = call("requestPermissions", JSONObject().put("kind", kind), plugin::requestPermissions)
+            assertTrue(reply.toString(), reply.getBoolean("ok"))
+            assertEquals("granted", reply.getJSONObject("data").getString("notifications"))
+        }
+        val unknown = call("requestPermissions", JSONObject().put("kind", "camera"), plugin::requestPermissions)
+        assertFalse(unknown.toString(), unknown.getBoolean("ok"))
+        assertEquals("INVALID_INPUT", unknown.getJSONObject("error").getString("code"))
+    }
+
     // TP-ANDROID-10
     @Test
     fun aStoredTapWakesTheEventSinkAndDrainsThroughTheBridge() {
@@ -140,10 +171,12 @@ class NativeBridgeTest {
         return JSONObject(outer.getString("data"))
     }
 
-    private fun callLiveUpdate(args: JSONObject): JSONObject {
+    private fun callLiveUpdate(args: JSONObject): JSONObject = call("liveUpdate", args, plugin::liveUpdate)
+
+    /** The envelope that a command of the plugin answers to [args]. */
+    private fun call(command: String, args: JSONObject, run: (Invoke) -> Unit): JSONObject {
         var response: String? = null
-        val invoke = Invoke(1, "liveUpdate", 1, 2, { _, json -> response = json }, args.toString(), ObjectMapper())
-        plugin.liveUpdate(invoke)
+        run(Invoke(1, command, 1, 2, { _, json -> response = json }, args.toString(), ObjectMapper()))
         return JSONObject(requireNotNull(response))
     }
 

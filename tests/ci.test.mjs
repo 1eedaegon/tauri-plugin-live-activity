@@ -1,4 +1,4 @@
-// The crate's manifest keeps activitykit to one line; CI's `changes` job starts each job for its paths; the simulator
+// The crate's manifest keeps liveactivity to one line; CI's `changes` job starts each job for its paths; the simulator
 // jobs key their caches and records on the files they read and pin their tools; run.sh tests through the scheme.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -52,15 +52,15 @@ test('the changes job starts each job for its paths, and the ios area is what th
   const workflow = read('.github/workflows/ci.yml');
   assert.deepEqual(Object.keys(areas().found), ['rust', 'js', 'ios', 'android']);
   const starts = {
-    rust: ['src/lib.rs', 'src/apple/glue.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml',
+    rust: ['src/lib.rs', 'src/service.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml',
       'tests/contract.rs', 'examples/demo/src-tauri/src/lib.rs'],
     js: ['guest-js/index.ts', 'cli/setup.mjs', 'tools/sync-contract.mjs', 'tests/api.test.mjs',
       'tests/release/release-guard.test.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/src/main.ts'],
     ios: ['src/ios.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml', 'guest-js/types.ts', 'cli/ios.mjs',
       'tools/sync-contract.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/link-activitykit.mjs',
       'tests/ios/run.sh', 'tests/ci/cache.sh'],
-    android: ['android/src/main/java/io/github/eedaegon/liveactivity/Lifecycle.kt', 'tests/android/settings.gradle.kts',
-      'Cargo.toml', 'Cargo.lock', 'src/android.rs', 'src/android_liveupdate.rs', 'src/lib.rs', 'build.rs'],
+    android: ['android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt', 'tests/android/settings.gradle.kts',
+      'Cargo.toml', 'Cargo.lock', 'src/android.rs', 'src/bridge.rs', 'src/lib.rs', 'build.rs'],
   };
   const not = {
     rust: ['cli/setup.mjs', 'guest-js/index.ts', 'tests/api.test.mjs', 'tests/ios/run.sh', 'docs/spec.md'],

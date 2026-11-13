@@ -22,9 +22,16 @@
   4 seconds, so an event behind a tap comes after that tap's handlers, where 0.6 sent a push event at once. A Rust
   listener of an event that panics is caught in the plugin's sink, as in 0.6: the thread, the taps and the events to
   JavaScript go on, but Tauri then delivers nothing more to any Rust listener of the app.
+- Android: the plugin's permissions read the notification settings through liveupdate's adapter alone, the
+  `capabilities` that `getCapabilities` reads, so `notifications` is `granted` exactly when liveupdate may post, and
+  the first `checkPermissions` creates liveupdate's notification channel when it was not there. The plugin's own
+  reading of the channel is gone, with a validator of ids that nothing called since 0.5 and Gradle properties of
+  fixture tests that left with it; the R8 rule that kept `ActionRegistration`, a class that 0.5 renamed, keeps
+  `EventRegistration`.
 - The reference validator `tools/validate-request.mjs` checks the new members beside activitykit's schema. One of
   activitykit's fixtures, which uses `relevance` as its example of an unknown member, is valid here.
-- `docs/spec.md` lists what the plugin proves itself and, apart, the promises that liveactivity's tests prove.
+- `docs/spec.md` lists what the plugin proves itself and, apart, the promises that liveactivity's tests prove. New
+  there: TP-ANDROID-13, the Android permissions, with the Kotlin tests of their policy.
 - Breaking in Rust: `LayoutSnapshot`, `LayoutUpdateInput` and `Capabilities` have members more, `Alert` and
   `AndroidOptions` are built with `new`, and the state enums are `#[non_exhaustive]`, so a `match` on them needs a
   `_` arm. `LayoutSnapshot::new`, `LayoutStartInput::new`, `LayoutUpdateInput::new` and `LayoutEndInput::new` build

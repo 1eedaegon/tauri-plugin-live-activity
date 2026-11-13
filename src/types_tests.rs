@@ -206,25 +206,6 @@ fn ios_permissions() -> Permissions {
     }
 }
 
-// TP-PUSH-5
-#[test]
-fn capabilities_and_permissions_read_older_natives_without_pushes() {
-    // A native side of 0.5 writes neither member: it has no pushes.
-    let mut capabilities = serde_json::to_value(ios_capabilities()).unwrap();
-    capabilities.as_object_mut().unwrap().remove("push");
-    let read: Capabilities = serde_json::from_value(capabilities).unwrap();
-    assert_eq!(read.push, FeatureSupport::Unsupported);
-    assert_eq!(read.layout, FeatureSupport::Supported);
-    let mut permissions = serde_json::to_value(ios_permissions()).unwrap();
-    permissions
-        .as_object_mut()
-        .unwrap()
-        .remove("frequentPushes");
-    let read: Permissions = serde_json::from_value(permissions).unwrap();
-    assert_eq!(read.frequent_pushes, PermissionState::NotApplicable);
-    assert_eq!(read.live_activities, PermissionState::Granted);
-}
-
 // TP-JS-7
 #[test]
 fn the_typescript_records_have_the_members_that_the_rust_models_write() {

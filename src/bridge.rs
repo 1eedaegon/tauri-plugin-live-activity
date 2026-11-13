@@ -56,22 +56,29 @@ mod tests {
         }
     }
 
-    // TP-ANDROID-12, TP-IOS-8
+    // TP-ANDROID-12, TP-ANDROID-13
     #[test]
-    fn an_android_layout_record_reads_into_the_plugins_record() {
-        let record: crate::LayoutActivityRecord = decode(json!({"ok":true,"data":{
-            "id":"la-android-1","activityKey":"demo:1","schemaVersion":2,
-            "snapshot":{"revision":3,"values":{"status":"Late"},"timestamp":1_790_000_000_000u64},
-            "backend":"androidNotification","state":"ended","visibility":"unknown",
-            "degradedFeatures":["layout.island"],"promotionRequested":true,"promotionState":"unknown"}}))
-        .unwrap();
-        assert_eq!(
-            (record.snapshot.revision, record.snapshot.timestamp),
-            (3, Some(1_790_000_000_000))
-        );
-        assert_eq!(record.state, crate::ActivityState::Ended);
-        assert_eq!(record.backend, crate::Backend::AndroidNotification);
-        let pending: crate::ActivityState = serde_json::from_value(json!("pending")).unwrap();
-        assert_eq!(pending, crate::ActivityState::Pending);
+    fn what_the_kotlin_side_answers_reads_into_the_contracts_permissions_and_liveupdates_reply() {
+        use crate::{PermissionState, Permissions};
+        // The permissions as `permissionsOf` writes them, with each state that Android's dialog leaves.
+        for (word, state) in [
+            ("granted", PermissionState::Granted),
+            ("prompt", PermissionState::Prompt),
+            ("settingsRequired", PermissionState::SettingsRequired),
+            ("unknown", PermissionState::Unknown),
+        ] {
+            let permissions: Permissions = decode(json!({"ok":true,"data":{
+                "notifications":word,"liveActivities":"notApplicable",
+                "promotion":"settingsRequired","frequentPushes":"notApplicable"}}))
+            .unwrap();
+            assert_eq!(permissions.notifications, state);
+            assert_eq!(permissions.live_activities, PermissionState::NotApplicable);
+            assert_eq!(permissions.promotion, PermissionState::SettingsRequired);
+            assert_eq!(permissions.frequent_pushes, PermissionState::NotApplicable);
+        }
+        // liveupdate's own reply travels as text, which liveupdate's driver reads.
+        let reply: String =
+            decode(json!({"ok":true,"data":"{\"status\":\"ok\",\"data\":null}"})).unwrap();
+        assert_eq!(reply, r#"{"status":"ok","data":null}"#);
     }
 }

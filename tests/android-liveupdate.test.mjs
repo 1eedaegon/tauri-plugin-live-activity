@@ -24,22 +24,40 @@ test("the Android library carries liveupdate's Kotlin, resources and manifest en
   assert.match(renderer, /io\.github\.eedaegon\.liveactivity\.R\.drawable\.liveupdate_status/);
   assert.doesNotMatch(renderer, /[^.]R\.drawable\./);
   assert.equal(adapt('a R.drawable.x b'), 'a io.github.eedaegon.liveactivity.R.drawable.x b');
-  // The plugin reads liveupdate's channel for its permissions.
-  const plugin = readFileSync(join(root, 'android/src/main/java/io/github/eedaegon/liveactivity/AndroidNotifications.kt'), 'utf8');
-  const adapter = readFileSync(join(dir, 'android/src/main/java/io/github/eedaegon/liveupdate/AndroidAdapter.kt'), 'utf8');
-  const channel = adapter.match(/CHANNEL_ID = "([^"]+)"/)[1];
-  assert.match(plugin, new RegExp(`CHANNEL_ID = "${channel.replaceAll('.', '\\.')}"`));
   assert.throws(() => liveupdateDir({ cargo: join(dir, 'no-such-cargo') }), /cargo metadata failed/);
 });
 
+const OWN = 'android/src/main/java/io/github/eedaegon/liveactivity';
+const own = file => readFileSync(join(root, OWN, file), 'utf8');
+
 // TP-ANDROID-11
 test('the plugin has no Kotlin lifecycle, renderer, receivers or validator for layouts', () => {
-  const own = readdirSync(join(root, 'android/src/main/java/io/github/eedaegon/liveactivity')).sort();
-  assert.deepEqual(own, ['AndroidNotifications.kt', 'Input.kt', 'LiveActivityPlugin.kt', 'Models.kt', 'PermissionPolicy.kt']);
-  const plugin = readFileSync(join(root, 'android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt'), 'utf8');
+  const files = readdirSync(join(root, OWN)).sort();
+  assert.deepEqual(files, ['Input.kt', 'LiveActivityPlugin.kt', 'Models.kt', 'PermissionPolicy.kt']);
+  const plugin = own('LiveActivityPlugin.kt');
   const commands = [...plugin.matchAll(/@Command\s+(?:override )?fun (\w+)/g)].map(([, name]) => name).sort();
   assert.deepEqual(commands, ['checkPermissions', 'imageDirectory', 'liveUpdate', 'registerEvents', 'requestPermissions']);
   assert.match(plugin, /LiveUpdateBridge\.invoke\(activity, args\.getString\("command"\), args\.getString\("payload"\)\)/);
   const manifest = readFileSync(join(root, 'android/src/main/AndroidManifest.xml'), 'utf8');
   assert.doesNotMatch(manifest, /io\.github\.eedaegon\.liveactivity\./);
+  // Rust calls no command that the Kotlin side lacks.
+  const rust = readFileSync(join(root, 'src/android.rs'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+  const called = [...rust.matchAll(/\b(?:run_mobile_plugin\(|call(?:::<[^>]+>)?\(\s*&[\w.]+,)\s*"(\w+)"/g)].map(([, name]) => name);
+  assert.deepEqual([...new Set(called)].sort(), commands);
+  // R8 keeps what Tauri and Jackson reach by reflection: the plugin and the argument classes of its commands.
+  const kept = [...readFileSync(join(root, 'android/consumer-rules.pro'), 'utf8')
+    .matchAll(/^-keep class io\.github\.eedaegon\.liveactivity\.(\w+) \{ \*; \}$/gm)].map(([, name]) => name).sort();
+  const reflected = [...files.map(own).join('\n').matchAll(/@(?:TauriPlugin|InvokeArg)(?:\([^\n]*\))?\s+class (\w+)/g)]
+    .map(([, name]) => name).sort();
+  assert.deepEqual(kept, reflected);
+});
+
+// TP-ANDROID-13
+test("the plugin's permissions read the notification settings through liveupdate's adapter alone", () => {
+  const plugin = own('LiveActivityPlugin.kt');
+  assert.match(plugin, /LiveUpdateBridge\.invoke\(activity, "capabilities", "\{\}"\)/);
+  // No reading of the settings or of liveupdate's channel of the plugin's own, which could differ from the adapter's.
+  for (const file of readdirSync(join(root, OWN))) {
+    assert.doesNotMatch(own(file), /NotificationManager|CHANNEL_ID|areNotificationsEnabled|canPostPromotedNotifications/, file);
+  }
 });
