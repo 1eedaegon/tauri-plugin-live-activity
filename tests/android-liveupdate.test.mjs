@@ -44,6 +44,11 @@ test('the plugin has no Kotlin lifecycle, renderer, receivers or validator for l
   const rust = readFileSync(join(root, 'src/android.rs'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
   const called = [...rust.matchAll(/\b(?:run_mobile_plugin\(|call(?:::<[^>]+>)?\(\s*&[\w.]+,)\s*"(\w+)"/g)].map(([, name]) => name);
   assert.deepEqual([...new Set(called)].sort(), commands);
+  // The image folder is named on both sides: Rust takes the app's files from two folders above the one Kotlin answers.
+  const folder = rust.match(/const IMAGE_FOLDER: &str = "([^"]+)";/)[1];
+  assert.equal(plugin.match(/const val IMAGE_FOLDER = "([^"]+)"/)[1], folder);
+  assert.equal(folder.split('/').length, 2);
+  assert.match(rust, /\.ancestors\(\)\s*\.nth\(2\)/);
   // R8 keeps what Tauri and Jackson reach by reflection: the plugin and the argument classes of its commands.
   const kept = [...readFileSync(join(root, 'android/consumer-rules.pro'), 'utf8')
     .matchAll(/^-keep class io\.github\.eedaegon\.liveactivity\.(\w+) \{ \*; \}$/gm)].map(([, name]) => name).sort();
