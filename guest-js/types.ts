@@ -22,6 +22,23 @@ export interface Capabilities {
   /** Pushes: tokens, channels and push-to-start (iOS). */
   readonly push: FeatureSupport;
   readonly maxPayloadBytes: number;
+  /** Which notification styles the device draws, for the `android` content of a snapshot. Android only. */
+  readonly androidPresentation?: AndroidPresentationSupport;
+}
+
+/** The notification styles an Android device draws. */
+export interface AndroidPresentationSupport {
+  readonly standard: boolean;
+  readonly bigText: boolean;
+  readonly timer: boolean;
+  /** A progress with segments and points: Android 16. */
+  readonly progressStyle: boolean;
+  /** Up to three metrics: Android 17. */
+  readonly metricStyle: boolean;
+  readonly actions: boolean;
+  readonly images: boolean;
+  readonly events: boolean;
+  readonly samsungNowBar: boolean;
 }
 
 export interface Permissions {
@@ -148,6 +165,123 @@ export interface LayoutSnapshot {
    * shows; without it iOS takes the time the content is sent. Android keeps it in the record.
    */
   readonly timestamp?: number;
+  /**
+   * Which of the app's activities the Dynamic Island shows first: the highest score wins. Without it the activity
+   * keeps its score, 0 at first. Android ignores it, and an Android record does not repeat it.
+   */
+  readonly relevance?: number;
+  /**
+   * What Android shows for this snapshot instead of the projection of the layout. iOS ignores it, and an iOS record
+   * does not repeat it.
+   */
+  readonly android?: AndroidContent;
+}
+
+/**
+ * What the Android notification shows for a snapshot, in Android's own terms: a progress with segments and points,
+ * metrics, the text of the status chip, icons of actions. Android keeps the style of an activity's first snapshot
+ * (`UNSUPPORTED_FEATURE` for another), so an activity gives its content with every snapshot or with none.
+ * `getCapabilities().androidPresentation` says which styles the device draws. A tap on one of its actions comes
+ * through `onAction`.
+ */
+export interface AndroidContent {
+  /** The notification's title, 1 to 120 code points. */
+  readonly title: string;
+  /** The notification's text, 1 to 240 code points. */
+  readonly status: string;
+  readonly presentation: AndroidPresentation;
+}
+
+/** The liveupdate crate's presentation of a notification. */
+export interface AndroidPresentation {
+  readonly style: AndroidStyle;
+  /** The text of the status chip, at most 7 code points. */
+  readonly shortCriticalText?: string;
+  readonly largeIcon?: AndroidIcon;
+  /** Up to three. */
+  readonly actions?: readonly AndroidAction[];
+  /** The texts of Samsung's Now Bar, where the title and the status are not what it should show. */
+  readonly samsungNowBar?: { readonly primary?: string; readonly secondary?: string };
+}
+
+export type AndroidStyle =
+  | { readonly kind: 'standard' }
+  | { readonly kind: 'bigText'; readonly value: { readonly text: string; readonly summary?: string } }
+  | { readonly kind: 'progress'; readonly value: AndroidProgressStyle }
+  | { readonly kind: 'timer'; readonly value: { readonly timer: Timer; readonly countsDown: boolean } }
+  | { readonly kind: 'metric'; readonly value: { readonly metrics: readonly AndroidMetric[]; readonly criticalMetric?: number } };
+
+export type AndroidSemanticStyle = 'unspecified' | 'info' | 'safe' | 'caution' | 'danger';
+
+/** A drawable or mipmap resource of the app by name, or a file under the app's files, such as one `writeImage` wrote. */
+export type AndroidIcon =
+  | { readonly kind: 'resource'; readonly value: string }
+  | { readonly kind: 'appFile'; readonly value: string };
+
+export interface AndroidAction {
+  readonly id: string;
+  readonly title: string;
+  readonly icon?: AndroidIcon;
+  /** Whether Android asks the person to unlock before the tap is sent. */
+  readonly authenticationRequired?: boolean;
+}
+
+/**
+ * On Android 16 a progress is `NATIVE_ERROR` for now: liveupdate 0.1's Android side gives its segments and points a
+ * semantic style with a method that Android 17 added. Below Android 16 it is a plain bar.
+ */
+export interface AndroidProgressStyle {
+  /** In the units of the segments, at most their sum. */
+  readonly progress: number;
+  readonly indeterminate?: boolean;
+  /** Whether Android draws the part behind the progress differently from the part ahead. */
+  readonly styledByProgress?: boolean;
+  /** 1 to 32. */
+  readonly segments: readonly AndroidProgressElement<'length'>[];
+  /** Up to 32, each after the one before. */
+  readonly points?: readonly AndroidProgressElement<'position'>[];
+  readonly startIcon?: AndroidIcon;
+  readonly endIcon?: AndroidIcon;
+  readonly trackerIcon?: AndroidIcon;
+}
+
+/** A segment, with its `length`, or a point, with its `position`: a positive integer, and an optional ARGB color. */
+export type AndroidProgressElement<Measure extends 'length' | 'position'> = {
+  readonly [M in Measure]: number;
+} & {
+  readonly id?: number;
+  readonly color?: number;
+  readonly semanticStyle?: AndroidSemanticStyle;
+};
+
+export interface AndroidMetric {
+  /** At most 10 code points. */
+  readonly label: string;
+  readonly value: AndroidMetricValue;
+  readonly semanticStyle?: AndroidSemanticStyle;
+}
+
+/**
+ * The members of a stopwatch and a countdown are written as liveupdate 0.1 writes them, in snake case. Its Android
+ * side reads them in camel case, so a snapshot with one of the two is `INVALID_INPUT` on Android for now: an
+ * integer, a decimal and a text are what a metric can show.
+ */
+export type AndroidMetricValue =
+  | { readonly kind: 'integer'; readonly value: { readonly value: number; readonly unit?: string } }
+  | { readonly kind: 'decimal'; readonly value: { readonly value: number; readonly unit?: string } }
+  | { readonly kind: 'text'; readonly value: string }
+  | { readonly kind: 'stopwatch'; readonly value: { readonly started_at: number } }
+  | { readonly kind: 'countdown'; readonly value: { readonly ends_at: number } };
+
+/**
+ * An alert that comes with an update. On iOS the device lights up, the Dynamic Island expands and an Apple Watch
+ * shows the title and the body. Android updates silently and names `alert` in the record's `degradedFeatures`.
+ */
+export interface LayoutAlert {
+  /** 1 to 120 code points. */
+  readonly title: string;
+  /** 1 to 240 code points. */
+  readonly body: string;
 }
 
 type ColorName =
@@ -435,6 +569,8 @@ export interface LayoutUpdateInput {
   readonly id: string;
   /** Complete replacement snapshot, not a partial update. */
   readonly snapshot: LayoutSnapshot;
+  /** An alert that comes with the update; without it the update is silent. */
+  readonly alert?: LayoutAlert;
 }
 
 /**
@@ -482,6 +618,23 @@ export interface PushToStartTokenEvent {
  */
 export interface UpdatedEvent {
   readonly record: LayoutActivityRecord;
+}
+
+/** A layout activity that began while the app ran: one the app started, or one a push started (iOS). */
+export interface StartedEvent {
+  readonly record: LayoutActivityRecord;
+}
+
+/**
+ * A new lifecycle state of an activity, of a template or a layout. iOS reports every change while the app runs;
+ * Android reports that the person dismissed the notification of a layout activity.
+ */
+export interface StateEvent {
+  /** Handle of the activity. */
+  readonly activityId: string;
+  /** The key of that activity, when the plugin knows it. */
+  readonly activityKey?: string;
+  readonly state: ActivityState;
 }
 
 /**

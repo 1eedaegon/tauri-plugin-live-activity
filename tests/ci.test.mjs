@@ -1,4 +1,4 @@
-// The crate's manifest keeps activitykit to one line; CI's `changes` job starts each job for its paths; the simulator
+// The crate's manifest keeps liveactivity to one line; CI's `changes` job starts each job for its paths; the simulator
 // jobs key their caches and records on the files they read and pin their tools; run.sh tests through the scheme.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -8,11 +8,13 @@ import { test } from 'node:test';
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 // TP-RUST-5
-test('activitykit is one line of Cargo.toml and the crate builds no Swift of its own', () => {
+test('liveactivity is one line of Cargo.toml, brings both engines, and the crate builds no Swift of its own', () => {
   const manifest = read('Cargo.toml');
-  const lines = manifest.split('\n').filter(line => /^\s*activitykit\s*=/.test(line));
-  assert.deepEqual(lines, ['activitykit = "0.3"']);
-  assert.doesNotMatch(manifest, /\[dependencies\.activitykit\]|activitykit\.(git|rev|version)\s*=/);
+  // The engines come through liveactivity alone, so the plugin and the interface always build on the same versions.
+  const lines = manifest.split('\n').filter(line => /^\s*(liveactivity|activitykit|liveupdate)\s*=/.test(line));
+  assert.equal(lines.length, 1, lines.join('\n'));
+  assert.match(lines[0], /^liveactivity = /);
+  assert.doesNotMatch(manifest, /\[dependencies\.(liveactivity|activitykit|liveupdate)\]/);
   assert.doesNotMatch(read('build.rs'), /ios_path/);
   assert.doesNotMatch(manifest, /"\/ios\/|"\/templates\//);
   for (const gone of ['ios', 'templates']) assert.equal(existsSync(new URL(`../${gone}`, import.meta.url)), false, gone);
@@ -50,15 +52,16 @@ test('the changes job starts each job for its paths, and the ios area is what th
   const workflow = read('.github/workflows/ci.yml');
   assert.deepEqual(Object.keys(areas().found), ['rust', 'js', 'ios', 'android']);
   const starts = {
-    rust: ['src/lib.rs', 'src/apple/glue.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml',
+    rust: ['src/lib.rs', 'src/service.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml',
       'tests/contract.rs', 'examples/demo/src-tauri/src/lib.rs'],
     js: ['guest-js/index.ts', 'cli/setup.mjs', 'tools/sync-contract.mjs', 'tests/api.test.mjs',
-      'tests/release/release-guard.test.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/src/main.ts'],
+      'tests/release/release-guard.test.mjs', 'tests/jsx/elements.tsx', 'tests/declarations/members.ts',
+      'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/src/main.ts'],
     ios: ['src/ios.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml', 'guest-js/types.ts', 'cli/ios.mjs',
       'tools/sync-contract.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/link-activitykit.mjs',
       'tests/ios/run.sh', 'tests/ci/cache.sh'],
-    android: ['android/src/main/java/io/github/eedaegon/liveactivity/Lifecycle.kt', 'tests/android/settings.gradle.kts',
-      'Cargo.toml', 'Cargo.lock', 'src/android.rs', 'src/android_liveupdate.rs', 'src/lib.rs', 'build.rs'],
+    android: ['android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt', 'tests/android/settings.gradle.kts',
+      'Cargo.toml', 'Cargo.lock', 'src/android.rs', 'src/bridge.rs', 'src/lib.rs', 'build.rs'],
   };
   const not = {
     rust: ['cli/setup.mjs', 'guest-js/index.ts', 'tests/api.test.mjs', 'tests/ios/run.sh', 'docs/spec.md'],

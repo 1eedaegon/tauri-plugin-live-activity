@@ -6,7 +6,11 @@ implements iOS and Android. What was actually built and tested is in the
 plugin has no Swift adapter, `ios/` or `templates/ios/` of its own. Its Rust commands call the
 [activitykit](https://github.com/1eedaegon/activitykit-rs) crate, whose Swift layer talks to
 ActivityKit, and the host's widget extension links activitykit's Swift products
-([iOS integration](ios-integration.md)).
+([iOS integration](ios-integration.md)). After 0.6 the plugin became an adapter of the
+[liveactivity](https://github.com/1eedaegon/liveactivity-rs) crate: the contract, its checks,
+the lifecycle, both platform backends and the projection of a layout onto an Android
+notification are that crate's, and the plugin keeps Tauri's commands, events and
+configuration, the Android permissions, the Kotlin side and the JavaScript API.
 
 ## Product requirements
 

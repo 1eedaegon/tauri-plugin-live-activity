@@ -220,6 +220,31 @@ test('onPushToken, onPushToStartToken and onUpdated listen to their events', asy
   assert.deepEqual(tokens, [token]);
 });
 
+// TP-EVENT-1
+test('onStarted, onState and onPermissions listen to their events', async t => {
+  t.mock.method(console, 'warn', () => {});
+  mockIPC(() => undefined, { shouldMockEvents: true });
+  const started = [];
+  const states = [];
+  const permissions = [];
+  const unlisten = await activity.onStarted(event => started.push(event));
+  await activity.onState(event => states.push(event));
+  await activity.onPermissions(event => permissions.push(event));
+  const dismissed = { activityId: layoutRecord.id, activityKey: layoutInput.activityKey, state: 'dismissed' };
+  const denied = { notifications: 'notApplicable', liveActivities: 'denied', promotion: 'notApplicable', frequentPushes: 'denied' };
+  await emit('live-activity://started', { record: layoutRecord });
+  await emit('live-activity://state', dismissed);
+  await emit('live-activity://permissions', denied);
+  await emit('live-activity://updated', { record: layoutRecord });
+  assert.deepEqual(started, [{ record: layoutRecord }]);
+  assert.deepEqual(states, [dismissed]);
+  assert.deepEqual(permissions, [denied]);
+
+  await unlisten();
+  await emit('live-activity://started', { record: layoutRecord });
+  assert.equal(started.length, 1);
+});
+
 // TP-PUSH-2, TP-PUSH-8
 test('onPushToken and onPushToStartToken deliver the tokens the plugin holds first, each token once', async t => {
   t.mock.method(console, 'warn', () => {});
@@ -599,5 +624,13 @@ test('the declarations follow the contract of 0.6', async () => {
   for (const name of ['onPushToken', 'onPushToStartToken', 'onUpdated']) {
     assert.match(index, new RegExp(`export declare function ${name}\\(handler: \\(event: \\w+\\) => void\\): Promise<UnlistenFn>;`), name);
   }
+  // The events of an activity's life and of the permissions.
+  for (const name of ['StartedEvent', 'StateEvent']) {
+    assert.match(types, new RegExp(`export interface ${name} \\{`), name);
+  }
+  for (const name of ['onStarted', 'onState']) {
+    assert.match(index, new RegExp(`export declare function ${name}\\(handler: \\(event: \\w+\\) => void\\): Promise<UnlistenFn>;`), name);
+  }
+  assert.match(index, /export declare function onPermissions\(handler: \(permissions: Permissions\) => void\): Promise<UnlistenFn>;/);
 });
 

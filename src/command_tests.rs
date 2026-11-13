@@ -222,30 +222,6 @@ fn desktop_layout_commands_validate_before_they_fail_explicitly() {
     assert_eq!(late, Err(crate::Error::invalid()));
 }
 
-#[test]
-fn capabilities_from_a_native_side_without_layout_decode_as_unsupported() {
-    let mut native = json!({"platform":"android","backend":"androidNotification","start":"supported",
-        "update":"supported","end":"supported","progress":"supported","timer":"supported",
-        "actions":"unsupported","stateObservation":"supported","silentUpdate":"supported",
-        "nativeLiveActivity":"unsupported","maxPayloadBytes":4096});
-    let decode = |data: &Value| {
-        crate::bridge::decode::<crate::Capabilities>(json!({"ok":true,"data":data})).unwrap()
-    };
-    assert_eq!(decode(&native).layout, FeatureSupport::Unsupported);
-    for (word, support) in [
-        ("supported", FeatureSupport::Supported),
-        ("unsupported", FeatureSupport::Unsupported),
-        ("unknown", FeatureSupport::Unknown),
-    ] {
-        native["layout"] = json!(word);
-        assert_eq!(decode(&native).layout, support);
-        assert_eq!(
-            serde_json::to_value(decode(&native)).unwrap()["layout"],
-            word
-        );
-    }
-}
-
 // TP-CONFIG-1
 #[test]
 fn plugin_accepts_an_absent_null_or_redacted_configuration() {
@@ -289,7 +265,7 @@ fn plugin_accepts_an_absent_null_or_redacted_configuration() {
 // TP-ACTION-1
 #[test]
 fn taps_reach_tauri_listeners_as_the_action_event() {
-    use crate::actions::{ACTION_EVENT, spawn};
+    use crate::{ACTION_EVENT, actions::spawn};
     use tauri::{Emitter, Listener};
     let app = mock_builder()
         .plugin(crate::init())
@@ -318,7 +294,7 @@ fn write_image_checks_the_png_then_reports_that_desktop_has_no_widget() {
         .build(mock_context(noop_assets()))
         .unwrap();
     let handle = app.handle().clone();
-    let png = crate::image::tests::png(8, 8, 1);
+    let png = sized_png(8, 8, 1);
     tauri::async_runtime::block_on(async {
         let write = |input: Value| commands::write_image(handle.clone(), input);
         assert_eq!(
@@ -337,7 +313,7 @@ fn write_image_checks_the_png_then_reports_that_desktop_has_no_widget() {
             assert_eq!(write(input).await.unwrap_err().code, "INVALID_INPUT");
         }
     });
-    let wide = crate::image::tests::png(1225, 8, 1);
+    let wide = sized_png(1225, 8, 1);
     assert_eq!(
         app.live_activity()
             .write_image("wide.png", &wide)
@@ -381,10 +357,11 @@ fn a_channel_that_is_no_base64_is_refused_before_the_native_side() {
 // TP-PUSH-2, TP-PUSH-4
 #[test]
 fn push_events_reach_tauri_listeners() {
-    use crate::pushes::{
-        PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT, PushEvent, PushToStartTokenEvent,
-        PushTokenEvent, UPDATED_EVENT, UpdatedEvent,
+    use crate::{
+        PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT, PushToStartTokenEvent, PushTokenEvent,
+        UPDATED_EVENT, UpdatedEvent,
     };
+    use liveactivity::Event;
     use tauri::Listener;
     let app = mock_builder()
         .plugin(crate::init())
@@ -405,20 +382,23 @@ fn push_events_reach_tauri_listeners() {
         "promotionRequested":false,"promotionState":"notApplicable"}))
     .unwrap();
     let events = [
-        PushEvent::Token(PushTokenEvent {
+        Event::PushToken(PushTokenEvent {
             activity_id: "la-1".into(),
             activity_key: Some("job:1".into()),
             token: "0a1b".into(),
         }),
-        PushEvent::PushToStartToken(PushToStartTokenEvent {
+        Event::PushToStartToken(PushToStartTokenEvent {
             token: "ff00".into(),
         }),
-        PushEvent::Updated(UpdatedEvent {
+        Event::Updated(UpdatedEvent {
             record: record.clone(),
         }),
     ];
+    // The sink of the backend's events, as the plugin connects it.
+    let actions = crate::actions::spawn(|_| {}).unwrap();
+    let sink = crate::events::sink(app.handle().clone(), actions);
     for event in &events {
-        event.emit(app.handle()).unwrap();
+        sink(event.clone());
     }
     let mut received = Vec::new();
     for _ in 0..events.len() {
@@ -486,5 +466,191 @@ fn push_tokens_answers_no_tokens_where_there_are_no_pushes() {
     assert_eq!(
         serde_json::to_value(&held).unwrap(),
         json!({"pushToStart":"ff00","activities":[{"activityId":"la-1","token":"0a1b"}]})
+    );
+}
+
+fn pet_tap() -> crate::ActionEvent {
+    crate::ActionEvent {
+        action_id: "pet".into(),
+        activity_id: "la-1".into(),
+        activity_key: Some("job:1".into()),
+    }
+}
+
+// TP-ACTION-3, TP-PUSH-6
+#[test]
+fn the_sink_holds_a_tap_until_its_handlers_have_run_and_its_event_went_out() {
+    use crate::ACTION_EVENT;
+    use liveactivity::Event;
+    use std::sync::{Arc, Mutex};
+    use tauri::{Emitter, Listener};
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let heard = log.clone();
+    app.listen(ACTION_EVENT, move |_| heard.lock().unwrap().push("emitted"));
+    let emitter = app.handle().clone();
+    let actions =
+        crate::actions::spawn(move |event| emitter.emit(ACTION_EVENT, event).unwrap()).unwrap();
+    let slow = log.clone();
+    actions.subscribe(move |_| {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        slow.lock().unwrap().push("handled");
+    });
+    let sink = crate::events::sink(app.handle().clone(), actions);
+    sink(Event::Action(pet_tap()));
+    // liveactivity lets the tap's intent go, and reports its next event, when the sink returns: the handler and the
+    // event are done by then.
+    assert_eq!(*log.lock().unwrap(), ["handled", "emitted"]);
+}
+
+// TP-ACTION-3
+#[test]
+fn the_sink_lets_a_tap_go_when_its_time_is_up_while_a_handler_still_runs() {
+    use liveactivity::Event;
+    use std::{
+        sync::{Arc, Mutex, mpsc},
+        time::{Duration, Instant},
+    };
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let (finish, finished) = mpsc::channel::<()>();
+    let finished = Mutex::new(finished);
+    let actions = crate::actions::spawn(|_| {}).unwrap();
+    let handled = log.clone();
+    actions.subscribe(move |_| {
+        // A handler that hangs far longer than a tap is held, until the test lets it go.
+        let _ = finished
+            .lock()
+            .unwrap()
+            .recv_timeout(Duration::from_secs(30));
+        handled.lock().unwrap().push("handled");
+    });
+    let limit = Duration::from_millis(100);
+    let sink = crate::events::sink_within(app.handle().clone(), actions, limit);
+    let started = Instant::now();
+    sink(Event::Action(pet_tap()));
+    // The system gives a tap's intent a limited time: the sink returns then, whatever the handlers do.
+    assert!(started.elapsed() >= limit);
+    assert!(log.lock().unwrap().is_empty());
+    finish.send(()).unwrap();
+}
+
+// TP-PUSH-6
+#[test]
+fn a_panicking_rust_listener_ends_neither_the_thread_of_the_events_nor_the_taps() {
+    use crate::{PUSH_TOKEN_EVENT, PushTokenEvent};
+    use liveactivity::Event;
+    use tauri::Listener;
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    // What a Rust listener of the app that panics does: Tauri runs it inline in the emit, on the thread that
+    // reports the backend's events.
+    app.listen(PUSH_TOKEN_EVENT, |_| panic!("raised by this test"));
+    let (sender, handled) = std::sync::mpsc::channel();
+    let actions = crate::actions::spawn(|_| {}).unwrap();
+    actions.subscribe(move |event| {
+        let _ = sender.send(event.action_id);
+    });
+    let sink = crate::events::sink(app.handle().clone(), actions);
+    let token = || {
+        Event::PushToken(PushTokenEvent {
+            activity_id: "la-1".into(),
+            activity_key: None,
+            token: "0a1b".into(),
+        })
+    };
+    sink(token());
+    // The sink returned, so the thread that called it goes on. Tauri's registry of Rust listeners is poisoned by
+    // then, and a further event passes through the sink all the same.
+    sink(token());
+    // The tap behind the tokens reaches the handlers.
+    sink(Event::Action(pet_tap()));
+    let handled = handled.recv_timeout(std::time::Duration::from_secs(10));
+    assert_eq!(handled.as_deref(), Ok("pet"));
+}
+
+/// A PNG of that size: the signature, an image header, a data chunk of `filler` bytes and the end.
+fn sized_png(width: u32, height: u32, filler: usize) -> Vec<u8> {
+    let mut bytes = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();
+    bytes.extend(width.to_be_bytes());
+    bytes.extend(height.to_be_bytes());
+    bytes.extend([8, 6, 0, 0, 0, 0, 0, 0, 0]);
+    bytes.extend((filler as u32).to_be_bytes());
+    bytes.extend(b"IDAT");
+    bytes.extend(std::iter::repeat_n(0, filler + 4));
+    bytes.extend(b"\0\0\0\0IEND\xaeB`\x82");
+    bytes
+}
+
+// TP-EVENT-1
+#[test]
+fn starts_states_and_permissions_reach_tauri_listeners() {
+    use crate::{PERMISSIONS_EVENT, STARTED_EVENT, STATE_EVENT};
+    use liveactivity::Event;
+    use tauri::Listener;
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let (sender, heard) = std::sync::mpsc::channel();
+    for name in [STARTED_EVENT, STATE_EVENT, PERMISSIONS_EVENT] {
+        let sender = sender.clone();
+        app.listen(name, move |event| {
+            let payload: Value = serde_json::from_str(event.payload()).unwrap();
+            let _ = sender.send((name, payload));
+        });
+    }
+    let record: crate::LayoutActivityRecord = serde_json::from_value(json!({
+        "id":"la-1","activityKey":"job:1","schemaVersion":2,
+        "snapshot":{"revision":0,"values":{"status":"Started"},"relevance":80.0},
+        "backend":"activityKit","state":"active","visibility":"unknown","degradedFeatures":[],
+        "promotionRequested":false,"promotionState":"notApplicable"}))
+    .unwrap();
+    let permissions: crate::Permissions = serde_json::from_value(json!({
+        "notifications":"notApplicable","liveActivities":"denied","promotion":"notApplicable",
+        "frequentPushes":"denied"}))
+    .unwrap();
+    let actions = crate::actions::spawn(|_| {}).unwrap();
+    let sink = crate::events::sink(app.handle().clone(), actions);
+    sink(Event::Started(crate::StartedEvent {
+        record: record.clone(),
+    }));
+    sink(Event::State(crate::StateEvent {
+        activity_id: "la-1".into(),
+        activity_key: Some("job:1".into()),
+        state: crate::ActivityState::Dismissed,
+    }));
+    sink(Event::Permissions(permissions.clone()));
+    let received: Vec<_> = (0..3)
+        .map(|_| {
+            heard
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .unwrap()
+        })
+        .collect();
+    assert_eq!(
+        received,
+        [
+            (
+                STARTED_EVENT,
+                json!({"record": serde_json::to_value(&record).unwrap()})
+            ),
+            (
+                STATE_EVENT,
+                json!({"activityId":"la-1","activityKey":"job:1","state":"dismissed"})
+            ),
+            (
+                PERMISSIONS_EVENT,
+                serde_json::to_value(&permissions).unwrap()
+            ),
+        ]
     );
 }

@@ -35,10 +35,10 @@ The demo running, recorded on the iPhone 17 Pro simulator and an Android 16 emul
 
 All of them come from the [demo app](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo),
 which follows a cat named Mochi. iOS 16.2+ and Android 8+; on desktop the activity commands answer
-`UNSUPPORTED_PLATFORM`. On iOS the plugin runs on the [activitykit](https://github.com/1eedaegon/activitykit-rs)
-crate and has no Swift of its own; on Android every activity runs in Rust on
-[liveupdate](https://github.com/1eedaegon/liveupdate-rs), and the Kotlin only answers the permission commands.
-Before 1.0, a minor version may change the API.
+`UNSUPPORTED_PLATFORM`. The plugin is an adapter of the [liveactivity](https://github.com/1eedaegon/liveactivity-rs)
+crate, which runs iOS on [activitykit](https://github.com/1eedaegon/activitykit-rs) and Android on
+[liveupdate](https://github.com/1eedaegon/liveupdate-rs): the plugin has no Swift of its own, and its Kotlin answers
+the permission commands and carries liveupdate's Android adapter. Before 1.0, a minor version may change the API.
 
 ## Install
 
@@ -139,7 +139,7 @@ use tauri_plugin_live_activity::{
 
 fn snapshot(revision: u64, status: &str) -> LayoutSnapshot {
     let values = BTreeMap::from([("status".to_string(), Value::Text(status.into()))]);
-    LayoutSnapshot { revision, values, stale_at: None, timestamp: None }
+    LayoutSnapshot::new(revision, values)
 }
 
 fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
@@ -154,12 +154,12 @@ fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
         },
         styles: None,
         snapshot: snapshot(0, "On time"),
-        android: None, // Android only: `AndroidOptions { visibility }` for the lock screen
+        android: None, // Android only: `AndroidOptions::new(visibility)` for the lock screen
         push: None,    // iOS only: `Some(LayoutPush::Token)` asks for the activity's APNs token
     };
     let activity = app.live_activity().start_layout(input)?;
     // Every update sends all values again, with a higher revision.
-    app.live_activity().update_layout(LayoutUpdateInput { id: activity.id.clone(), snapshot: snapshot(1, "At the door") })?;
+    app.live_activity().update_layout(LayoutUpdateInput::new(activity.id.clone(), snapshot(1, "At the door")))?;
     app.live_activity().end_layout(LayoutEndInput { id: activity.id, policy: EndPolicy::Immediate {}, snapshot: None })?;
     Ok(())
 }
@@ -198,7 +198,13 @@ await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 ```
 
 The layout stays as it started; each update sends every value again, with a higher revision. Taps come to
-`onAction`, push tokens and pushed content to `onPushToken`, `onPushToStartToken` and `onUpdated`.
+`onAction`, push tokens and pushed content to `onPushToken`, `onPushToStartToken` and `onUpdated`, and what happens
+to an activity outside the app's calls to `onState`, `onStarted` and `onPermissions`.
+
+A snapshot may also carry a `relevance`, which decides which of the app's activities the Dynamic Island shows, and
+an `android` content, the notification in Android's own terms (a segmented progress, metrics, the chip text) in
+place of the projection of the layout; `updateLayout` takes an `alert`, which lights up the iPhone.
+[More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#android-content)
 
 ## What a layout can hold
 
@@ -259,6 +265,9 @@ at most 1 MiB and 1224 × 480 pixels. [More](https://github.com/1eedaegon/tauri-
   configuration sets `"receipts": "redacted"`.
 - A button's tap waits for the Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.
 - Pushes are iOS only. Android shows an ongoing notification, promoted to a Live Update where the system allows it.
+- On Android 16 a layout that shows a progress, and an Android content of the `progress` style, are not posted for
+  now (`NATIVE_ERROR`): liveupdate 0.1 calls a method there that Android 17 added. The progress template is not
+  affected. [What to show there meanwhile](docs/usage.md#android).
 - Keep the npm package and the crate on the same minor version.
 
 ## Samsung Now Bar

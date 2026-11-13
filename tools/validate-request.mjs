@@ -65,8 +65,47 @@ const LONE_SURROGATE = 'must not contain a lone surrogate';
 const hasLoneSurrogate = (text) => typeof text === 'string' && !text.isWellFormed();
 const TOO_HEAVY = { valid: false, issues: [{ path: '/input', message: `must weigh at most ${MAX_WEIGHT}` }] };
 
+const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
+/** 1 to `max` code points, at least one of them not whitespace. */
+const isText = (value, max) => typeof value === 'string' && [...value].length <= max && /\S/u.test(value);
+const hasOnly = (value, members) => Object.keys(value).every((key) => members.includes(key)) && members.every((key) => Object.hasOwn(value, key));
+const ANDROID_STYLES = ['standard', 'bigText', 'progress', 'timer', 'metric'];
+
+/**
+ * What the liveactivity crate's contract takes beside activitykit's, whose schema this file compiles: a `relevance`
+ * and an `android` content in a snapshot, and an `alert` with an update. They are checked here and left out of the
+ * request that the schema sees. Of an Android content this reference checks the outline; its presentation is the
+ * liveupdate crate's, which the Rust side checks in full.
+ */
+function besideTheSchema(request) {
+  const issues = [];
+  if (!isLayout(request?.command) || !isRecord(request.input)) return { issues, request };
+  const { alert, ...input } = request.input;
+  if (request.command !== 'update_layout' && Object.hasOwn(request.input, 'alert')) return { issues, request };
+  if (Object.hasOwn(request.input, 'alert')) {
+    const valid = isRecord(alert) && hasOnly(alert, ['title', 'body']) && isText(alert.title, 120) && isText(alert.body, 240);
+    if (!valid) issues.push({ path: '/input/alert', message: 'must have a title of 1 to 120 and a body of 1 to 240 characters' });
+  }
+  if (isRecord(input.snapshot)) {
+    const { relevance, android, ...snapshot } = input.snapshot;
+    if (Object.hasOwn(input.snapshot, 'relevance') && !Number.isFinite(relevance)) {
+      issues.push({ path: '/input/snapshot/relevance', message: 'must be a finite number' });
+    }
+    if (Object.hasOwn(input.snapshot, 'android')) {
+      const valid = isRecord(android) && hasOnly(android, ['title', 'status', 'presentation'])
+        && isText(android.title, 120) && isText(android.status, 240)
+        && isRecord(android.presentation) && isRecord(android.presentation.style)
+        && ANDROID_STYLES.includes(android.presentation.style.kind);
+      if (!valid) issues.push({ path: '/input/snapshot/android', message: 'must have a title, a status and a presentation with a style' });
+    }
+    input.snapshot = snapshot;
+  }
+  return { issues, request: { ...request, input } };
+}
+
 /** Development reference validator. Does not call Tauri or any OS API. */
-export function validateRequest(request) {
+export function validateRequest(given) {
+  const { issues: beside, request } = besideTheSchema(given);
   const layout = isLayout(request?.command);
   const validateShape = layout ? validateLayoutShape : validateV1Shape;
   let shaped;
@@ -87,6 +126,7 @@ export function validateRequest(request) {
     };
   }
 
+  if (beside.length > 0) return { valid: false, issues: beside };
   if (layout) return validateLayout(request);
   if (request.command === 'end') return { valid: true, issues: [] };
   const { timer } = request.input.snapshot;

@@ -35,10 +35,10 @@ Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과 Dynamic Island에, A
 
 모두 고양이 Mochi를 따라가는 [데모 앱](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo)에서
 캡처했습니다. iOS 16.2 이상, Android 8 이상에서 동작하고, 데스크톱에서는 활동 명령이
-`UNSUPPORTED_PLATFORM`을 돌려줍니다. iOS에서는 [activitykit](https://github.com/1eedaegon/activitykit-rs)
-크레이트 위에서 동작해 플러그인 자체의 Swift 코드가 없고, Android에서는 모든 액티비티가
-[liveupdate](https://github.com/1eedaegon/liveupdate-rs) 위의 Rust에서 돌며 Kotlin은 권한 명령만 맡습니다.
-1.0 전까지는 마이너 버전이 바뀔 때 API도 바뀔 수 있습니다.
+`UNSUPPORTED_PLATFORM`을 돌려줍니다. 플러그인은 [liveactivity](https://github.com/1eedaegon/liveactivity-rs)
+크레이트의 어댑터이고, 이 크레이트가 iOS는 [activitykit](https://github.com/1eedaegon/activitykit-rs), Android는
+[liveupdate](https://github.com/1eedaegon/liveupdate-rs) 위에서 돌립니다. 그래서 플러그인 자체의 Swift 코드가 없고
+Kotlin은 권한 명령과 liveupdate의 Android 어댑터 호출만 맡습니다. 1.0 전까지는 마이너 버전이 바뀔 때 API도 바뀔 수 있습니다.
 
 ## 설치
 
@@ -138,7 +138,7 @@ use tauri_plugin_live_activity::{
 
 fn snapshot(revision: u64, status: &str) -> LayoutSnapshot {
     let values = BTreeMap::from([("status".to_string(), Value::Text(status.into()))]);
-    LayoutSnapshot { revision, values, stale_at: None, timestamp: None }
+    LayoutSnapshot::new(revision, values)
 }
 
 fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
@@ -153,12 +153,12 @@ fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
         },
         styles: None,
         snapshot: snapshot(0, "On time"),
-        android: None, // Android 전용: 잠금 화면 표시 범위는 `AndroidOptions { visibility }`
+        android: None, // Android 전용: 잠금 화면 표시 범위는 `AndroidOptions::new(visibility)`
         push: None,    // iOS 전용: `Some(LayoutPush::Token)`이면 액티비티의 APNs 토큰을 요청
     };
     let activity = app.live_activity().start_layout(input)?;
     // 갱신마다 모든 값을 다시, 더 높은 revision으로 보냅니다.
-    app.live_activity().update_layout(LayoutUpdateInput { id: activity.id.clone(), snapshot: snapshot(1, "At the door") })?;
+    app.live_activity().update_layout(LayoutUpdateInput::new(activity.id.clone(), snapshot(1, "At the door")))?;
     app.live_activity().end_layout(LayoutEndInput { id: activity.id, policy: EndPolicy::Immediate {}, snapshot: None })?;
     Ok(())
 }
@@ -197,7 +197,12 @@ await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 ```
 
 레이아웃은 시작한 모습 그대로이고, 갱신마다 모든 값을 더 높은 revision으로 다시 보냅니다. 탭은
-`onAction`으로, 푸시 토큰과 푸시된 내용은 `onPushToken`, `onPushToStartToken`, `onUpdated`로 옵니다.
+`onAction`으로, 푸시 토큰과 푸시된 내용은 `onPushToken`, `onPushToStartToken`, `onUpdated`로, 앱이 호출하지 않은
+액티비티의 변화는 `onState`, `onStarted`, `onPermissions`로 옵니다.
+
+스냅샷에는 `relevance`(앱의 여러 액티비티 중 Dynamic Island가 무엇을 보일지 정하는 점수)와 `android`
+콘텐츠(레이아웃 투영 대신 Android 방식 그대로 쓰는 알림: 구간이 있는 진행 막대, 지표, 칩 텍스트)를 넣을 수
+있고, `updateLayout`은 iPhone 화면을 켜는 `alert`를 받습니다. [자세히](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#android-content)
 
 ## 레이아웃에 넣을 수 있는 것
 
@@ -258,6 +263,9 @@ keyline: '#A3D9C2', // 아일랜드 테두리 색
   `"receipts": "redacted"`를 주면 가립니다.
 - 버튼 탭은 Rust `on_action` 핸들러를 최대 4초 기다립니다. JavaScript 리스너는 기다리지 않습니다.
 - 푸시는 iOS만. Android는 진행 중 알림을 보여 주고, 시스템이 허용하는 곳에서는 Live Update로 올립니다.
+- Android 16에서는 지금 진행률(progress)을 보여 주는 레이아웃과 `progress` 스타일의 Android content가 게시되지
+  않습니다(`NATIVE_ERROR`). liveupdate 0.1이 Android 17에 추가된 메서드를 거기서 부르기 때문이고, progress 템플릿은
+  해당하지 않습니다. [그동안 보여 줄 수 있는 것](docs/usage.md#android).
 - npm 패키지와 크레이트는 같은 마이너 버전으로 맞춥니다.
 
 ## Samsung Now Bar

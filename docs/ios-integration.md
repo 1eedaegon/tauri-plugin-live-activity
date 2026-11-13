@@ -1,7 +1,8 @@
 # iOS integration
 
-On iOS the plugin's Rust commands call the [activitykit](https://github.com/1eedaegon/activitykit-rs) crate, and the
-plugin has no Swift of its own. activitykit's build script builds its Swift bridge, `ActivityKitBridge` (the C
+On iOS the plugin's commands run on the [liveactivity](https://github.com/1eedaegon/liveactivity-rs) crate, whose
+iOS backend calls the [activitykit](https://github.com/1eedaegon/activitykit-rs) crate, and the plugin has no Swift of
+its own. activitykit's build script builds its Swift bridge, `ActivityKitBridge` (the C
 functions, the lifecycle with its receipts, and the ActivityKit calls), into the app's Rust library. What the app adds
 in Xcode is a widget extension that draws the activities and a little Swift in the app target; both link products of
 activitykit's Swift package. Installing the crate or the npm package does not add them:
@@ -13,14 +14,17 @@ but the reads answers `UNSUPPORTED_PLATFORM`, and `getCapabilities()` reports ev
 running on a Mac is unsupported too.
 
 ```text
-JavaScript, Rust -> the plugin's commands -> activitykit (Rust) -> ActivityKitBridge (Swift, in the Rust library) -> ActivityKit
+JavaScript, Rust -> the plugin's commands -> liveactivity (Rust) -> activitykit (Rust) -> ActivityKitBridge (Swift, in the Rust library) -> ActivityKit
 Lock Screen, Dynamic Island <- the widget extension: ActivityKitLayoutWidget (product ActivityKitWidget)
-A tap -> ActivityKitActionIntent in the app (product ActivityKitIntent) -> activitykit's events -> on_action -> onAction
+A tap -> ActivityKitActionIntent in the app (product ActivityKitIntent) -> activitykit's events -> liveactivity -> on_action -> onAction
 ```
 
-The plugin's own iOS logic is Rust (`src/apple`): it checks every request against the contract before activitykit
-sees it, finds activities by id, applies the revision rules, answers a repeated start, builds the records, turns the
-progress and timer templates into layouts and hands taps to the handlers.
+The iOS logic is the liveactivity crate's iOS backend: it checks every request against the contract before
+activitykit sees it, keeps templates and layouts apart, builds the records, turns the progress and timer templates
+into layouts, keeps the handles of the activities it ended and reads the kit's events; lookups by id, the revision
+rules and repeated starts are activitykit's. The plugin's own iOS code is
+`src/ios.rs`: it builds activitykit's kit from the plugin configuration (the receipts and the push-to-start watch)
+and connects that backend to the commands, to Tauri's events and to the handlers of `on_action`.
 
 ## Set up by hand
 
@@ -29,8 +33,8 @@ XcodeGen spec. Do them yourself for a project that `setup` leaves alone, such as
 extension.
 
 1. Find activitykit's folder. It is a dependency of the plugin, so `cargo metadata` lists it (the package named
-   `activitykit`). Its `swift` folder is the Swift package; add it as a local package reference. Until activitykit is
-   on crates.io it is a git checkout in Cargo's folder, whose path changes with each activitykit revision.
+   `activitykit`). Its `swift` folder is the Swift package; add it as a local package reference. The folder is in
+   Cargo's registry and names activitykit's version, so its path changes when the plugin moves to another one.
 2. Set `NSSupportsLiveActivities` (`Boolean`, `YES`) in the app's Info.plist. In a Tauri app that is
    `src-tauri/Info.ios.plist`, which Tauri merges when it builds.
 3. Add a Widget Extension target with a deployment target of iOS 16.2. Link the `ActivityKitWidget` product, and
@@ -140,6 +144,7 @@ prompt of its own:
   is the switch for frequent pushes, `granted` or `denied`, `notApplicable` where there are no Live Activities.
 - `requestPermissions('liveActivities')` reports `settingsRequired` instead of `denied`. Another kind fails with
   `UNSUPPORTED_FEATURE`.
+- While the app runs, a change of either switch in Settings comes to `onPermissions` with the new permissions.
 - `getCapabilities()`: with Live Activities supported, every feature but `actions` is `supported`, and `actions`
   follows iOS 17. Without them every feature is `unsupported` and the backend `unsupported`. `maxPayloadBytes` is 4096.
 
@@ -159,11 +164,19 @@ prompt of its own:
   neither knows answers `NOT_FOUND`, and so does an update of an ended activity.
 - A snapshot's `timestamp` goes to activitykit as the content's time; without one activitykit takes the time it sends
   the content, and a start's content is always timed then. From iOS 17.2 ActivityKit drops content older than what it
-  shows: the update still succeeds, but the activity keeps showing the newer content. The iOS record does not carry
-  the timestamp back.
+  shows: the update still succeeds, but the activity keeps showing the newer content. The iOS record carries the
+  timestamp of the accepted content.
+- A snapshot's `relevance` is ActivityKit's relevance score: of the app's activities, the Dynamic Island shows the
+  one with the highest. A snapshot without one keeps the activity's score, which is 0 at first.
+- An update is silent unless it carries an `alert` (a title and a body): the device then lights up, the Dynamic
+  Island expands, or without one the Lock Screen presentation shows as a banner, and an Apple Watch shows the two
+  texts.
 - `staleAt` becomes ActivityKit's stale date. Each snapshot has its own; one without it clears the date. The state is
   what ActivityKit reports: `pending`, `active`, `stale`, `ended`, `dismissed` or `unknown`. ActivityKit has not been
   seen to report `stale` on a simulator, so no test asserts it.
+- While the app runs, every new state of an activity comes to `onState`, and a layout activity that began, also one
+  that a push started, to `onStarted` with its record. What changed while the app did not run is in the records of
+  `list()` and `listLayout()`.
 - A successful request does not prove that anything was shown: records keep `visibility: 'unknown'`.
 
 End policies:
@@ -176,8 +189,8 @@ End policies:
 `endLayout` takes final content in `snapshot`, checked as an update: `STALE_REVISION` below the accepted revision,
 `CONFLICT` at it with other values, `INVALID_INPUT` for other keys or types. Without `snapshot` the activity ends
 with its last accepted values at the next revision, so the record's revision is one higher. Ending again answers the
-record, also once the system no longer lists an activity that ended at once: the plugin keeps the handles of the last
-64 activities it ended in this launch. After a relaunch such an activity is `NOT_FOUND`. The v1 `end` takes no final
+record, also once the system no longer lists an activity that ended at once: the handles of the last 64 activities
+ended in this launch are kept. After a relaunch such an activity is `NOT_FOUND`. The v1 `end` takes no final
 content.
 
 ## Pushes
@@ -190,11 +203,12 @@ entitlement, which `setup` does not add: without it, as in the simulator, a star
 person's consent in Settings, which `checkPermissions` reports as `frequentPushes`. Push-to-start (iOS 17.2) is
 `"pushToStart": true` under `plugins.live-activity`; broadcast channels need iOS 18. The events are
 `live-activity://push-token`, `live-activity://push-to-start-token` and `live-activity://updated`, which `onPushToken`,
-`onPushToStartToken` and `onUpdated` listen to; they go out from the plugin's events thread as they come, without
-waiting for the handlers of `on_action` or for JavaScript, and a Rust listener runs inline on that thread. A token
-that comes before the page listens, the push-to-start token at launch above all, is kept: `pushTokens()` answers the
-newest token of each of the last 32 activities and the push-to-start token, and `onPushToken` and
-`onPushToStartToken` deliver them right after subscribing. An activity a push starts is not announced; it is in
+`onPushToStartToken` and `onUpdated` listen to; they go out as liveactivity reports them, one at a time on its events
+thread, without waiting for JavaScript, an event behind a tap after that tap's `on_action` handlers (at most 4
+seconds), and a Rust listener runs inline on that thread. A token that comes before the page listens, the
+push-to-start token at launch above all, is kept: `pushTokens()` answers the newest token of each of the last 32
+activities and the push-to-start token, and `onPushToken` and `onPushToStartToken` deliver them right after
+subscribing. An activity a push starts comes to `onStarted` with its record while the app runs, and is in
 `listLayout`.
 
 ## Receipts
@@ -266,13 +280,13 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
 
 ## Testing
 
-- `cargo test` runs the plugin's iOS logic on the host, against a fake of activitykit: what each command sends, the
-  records, the templates, the receipts setting, and a tap held until a slow handler has run. `src/apple/glue.rs` maps
-  the plugin's requests to activitykit's `Start`, `Update` and `End`, builds the kit's settings, reads the taps from the
-  kit's events and holds each until the handlers have run; its tests compare them with activitykit's own types. Only
-  `src/ios.rs`, which hands activitykit's types to that code, is compiled for iOS alone: no host test runs it, the
-  coverage gate (`cargo llvm-cov`, 80 % of lines) leaves it out, and the simulator suite drives it. activitykit makes
-  no event or acknowledgement outside its crate, so its `match` on `Event::Action` cannot run on the host.
+- The iOS logic and its host tests against a fake kit are the liveactivity crate's: what each command sends to
+  activitykit, the records, the templates, and a tap whose intent is held until the sink returns. The plugin's
+  `cargo test` covers what the plugin adds on every platform: the commands, the sink that carries liveactivity's
+  events to Tauri and returns from a tap only once a slow handler has run, and the dispatcher of the handlers. Only
+  `src/ios.rs`, which builds the kit from the plugin configuration and connects the backend, is compiled for iOS
+  alone: no host test runs it, the coverage gate (`cargo llvm-cov`, 80 % of lines) leaves it out, and the simulator
+  suite drives it.
 - `ACTIVITYKIT_SKIP_SWIFT=1 cargo clippy --target aarch64-apple-ios --lib` checks the iOS code without building
   activitykit's Swift. `cargo build --target x86_64-apple-ios --lib` builds it with the Swift bridge, which needs
   Xcode. CI runs both.

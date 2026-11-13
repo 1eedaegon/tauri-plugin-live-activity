@@ -1,0 +1,224 @@
+[
+  {
+    "name": "a standard notification and nothing else",
+    "content": { "title": "Mochi", "status": "Fast asleep", "presentation": { "style": { "kind": "standard" } } },
+    "android": "ok"
+  },
+  {
+    "name": "a standard notification with a chip text, a large icon from a file, two actions and the lines of the Now Bar",
+    "content": {
+      "title": "Mochi’s snack",
+      "status": "On the way",
+      "presentation": {
+        "style": { "kind": "standard" },
+        "shortCriticalText": "8 min",
+        "largeIcon": { "kind": "appFile", "value": "tauri-live-activity/images/badge.png" },
+        "actions": [
+          { "id": "pet", "title": "Pet Mochi" },
+          {
+            "id": "done",
+            "title": "All done",
+            "icon": { "kind": "resource", "value": "liveupdate_status" },
+            "authenticationRequired": true
+          }
+        ],
+        "samsungNowBar": { "primary": "Mochi’s snack", "secondary": "2 stops away" }
+      }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "a standard notification with a large icon from the resources, an action with an icon from a file, and the Now Bar with the title and the status as its lines",
+    "content": {
+      "title": "Mochi’s snack",
+      "status": "At the door",
+      "presentation": {
+        "style": { "kind": "standard" },
+        "largeIcon": { "kind": "resource", "value": "liveupdate_status" },
+        "actions": [
+          { "id": "open", "title": "Open the door", "icon": { "kind": "appFile", "value": "tauri-live-activity/images/badge.png" } }
+        ],
+        "samsungNowBar": {}
+      }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "a long text",
+    "content": {
+      "title": "Mochi’s day",
+      "status": "A nap, a snack and a walk",
+      "presentation": {
+        "style": { "kind": "bigText", "value": { "text": "Mochi slept until noon, ate a tiny treat and went out for a walk around the block." } }
+      }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "a long text with a summary",
+    "content": {
+      "title": "Mochi’s day",
+      "status": "A nap, a snack and a walk",
+      "presentation": {
+        "style": { "kind": "bigText", "value": { "text": "Mochi slept until noon, ate a tiny treat and went out.", "summary": "Today" } }
+      }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "a plain progress bar, as the progress of a layout projects: one segment of 1000",
+    "content": {
+      "title": "Mochi’s snack",
+      "status": "Packing a tiny treat",
+      "presentation": { "style": { "kind": "progress", "value": { "progress": 250, "segments": [{ "length": 1000 }] } } }
+    },
+    "android": "ok",
+    "android16": "NATIVE_ERROR",
+    "why": "on Android 16 liveupdate 0.1 sets the semantic style of every segment and point, with a method that Android 17 added"
+  },
+  {
+    "name": "a progress of segments and points, with its three icons from the resources",
+    "content": {
+      "title": "Mochi’s snack",
+      "status": "2 stops away",
+      "presentation": {
+        "style": {
+          "kind": "progress",
+          "value": {
+            "progress": 60,
+            "indeterminate": true,
+            "styledByProgress": true,
+            "segments": [
+              { "length": 60, "id": 1, "color": 4278222592, "semanticStyle": "safe" },
+              { "length": 40, "id": 2, "semanticStyle": "unspecified" }
+            ],
+            "points": [
+              { "position": 30, "id": 1, "color": 4294901760, "semanticStyle": "caution" },
+              { "position": 80 }
+            ],
+            "startIcon": { "kind": "resource", "value": "liveupdate_status" },
+            "endIcon": { "kind": "resource", "value": "liveupdate_status" },
+            "trackerIcon": { "kind": "resource", "value": "liveupdate_status" }
+          }
+        }
+      }
+    },
+    "android": "ok",
+    "android16": "NATIVE_ERROR",
+    "why": "on Android 16 liveupdate 0.1 sets the semantic style of every segment and point, with a method that Android 17 added"
+  },
+  {
+    "name": "a progress with its three icons from files",
+    "content": {
+      "title": "Mochi’s snack",
+      "status": "Around the corner",
+      "presentation": {
+        "style": {
+          "kind": "progress",
+          "value": {
+            "progress": 90,
+            "segments": [{ "length": 100 }],
+            "startIcon": { "kind": "appFile", "value": "tauri-live-activity/images/badge.png" },
+            "endIcon": { "kind": "appFile", "value": "tauri-live-activity/images/badge.png" },
+            "trackerIcon": { "kind": "appFile", "value": "tauri-live-activity/images/badge.png" }
+          }
+        }
+      }
+    },
+    "android": "ok",
+    "android16": "NATIVE_ERROR",
+    "why": "on Android 16 liveupdate 0.1 sets the semantic style of every segment and point, with a method that Android 17 added"
+  },
+  {
+    "name": "a timer that counts down to its end",
+    "content": {
+      "title": "Mochi’s nap",
+      "status": "Dozing off",
+      "presentation": {
+        "style": { "kind": "timer", "value": { "timer": { "startedAt": 1790000000000, "endsAt": 1790000600000 }, "countsDown": true } }
+      }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "a timer that counts up from its start",
+    "content": {
+      "title": "Mochi’s walk",
+      "status": "Out and about",
+      "presentation": {
+        "style": { "kind": "timer", "value": { "timer": { "startedAt": 1790000000000, "endsAt": 1790000600000 }, "countsDown": false } }
+      }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "three metrics: an integer, a decimal with a unit and a text, the second the critical one",
+    "content": {
+      "title": "Mochi’s walk",
+      "status": "Around the block",
+      "presentation": {
+        "style": {
+          "kind": "metric",
+          "value": {
+            "metrics": [
+              { "label": "Steps", "value": { "kind": "integer", "value": { "value": 1200 } } },
+              { "label": "Speed", "value": { "kind": "decimal", "value": { "value": 4.5, "unit": "km/h" } }, "semanticStyle": "info" },
+              { "label": "Mood", "value": { "kind": "text", "value": "Sleepy" }, "semanticStyle": "danger" }
+            ],
+            "criticalMetric": 1
+          }
+        }
+      }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "two metrics: an integer with a unit and a decimal without one",
+    "content": {
+      "title": "Mochi’s bowl",
+      "status": "Nearly empty",
+      "presentation": {
+        "style": {
+          "kind": "metric",
+          "value": {
+            "metrics": [
+              { "label": "Pets", "value": { "kind": "integer", "value": { "value": 3, "unit": "today" } } },
+              { "label": "Bowl", "value": { "kind": "decimal", "value": { "value": 0.75 } } }
+            ]
+          }
+        }
+      }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "a metric that is a stopwatch",
+    "content": {
+      "title": "Mochi’s walk",
+      "status": "Lap 2",
+      "presentation": {
+        "style": {
+          "kind": "metric",
+          "value": { "metrics": [{ "label": "Lap", "value": { "kind": "stopwatch", "value": { "started_at": 1790000000000 } } }] }
+        }
+      }
+    },
+    "android": "INVALID_INPUT",
+    "why": "liveupdate 0.1 writes the member in snake case, and its Android side reads startedAt"
+  },
+  {
+    "name": "a metric that is a countdown",
+    "content": {
+      "title": "Mochi’s nap",
+      "status": "Waking soon",
+      "presentation": {
+        "style": {
+          "kind": "metric",
+          "value": { "metrics": [{ "label": "Wakes in", "value": { "kind": "countdown", "value": { "ends_at": 1790000600000 } } }] }
+        }
+      }
+    },
+    "android": "INVALID_INPUT",
+    "why": "liveupdate 0.1 writes the member in snake case, and its Android side reads endsAt"
+  }
+]

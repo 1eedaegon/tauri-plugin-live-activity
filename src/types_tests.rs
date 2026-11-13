@@ -1,11 +1,12 @@
-//! The TypeScript declarations (guest-js/types.ts) against the Rust models, and the error codes against those that the
-//! Rust side and the Kotlin backend raise.
+//! The TypeScript declarations (guest-js/types.ts) against the Rust models, which are the liveactivity crate's, and
+//! the error codes against those of the contract and those that the Kotlin side raises.
 
 use crate::{
-    error::ERROR_CODES,
-    layout::{ActionEvent, LayoutActivityRecord, LayoutSnapshot, Value},
-    models::*,
-    pushes::{PushToStartTokenEvent, PushTokenEvent, UpdatedEvent},
+    ActionEvent, ActivityRecord, ActivityState, AndroidContent, AndroidPresentation, Backend,
+    Capabilities, ERROR_CODES, FeatureSupport, LayoutActivityRecord, LayoutSnapshot,
+    PermissionState, Permissions, PresentationCapabilities, PresentationStyle, PromotionState,
+    PushToStartTokenEvent, PushTokenEvent, SemanticStyle, Snapshot, StartedEvent, StateEvent,
+    Template, UpdatedEvent, Value, Visibility,
 };
 use serde::Serialize;
 use std::{
@@ -56,6 +57,19 @@ fn members(ts: &str, name: &str) -> BTreeMap<String, bool> {
         .collect()
 }
 
+/// The member of the union `export type NAME = | {…} | {…};` whose `kind` is `kind`, as it is written.
+fn variant(ts: &str, name: &str, kind: &str) -> String {
+    let start = ts
+        .find(&format!("export type {name} ="))
+        .unwrap_or_else(|| panic!("no type {name}"));
+    let body = &ts[start..];
+    let body = &body[..body.find("\n\n").unwrap_or(body.len())];
+    body.lines()
+        .find(|line| line.contains(&format!("kind: '{kind}'")))
+        .unwrap_or_else(|| panic!("{name} has no {kind}"))
+        .to_owned()
+}
+
 /// The members that `full` writes, each optional when `bare` leaves it out.
 fn written(full: impl Serialize, bare: impl Serialize) -> BTreeMap<String, bool> {
     let keys = |value: serde_json::Value| -> BTreeSet<String> {
@@ -84,67 +98,44 @@ fn names<T: Serialize>(values: &[T]) -> BTreeSet<String> {
         .collect()
 }
 
-/// Every value of each state enum; the matches fail to compile when a variant is added.
+/// The values of each state enum that liveactivity 0.2 writes. The enums may grow, so a new value shows here as a
+/// union of TypeScript that lacks it only once it is listed: the fixtures of each release are the reminder.
 fn every_activity_state() -> Vec<ActivityState> {
     use ActivityState::*;
-    let all = vec![Pending, Active, Stale, Ended, Dismissed, Unknown];
-    for state in &all {
-        match state {
-            Pending | Active | Stale | Ended | Dismissed | Unknown => {}
-        }
-    }
-    all
+    vec![Pending, Active, Stale, Ended, Dismissed, Unknown]
 }
 
 fn every_permission_state() -> Vec<PermissionState> {
     use PermissionState::*;
-    let all = vec![
+    vec![
         Granted,
         Denied,
         Prompt,
         SettingsRequired,
         NotApplicable,
         Unknown,
-    ];
-    for state in &all {
-        match state {
-            Granted | Denied | Prompt | SettingsRequired | NotApplicable | Unknown => {}
-        }
-    }
-    all
+    ]
 }
 
 fn every_feature_support() -> Vec<FeatureSupport> {
     use FeatureSupport::*;
-    let all = vec![Supported, Unsupported, Unknown];
-    for support in &all {
-        match support {
-            Supported | Unsupported | Unknown => {}
-        }
-    }
-    all
+    vec![Supported, Unsupported, Unknown]
 }
 
 fn every_backend() -> Vec<Backend> {
     use Backend::*;
-    let all = vec![ActivityKit, AndroidNotification, Unsupported];
-    for backend in &all {
-        match backend {
-            ActivityKit | AndroidNotification | Unsupported => {}
-        }
-    }
-    all
+    vec![ActivityKit, AndroidNotification, Unsupported]
 }
 
 fn every_promotion_state() -> Vec<PromotionState> {
     use PromotionState::*;
-    let all = vec![Promoted, NotPromoted, Unknown, NotApplicable];
-    for state in &all {
-        match state {
-            Promoted | NotPromoted | Unknown | NotApplicable => {}
-        }
-    }
-    all
+    vec![Promoted, NotPromoted, Unknown, NotApplicable]
+}
+
+/// liveupdate's, for the segments, points and metrics of an Android content.
+fn every_semantic_style() -> Vec<SemanticStyle> {
+    use SemanticStyle::*;
+    vec![Unspecified, Info, Safe, Caution, Danger]
 }
 
 /// The code literals that `marker`s in the files under `folder` with `suffix` raise, outside of tests.
@@ -191,19 +182,16 @@ fn the_error_codes_of_typescript_are_those_that_rust_and_kotlin_raise() {
     let codes: BTreeSet<String> = ERROR_CODES.iter().map(|&code| code.to_owned()).collect();
     assert_eq!(codes.len(), 12);
     assert_eq!(union(&types(), "ErrorCode"), codes);
-    let rust = raised("src", ".rs", &["Error::new(", "Self::new(", "code: "]);
-    // The plugin's Kotlin and liveupdate's adapter, which the plugin's Android library carries.
+    // The Rust codes are liveactivity's `ERROR_CODES`, above. The plugin's Kotlin and liveupdate's adapter, which the
+    // plugin's Android library carries, raise the few codes of their own commands.
     let kotlin = raised(
         "android/src/main",
         ".kt",
         &["ActivityFailure(", "AdapterFailure(", "fail("],
     );
-    // The Kotlin side raises the few codes of its own commands; liveupdate's codes come through its Rust.
-    for (side, raised, least) in [("Rust", rust, 5), ("Kotlin", kotlin, 3)] {
-        assert!(raised.len() >= least, "{side}: {raised:?}");
-        let unknown: Vec<_> = raised.difference(&codes).collect();
-        assert!(unknown.is_empty(), "{side} raises {unknown:?}");
-    }
+    assert!(kotlin.len() >= 3, "Kotlin: {kotlin:?}");
+    let unknown: Vec<_> = kotlin.difference(&codes).collect();
+    assert!(unknown.is_empty(), "Kotlin raises {unknown:?}");
 }
 
 /// What iOS reports with everything there.
@@ -224,6 +212,7 @@ fn ios_capabilities() -> Capabilities {
         max_payload_bytes: 4096,
         layout: support,
         push: support,
+        android_presentation: None,
     }
 }
 
@@ -236,23 +225,27 @@ fn ios_permissions() -> Permissions {
     }
 }
 
-// TP-PUSH-5
+// TP-JS-7
 #[test]
-fn capabilities_and_permissions_read_older_natives_without_pushes() {
-    // A native side of 0.5 writes neither member: it has no pushes.
-    let mut capabilities = serde_json::to_value(ios_capabilities()).unwrap();
-    capabilities.as_object_mut().unwrap().remove("push");
-    let read: Capabilities = serde_json::from_value(capabilities).unwrap();
-    assert_eq!(read.push, FeatureSupport::Unsupported);
-    assert_eq!(read.layout, FeatureSupport::Supported);
-    let mut permissions = serde_json::to_value(ios_permissions()).unwrap();
-    permissions
-        .as_object_mut()
-        .unwrap()
-        .remove("frequentPushes");
-    let read: Permissions = serde_json::from_value(permissions).unwrap();
-    assert_eq!(read.frequent_pushes, PermissionState::NotApplicable);
-    assert_eq!(read.live_activities, PermissionState::Granted);
+fn the_typescript_timer_style_is_what_rust_reads_and_writes() {
+    let ts = types();
+    // A timer style of an Android content, as TypeScript declares it and JavaScript sends it.
+    let sent = serde_json::json!({"kind":"timer",
+        "value":{"timer":{"startedAt":1000,"endsAt":2000},"countsDown":true}});
+    let style: PresentationStyle = serde_json::from_value(sent.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&style).unwrap(), sent);
+    let declared = variant(&ts, "AndroidStyle", "timer");
+    for key in sent["value"].as_object().unwrap().keys() {
+        assert!(
+            declared.contains(&format!("readonly {key}: ")),
+            "{declared} lacks {key}"
+        );
+    }
+    // The style holds liveupdate's `Timer`, which the plugin does not re-export. TypeScript declares it as its one
+    // `Timer`, the template's, whose members are those that liveupdate's writes.
+    assert!(declared.contains("readonly timer: Timer;"), "{declared}");
+    let timer = &sent["value"]["timer"];
+    assert_eq!(members(&ts, "Timer"), written(timer, timer));
 }
 
 // TP-JS-7
@@ -260,9 +253,19 @@ fn capabilities_and_permissions_read_older_natives_without_pushes() {
 fn the_typescript_records_have_the_members_that_the_rust_models_write() {
     let ts = types();
     let capabilities = ios_capabilities();
+    // Android writes which styles the device draws; iOS leaves the member out.
+    let android = Capabilities {
+        android_presentation: Some(PresentationCapabilities::default()),
+        ..capabilities.clone()
+    };
     assert_eq!(
         members(&ts, "Capabilities"),
-        written(&capabilities, &capabilities)
+        written(&android, &capabilities)
+    );
+    let styles = PresentationCapabilities::default();
+    assert_eq!(
+        members(&ts, "AndroidPresentationSupport"),
+        written(styles, styles)
     );
     let permissions = ios_permissions();
     assert_eq!(
@@ -291,18 +294,28 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
         promotion_state: PromotionState::NotApplicable,
     };
     assert_eq!(members(&ts, "ActivityRecord"), written(&record, &record));
+    let values = BTreeMap::from([("status".to_owned(), Value::Text("On time".into()))]);
+    let bare = LayoutSnapshot::new(1, values);
+    let content = AndroidContent {
+        title: "On time".into(),
+        status: "Gate 4".into(),
+        presentation: AndroidPresentation {
+            style: PresentationStyle::Standard,
+            short_critical_text: None,
+            large_icon: None,
+            actions: Vec::new(),
+            samsung_now_bar: None,
+        },
+    };
     let full = LayoutSnapshot {
-        revision: 1,
-        values: BTreeMap::from([("status".to_owned(), Value::Text("On time".into()))]),
         stale_at: Some(5),
         timestamp: Some(7),
-    };
-    let bare = LayoutSnapshot {
-        stale_at: None,
-        timestamp: None,
-        ..full.clone()
+        relevance: Some(80.0),
+        android: Some(content.clone()),
+        ..bare.clone()
     };
     assert_eq!(members(&ts, "LayoutSnapshot"), written(&full, &bare));
+    assert_eq!(members(&ts, "AndroidContent"), written(&content, &content));
     let layout = LayoutActivityRecord {
         id: "a".into(),
         activity_key: "k".into(),
@@ -347,8 +360,22 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
         members(&ts, "PushToStartTokenEvent"),
         written(&start_token, &start_token)
     );
-    let updated = UpdatedEvent { record: layout };
+    let updated = UpdatedEvent {
+        record: layout.clone(),
+    };
     assert_eq!(members(&ts, "UpdatedEvent"), written(&updated, &updated));
+    let started = StartedEvent { record: layout };
+    assert_eq!(members(&ts, "StartedEvent"), written(&started, &started));
+    let state = StateEvent {
+        activity_id: "a".into(),
+        activity_key: Some("k".into()),
+        state: ActivityState::Dismissed,
+    };
+    let unkeyed_state = StateEvent {
+        activity_key: None,
+        ..state.clone()
+    };
+    assert_eq!(members(&ts, "StateEvent"), written(&state, &unkeyed_state));
     // The state unions are the values the Rust enums write.
     assert_eq!(union(&ts, "ActivityState"), names(&every_activity_state()));
     assert_eq!(
@@ -363,5 +390,11 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
     assert_eq!(
         union(&ts, "PromotionState"),
         names(&every_promotion_state())
+    );
+    // The members and the variants of an Android content are compared through a fixture (TP-ANDROID-14); its
+    // semantic styles are values, which are compared here.
+    assert_eq!(
+        union(&ts, "AndroidSemanticStyle"),
+        names(&every_semantic_style())
     );
 }

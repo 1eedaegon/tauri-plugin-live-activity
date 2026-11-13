@@ -1,8 +1,9 @@
 //! Local ongoing activity presentation for Tauri 2.
 //!
 //! Initialize with `.plugin(tauri_plugin_live_activity::init())` and explicitly
-//! grant mutation permissions in the host capability file. The plugin
-//! implements iOS, on the `activitykit` crate, and Android; desktop mutations
+//! grant mutation permissions in the host capability file. The plugin is an adapter of the
+//! `liveactivity` crate: the contract, its checks and the iOS and Android backends are that crate's, and the
+//! plugin adds Tauri's commands, events, configuration and Android's permission dialog. Desktop mutations
 //! return `UNSUPPORTED_PLATFORM`.
 
 use tauri::{
@@ -10,55 +11,32 @@ use tauri::{
     plugin::{Builder, TauriPlugin},
 };
 
-#[cfg(any(mobile, test))]
 mod actions;
 #[cfg(target_os = "android")]
 mod android;
-#[cfg(any(target_os = "android", test))]
-mod android_layout;
-#[cfg(any(target_os = "android", test))]
-mod android_layouts;
-#[cfg(any(target_os = "android", test))]
-mod android_liveupdate;
-#[cfg(any(target_os = "ios", test))]
-mod apple;
 #[cfg(any(target_os = "android", test))]
 mod bridge;
 #[cfg(all(test, desktop))]
 mod command_tests;
 mod commands;
 mod config;
-#[cfg(desktop)]
-mod desktop;
 #[cfg(all(test, desktop))]
 mod desktop_ipc_tests;
-mod error;
-mod image;
+mod events;
 #[cfg(target_os = "ios")]
 mod ios;
-mod layout;
-mod models;
-mod pushes;
+mod service;
 #[cfg(test)]
 mod types_tests;
-mod validation;
 
-#[cfg(target_os = "android")]
-pub use android::LiveActivity;
 pub use config::{AndroidConfig, Config, Receipts};
-#[cfg(desktop)]
-pub use desktop::LiveActivity;
-pub use error::{Error, Result};
-pub use image::{ImageInput, MAX_IMAGE_BYTES, MAX_IMAGE_HEIGHT, MAX_IMAGE_WIDTH, check_image};
-#[cfg(target_os = "ios")]
-pub use ios::LiveActivity;
-pub use layout::*;
-pub use models::*;
-pub use pushes::{
-    PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT, PushToStartTokenEvent, PushTokenEvent, PushTokens,
-    TOKENS_KEPT, UPDATED_EVENT, UpdatedEvent,
+pub use events::{
+    ACTION_EVENT, PERMISSIONS_EVENT, PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT, STARTED_EVENT,
+    STATE_EVENT, UPDATED_EVENT,
 };
-pub use validation::{Validate, validate_request};
+/// The contract: the requests, records, layout types, errors and checks.
+pub use liveactivity::contract::*;
+pub use service::LiveActivity;
 
 /// Access the registered plugin from a Tauri application or window.
 pub trait LiveActivityExt<R: Runtime> {
@@ -92,12 +70,12 @@ pub fn init<R: Runtime>() -> TauriPlugin<R, Option<Config>> {
         ])
         .setup(|app, _api| {
             #[cfg(target_os = "android")]
-            let backend = android::init(app, _api)?;
+            let plugin = android::init(app, _api)?;
             #[cfg(target_os = "ios")]
-            let backend = ios::init(app, _api)?;
+            let plugin = ios::init(app, _api)?;
             #[cfg(desktop)]
-            let backend = LiveActivity::<R>::default();
-            app.manage(backend);
+            let plugin = service::connect(app, liveactivity::UnsupportedBackend, None)?;
+            app.manage(plugin);
             Ok(())
         })
         .build()

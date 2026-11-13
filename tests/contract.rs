@@ -131,7 +131,7 @@ fn layout_weight(input: &Value) -> usize {
         + part("/layout").map_or(0, |layout| layout + part("/styles").unwrap_or(2))
 }
 
-// TP-CONTRACT-2, TP-RUST-3
+// TP-CONTRACT-2, TP-CONTRACT-8, TP-RUST-3
 #[test]
 fn layout_fixtures_match_reference_validator() {
     let (valid, invalid) = (layout_cases("valid"), layout_cases("invalid"));
@@ -156,6 +156,12 @@ fn layout_fixtures_match_reference_validator() {
     }
     for case in &invalid {
         let (name, command) = (&case["name"], case["command"].as_str().unwrap());
+        // liveactivity, whose contract the plugin carries, takes a relevance in a snapshot; activitykit, whose
+        // fixtures these are, takes it beside the request and uses it here as its example of an unknown member.
+        if name == "rejects an unknown member in the final content" {
+            assert_eq!(validate_request(command, case["input"].clone()), Ok(()));
+            continue;
+        }
         let error =
             validate_request(command, case["input"].clone()).expect_err(name.as_str().unwrap());
         assert_eq!(case["code"], error.code.as_str(), "{name}");
@@ -210,12 +216,7 @@ mod changing_styles {
     pub fn delivery(revision: u64, status: &str, tone: &str) -> LayoutSnapshot {
         let values = [("status", status), ("tone", tone)]
             .map(|(key, text)| (key.to_string(), Value::Text(text.into())));
-        LayoutSnapshot {
-            revision,
-            values: BTreeMap::from(values),
-            stale_at: None,
-            timestamp: None,
-        }
+        LayoutSnapshot::new(revision, BTreeMap::from(values))
     }
 
     pub fn start_input() -> LayoutStartInput {
@@ -252,10 +253,7 @@ mod changing_styles {
         let record = app.live_activity().start_layout(start_input())?;
         // Later: every value again, with a higher revision. The status turns red.
         let snapshot = delivery(1, "Running late", "red");
-        let update = LayoutUpdateInput {
-            id: record.id,
-            snapshot,
-        };
+        let update = LayoutUpdateInput::new(record.id, snapshot);
         app.live_activity().update_layout(update)?;
         Ok(())
     }
@@ -274,10 +272,7 @@ fn the_changing_styles_example_binds_a_color_that_an_update_changes() {
             "snapshot":{"revision":0,"values":{"status":"On time","tone":"green"}}})
     );
     assert_eq!(input.validate(), Ok(()));
-    let update = |snapshot| LayoutUpdateInput {
-        id: "handle".into(),
-        snapshot,
-    };
+    let update = |snapshot| LayoutUpdateInput::new("handle", snapshot);
     let late = update(delivery(1, "Running late", "red"));
     assert_eq!(input.validate_update(&late), Ok(()));
     let unknown = update(delivery(1, "Running late", "crimson"));
@@ -382,6 +377,72 @@ fn layout_commands_do_not_mix_with_contract_v1() {
             validate_request(command, json!({})),
             Err(Error::invalid()),
             "{command}"
+        );
+    }
+}
+
+/// A timer style holds liveupdate's `Timer`. The plugin re-exports `TimerStyle` and the template's `Timer`, which is
+/// another type with the same members, and not liveupdate's: Rust reads a timer style from JSON, as it comes from
+/// JavaScript, and reads its members without naming the type.
+// TP-CONTRACT-8, TP-RUST-2
+#[test]
+fn an_android_content_with_a_timer_style_reads_from_json_and_is_checked_in_full() {
+    use tauri_plugin_live_activity::{AndroidContent, PresentationStyle, Timer};
+    let content = |started_at: u64, ends_at: u64| {
+        json!({"title":"Mochi’s nap","status":"Dozing off","presentation":{"style":{"kind":"timer",
+            "value":{"timer":{"startedAt":started_at,"endsAt":ends_at},"countsDown":true}}}})
+    };
+    let typed: AndroidContent = serde_json::from_value(content(1_000, 2_000)).unwrap();
+    let PresentationStyle::Timer(style) = &typed.presentation.style else {
+        panic!("the style is a timer");
+    };
+    assert_eq!(
+        (
+            style.timer.started_at,
+            style.timer.ends_at,
+            style.counts_down
+        ),
+        (1_000, 2_000, true)
+    );
+    // What Rust writes is what it read: the members that the TypeScript declarations name.
+    assert_eq!(serde_json::to_value(&typed).unwrap(), content(1_000, 2_000));
+    // The template's `Timer` writes the same two members, so one TypeScript `Timer` serves both.
+    let template = Timer {
+        started_at: 1_000,
+        ends_at: 2_000,
+    };
+    assert_eq!(
+        serde_json::to_value(&template).unwrap(),
+        content(1_000, 2_000)["presentation"]["style"]["value"]["timer"]
+    );
+
+    let start = |android: Value| {
+        json!({"activityKey":"mochi:nap","schemaVersion":2,"fallback":"notification",
+            "layout":{"lockScreen":{"type":"text","bind":"title"}},
+            "snapshot":{"revision":0,"values":{"title":"Mochi’s nap"},"android":android}})
+    };
+    assert_eq!(
+        validate_request("start_layout", start(content(1_000, 2_000))),
+        Ok(())
+    );
+    // liveupdate's rules for a timer hold on every platform, before any backend: the end is after the start, and
+    // the value has its two members and no other.
+    assert_eq!(
+        validate_request("start_layout", start(content(2_000, 2_000))),
+        Err(Error::invalid())
+    );
+    for (pointer, value) in [
+        ("/presentation/style/value/timer/endsAt", json!(null)),
+        ("/presentation/style/value/timer/ends_at", json!(3_000)),
+        ("/presentation/style/value/countsDown", json!("yes")),
+    ] {
+        let mut broken = content(1_000, 2_000);
+        let (parent, member) = pointer.rsplit_once('/').unwrap();
+        broken.pointer_mut(parent).unwrap()[member] = value;
+        assert_eq!(
+            validate_request("start_layout", start(broken)),
+            Err(Error::invalid()),
+            "{pointer}"
         );
     }
 }

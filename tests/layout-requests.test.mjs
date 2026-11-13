@@ -73,9 +73,14 @@ test('every end fixture is checked against its start', () => {
   assert.equal(validateLayoutEnd(fixtures.ends[0].start, { ...plain, snapshot: null }).valid, false);
 });
 
+// The liveactivity crate, whose contract the plugin carries, takes a relevance in a snapshot; activitykit, whose
+// fixtures these are, takes it beside the request and uses it as its example of an unknown member.
+const TAKEN_BY_LIVEACTIVITY = 'rejects an unknown member in the final content';
+
 for (const { name, command, input, code } of fixtures.invalid) {
   test(name, () => {
     const result = validateRequest({ command, input });
+    if (name === TAKEN_BY_LIVEACTIVITY) return assert.deepEqual(result, { valid: true, issues: [] });
     assert.equal(result.valid, false);
     assert.notEqual(result.issues.length, 0);
     assert.equal(codeOf(result), code, JSON.stringify(result.issues));
@@ -397,4 +402,44 @@ test('the fixture file holds JSON only as JSON.stringify writes it', () => {
   for (const odd of ['{"a":1,"a":2}', '{"a":1.0}', '{"a":-0}', '[1e-400]', '[1E1]']) {
     assert.notEqual(normalized(odd), JSON.stringify(JSON.parse(odd)), odd);
   }
+});
+
+// TP-CONTRACT-8
+test('takes what the liveactivity crate adds to a snapshot and to an update', () => {
+  const content = { title: 'On time', status: 'Gate 4', presentation: { style: { kind: 'standard' }, shortCriticalText: '4 min' } };
+  const rich = (snapshot = {}, rest = {}) => ({
+    command: 'update_layout',
+    input: { id: 'opaque-handle-1', snapshot: { revision: 1, values: { a: 'b' }, ...snapshot }, ...rest },
+  });
+  const valid = { valid: true, issues: [] };
+  assert.deepEqual(validateRequest(rich({ relevance: 80, android: content }, { alert: { title: 'Gate changed', body: 'Now gate 12' } })), valid);
+  assert.deepEqual(validateRequest(start(text(), {}, {})), valid);
+  const started = start(text(), {}).input;
+  assert.deepEqual(validateRequest({ command: 'start_layout', input: { ...started, snapshot: { ...started.snapshot, relevance: -3.5, android: content } } }), valid);
+  assert.deepEqual(
+    validateRequest({ command: 'end_layout', input: { id: 'a', policy: { kind: 'default' }, snapshot: { revision: 2, values: {}, relevance: 1 } } }),
+    valid,
+  );
+
+  const refused = (request, path) => {
+    const result = validateRequest(request);
+    assert.equal(result.valid, false, JSON.stringify(request));
+    assert.equal(result.issues[0].path, path);
+  };
+  refused(rich({ relevance: 'high' }), '/input/snapshot/relevance');
+  refused(rich({ relevance: null }), '/input/snapshot/relevance');
+  refused(rich({ relevance: Infinity }), '/input/snapshot/relevance');
+  for (const wrong of [
+    null, [], { ...content, title: ' ' }, { ...content, status: 'x'.repeat(241) }, { ...content, extra: 1 },
+    { title: 'a', status: 'b' }, { ...content, presentation: { style: { kind: 'custom' } } }, { ...content, presentation: [] },
+  ]) refused(rich({ android: wrong }), '/input/snapshot/android');
+  for (const wrong of [null, {}, { title: '', body: 'b' }, { title: 'a', body: ' ' }, { title: 'a', body: 'b', sound: 'c' }, { title: 'a'.repeat(121), body: 'b' }]) {
+    refused(rich({}, { alert: wrong }), '/input/alert');
+  }
+  // An alert comes with an update only: on a start it is an unknown member, as the schema says.
+  assert.equal(validateRequest({ command: 'start_layout', input: { ...started, alert: { title: 'a', body: 'b' } } }).valid, false);
+  // What the schema refuses is reported, and not these members beside it.
+  const both = validateRequest(rich({ relevance: 'high', extra: 1 }));
+  assert.equal(both.valid, false);
+  assert.ok(both.issues.every(({ path }) => path !== '/input/snapshot/relevance'));
 });
