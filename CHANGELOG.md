@@ -17,6 +17,11 @@
 - New events: `onStarted` (a layout activity began, also one a push started; iOS), `onState` (a new lifecycle state;
   on Android, the person dismissed the notification) and `onPermissions` (the permissions after a change in Settings;
   iOS). Their names are public in Rust: `STARTED_EVENT`, `STATE_EVENT`, `PERMISSIONS_EVENT`.
+- The backend's events reach the plugin one at a time, on one thread: liveactivity's events thread on iOS, the
+  plugin's draining thread on Android. A tap holds that thread until the handlers of `on_action` have run, at most
+  4 seconds, so an event behind a tap comes after that tap's handlers, where 0.6 sent a push event at once. A Rust
+  listener of an event that panics is caught in the plugin's sink, as in 0.6: the thread, the taps and the events to
+  JavaScript go on, but Tauri then delivers nothing more to any Rust listener of the app.
 - The reference validator `tools/validate-request.mjs` checks the new members beside activitykit's schema. One of
   activitykit's fixtures, which uses `relevance` as its example of an unknown member, is valid here.
 - `docs/spec.md` lists what the plugin proves itself and, apart, the promises that liveactivity's tests prove.

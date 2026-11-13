@@ -493,6 +493,114 @@ fn push_tokens_answers_no_tokens_where_there_are_no_pushes() {
     );
 }
 
+fn pet_tap() -> crate::ActionEvent {
+    crate::ActionEvent {
+        action_id: "pet".into(),
+        activity_id: "la-1".into(),
+        activity_key: Some("job:1".into()),
+    }
+}
+
+// TP-ACTION-3, TP-PUSH-6
+#[test]
+fn the_sink_holds_a_tap_until_its_handlers_have_run_and_its_event_went_out() {
+    use crate::ACTION_EVENT;
+    use liveactivity::Event;
+    use std::sync::{Arc, Mutex};
+    use tauri::{Emitter, Listener};
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let heard = log.clone();
+    app.listen(ACTION_EVENT, move |_| heard.lock().unwrap().push("emitted"));
+    let emitter = app.handle().clone();
+    let actions =
+        crate::actions::spawn(move |event| emitter.emit(ACTION_EVENT, event).unwrap()).unwrap();
+    let slow = log.clone();
+    actions.subscribe(move |_| {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        slow.lock().unwrap().push("handled");
+    });
+    let sink = crate::events::sink(app.handle().clone(), actions);
+    sink(Event::Action(pet_tap()));
+    // liveactivity lets the tap's intent go, and reports its next event, when the sink returns: the handler and the
+    // event are done by then.
+    assert_eq!(*log.lock().unwrap(), ["handled", "emitted"]);
+}
+
+// TP-ACTION-3
+#[test]
+fn the_sink_lets_a_tap_go_when_its_time_is_up_while_a_handler_still_runs() {
+    use liveactivity::Event;
+    use std::{
+        sync::{Arc, Mutex, mpsc},
+        time::{Duration, Instant},
+    };
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let (finish, finished) = mpsc::channel::<()>();
+    let finished = Mutex::new(finished);
+    let actions = crate::actions::spawn(|_| {}).unwrap();
+    let handled = log.clone();
+    actions.subscribe(move |_| {
+        // A handler that hangs far longer than a tap is held, until the test lets it go.
+        let _ = finished
+            .lock()
+            .unwrap()
+            .recv_timeout(Duration::from_secs(30));
+        handled.lock().unwrap().push("handled");
+    });
+    let limit = Duration::from_millis(100);
+    let sink = crate::events::sink_within(app.handle().clone(), actions, limit);
+    let started = Instant::now();
+    sink(Event::Action(pet_tap()));
+    // The system gives a tap's intent a limited time: the sink returns then, whatever the handlers do.
+    assert!(started.elapsed() >= limit);
+    assert!(log.lock().unwrap().is_empty());
+    finish.send(()).unwrap();
+}
+
+// TP-PUSH-6
+#[test]
+fn a_panicking_rust_listener_ends_neither_the_thread_of_the_events_nor_the_taps() {
+    use crate::{PUSH_TOKEN_EVENT, PushTokenEvent};
+    use liveactivity::Event;
+    use tauri::Listener;
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    // What a Rust listener of the app that panics does: Tauri runs it inline in the emit, on the thread that
+    // reports the backend's events.
+    app.listen(PUSH_TOKEN_EVENT, |_| panic!("raised by this test"));
+    let (sender, handled) = std::sync::mpsc::channel();
+    let actions = crate::actions::spawn(|_| {}).unwrap();
+    actions.subscribe(move |event| {
+        let _ = sender.send(event.action_id);
+    });
+    let sink = crate::events::sink(app.handle().clone(), actions);
+    let token = || {
+        Event::PushToken(PushTokenEvent {
+            activity_id: "la-1".into(),
+            activity_key: None,
+            token: "0a1b".into(),
+        })
+    };
+    sink(token());
+    // The sink returned, so the thread that called it goes on. Tauri's registry of Rust listeners is poisoned by
+    // then, and a further event passes through the sink all the same.
+    sink(token());
+    // The tap behind the tokens reaches the handlers.
+    sink(Event::Action(pet_tap()));
+    let handled = handled.recv_timeout(std::time::Duration::from_secs(10));
+    assert_eq!(handled.as_deref(), Ok("pet"));
+}
+
 /// A PNG of that size: the signature, an image header, a data chunk of `filler` bytes and the end.
 fn sized_png(width: u32, height: u32, filler: usize) -> Vec<u8> {
     let mut bytes = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();
