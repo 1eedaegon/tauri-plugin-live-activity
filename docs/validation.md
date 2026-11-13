@@ -16,8 +16,9 @@ on Android and the opened event. Rust, TypeScript and JSON change, so it is a mi
   the three contents of the progress style are posted there, which they were not before liveupdate 0.3.2.
 - The demo on that phone: the lifecycle, the demo's 20 checks, a stale time that passed with no call of the app
   (`stale` after 6.1 s for a time 6 s ahead), an opening intent, and the states of an end.
-- CI of the pull request, which runs the simulator suite for a change of the Rust code, and the main run of the
-  release commit.
+- CI of the pull request and the main run of the release commit. CI runs the two simulator suites only when it is
+  started by hand: they were, on the head of the pull request, and passed (7 tests on the built demo; 4 on
+  `tauri ios dev`, one of them on a second try).
 
 Not checked: Android 15 and earlier with this version; a tap on a toggle or a link by a person; an activity that
 Android restored after ending the process; on iOS, the new nodes on a Lock Screen and a scheduled start through

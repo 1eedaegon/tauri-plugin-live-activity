@@ -37,9 +37,11 @@ Apple documents that [`staleDate`](https://developer.apple.com/documentation/act
 start (iOS 18). The contract and its checks run on every platform; the iOS behavior of these members is
 activitykit's, which runs them on a simulator in its own suite.
 
-The plugin's simulator suite (`tests/ios/run.sh`) runs in CI for every change of the Rust code or of the lock file,
-with the widget extension on activitykit 0.5's Swift package; its tests are those of 0.6 and show none of the new
-nodes. On an iPhone XS with iOS 18, a build of the demo on liveactivity 0.5.0 with a test harness ran that crate's
+A push or a pull request does not run the plugin's two simulator suites (`tests/ios/run.sh`): CI runs them when it
+is started by hand with `simulator`. For 0.7.0 they were started so on the head of the pull request, with the widget
+extension on activitykit 0.5's Swift package: the suite on the built demo passed its 7 tests, and the one on
+`tauri ios dev` its 4, of which the tap on the Lock Screen button passed on a second try. Their tests are those of
+0.6 and show none of the new nodes. On an iPhone XS with iOS 18, a build of the demo on liveactivity 0.5.0 with a test harness ran that crate's
 conformance suite (24 checks) and started a layout with a toggle and nodes that follow staleness, an update whose
 alert names a sound and a transient activity; a scheduled start answered `UNSUPPORTED_FEATURE`, as below iOS 26. An
 end that removed an activity at once was reported there as `dismissed` without `ended`. No run shows a tap on a
