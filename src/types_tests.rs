@@ -5,8 +5,8 @@ use crate::{
     ActionEvent, ActivityRecord, ActivityState, AndroidContent, AndroidPresentation, Backend,
     Capabilities, ERROR_CODES, FeatureSupport, LayoutActivityRecord, LayoutSnapshot,
     PermissionState, Permissions, PresentationCapabilities, PresentationStyle, PromotionState,
-    PushToStartTokenEvent, PushTokenEvent, Snapshot, StartedEvent, StateEvent, Template,
-    UpdatedEvent, Value, Visibility,
+    PushToStartTokenEvent, PushTokenEvent, SemanticStyle, Snapshot, StartedEvent, StateEvent,
+    Template, UpdatedEvent, Value, Visibility,
 };
 use serde::Serialize;
 use std::{
@@ -130,6 +130,12 @@ fn every_backend() -> Vec<Backend> {
 fn every_promotion_state() -> Vec<PromotionState> {
     use PromotionState::*;
     vec![Promoted, NotPromoted, Unknown, NotApplicable]
+}
+
+/// liveupdate's, for the segments, points and metrics of an Android content.
+fn every_semantic_style() -> Vec<SemanticStyle> {
+    use SemanticStyle::*;
+    vec![Unspecified, Info, Safe, Caution, Danger]
 }
 
 /// The code literals that `marker`s in the files under `folder` with `suffix` raise, outside of tests.
@@ -384,5 +390,11 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
     assert_eq!(
         union(&ts, "PromotionState"),
         names(&every_promotion_state())
+    );
+    // The members and the variants of an Android content are compared through a fixture (TP-ANDROID-14); its
+    // semantic styles are values, which are compared here.
+    assert_eq!(
+        union(&ts, "AndroidSemanticStyle"),
+        names(&every_semantic_style())
     );
 }

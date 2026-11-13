@@ -64,7 +64,8 @@ jobs:
           if grep -qE '^(\.github/workflows/|tests/fixtures/|contracts/)' <<< "$files"; then all "workflow or shared fixtures"; exit 0; fi
           area() { grep -qE "$2" <<< "$files" && echo "$1=true" >> "$GITHUB_OUTPUT" || echo "$1=false" >> "$GITHUB_OUTPUT"; }
           area rust '^(src/|build\.rs$|Cargo\.(toml|lock)$|permissions/|tests/[^/]+\.rs$|examples/demo/src-tauri/)'
-          area js '^(guest-js/|cli/|tools/|tests/[^/]+\.mjs$|tests/release/|package(-lock)?\.json$|tsconfig\.json$|examples/demo/)'
+          # tests/jsx and tests/declarations hold the TypeScript that node tests compile.
+          area js '^(guest-js/|cli/|tools/|tests/[^/]+\.mjs$|tests/(release|jsx|declarations)/|package(-lock)?\.json$|tsconfig\.json$|examples/demo/)'
           # iOS is what the simulator suites read, as tests/ci/cache.sh lists it: the plugin's Rust on activitykit
           # (Cargo.lock holds activitykit's version), the TypeScript API, setup, the tools of the demo's build, the demo,
           # the UI tests and the CI scripts.

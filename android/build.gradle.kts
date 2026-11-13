@@ -24,6 +24,11 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+    sourceSets {
+        // The Android contents that the TypeScript declarations and the Rust models are compared with, for the
+        // device tests (NativeBridgeTest). The folder is the repository's: a packaged crate has neither.
+        getByName("androidTest").assets.srcDir("../tests/fixtures/android")
+    }
     buildTypes {
         debug {
             val collectCoverage = providers.gradleProperty("liveActivityCoverage").orNull == "true"

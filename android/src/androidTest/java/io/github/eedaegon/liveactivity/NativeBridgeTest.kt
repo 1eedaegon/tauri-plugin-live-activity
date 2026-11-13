@@ -2,15 +2,18 @@ package io.github.eedaegon.liveactivity
 
 import android.Manifest
 import android.app.Activity
+import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.tauri.plugin.Invoke
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.eedaegon.liveupdate.LiveUpdateEvents
+import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import org.json.JSONArray
 import org.json.JSONObject
@@ -123,14 +126,7 @@ class NativeBridgeTest {
         try {
             liveUpdate("events")
             liveUpdate("post", JSONObject().put("record", layoutRecord()))
-            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            var notification: android.app.Notification? = null
-            repeat(40) {
-                notification = notification ?: manager.activeNotifications
-                    .firstOrNull { it.tag == "liveupdate-rs:$ACTIVITY_ID" }?.notification
-                if (notification == null) Thread.sleep(50)
-            }
-            requireNotNull(notification).actions[0].actionIntent.send()
+            posted().actions[0].actionIntent.send()
             repeat(100) { if (heard.get() == 0) Thread.sleep(50) }
             assertEquals(1, heard.get())
 
@@ -141,6 +137,132 @@ class NativeBridgeTest {
         } finally {
             LiveUpdateEvents.setListener(null)
         }
+    }
+
+    /**
+     * The contents of tests/fixtures/android/contents.json, which the Rust models write as they stand there
+     * (tests/android_contents.rs), each in the record of a first snapshot. What Android then holds is read back: that it
+     * draws it is Android's.
+     */
+    // TP-ANDROID-14
+    @Test
+    fun liveupdatesAdapterPostsEveryAndroidContentThatRustWrites() {
+        val fixture = instrumentation.context.assets.open("contents.json").bufferedReader().use { it.readText() }
+        val cases = JSONArray(fixture)
+        // How the guide tells an app that it runs on Android 16, where the fixture has answers of its own.
+        val styles = liveUpdate("capabilities").getJSONObject("data").getJSONObject("presentation")
+        assertEquals(Build.VERSION.SDK_INT >= 36, styles.getBoolean("progressStyle"))
+        assertEquals(Build.VERSION.SDK_INT >= 37, styles.getBoolean("metricStyle"))
+        val badge = writeBadge()
+        try {
+            for (index in 0 until cases.length()) {
+                val case = cases.getJSONObject(index)
+                inCase(case.getString("name")) {
+                    val content = startingNow(case.getJSONObject("content"))
+                    val (answer, detail) = answerTo(contentRecord(content))
+                    assertEquals(detail, expected(case), answer)
+                    if (answer == "ok") {
+                        assertShows(content, posted())
+                        liveUpdate("cancel", JSONObject().put("id", ACTIVITY_ID))
+                        awaitObservation(false)
+                    }
+                }
+            }
+        } finally {
+            badge.delete()
+        }
+    }
+
+    /** Runs [check] for the case [name], which leads the message of a failure. */
+    private fun inCase(name: String, check: () -> Unit) {
+        try { check() } catch (failure: AssertionError) { throw AssertionError("$name: ${failure.message}", failure) }
+    }
+
+    /** What the fixture says of [case] on this device: Android 16 has an answer of its own where it differs. */
+    private fun expected(case: JSONObject): String =
+        if (Build.VERSION.SDK_INT == 36 && case.has("android16")) case.getString("android16") else case.getString("android")
+
+    /**
+     * [content] with the timer of its style moved to begin now. The times of the fixture are of the day it was
+     * written, and Android 16 ignores a notification whose time is more than two weeks past without telling the app.
+     */
+    private fun startingNow(content: JSONObject): JSONObject {
+        val moved = JSONObject(content.toString())
+        val style = moved.getJSONObject("presentation").getJSONObject("style")
+        val timer = style.optJSONObject("value")?.optJSONObject("timer") ?: return moved
+        val shift = System.currentTimeMillis() - timer.getLong("startedAt")
+        timer.put("startedAt", timer.getLong("startedAt") + shift).put("endsAt", timer.getLong("endsAt") + shift)
+        return moved
+    }
+
+    /**
+     * What liveupdate's Android side answers to a post of [record], `ok` or the code of its refusal, and the answer
+     * in full. The one method that liveupdate 0.1 calls and Android 16 lacks is `NATIVE_ERROR`: Tauri, which calls the
+     * command, rejects it when it throws, and the Rust side knows no more of a rejected command. Another missing
+     * method would be a difference that the fixture does not name.
+     */
+    private fun answerTo(record: JSONObject): Pair<String, String> = try {
+        val answer = innerResponse("post", JSONObject().put("record", record))
+        val code = if (answer.getString("status") == "ok") "ok" else answer.getJSONObject("error").getString("code")
+        code to answer.toString()
+    } catch (error: NoSuchMethodError) {
+        assertTrue(error.toString(), error.message.orEmpty().contains("setSemanticStyle"))
+        "NATIVE_ERROR" to error.toString()
+    }
+
+    /** What Android holds of [content] once liveupdate's adapter has posted it. */
+    private fun assertShows(content: JSONObject, notification: Notification) {
+        val extras = notification.extras
+        assertEquals(content.getString("title"), extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
+        assertEquals(content.getString("status"), extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        val presentation = content.getJSONObject("presentation")
+        val style = presentation.getJSONObject("style")
+        val value = style.optJSONObject("value") ?: JSONObject()
+        // A standard notification has no more to show, and metrics are drawn from Android 17 on.
+        when (style.getString("kind")) {
+            "bigText" -> {
+                assertEquals(value.getString("text"), extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString())
+                assertEquals(value.textOrNull("summary"), extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString())
+            }
+            "progress" -> assertEquals(value.getInt("progress"), extras.getInt(Notification.EXTRA_PROGRESS, -1))
+            "timer" -> {
+                val countsDown = value.getBoolean("countsDown")
+                val shown = value.getJSONObject("timer").getLong(if (countsDown) "endsAt" else "startedAt")
+                assertTrue(extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER))
+                assertEquals(countsDown, extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN))
+                assertEquals(shown, notification.`when`)
+            }
+        }
+        val actions = presentation.optJSONArray("actions") ?: JSONArray()
+        val titles = (0 until actions.length()).map { actions.getJSONObject(it).getString("title") }
+        assertEquals(titles, notification.actions.orEmpty().map { it.title.toString() })
+        assertEquals(presentation.has("largeIcon"), notification.getLargeIcon() != null)
+        if (Build.VERSION.SDK_INT >= 36) {
+            assertEquals(presentation.textOrNull("shortCriticalText"), notification.shortCriticalText)
+        }
+    }
+
+    private fun JSONObject.textOrNull(name: String): String? = if (has(name)) getString(name) else null
+
+    /**
+     * The image that the `appFile` icons of the fixture name, in the folder where `writeImage` puts one
+     * (tests/android-contents.test.mjs compares the three).
+     */
+    private fun writeBadge(): File {
+        val badge = File(context.filesDir, "tauri-live-activity/images/badge.png")
+        requireNotNull(badge.parentFile).mkdirs()
+        badge.outputStream().use { Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it) }
+        return badge
+    }
+
+    /** The activity's notification as Android holds it, once it shows. */
+    private fun posted(): Notification {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        repeat(40) {
+            manager.activeNotifications.firstOrNull { it.tag == "liveupdate-rs:$ACTIVITY_ID" }?.let { return it.notification }
+            Thread.sleep(50)
+        }
+        throw AssertionError("The notification did not show")
     }
 
     private fun awaitObservation(present: Boolean): JSONArray {
@@ -207,17 +329,24 @@ class NativeBridgeTest {
     /** A schema-v2 record with one action, as the plugin's Rust posts a layout. */
     private fun layoutRecord(): JSONObject {
         val action = JSONObject().put("id", "pet").put("title", "Pet Mochi").put("authenticationRequired", false)
-        val snapshot = JSONObject()
-            .put("revision", 0)
+        return contentRecord(JSONObject()
             .put("title", "Mochi wants attention")
             .put("status", "No pets yet")
             .put("presentation", JSONObject()
                 .put("style", JSONObject().put("kind", "standard"))
-                .put("actions", JSONArray().put(action)))
+                .put("actions", JSONArray().put(action))))
+    }
+
+    /**
+     * The schema-v2 record of a first snapshot that shows [content]: the snapshot is the content with a revision, and
+     * the template is the kind of its style.
+     */
+    private fun contentRecord(content: JSONObject): JSONObject {
+        val snapshot = JSONObject(content.toString()).put("revision", 0)
         val origin = JSONObject()
             .put("activityKey", "mochi:instrumentation")
             .put("schemaVersion", 2)
-            .put("template", "standard")
+            .put("template", content.getJSONObject("presentation").getJSONObject("style").getString("kind"))
             .put("fallback", "notification")
             .put("visibility", "private")
             .put("snapshot", snapshot)
