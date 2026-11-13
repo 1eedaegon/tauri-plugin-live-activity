@@ -1,8 +1,9 @@
 // One layout activity kept in step with what a component wants, one request at a time. Framework-free:
 // the hook in index.ts feeds it the options of each render.
 import type {
-  EndPolicy, ErrorCode, Fallback, Layout, LayoutActivityRecord, LayoutAndroidOptions, LayoutEndInput, LayoutPush,
-  LayoutStartInput, LayoutStyle, LayoutUpdateInput, LayoutValues, LiveActivityError, PushTokenEvent, UpdatedEvent,
+  EndPolicy, ErrorCode, Fallback, Layout, LayoutActivityRecord, LayoutAndroidOptions, LayoutEndInput, LayoutIosOptions,
+  LayoutPush, LayoutStartInput, LayoutStyle, LayoutUpdateInput, LayoutValues, LiveActivityError, PushTokenEvent,
+  UpdatedEvent,
 } from '../types.js';
 
 export interface SessionOptions {
@@ -18,6 +19,8 @@ export interface SessionOptions {
   readonly fallback?: Fallback;
   /** Read at start. */
   readonly android?: LayoutAndroidOptions;
+  /** Read at start: what only iOS reads, such as a transient activity. */
+  readonly ios?: LayoutIosOptions;
   /** Read at start: what the activity asks ActivityKit for, a push token or a channel (iOS). */
   readonly push?: LayoutPush;
   /** False ends the activity, and true starts it again. Defaults to true. */
@@ -150,6 +153,7 @@ export class Session {
       snapshot: { revision: 0, values },
       ...(options.styles === undefined ? {} : { styles: options.styles }),
       ...(options.android === undefined ? {} : { android: options.android }),
+      ...(options.ios === undefined ? {} : { ios: options.ios }),
       ...(options.push === undefined ? {} : { push: options.push }),
     };
     this.failedKey = undefined;

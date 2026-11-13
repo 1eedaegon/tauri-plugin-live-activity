@@ -1,12 +1,14 @@
 // Layout components for TSX. Each returns the plain node object of its `layout` builder; nothing here
-// imports Tauri or React, so a server can build the same layout.
+// imports Tauri or React, so a server can build the same layout. Every component takes the members any node
+// may carry as props: `style`, `if` or `unless`, `ifStale`, `accessibility`, `transition` and `privacy`.
 import {
-  bound, button, custom, divider, gauge, hstack, image, path, progress, spacer, symbol, text, timerText, vstack, zstack,
+  bound, button, custom, divider, gauge, hstack, image, link, path, progress, spacer, symbol, text, timerText, toggle,
+  vstack, zstack,
 } from '../layout.js';
 import type {
-  LayoutButtonNode, LayoutCustomNode, LayoutDividerNode, LayoutGaugeNode, LayoutHStackNode, LayoutImageNode, LayoutNode,
-  LayoutPathNode, LayoutProgressNode, LayoutSpacerNode, LayoutSymbolNode, LayoutTextNode, LayoutTimerTextNode,
-  LayoutVStackNode, LayoutZStackNode,
+  LayoutButtonNode, LayoutCustomNode, LayoutDividerNode, LayoutGaugeNode, LayoutHStackNode, LayoutImageNode,
+  LayoutLinkNode, LayoutNode, LayoutPathNode, LayoutProgressNode, LayoutSpacerNode, LayoutSymbolNode, LayoutTextNode,
+  LayoutTimerTextNode, LayoutToggleNode, LayoutVStackNode, LayoutZStackNode,
 } from '../types.js';
 
 export { bind } from '../layout.js';
@@ -34,6 +36,8 @@ export type ImageProps = Props<LayoutImageNode, 'source'> & (
   | { readonly file: string; readonly asset?: never }
 );
 export type ButtonProps = Props<LayoutButtonNode, 'child'> & { readonly children: LayoutNode };
+export type LinkProps = Props<LayoutLinkNode, 'child'> & { readonly children: LayoutNode };
+export type ToggleProps = Props<LayoutToggleNode, 'child'> & { readonly children: LayoutNode };
 
 /** Children from top to bottom. */
 export function VStack({ children, ...options }: VStackProps): LayoutVStackNode {
@@ -103,9 +107,20 @@ export function TimerText({ start, end, ...options }: Props<LayoutTimerTextNode>
 
 /** A button around its one child; a tap reports `actionId` to `onAction`. */
 export function Button({ actionId, children, ...options }: ButtonProps): LayoutButtonNode {
-  const child: unknown = Array.isArray(children) && children.length === 1 ? children[0] : children;
-  if (!isNode(child)) throw new TypeError('Button: needs exactly one node as its child');
-  return button(actionId, child, options);
+  return button(actionId, only('Button', children), options);
+}
+
+/** A link around its one child; a tap opens the app with `url`, a URL or `bind(key)` for a text value that is one. */
+export function Link({ url, children, ...options }: LinkProps): LayoutLinkNode {
+  return link(url, only('Link', children), options);
+}
+
+/**
+ * A switch that shows the boolean value of `bind` beside its one child, the label; a tap reports `actionId` to
+ * `onAction` with `on`, the state the person asked for.
+ */
+export function Toggle({ actionId, bind, children, ...options }: ToggleProps): LayoutToggleNode {
+  return toggle(actionId, bind, only('Toggle', children), options);
 }
 
 /** A SwiftUI view that the app registers under `name`; `props` are its inputs. */
@@ -116,6 +131,13 @@ export function Custom({ name, ...options }: Props<LayoutCustomNode>): LayoutCus
 function isNode(value: unknown): value is LayoutNode {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     && typeof (value as { type?: unknown }).type === 'string';
+}
+
+/** The one child of a button, a link or a toggle; it may come as an array of one. */
+function only(component: string, children: unknown): LayoutNode {
+  const child: unknown = Array.isArray(children) && children.length === 1 ? children[0] : children;
+  if (!isNode(child)) throw new TypeError(`${component}: needs exactly one node as its child`);
+  return child;
 }
 
 function nodes(component: string, children: LayoutChild): LayoutNode[] {

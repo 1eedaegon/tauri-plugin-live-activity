@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 use tauri_plugin_live_activity::{
     AndroidContent, AndroidPresentation, BigTextStyle, IconSource, Metric, MetricStyle,
     MetricValue, NotificationAction, PresentationStyle, ProgressPoint, ProgressSegment,
-    ProgressStyle, SamsungNowBar, SemanticStyle, TimerStyle, validate_request,
+    ProgressStyle, PublicVersion, SamsungNowBar, SemanticStyle, TimerStyle, validate_request,
 };
 
 /// The contents of the fixture, each with its name.
@@ -48,8 +48,8 @@ fn every_android_content_of_the_fixture_reads_into_the_models_and_writes_back_th
         // What Rust writes is the content of the fixture, member for member: nothing more and nothing less.
         let typed = read(name, content);
         assert_eq!(&serde_json::to_value(&typed).unwrap(), content, "{name}");
-        // The contract takes each in a start and in an update. The two that liveupdate's Android side then refuses
-        // are among them: the fixture names them, and no rule of Rust tells them from the others.
+        // The contract takes each in a start and in an update. Those that liveupdate's Android side does not post
+        // on Android 16 are among them: the fixture names them, and no rule of Rust tells them from the others.
         assert_eq!(
             validate_request("start_layout", start(content)),
             Ok(()),
@@ -59,6 +59,42 @@ fn every_android_content_of_the_fixture_reads_into_the_models_and_writes_back_th
             validate_request("update_layout", update(content)),
             Ok(()),
             "{name}"
+        );
+    }
+}
+
+/// The members of a stopwatch and a countdown as liveupdate wrote them up to 0.3.0, in snake case, which its Android
+/// side refused. Rust still reads them, and writes them as the Android side reads them. A request is taken as it
+/// encodes back, so one in the old names is none.
+// TP-CONTRACT-8, TP-RUST-2
+#[test]
+fn a_running_metric_in_snake_case_reads_into_the_models_and_is_no_request() {
+    let metric = |value: Value| {
+        json!({"title":"Mochi","status":"Lap 2","presentation":{"style":{"kind":"metric",
+            "value":{"metrics":[{"label":"Lap","value":value}]}}}})
+    };
+    let update = |android: Value| {
+        json!({"id":"opaque-handle-1",
+            "snapshot":{"revision":1,"values":{"title":"Mochi"},"android":android}})
+    };
+    for (kind, old, new) in [
+        ("stopwatch", "started_at", "startedAt"),
+        ("countdown", "ends_at", "endsAt"),
+    ] {
+        let sent = metric(json!({"kind":kind,"value":{old:1_790_000_000_000_u64}}));
+        let written = metric(json!({"kind":kind,"value":{new:1_790_000_000_000_u64}}));
+        assert_eq!(serde_json::to_value(read(kind, &sent)).unwrap(), written);
+        assert_eq!(
+            validate_request("update_layout", update(sent))
+                .unwrap_err()
+                .code,
+            "INVALID_INPUT",
+            "{kind}"
+        );
+        assert_eq!(
+            validate_request("update_layout", update(written)),
+            Ok(()),
+            "{kind}"
         );
     }
 }
@@ -113,6 +149,13 @@ impl Held {
             large_icon,
             actions,
             samsung_now_bar,
+            chronometer,
+            open_url,
+            alert,
+            public_version,
+            small_icon,
+            accent_color,
+            sub_text,
         } = presentation;
         self.member(
             "presentation.shortCriticalText",
@@ -126,15 +169,27 @@ impl Held {
                 title: _,
                 icon,
                 authentication_required,
+                open_url,
             } = action;
             self.icon("action.icon", icon);
             self.member("action.authenticationRequired", *authentication_required);
+            self.member("action.openUrl", open_url.is_some());
         }
         self.member("presentation.samsungNowBar", samsung_now_bar.is_some());
         if let Some(SamsungNowBar { primary, secondary }) = samsung_now_bar {
             self.member("samsungNowBar.primary", primary.is_some());
             self.member("samsungNowBar.secondary", secondary.is_some());
         }
+        self.member("presentation.chronometer", chronometer.is_some());
+        chronometer.iter().for_each(clock);
+        self.member("presentation.openUrl", open_url.is_some());
+        self.member("presentation.alert", *alert);
+        self.member("presentation.publicVersion", public_version.is_some());
+        public_version.iter().for_each(locked);
+        // A small icon is a resource: liveupdate refuses one from a file.
+        self.icon("presentation.smallIcon", small_icon);
+        self.member("presentation.accentColor", accent_color.is_some());
+        self.member("presentation.subText", sub_text.is_some());
         self.style(style);
     }
 
@@ -151,15 +206,9 @@ impl Held {
                 self.variants.insert("style: progress");
                 self.progress(progress);
             }
-            PresentationStyle::Timer(TimerStyle {
-                timer:
-                    Timer {
-                        started_at: _,
-                        ends_at: _,
-                    },
-                counts_down: _,
-            }) => {
+            PresentationStyle::Timer(timer) => {
                 self.variants.insert("style: timer");
+                clock(timer);
             }
             PresentationStyle::Metric(MetricStyle {
                 metrics,
@@ -240,6 +289,25 @@ impl Held {
             }
         }
     }
+}
+
+/// The clock of a timer style and of a chronometer, one model for both: it has no member that may be left out.
+fn clock(clock: &TimerStyle) {
+    let TimerStyle {
+        timer: Timer {
+            started_at: _,
+            ends_at: _,
+        },
+        counts_down: _,
+    } = clock;
+}
+
+/// What a locked screen shows in place of a content: it has no member that may be left out either.
+fn locked(version: &PublicVersion) {
+    let PublicVersion {
+        title: _,
+        status: _,
+    } = version;
 }
 
 /// The fixture is as wide as the models: what TypeScript declares and what liveupdate's Android side takes are

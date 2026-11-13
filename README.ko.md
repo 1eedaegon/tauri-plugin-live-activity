@@ -120,7 +120,7 @@ export function Delivery({ order }: { order: Order }) {
 
 `layout`과 `styles`는 시작할 때만 읽으니, 바꾸려면 `activityKey`를 바꿔 새 액티비티를 시작합니다. 거부된
 요청은 `error`에 남습니다. 노드마다 컴포넌트가 하나씩 있고(`VStack`, `HStack`, `ZStack`, `Spacer`, `Divider`,
-`Text`, `SFSymbol`, `Image`, `Path`, `Progress`, `Gauge`, `TimerText`, `Button`, `Custom`) 노드의 멤버가 그대로
+`Text`, `SFSymbol`, `Image`, `Path`, `Progress`, `Gauge`, `TimerText`, `Button`, `Link`, `Toggle`, `Custom`) 노드의 멤버가 그대로
 prop입니다. [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#tsx-and-react)
 
 ## Rust
@@ -149,11 +149,13 @@ fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
         fallback: Fallback::Notification,
         layout: Layout {
             lock_screen: Element::Text { value: None, bind: Some("status".into()) }.into(),
-            island: None, background: None, keyline: None,
+            island: None, background: None, keyline: None, url: None,
         },
         styles: None,
         snapshot: snapshot(0, "On time"),
         android: None, // Android 전용: 잠금 화면 표시 범위는 `AndroidOptions::new(visibility)`
+        ios: None,     // iOS 전용: `IosOptions::new(transient)`이면 일시적 액티비티(iOS 18)
+        scheduled: None, // iOS 26: `ScheduledStart::new(at, alert)`이면 나중에 시작
         push: None,    // iOS 전용: `Some(LayoutPush::Token)`이면 액티비티의 APNs 토큰을 요청
     };
     let activity = app.live_activity().start_layout(input)?;
@@ -196,9 +198,9 @@ await updateLayout({ id: snack.id, snapshot: { revision: 1, values: { title: 'Mo
 await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 ```
 
-레이아웃은 시작한 모습 그대로이고, 갱신마다 모든 값을 더 높은 revision으로 다시 보냅니다. 탭은
+시작 요청에 `scheduled: { at, alert }`를 주면 나중에 시작하고(iOS 26), `ios: { transient: true }`이면 일시적 액티비티가 됩니다(iOS 18). 레이아웃은 시작한 모습 그대로이고, 갱신마다 모든 값을 더 높은 revision으로 다시 보냅니다. 탭은
 `onAction`으로, 푸시 토큰과 푸시된 내용은 `onPushToken`, `onPushToStartToken`, `onUpdated`로, 앱이 호출하지 않은
-액티비티의 변화는 `onState`, `onStarted`, `onPermissions`로 옵니다.
+액티비티의 변화는 `onState`, `onStarted`, `onOpened`(Android: 액티비티의 알림으로 앱을 연 일), `onPermissions`로 옵니다.
 
 스냅샷에는 `relevance`(앱의 여러 액티비티 중 Dynamic Island가 무엇을 보일지 정하는 점수)와 `android`
 콘텐츠(레이아웃 투영 대신 Android 방식 그대로 쓰는 알림: 구간이 있는 진행 막대, 지표, 칩 텍스트)를 넣을 수
@@ -216,6 +218,8 @@ await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 | `progress` | 0~1의 숫자를 고리나 막대로 | 예 | 첫 번째가 알림의 진행률 막대 |
 | `timerText` | `end`까지 내려가거나 `start`부터 올라가는 시간. 시스템이 셈 | 예 | 크로노미터 |
 | `button` | `onAction` / `on_action`으로 오는 탭 | iOS 17 이상 | 최대 세 개의 동작 |
+| `link` | 탭하면 그 URL을 앱에서 여는 노드 | 예 | URL을 여는 동작(기기가 `links`를 제공할 때) |
+| `toggle` | 불리언 값을 보여 주는 스위치, 탭은 `on`으로 옴 | iOS 17 이상 | 레이블을 제목으로 한 동작, 켜진 동안 체크 표시 |
 | `vstack`, `hstack`, `zstack`, `spacer`, `divider` | 배치 | 예 | 평평하게 |
 | `custom` | 이름으로 고른 자체 SwiftUI 뷰 | 예 | 아니오 |
 
@@ -263,9 +267,8 @@ keyline: '#A3D9C2', // 아일랜드 테두리 색
   `"receipts": "redacted"`를 주면 가립니다.
 - 버튼 탭은 Rust `on_action` 핸들러를 최대 4초 기다립니다. JavaScript 리스너는 기다리지 않습니다.
 - 푸시는 iOS만. Android는 진행 중 알림을 보여 주고, 시스템이 허용하는 곳에서는 Live Update로 올립니다.
-- Android 16에서는 지금 진행률(progress)을 보여 주는 레이아웃과 `progress` 스타일의 Android content가 게시되지
-  않습니다(`NATIVE_ERROR`). liveupdate 0.1이 Android 17에 추가된 메서드를 거기서 부르기 때문이고, progress 템플릿은
-  해당하지 않습니다. [그동안 보여 줄 수 있는 것](docs/usage.md#android).
+- Android 16은 시각이 두 주보다 지난 알림을 보여 주지 않으며, 앱에도 알리지 않습니다. 타이머의 시작이나 끝이 게시보다
+  그만큼 앞선 경우입니다.
 - npm 패키지와 크레이트는 같은 마이너 버전으로 맞춥니다.
 
 ## Samsung Now Bar

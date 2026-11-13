@@ -283,6 +283,51 @@ fn taps_reach_tauri_listeners_as_the_action_event() {
         .recv_timeout(std::time::Duration::from_secs(10))
         .unwrap();
     assert_eq!(serde_json::from_str::<Value>(&payload).unwrap(), tap);
+    // A tap on a toggle says which state the person asked for.
+    let toggled = json!({"actionId":"mute","activityId":"la-1","activityKey":"job:1","on":true});
+    actions.tap(serde_json::from_value(toggled.clone()).unwrap(), ());
+    let payload = heard
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&payload).unwrap(), toggled);
+}
+
+// TP-EVENT-2
+#[test]
+fn an_opening_from_a_notification_reaches_tauri_listeners() {
+    use crate::OPENED_EVENT;
+    use liveactivity::Event;
+    use tauri::Listener;
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let (sender, heard) = std::sync::mpsc::channel();
+    app.listen(OPENED_EVENT, move |event| {
+        let payload: Value = serde_json::from_str(event.payload()).unwrap();
+        let _ = sender.send(payload);
+    });
+    let actions = crate::actions::spawn(|_| {}).unwrap();
+    let sink = crate::events::sink(app.handle().clone(), actions);
+    let opened = |action: Option<&str>| {
+        Event::Opened(crate::OpenedEvent {
+            activity_id: "la-1".into(),
+            activity_key: Some("job:1".into()),
+            action_id: action.map(str::to_owned),
+        })
+    };
+    // By the notification itself, then by an action that opens a URL.
+    sink(opened(None));
+    sink(opened(Some("link:1")));
+    let wait = std::time::Duration::from_secs(10);
+    assert_eq!(
+        heard.recv_timeout(wait).unwrap(),
+        json!({"activityId":"la-1","activityKey":"job:1"})
+    );
+    assert_eq!(
+        heard.recv_timeout(wait).unwrap(),
+        json!({"activityId":"la-1","activityKey":"job:1","actionId":"link:1"})
+    );
 }
 
 // TP-DESKTOP-1
@@ -474,6 +519,7 @@ fn pet_tap() -> crate::ActionEvent {
         action_id: "pet".into(),
         activity_id: "la-1".into(),
         activity_key: Some("job:1".into()),
+        on: None,
     }
 }
 

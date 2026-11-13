@@ -2,8 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutEndInput, LayoutStartInput,
-  LayoutUpdateInput, PermissionKind, Permissions, PushToStartTokenEvent, PushTokenEvent, PushTokens, StartInput,
-  StartedEvent, StateEvent, UpdateInput, UpdatedEvent,
+  LayoutUpdateInput, OpenedEvent, PermissionKind, Permissions, PushToStartTokenEvent, PushTokenEvent, PushTokens,
+  StartInput, StartedEvent, StateEvent, UpdateInput, UpdatedEvent,
 } from './types.js';
 
 export type * from './types.js';
@@ -166,13 +166,25 @@ export function onStarted(handler: (event: StartedEvent) => void): Promise<Unlis
 }
 
 /**
- * Receive each new lifecycle state of an activity. iOS reports every change while the app runs, such as `stale`,
- * `ended` and `dismissed`; Android reports `dismissed` when the person removes the notification of a layout
- * activity, when the plugin drains its events. A change while the app did not run, and the dismissal of a template's
- * notification on Android, is in the activity's record, as `list` and `listLayout` give it.
+ * Receive each new lifecycle state of an activity, of a template or a layout. iOS reports the changes ActivityKit
+ * tells of while the app runs. Android reports where an activity stands when the plugin looks, each state once:
+ * `active` once Android shows the notification, `stale` after the snapshot's `staleAt`, `ended` and `dismissed`.
+ * The plugin looks with every start, update, end and list, when Android stores a tap or a dismissal, and at the
+ * stale time of an activity while the app runs. A state that came while the app did not run is reported when it
+ * starts. An activity is over at `ended` and at `dismissed`: an end that removes an activity at once may be reported
+ * as `dismissed` alone.
  */
 export function onState(handler: (event: StateEvent) => void): Promise<UnlistenFn> {
   return listen<StateEvent>('live-activity://state', event => handler(event.payload));
+}
+
+/**
+ * Receive each opening of the app from the notification of an activity (Android): which activity the person
+ * opened it from, and by which action when it was one that opens a URL. The URL itself comes to the app as any deep
+ * link. iOS hands the URL to the app and reports nothing here.
+ */
+export function onOpened(handler: (event: OpenedEvent) => void): Promise<UnlistenFn> {
+  return listen<OpenedEvent>('live-activity://opened', event => handler(event.payload));
 }
 
 /**

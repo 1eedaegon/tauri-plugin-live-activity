@@ -1,7 +1,7 @@
 # Android OS coverage
 
-This adapter implements local progress and countdown activities using Android
-notifications. It does not start a foreground service, schedule background work,
+This adapter implements progress and countdown activities, and since 0.2.0 layout activities, using
+Android notifications. It does not start a foreground service, schedule background work,
 or guarantee OEM lock-screen surfaces.
 
 ## Platform behavior
@@ -95,6 +95,33 @@ retained JVM/API 31 execution data gives **315/338 lines (93.20%)** and **204/28
 branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
+
+## Layout activities (contract v2), 0.7.0
+
+0.7.0 runs on liveupdate 0.3.2 and adds links, toggles, the wider Android content, the states of an activity and the
+`onOpened` event (see [Android setup](android-integration.md#links)). Run on a Galaxy S23 with Android 17 (API 37):
+
+- The Android library's device tests (`connectedDebugAndroidTest`), 7 of 7. Every content of
+  `tests/fixtures/android/contents.json` was posted and read back: a progress with its segments, points and icons,
+  the metrics with a stopwatch and a countdown, a header clock, the URL of the notification and of an action as
+  activity intents, the channel that alerts, the public version and the branding. A stored tap woke the event sink,
+  and an opening intent was stored once.
+- The demo, through the plugin's commands in its web view: the lifecycle of a template, and the demo's own 20
+  checks. A layout with a toggle and nodes that follow staleness started with `layout.ifStale` in its record;
+  with its `staleAt` six seconds ahead and no call of the app, `onState` gave `active` after 0.2 s and `stale` after
+  6.1 s; an intent with the marks of a link of that activity gave one `onOpened` with `actionId: "link:1"`; its end
+  gave `ended`.
+
+The device tests also ran on an Android 16 emulator (API 36), 7 of 7: all 19 contents were posted there, the three
+of the progress style among them, whose posted progress was read back on Android 16 for the first time (the plain
+bar of 1000, the segments and points with icons from the resources, and the icons from files). Android 16 draws no
+metric, so the two that count are only taken there. That image promotes nothing, so promotion is not shown by it.
+
+Not run: Android 15 and earlier with this version, a tap on a toggle or on a link by a person (the opening intent
+came from the shell), the foreground placement with a service of the app, and an activity restored after Android
+ended the process. Android 16 shows nothing of a notification whose time is more than two weeks past
+([Android setup](android-integration.md#layout-activities-contract-v2)); that was measured on an Android 16
+emulator when the device test of the Android contents was written, and not again.
 
 ## Layout activities (contract v2), 0.2.0
 

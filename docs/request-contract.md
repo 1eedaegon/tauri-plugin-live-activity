@@ -92,11 +92,15 @@ tests, and the coverage of each layer, are recorded separately in the
 
 Status: released in 0.2.0. [Bound style members](#bound-style-members), the style member
 `fontFamily`, images from a `file`, [custom nodes](#custom-nodes) and
-[`write_image`](#images-the-app-writes) came in 0.3.0. In 0.5 v2 is the contract of the
+[`write_image`](#images-the-app-writes) came in 0.3.0. Version 0.5 is the contract of the
 [activitykit](https://github.com/1eedaegon/activitykit-rs) crate, which adds a `timestamp` to snapshots,
-final content to `end_layout`, the state `pending` and the error code `NOT_FOREGROUND`. It follows the
-[layout DSL RFC](rfc-layout-dsl.md) with the differences listed at the end of this section. Contract v1
-above is unchanged.
+final content to `end_layout`, the state `pending` and the error code `NOT_FOREGROUND`. Version 0.7 is the
+contract of the [liveactivity](https://github.com/1eedaegon/liveactivity-rs) crate 0.5.1, which adds the
+`link` and `toggle` nodes, the node members `accessibility`, `transition`, `privacy` and `ifStale`, the
+layout's `url`, the Dynamic Island's `priority`, `belowIfTooWide` and `margins`, a style's
+`contentTransition`, the start options `ios` and `scheduled`, the alert's `sound` and the Android
+content's presentation members. It follows the [layout DSL RFC](rfc-layout-dsl.md) with the differences
+listed at the end of this section. Contract v1 above is unchanged.
 
 In v2 the host sends a tree of nodes. On iOS activitykit's widget, `ActivityKitLayoutWidget`, draws
 it in a widget extension of the app. The tree is sent once, at start. An update sends values only.
@@ -201,7 +205,9 @@ activitykit's contract allows it.
   "layout": { "lockScreen": { "type": "text", "bind": "title", "style": "title" } },   // required
   "styles": { "title": { "font": "headline" } },                                       // optional; 1 to 24 styles
   "snapshot": { "revision": 0, "values": { "title": "Focus" }, "staleAt": 1790000000000, "timestamp": 1789999400000 },
-  "android": { "visibility": "private" }      // optional; "public", "private" or "secret"
+  "android": { "visibility": "private" },     // optional; "public", "private" or "secret"
+  "ios": { "transient": true },               // optional; what only iOS reads (iOS 18)
+  "scheduled": { "at": 1900000000000, "alert": { "title": "Break", "body": "Starts now", "sound": "chime.aiff" } }  // optional; iOS 26
 }
 
 // update_layout; "alert" is optional
@@ -214,19 +220,22 @@ activitykit's contract allows it.
 
 `activityKey`, `id`, `revision`, `staleAt`, `fallback` and `policy` follow the v1 rules. `staleAt`
 and `timestamp` are optional in every snapshot. `android`, when present, must carry `visibility`;
-iOS ignores it.
+iOS ignores it. `ios` is ignored on Android. `scheduled` is `UNSUPPORTED_FEATURE` before iOS 26 and on
+Android, where nothing is kept.
 
 #### Beside the schema
 
-The liveactivity crate's contract takes three members that activitykit's schema does not describe.
+The liveactivity crate's contract takes members that activitykit's schema does not describe.
 They are optional, never `null`, and checked on every platform, so that a request is valid
 everywhere or nowhere:
 
 | Member | In | Rule | iOS | Android |
 | --- | --- | --- | --- | --- |
 | `relevance` | a snapshot, of a start, an update or an end | a finite number | which of the app's activities the Dynamic Island shows first: the highest wins; without it the activity keeps its score, 0 at first | ignored; the record does not repeat it |
-| `android` | a snapshot | `{ "title", "status", "presentation" }` and no other member: a title of 1 to 120 and a status of 1 to 240 code points, not only whitespace, and a presentation of the liveupdate crate with a `style` | ignored; the record does not repeat it | shown in place of the projection of the layout; the style of an activity's first snapshot stays, and a content of another style is `UNSUPPORTED_FEATURE` |
-| `alert` | `update_layout` | `{ "title", "body" }` and no other member: 1 to 120 and 1 to 240 code points, not only whitespace | the device lights up, the Dynamic Island expands and an Apple Watch shows the two texts | the update is silent, and its record names `alert` in `degradedFeatures` |
+| `android` | a snapshot | `{ "title", "status", "presentation" }` and no other member: a title of 1 to 120 and a status of 1 to 240 code points, not only whitespace, and a presentation of the liveupdate crate with a `style`; its members are checked on every platform | ignored; the record does not repeat it | shown in place of the projection of the layout. A snapshot may have another style than the activity's first where the device offers `styleChange`; elsewhere that is `UNSUPPORTED_FEATURE`. A member the device does not offer is `UNSUPPORTED_FEATURE`, the alert excepted |
+| `alert` | `update_layout` | `{ "title", "body" }` and no other member: 1 to 120 and 1 to 240 code points, not only whitespace; `sound`?: a file name of the app's bundle or `Library/Sounds`, such as `chime.aiff` | the device lights up, the Dynamic Island expands and an Apple Watch shows the two texts; `sound` plays that file | the update alerts again where the device offers `alert`, else it is silent and the record names `alert`; the channel's sound plays, and the record names `alert.sound` for a `sound` |
+| `ios` | a start | `{ "transient" }`: a boolean, required in it | `transient: true` asks for a transient activity (iOS 18; `UNSUPPORTED_FEATURE` before) | ignored; not part of the start's identity |
+| `scheduled` | a start | `{ "at", "alert" }`: `at` a time in epoch milliseconds, `alert` required and of an update's form | the activity begins at `at` (iOS 26); the record is `pending` until then, and an update is `CONFLICT`; `UNSUPPORTED_FEATURE` before | `UNSUPPORTED_FEATURE`, and nothing is kept |
 
 ```jsonc
 // a snapshot with a relevance and an Android content
@@ -306,8 +315,8 @@ list of them:
 ```
 
 The record has no `template` and does not repeat the layout. `state` is `pending`, `active`,
-`stale`, `ended`, `dismissed` or `unknown`; `pending` is iOS 26's state of a scheduled start, which
-the plugin does not make.
+`stale`, `ended`, `dismissed` or `unknown`; `pending` is the state of a scheduled start that has not begun
+(iOS 26, `scheduled` in a start).
 
 ### Errors
 
@@ -348,14 +357,17 @@ started activity.
   "lockScreen": Node,              // required
   "island": {                      // optional; at least one member
     "expanded": {                  // optional; at least one region
-      "leading": Node, "trailing": Node, "center": Node, "bottom": Node
+      "leading": Node, "trailing": Node, "center": Node, "bottom": Node,
+      "priority": { "leading": 1 }, "belowIfTooWide": ["trailing"]
     },
     "compactLeading": Node,
     "compactTrailing": Node,
-    "minimal": Node
+    "minimal": Node,
+    "margins": { "expanded": 8 }   // optional; at least one member
   },
   "background": Color | Binding,   // optional; tint of the activity background
-  "keyline": Color | Binding       // optional; tint of the Dynamic Island keyline
+  "keyline": Color | Binding,      // optional; tint of the Dynamic Island keyline
+  "url": Url | Binding             // optional; what a tap on the activity opens the app with
 }
 ```
 
@@ -373,6 +385,13 @@ Every node is an object with a `type`. Any node may also carry:
 - `style`: a style token;
 - `if` or `unless`, not both: a value key. With `if` the node and its subtree are drawn only when
   the value is truthy, with `unless` only when it is not.
+- `ifStale`: `true` draws the node and its subtree only while the content is stale, `false` only while it is
+  not. Android draws the layout as it is while fresh and names `layout.ifStale`.
+- `accessibility`: `label`, `value` or `hint`, each text of 1 to 200 code points or a binding of any type, or
+  `hidden: true` for decoration.
+- `transition`: `opacity`, `slide`, `moveTop`, `moveBottom`, `moveLeading`, `moveTrailing`, `pushTop`,
+  `pushBottom`, `pushLeading` or `pushTrailing`, for a node that `if` or `unless` shows or hides (iOS).
+- `privacy`: `sensitive`, which iOS hides on a locked device when the person has asked for that.
 
 In the table, `?` marks an optional member and a value key is a key of `snapshot.values`.
 
@@ -391,6 +410,8 @@ In the table, `?` marks an optional member and a value key is a key of `snapshot
 | `gauge` | `bind`: value key (number); `min`?, `max`?: numbers, 0 and 1 when left out; `min` must be below `max`, and the check uses the default of a member that is left out; `kind`?: `linear` `circular` |
 | `timerText` | `start`, `end`: value keys (times as in v1: integers from 0 to 8640000000000000, in epoch milliseconds; the `end` value after the `start` value); `countsDown`?: boolean, true when left out |
 | `button` | `actionId`: `^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$`; `child`: Node |
+| `link` | `url`: a URL of 1 to 1024 ASCII characters, a scheme, a colon and at least one more character, or a binding to such a text value; `child`: Node. On Android it is an action that opens the URL where the device offers `links` |
+| `toggle` | `actionId`: as a button's; `bind`: value key of a boolean, the state the switch shows; `child`: Node, its label |
 | `custom` | `name`: `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, a view the app registers; `props`?: 1 to 16 entries, see [Custom nodes](#custom-nodes) |
 
 `d` is SVG path data within these limits:
@@ -420,8 +441,8 @@ feed as whitespace, and both accept path data without a command.
   `child` of a button is one level deeper than its parent.
 - Nodes per region, containers included: `lockScreen` 40, each expanded region 12,
   `compactLeading` 3, `compactTrailing` 3, `minimal` 3.
-- Buttons: only in `lockScreen` and the expanded regions, never inside another button at any
-  depth, and at most 4 per region.
+- Buttons, links and toggles: only in `lockScreen` and the expanded regions, never inside one of them at any
+  depth, and at most 4 per region, all three together.
 
 ### Reference rules
 
@@ -437,7 +458,9 @@ These rules need the layout, the styles and the values together, so they are che
 - every `style` names a token of `styles`. A `style` in a request without `styles` is invalid;
 - every [bound member](#bound-style-members), in every style whether a node uses it or not, names
   a key of `snapshot.values` whose value the member takes;
-- every binding among the `props` of a `custom` node names a key of `snapshot.values`, of any type.
+- every binding among the `props` of a `custom` node names a key of `snapshot.values`, of any type;
+- `toggle.bind` names a boolean, and a bound `url` of the layout or of a `link` names a string that is a URL;
+- a bound `label`, `value` or `hint` of an `accessibility` names a key of any type.
 
 A style that no node uses and a value that no node reads are allowed. The number that a
 `progress` or a `gauge` reads is not range-checked; a progress bar shows it clamped to 0..1.

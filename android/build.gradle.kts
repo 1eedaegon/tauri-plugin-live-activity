@@ -42,6 +42,8 @@ kotlin { compilerOptions { jvmTarget = JvmTarget.JVM_1_8 } }
 
 dependencies {
     implementation(project(":tauri-android"))
+    // The activity's saved state registry. Tauri's own activity is an appcompat one, which brings this version.
+    implementation("androidx.activity:activity:1.6.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20260814")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

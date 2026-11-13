@@ -1,5 +1,10 @@
 # Multiplatform design proposal
 
+Status: the design of the first releases, kept as a record. Since 0.5 the plugin is an adapter of the
+[liveactivity](https://github.com/1eedaegon/liveactivity-rs) crate: iOS runs on activitykit and Android on
+liveupdate, and the plugin's own Kotlin lifecycle and notification renderer described below are gone. The
+structure that 0.7 ships is in [usage](usage.md) and [Android setup](android-integration.md).
+
 Status: the design drawn up during the first research, on 2026-11-04. The first alpha
 implements iOS and Android. What was actually built and tested is in the
 [validation record](validation.md). Since 0.5 the iOS side differs from this proposal: the

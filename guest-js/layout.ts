@@ -1,7 +1,7 @@
 import type {
-  LayoutBound, LayoutButtonNode, LayoutCustomNode, LayoutDividerNode, LayoutGaugeNode, LayoutHStackNode, LayoutImageNode,
-  LayoutImageSource, LayoutNode, LayoutPathNode, LayoutProgressNode, LayoutSpacerNode, LayoutSymbolNode, LayoutTextNode,
-  LayoutTimerTextNode, LayoutVStackNode, LayoutZStackNode,
+  LayoutBindable, LayoutBound, LayoutButtonNode, LayoutCustomNode, LayoutDividerNode, LayoutGaugeNode, LayoutHStackNode,
+  LayoutImageNode, LayoutImageSource, LayoutLinkNode, LayoutNode, LayoutPathNode, LayoutProgressNode, LayoutSpacerNode,
+  LayoutSymbolNode, LayoutTextNode, LayoutTimerTextNode, LayoutToggleNode, LayoutVStackNode, LayoutZStackNode,
 } from './types.js';
 
 /** The members of a node that its builder does not take as arguments. */
@@ -13,7 +13,9 @@ function given<T extends object>(options: T | undefined): T {
   return Object.fromEntries(Object.entries(options ?? {}).filter(([, value]) => value !== undefined)) as T;
 }
 
-// The builders return plain node objects. They do not validate: the plugin checks the whole request.
+// The builders return plain node objects. They do not validate: the plugin checks the whole request. The options
+// of every builder take the members any node may carry: `style`, `if` or `unless`, `ifStale`, `accessibility`,
+// `transition` and `privacy`.
 
 /** Children from top to bottom. */
 export function vstack(children: readonly LayoutNode[], options?: Options<LayoutVStackNode, 'children'>): LayoutVStackNode {
@@ -88,15 +90,32 @@ export function button(actionId: string, child: LayoutNode, options?: Options<La
   return { type: 'button', actionId, child, ...given(options) };
 }
 
+/**
+ * A link around `child`: a tap opens the app with `url`, a URL such as `myapp://delivery/7` or `bind(key)` for a
+ * text value that is one.
+ */
+export function link(url: LayoutBindable<string>, child: LayoutNode, options?: Options<LayoutLinkNode, 'url' | 'child'>): LayoutLinkNode {
+  return { type: 'link', url, child, ...given(options) };
+}
+
+/**
+ * A switch that shows the boolean value of `key` beside `child`, its label; a tap reports `actionId` to `onAction`
+ * with `on`, the state the person asked for.
+ */
+export function toggle(actionId: string, key: string, child: LayoutNode, options?: Options<LayoutToggleNode, 'actionId' | 'bind' | 'child'>): LayoutToggleNode {
+  return { type: 'toggle', actionId, bind: key, child, ...given(options) };
+}
+
 /** A SwiftUI view that the app registers under `name` in LiveActivityCustomViews.swift; `props` are its inputs. */
 export function custom(name: string, options?: Options<LayoutCustomNode, 'name'>): LayoutCustomNode {
   return { type: 'custom', name, ...given(options) };
 }
 
 /**
- * A style member, `layout.background` or `layout.keyline` that reads the value of `key` on every render,
- * so an update can change it: `{ color: bind('tone') }`. Only `color`, `background`, `tint`, `opacity`,
- * `size`, `weight` and `cornerRadius` can be bound, and the props of a `custom` node.
+ * A member that reads the value of `key` on every render, so an update can change it: `{ color: bind('tone') }`.
+ * Only these can be bound: `color`, `background`, `tint`, `opacity`, `size`, `weight` and `cornerRadius` of a style,
+ * `layout.background`, `layout.keyline` and `layout.url`, the `url` of a link, the `label`, `value` and `hint` of a
+ * node's `accessibility`, and the props of a `custom` node.
  */
 export function bind(key: string): LayoutBound {
   return { bind: key };

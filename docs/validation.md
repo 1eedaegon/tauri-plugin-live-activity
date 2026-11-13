@@ -1,3 +1,32 @@
+# 0.7.0 validation
+
+0.7.0 moves the plugin to liveactivity 0.5.1 (activitykit 0.5.0, liveupdate 0.3.2): links, toggles, nodes that
+follow staleness, scheduled and transient starts, alert sounds, the wider Android content, the states of an activity
+on Android and the opened event. Rust, TypeScript and JSON change, so it is a minor release. Checked before the tag:
+
+- The shared layout fixtures of activitykit 0.5, 246 valid, 1042 invalid, 41 updates and 6 ends: the Rust validator
+  and the TypeScript reference validator agree on verdict, error code and weight. Beside the fixtures, 173 requests
+  written for the review were given to liveactivity 0.5.1 and to the reference validator; they disagreed on the
+  value key that liveactivity keeps for the templates, which the reference validator now refuses, and on what it
+  checks only in outline, the presentation of an Android content.
+- `npm test` (1744 tests in six suites) and `cargo test` (58), `cargo clippy` for the host and for Android,
+  `tools/spec-coverage.sh` (77 requirements, each with a test).
+- The Android library on a Galaxy S23 with Android 17: unit tests and lint, and the device tests, 7 of 7, with every
+  Android content of the fixture posted and read back. The device tests on an Android 16 emulator as well, 7 of 7:
+  the three contents of the progress style are posted there, which they were not before liveupdate 0.3.2.
+- The demo on that phone: the lifecycle, the demo's 20 checks, a stale time that passed with no call of the app
+  (`stale` after 6.1 s for a time 6 s ahead), an opening intent, and the states of an end.
+- CI of the pull request and the main run of the release commit. CI runs the two simulator suites only when it is
+  started by hand: they were, on the head of the pull request, and passed (7 tests on the built demo; 4 on
+  `tauri ios dev`, one of them on a second try).
+
+Not checked: Android 15 and earlier with this version; a tap on a toggle or a link by a person; an activity that
+Android restored after ending the process; on iOS, the new nodes on a Lock Screen and a scheduled start through
+the plugin (an iPhone with iOS 18 ran liveactivity 0.5.0's contract through a test build of the demo:
+[iOS coverage](ios-coverage.md#070-additions)).
+
+The record of 0.3.0 follows.
+
 # 0.3.0 validation
 
 0.3.0 lets apps change styles with an update (bound style members), use their own fonts and

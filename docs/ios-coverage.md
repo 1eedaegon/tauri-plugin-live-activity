@@ -29,6 +29,25 @@ The guide specifies up to eight active hours and up to four further Lock Screen 
 
 Apple documents that [`staleDate`](https://developer.apple.com/documentation/activitykit/activitycontent/staledate) changes an activity to stale. On iOS 27.2 simulator, an initial foreground-only published-package test did not observe that transition within 20 seconds of a deadline set two seconds after starting. This failed observation is retained in `tests/ios/results/published-alpha1-stale-observation.json`; it is not counted as passing runtime coverage. A second test backgrounded the app for eight seconds and returned before completing the same polling window; it also failed to observe stale (`published-alpha1-stale-background.json`). The bridge passes the stale date to ActivityKit and preserves observed OS lifecycle state. Android may derive content staleness from its deadline; iOS reports ActivityKit’s observed state. The strict stale probe remains separate from the other feature tests, and is not converted into a passing test by guessing an OS transition.
 
+## 0.7.0 additions
+
+0.7.0 adds to the iOS layouts: toggles (a switch from iOS 17), links, the nodes `accessibility`, `transition`,
+`privacy` and `ifStale`, the layout's `url`, the Dynamic Island's `priority`, `belowIfTooWide` and `margins`, a style's
+`contentTransition`, the alert's `sound`, the scheduled start (iOS 26, `pending` until it begins) and the transient
+start (iOS 18). The contract and its checks run on every platform; the iOS behavior of these members is
+activitykit's, which runs them on a simulator in its own suite.
+
+A push or a pull request does not run the plugin's two simulator suites (`tests/ios/run.sh`): CI runs them when it
+is started by hand with `simulator`. For 0.7.0 they were started so on the head of the pull request, with the widget
+extension on activitykit 0.5's Swift package: the suite on the built demo passed its 7 tests, and the one on
+`tauri ios dev` its 4, of which the tap on the Lock Screen button passed on a second try. Their tests are those of
+0.6 and show none of the new nodes. On an iPhone XS with iOS 18, a build of the demo on liveactivity 0.5.0 with a test harness ran that crate's
+conformance suite (24 checks) and started a layout with a toggle and nodes that follow staleness, an update whose
+alert names a sound and a transient activity; a scheduled start answered `UNSUPPORTED_FEATURE`, as below iOS 26. An
+end that removed an activity at once was reported there as `dismissed` without `ended`. No run shows a tap on a
+toggle, a stale layout on a Lock Screen or a scheduled start on iOS 26 through the plugin, so the version floors
+above are activitykit's documented ones.
+
 ## Tests added after the first release
 
 - Exact encoded Unicode title/status equality: NFC and NFD strings must conflict at the same revision, matching JS/Rust/Android contracts. Swift's default canonical string equivalence incorrectly accepted the changed text. A failing core test and the actual published alpha.1 consumer reproduced it; the local fix compares UTF-8 bytes.

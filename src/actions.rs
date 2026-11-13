@@ -126,6 +126,7 @@ mod tests {
             action_id: action.into(),
             activity_id: "id".into(),
             activity_key: None,
+            on: None,
         }
     }
 
@@ -307,6 +308,7 @@ mod tests {
             action_id: "pet".into(),
             activity_id: "la-ios-layout-1".into(),
             activity_key: Some("mochi:buttons".into()),
+            on: None,
         };
         actions.tap(event.clone(), Release(log.clone(), started));
         // Queuing does not wait: activitykit's events thread goes on reading.
@@ -335,6 +337,7 @@ mod tests {
                 action_id: "pet".into(),
                 activity_id: "a".into(),
                 activity_key: None,
+                on: None,
             },
             Release(log.clone(), started),
         );

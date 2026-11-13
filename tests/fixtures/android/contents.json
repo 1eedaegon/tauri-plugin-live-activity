@@ -44,6 +44,66 @@
     "android": "ok"
   },
   {
+    "name": "a standard notification with a clock in its header that counts up",
+    "content": {
+      "title": "Mochi’s walk",
+      "status": "Out since noon",
+      "presentation": {
+        "style": { "kind": "standard" },
+        "chronometer": { "timer": { "startedAt": 1790000000000, "endsAt": 1790000600000 }, "countsDown": false }
+      }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "a standard notification that a tap opens at a URL, with an action that opens another",
+    "content": {
+      "title": "Mochi’s snack",
+      "status": "Tap to follow it",
+      "presentation": {
+        "style": { "kind": "standard" },
+        "actions": [{ "id": "map", "title": "Show the map", "openUrl": "mochi://snack/42/map" }],
+        "openUrl": "mochi://snack/42"
+      }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "a standard notification that alerts",
+    "content": {
+      "title": "Mochi’s snack",
+      "status": "It is here",
+      "presentation": { "style": { "kind": "standard" }, "alert": true }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "a standard notification with what a locked screen shows in its place",
+    "content": {
+      "title": "Mochi’s vet visit",
+      "status": "Room 3, in ten minutes",
+      "presentation": {
+        "style": { "kind": "standard" },
+        "publicVersion": { "title": "Mochi", "status": "An appointment" }
+      }
+    },
+    "android": "ok"
+  },
+  {
+    "name": "a standard notification with a small icon, an accent color and a sub text",
+    "content": {
+      "title": "Mochi’s day",
+      "status": "A nap, a snack and a walk",
+      "presentation": {
+        "style": { "kind": "standard" },
+        "smallIcon": { "kind": "resource", "value": "liveupdate_status" },
+        "accentColor": 4294944000,
+        "subText": "Mochi Express"
+      }
+    },
+    "android": "ok"
+  },
+  {
     "name": "a long text",
     "content": {
       "title": "Mochi’s day",
@@ -72,9 +132,7 @@
       "status": "Packing a tiny treat",
       "presentation": { "style": { "kind": "progress", "value": { "progress": 250, "segments": [{ "length": 1000 }] } } }
     },
-    "android": "ok",
-    "android16": "NATIVE_ERROR",
-    "why": "on Android 16 liveupdate 0.1 sets the semantic style of every segment and point, with a method that Android 17 added"
+    "android": "ok"
   },
   {
     "name": "a progress of segments and points, with its three icons from the resources",
@@ -103,9 +161,7 @@
         }
       }
     },
-    "android": "ok",
-    "android16": "NATIVE_ERROR",
-    "why": "on Android 16 liveupdate 0.1 sets the semantic style of every segment and point, with a method that Android 17 added"
+    "android": "ok"
   },
   {
     "name": "a progress with its three icons from files",
@@ -125,9 +181,7 @@
         }
       }
     },
-    "android": "ok",
-    "android16": "NATIVE_ERROR",
-    "why": "on Android 16 liveupdate 0.1 sets the semantic style of every segment and point, with a method that Android 17 added"
+    "android": "ok"
   },
   {
     "name": "a timer that counts down to its end",
@@ -199,12 +253,11 @@
       "presentation": {
         "style": {
           "kind": "metric",
-          "value": { "metrics": [{ "label": "Lap", "value": { "kind": "stopwatch", "value": { "started_at": 1790000000000 } } }] }
+          "value": { "metrics": [{ "label": "Lap", "value": { "kind": "stopwatch", "value": { "startedAt": 1790000000000 } } }] }
         }
       }
     },
-    "android": "INVALID_INPUT",
-    "why": "liveupdate 0.1 writes the member in snake case, and its Android side reads startedAt"
+    "android": "ok"
   },
   {
     "name": "a metric that is a countdown",
@@ -214,11 +267,10 @@
       "presentation": {
         "style": {
           "kind": "metric",
-          "value": { "metrics": [{ "label": "Wakes in", "value": { "kind": "countdown", "value": { "ends_at": 1790000600000 } } }] }
+          "value": { "metrics": [{ "label": "Wakes in", "value": { "kind": "countdown", "value": { "endsAt": 1790000600000 } } }] }
         }
       }
     },
-    "android": "INVALID_INPUT",
-    "why": "liveupdate 0.1 writes the member in snake case, and its Android side reads endsAt"
+    "android": "ok"
   }
 ]

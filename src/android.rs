@@ -1,8 +1,13 @@
 //! Android: the default backend of the `liveactivity` crate over the plugin's Kotlin side, which carries
 //! liveupdate's Android adapter. The plugin adds what needs an Activity or Tauri: the permissions and their dialog,
-//! the folder of the app's files, and the signal that wakes the thread which drains the taps.
+//! the folder of the app's files, and the thread that drains the events ([`crate::drain`]), with the signal that
+//! wakes it.
 
-use crate::{Config, Error, LiveActivity, PermissionKind, Permissions, Result, service};
+use crate::{
+    Config, Error, LiveActivity, PermissionKind, Permissions, Result,
+    drain::{self, Wake},
+    service,
+};
 use liveactivity::{
     ActivityRecord, BackendContext, BackendFuture, Capabilities, EndInput, LayoutActivityRecord,
     LayoutEndInput, LayoutStartInput, LayoutUpdateInput, LiveActivityBackend, PushTokens,
@@ -13,8 +18,7 @@ use liveactivity::{
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     path::PathBuf,
-    sync::{Arc, Weak, mpsc},
-    thread,
+    sync::{Arc, mpsc},
 };
 use tauri::{
     AppHandle, Runtime,
@@ -74,6 +78,27 @@ type Engine<R> = LiveUpdateBackend<liveupdate::JsonDriver<TauriBridge<R>>>;
 struct Android<R: Runtime> {
     engine: Engine<R>,
     handle: PluginHandle<R>,
+    /// Wakes the thread that drains the events.
+    wake: mpsc::Sender<Wake>,
+}
+
+impl<R: Runtime> Android<R> {
+    /// After a call that may have changed which state is due next and when, such as a start with a stale time: has
+    /// the draining thread look at that time again. The states the call itself made due were reported by it.
+    fn called<T>(&self, answer: Result<T>) -> Result<T> {
+        let _ = self.wake.send(Wake::Called);
+        answer
+    }
+}
+
+impl<R: Runtime> drain::Source for Android<R> {
+    fn drain(&self) -> bool {
+        self.engine.pump_events().is_ok()
+    }
+
+    fn next_check(&self) -> Option<liveupdate::NextCheck> {
+        self.engine.next_check().ok()
+    }
 }
 
 impl<R: Runtime> LiveActivityBackend for Android<R> {
@@ -100,15 +125,15 @@ impl<R: Runtime> LiveActivityBackend for Android<R> {
     }
 
     fn start(&self, input: StartInput) -> BackendFuture<'_, ActivityRecord> {
-        self.engine.start(input)
+        Box::pin(async move { self.called(self.engine.start(input).await) })
     }
 
     fn update(&self, input: UpdateInput) -> BackendFuture<'_, ActivityRecord> {
-        self.engine.update(input)
+        Box::pin(async move { self.called(self.engine.update(input).await) })
     }
 
     fn end(&self, input: EndInput) -> BackendFuture<'_, ActivityRecord> {
-        self.engine.end(input)
+        Box::pin(async move { self.called(self.engine.end(input).await) })
     }
 
     fn list(&self) -> BackendFuture<'_, Vec<ActivityRecord>> {
@@ -116,15 +141,15 @@ impl<R: Runtime> LiveActivityBackend for Android<R> {
     }
 
     fn start_layout(&self, input: LayoutStartInput) -> BackendFuture<'_, LayoutActivityRecord> {
-        self.engine.start_layout(input)
+        Box::pin(async move { self.called(self.engine.start_layout(input).await) })
     }
 
     fn update_layout(&self, input: LayoutUpdateInput) -> BackendFuture<'_, LayoutActivityRecord> {
-        self.engine.update_layout(input)
+        Box::pin(async move { self.called(self.engine.update_layout(input).await) })
     }
 
     fn end_layout(&self, input: LayoutEndInput) -> BackendFuture<'_, LayoutActivityRecord> {
-        self.engine.end_layout(input)
+        Box::pin(async move { self.called(self.engine.end_layout(input).await) })
     }
 
     fn list_layout(&self) -> BackendFuture<'_, Vec<LayoutActivityRecord>> {
@@ -142,29 +167,6 @@ impl<R: Runtime> LiveActivityBackend for Android<R> {
     fn sync_events(&self) -> BackendFuture<'_, ()> {
         self.engine.sync_events()
     }
-}
-
-/// A thread that drains liveupdate's events whenever it is woken. It ends at the first wake after the plugin is
-/// gone.
-fn drain_on_signal<R: Runtime>(backend: Weak<Android<R>>) -> Result<mpsc::Sender<()>> {
-    let (signal, woken) = mpsc::channel::<()>();
-    thread::Builder::new()
-        .name("live-activity-events".into())
-        .spawn(move || {
-            while woken.recv().is_ok() {
-                // Signals that came meanwhile are served by this one drain.
-                while woken.try_recv().is_ok() {}
-                let Some(backend) = backend.upgrade() else {
-                    break;
-                };
-                if backend.engine.pump_events().is_err() {
-                    #[cfg(debug_assertions)]
-                    eprintln!("live-activity: liveupdate's events could not be drained");
-                }
-            }
-        })
-        .map_err(|_| Error::native())?;
-    Ok(signal)
 }
 
 pub(crate) fn init<R: Runtime>(
@@ -197,14 +199,21 @@ pub(crate) fn init<R: Runtime>(
         samsung_now_bar,
         ..AndroidFiles::new(app.package_info().name.clone(), files)
     });
-    let backend = Arc::new(Android { engine, handle });
-    let signal = drain_on_signal(Arc::downgrade(&backend))?;
-    let plugin = service::connect(app, backend.clone(), Some(signal.clone()))?;
+    // The thread that drains the events holds the backend weakly, and the backend what wakes the thread: the
+    // thread ends at its first wake or wait after the plugin, which holds the backend, is gone.
+    let (signal, woken) = mpsc::channel();
+    let backend = Arc::new(Android {
+        engine,
+        handle,
+        wake: signal.clone(),
+    });
+    drain::spawn(Arc::downgrade(&backend), woken).map_err(|_| Error::native())?;
+    let plugin = service::connect(app, backend.clone())?;
     // The channel is handed over here, on the thread that registers every native plugin. The Kotlin side sends on
     // it from liveupdate's receivers, on the main thread: it only wakes the draining thread.
     let wake = signal.clone();
     let channel: Channel = Channel::new(move |_| {
-        let _ = wake.send(());
+        let _ = wake.send(Wake::Stored);
         Ok(())
     });
     call::<serde_json::Value>(
@@ -212,7 +221,8 @@ pub(crate) fn init<R: Runtime>(
         "registerEvents",
         serde_json::json!({ "channel": channel }),
     )?;
-    // Taps stored before the app ran, or before the channel, wait in liveupdate's queue.
-    let _ = signal.send(());
+    // Taps stored before the app ran, or before the channel, wait in liveupdate's queue, and so do the states
+    // that came meanwhile.
+    let _ = signal.send(Wake::Stored);
     Ok(plugin)
 }

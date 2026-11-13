@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { afterEach, test } from 'node:test';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { after, afterEach, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { mockIPC, clearMocks } from '@tauri-apps/api/mocks';
 import { emit } from '@tauri-apps/api/event';
@@ -245,6 +250,24 @@ test('onStarted, onState and onPermissions listen to their events', async t => {
   assert.equal(started.length, 1);
 });
 
+// TP-EVENT-2
+test('onOpened hands each opening from a notification to its handler until it is unsubscribed', async t => {
+  t.mock.method(console, 'warn', () => {});
+  mockIPC(() => undefined, { shouldMockEvents: true });
+  const openings = [];
+  const unlisten = await activity.onOpened(event => openings.push(event));
+  const byTheNotification = { activityId: layoutRecord.id, activityKey: layoutInput.activityKey };
+  const byALink = { ...byTheNotification, actionId: 'link:1' };
+  await emit('live-activity://opened', byTheNotification);
+  await emit('live-activity://opened', byALink);
+  await emit('live-activity://state', { ...byTheNotification, state: 'active' });
+  assert.deepEqual(openings, [byTheNotification, byALink]);
+
+  await unlisten();
+  await emit('live-activity://opened', byTheNotification);
+  assert.equal(openings.length, 2);
+});
+
 // TP-PUSH-2, TP-PUSH-8
 test('onPushToken and onPushToStartToken deliver the tokens the plugin holds first, each token once', async t => {
   t.mock.method(console, 'warn', () => {});
@@ -353,6 +376,20 @@ for (const [name, build, expected] of [
   ['button', () => layout.button('focus.pause', layout.text('Pause')), { type: 'button', actionId: 'focus.pause', child: { type: 'text', value: 'Pause' } }],
   ['button with options', () => layout.button('focus.pause', layout.text('Pause'), { style: 'action', unless: 'paused' }),
     { type: 'button', actionId: 'focus.pause', child: { type: 'text', value: 'Pause' }, style: 'action', unless: 'paused' }],
+  ['link', () => layout.link('myapp://delivery/7', layout.text('Open')), { type: 'link', url: 'myapp://delivery/7', child: { type: 'text', value: 'Open' } }],
+  ['link with a bound url and options', () => layout.link(layout.bind('target'), layout.symbol('map'), { style: 'action', if: 'tracked' }),
+    { type: 'link', url: { bind: 'target' }, child: { type: 'symbol', name: 'map' }, style: 'action', if: 'tracked' }],
+  ['toggle', () => layout.toggle('mute', 'muted', layout.text('Mute')),
+    { type: 'toggle', actionId: 'mute', bind: 'muted', child: { type: 'text', value: 'Mute' } }],
+  ['toggle with options', () => layout.toggle('mute', 'muted', layout.text('Mute'), { style: 'switch', unless: 'locked' }),
+    { type: 'toggle', actionId: 'mute', bind: 'muted', child: { type: 'text', value: 'Mute' }, style: 'switch', unless: 'locked' }],
+  ['text for stale content that slides in', () => layout.text('No signal', { ifStale: true, transition: 'slide' }),
+    { type: 'text', value: 'No signal', ifStale: true, transition: 'slide' }],
+  ['bound text that is private', () => layout.bound('total', { privacy: 'sensitive', ifStale: false }), { type: 'text', bind: 'total', privacy: 'sensitive', ifStale: false }],
+  ['progress with what assistive technologies read', () => layout.progress('done', { accessibility: { label: 'Delivery', value: layout.bind('percent'), hint: 'Opens the app' } }),
+    { type: 'progress', bind: 'done', accessibility: { label: 'Delivery', value: { bind: 'percent' }, hint: 'Opens the app' } }],
+  ['symbol hidden from assistive technologies', () => layout.symbol('sparkles', { accessibility: { hidden: true } }),
+    { type: 'symbol', name: 'sparkles', accessibility: { hidden: true } }],
 ]) {
   test(`layout builds a plain ${name} node with exactly the members it was given`, () => {
     assert.deepEqual(build(), expected);
@@ -364,6 +401,30 @@ test('layout.bind writes the binding of a style member and nothing else', () => 
   assert.deepEqual(layout.bind('tone'), { bind: 'tone' });
   assert.deepEqual(Object.keys(layout.bind('')), ['bind']);
   assert.notEqual(layout.bind('tone'), layout.bind('tone'));
+});
+
+// TP-JS-6
+test('every layout builder takes the members any node may carry', () => {
+  const common = deepFreeze({
+    style: 'card', unless: 'hidden', ifStale: false, accessibility: { label: 'Mochi', value: layout.bind('mood') }, transition: 'moveTop',
+    privacy: 'sensitive',
+  });
+  const child = layout.text('a');
+  const built = {
+    vstack: layout.vstack([child], common), hstack: layout.hstack([child], common), zstack: layout.zstack([child], common),
+    spacer: layout.spacer(common), divider: layout.divider(common), text: layout.text('a', common), bound: layout.bound('title', common),
+    symbol: layout.symbol('timer', common), image: layout.image('logo', common), path: layout.path('M0 0L1 1', [8, 8], common),
+    progress: layout.progress('done', common), gauge: layout.gauge('level', common), timerText: layout.timerText('from', 'to', common),
+    button: layout.button('pet', child, common), link: layout.link('app://a', child, common), toggle: layout.toggle('mute', 'muted', child, common),
+    custom: layout.custom('ring', common),
+  };
+  assert.deepEqual(Object.keys(built).sort(), Object.keys(layout).filter(name => name !== 'bind').sort());
+  for (const [name, node] of Object.entries(built)) {
+    assert.deepEqual(Object.fromEntries(Object.keys(common).map(member => [member, node[member]])), common, name);
+  }
+  // A member that is undefined is left out, as any option.
+  assert.deepEqual(layout.link('app://a', child, { ifStale: undefined, accessibility: undefined }), { type: 'link', url: 'app://a', child });
+  assert.deepEqual(layout.toggle('mute', 'muted', child, { transition: undefined }), { type: 'toggle', actionId: 'mute', bind: 'muted', child });
 });
 
 // TP-JS-6
@@ -447,9 +508,13 @@ test('sends every invalid layout fixture unchanged and reports the code of its r
   });
 });
 
-// Writes a fixture node again through the builders: its members become the builder's arguments.
+// Writes a fixture node again through the builders: its members become the builder's arguments, and a bound
+// member of its accessibility is written again with `bind`.
 const rebuilder = builders => {
-  const rebuild = ({ type, ...members }) => table[type === 'text' && 'bind' in members ? 'bound' : type](members);
+  const common = ({ accessibility, ...members }) => ({
+    ...members, ...(accessibility && { accessibility: mapValues(accessibility, member => rebind(member, builders.bind)) }),
+  });
+  const rebuild = ({ type, ...members }) => table[type === 'text' && 'bind' in members ? 'bound' : type](common(members));
   const table = {
     vstack: ({ children, ...options }) => builders.vstack(children.map(rebuild), options),
     hstack: ({ children, ...options }) => builders.hstack(children.map(rebuild), options),
@@ -468,16 +533,25 @@ const rebuilder = builders => {
     gauge: ({ bind, ...options }) => builders.gauge(bind, options),
     timerText: ({ start, end, ...options }) => builders.timerText(start, end, options),
     button: ({ actionId, child, ...options }) => builders.button(actionId, rebuild(child), options),
+    link: ({ url, child, ...options }) => builders.link(rebind(url, builders.bind), rebuild(child), options),
+    toggle: ({ actionId, bind, child, ...options }) => builders.toggle(actionId, bind, rebuild(child), options),
   };
   return rebuild;
 };
 const mapValues = (object, map) => Object.fromEntries(Object.entries(object).map(([key, value]) => [key, map(value, key)]));
 // A bound member is written again with `bind`, a literal as it is.
 const rebind = (member, bind) => (typeof member === 'object' && 'bind' in member ? bind(member.bind) : member);
-const rebuildLayout = ({ lockScreen, island, ...tints }, rebuild, bind) => ({
+// The options of the island are no nodes: they are written as they are.
+const ISLAND_OPTIONS = ['priority', 'belowIfTooWide', 'margins'];
+const rebuildParts = (parts, rebuild) => mapValues(parts, (part, key) => {
+  if (ISLAND_OPTIONS.includes(key)) return part;
+  return key === 'expanded' ? rebuildParts(part, rebuild) : rebuild(part);
+});
+// The two tints and the url are literals or bound.
+const rebuildLayout = ({ lockScreen, island, ...bindable }, rebuild, bind) => ({
   lockScreen: rebuild(lockScreen),
-  ...(island && { island: mapValues(island, (part, key) => (key === 'expanded' ? mapValues(part, rebuild) : rebuild(part))) }),
-  ...mapValues(tints, tint => rebind(tint, bind)),
+  ...(island && { island: rebuildParts(island, rebuild) }),
+  ...mapValues(bindable, member => rebind(member, bind)),
 });
 const rebuildStyles = (styles, bind) => mapValues(styles, style => mapValues(style, member => rebind(member, bind)));
 
@@ -571,6 +645,47 @@ for (const [name, build] of [
     lockScreen: hstack([path('M0 0L10 10', [24, 24], { stroke: 0.5 }), path('M0 0L10 10', [24, 24], { stroke: 16 })]),
   })],
   ['accepts a divider', ({ vstack, divider, text }) => ({ lockScreen: vstack([text('a'), divider(), text('b')]) })],
+  ['starts a layout with a url and links on the lock screen and in an expanded region', ({ vstack, text, link, symbol }) => ({
+    lockScreen: vstack([text('Recording'), link('https://example.com/a?b=c&d=%20#frag', text('Open'))]),
+    island: { expanded: { bottom: link('app://rec/1/stop', symbol('stop.fill')) } },
+    url: 'app://rec/1',
+  })],
+  ['starts a layout whose url and link are bound to a text value', ({ link, text, bind }) => ({
+    lockScreen: link(bind('target'), text('Open')), url: bind('target'),
+  })],
+  ['starts a layout with a toggle on the lock screen and in an expanded region', ({ vstack, text, toggle, symbol }) => ({
+    lockScreen: vstack([text('Recorder'), toggle('mute', 'muted', text('Mute'))]),
+    island: { expanded: { bottom: toggle('island.mute', 'muted', symbol('mic.slash')) } },
+  })],
+  ['starts a layout whose nodes say what assistive technologies read', ({ vstack, symbol, progress, divider, bound, bind }) => ({
+    lockScreen: vstack([
+      symbol('mic.fill', { accessibility: { label: 'Recording' } }),
+      progress('level', { accessibility: { label: bind('title'), value: bind('level'), hint: 'Input level' } }),
+      divider({ accessibility: { hidden: true } }),
+      bound('title', { accessibility: { hidden: false } }),
+    ], { accessibility: { label: 'Recorder' } }),
+    island: { minimal: symbol('mic.fill', { accessibility: { label: 'Recording' } }) },
+  })],
+  ['starts a layout with nodes for stale and for fresh content', ({ vstack, text, divider, symbol }) => ({
+    lockScreen: vstack([
+      text('Live', { ifStale: false }), text('Waiting for an update', { ifStale: true, transition: 'opacity' }), divider({ if: 'live', ifStale: false }),
+    ]),
+    island: { minimal: symbol('clock', { ifStale: true }) },
+  })],
+  ['starts a layout with a transition, a content transition and a sensitive node', ({ vstack, bound, text }) => ({
+    lockScreen: vstack([bound('total', { style: 'digits', privacy: 'sensitive' }), text('Paid', { if: 'paid', transition: 'pushBottom' })]),
+  })],
+  ['starts an island with priorities, a placement below the camera and margins', ({ text, divider }) => ({
+    lockScreen: text('a'),
+    island: {
+      expanded: {
+        leading: divider(), trailing: divider(), center: divider(), bottom: divider(),
+        priority: { leading: 1, trailing: 0.5, center: 100, bottom: 0 }, belowIfTooWide: ['leading', 'trailing'],
+      },
+      compactLeading: divider(),
+      margins: { expanded: 8, compactLeading: [0, 4, 0, 4], compactTrailing: 64, minimal: 0 },
+    },
+  })],
 ]) {
   test(`layout builders write the layout of the fixture that ${name}`, () => {
     const built = build(layout);
@@ -634,3 +749,70 @@ test('the declarations follow the contract of 0.6', async () => {
   assert.match(index, /export declare function onPermissions\(handler: \(permissions: Permissions\) => void\): Promise<UnlistenFn>;/);
 });
 
+// The declarations beside the layout fixtures: a module that the compiler checks, written outside the checkout.
+const root = fileURLToPath(new URL('..', import.meta.url));
+const written = mkdtempSync(join(tmpdir(), 'layout-declarations-'));
+after(() => rmSync(written, { recursive: true, force: true }));
+const compileModule = (name, source) => {
+  const file = join(written, `${name}.mts`);
+  writeFileSync(file, `import type * as plugin from ${JSON.stringify(join(root, 'dist-js/index.js'))};\n${source}`);
+  return spawnSync(join(root, 'node_modules/.bin/tsc'), [
+    '--ignoreConfig', '--noEmit', '--pretty', 'false', '--strict', '--exactOptionalPropertyTypes', '--skipLibCheck',
+    '--target', 'ES2021', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', file,
+  ], { encoding: 'utf8' });
+};
+
+// TP-JS-5
+test('the declarations take every valid layout fixture and the members beside the schema, and refuse what the contract refuses of the new ones', () => {
+  const inputs = (command) => fixtures.valid.filter(fixture => fixture.command === command).map(({ input }) => input);
+  const accepted = (given) => given.filter(({ code }) => code === undefined);
+  const typed = (name, type, values) => `export const ${name}: readonly plugin.${type}[] = ${JSON.stringify(values, null, 1)};\n`;
+  const alert = { title: 'Your ride', body: 'It starts now', sound: 'chime.aiff' };
+  const taken = compileModule('taken', [
+    typed('starts', 'LayoutStartInput', [
+      ...inputs('start_layout'), ...fixtures.updates.map(({ start }) => start), ...fixtures.ends.map(({ start }) => start),
+      // What the liveactivity crate takes with a start beside activitykit's schema.
+      { ...layoutInput, ios: { transient: true }, scheduled: { at: 1_900_000_000_000, alert }, push: 'token' },
+    ]),
+    typed('updates', 'LayoutUpdateInput', [...inputs('update_layout'), ...accepted(fixtures.updates).map(({ update }) => update), { ...layoutUpdate, alert }]),
+    typed('ends', 'LayoutEndInput', [...inputs('end_layout'), ...accepted(fixtures.ends).map(({ end }) => end)]),
+  ].join(''));
+  assert.equal(taken.status, 0, taken.stdout + taken.stderr);
+
+  // Each line below must be an error: the compiler reports an expectation that nothing meets.
+  const refused = compileModule('refused', `
+const child: plugin.LayoutNode = { type: 'text', value: 'a' };
+type Start = Pick<plugin.LayoutStartInput, 'ios' | 'scheduled'>;
+// @ts-expect-error a link needs its url
+export const a: plugin.LayoutNode = { type: 'link', child };
+// @ts-expect-error a toggle needs the key of its flag
+export const b: plugin.LayoutNode = { type: 'toggle', actionId: 'mute', child };
+// @ts-expect-error a url is no member of a button
+export const c: plugin.LayoutNode = { type: 'button', actionId: 'pet', child, url: 'app://a' };
+// @ts-expect-error a hidden node says nothing else
+export const d: plugin.LayoutNode = { type: 'divider', accessibility: { hidden: true, label: 'a' } };
+// @ts-expect-error a transition is one of the ten
+export const e: plugin.LayoutNode = { type: 'divider', transition: 'fade' };
+// @ts-expect-error privacy is sensitive or absent
+export const f: plugin.LayoutNode = { type: 'divider', privacy: 'public' };
+// @ts-expect-error a stale condition is a boolean, and no value key
+export const g: plugin.LayoutNode = { type: 'divider', ifStale: 'stale' };
+// @ts-expect-error only the regions beside the camera go below it
+export const h: plugin.LayoutIslandExpanded = { center: child, belowIfTooWide: ['center'] };
+// @ts-expect-error margins are a padding: one number or four
+export const i: plugin.LayoutIslandMargins = { minimal: [1, 2, 3] };
+// @ts-expect-error a content transition is one of the five
+export const j: plugin.LayoutStyle = { contentTransition: 'roll' };
+// @ts-expect-error the options of iOS say whether the activity is transient
+export const k: Start = { ios: {} };
+// @ts-expect-error a scheduled start has its alert
+export const l: Start = { scheduled: { at: 1 } };
+// @ts-expect-error the sound of an alert is a file name
+export const m: plugin.LayoutAlert = { title: 'a', body: 'b', sound: 1 };
+`);
+  assert.equal(refused.status, 0, refused.stdout + refused.stderr);
+  // The compiler does check the modules: a member that no declaration names fails.
+  const unknown = compileModule('unknown', typed('starts', 'LayoutStartInput', [{ ...layoutInput, layout: { ...layoutInput.layout, deepLink: 'app://a' } }]));
+  assert.notEqual(unknown.status, 0);
+  assert.match(unknown.stdout, /error TS2353: .*deepLink.* does not exist in type 'Layout'/);
+});

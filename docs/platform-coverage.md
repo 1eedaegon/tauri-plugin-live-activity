@@ -35,6 +35,15 @@ Layouts and their buttons are new in 0.2.0 and have been tested less than templa
 - No physical iPhone run of 0.2.0 is recorded here. The
   [validation record](validation.md#not-verified) lists what remains.
 
+## Layouts of 0.7.0
+
+0.7.0 is liveactivity 0.5.1: activitykit 0.5.0 on iOS and liveupdate 0.3.2 on Android. It adds to the layouts:
+toggles (iOS 17; the label alone before), links, the scheduled start (iOS 26) and the transient start (iOS 18),
+the Android notification styles that the device reports, and the Android progress on Android 16. What ran is in
+[Android coverage](android-coverage.md#layout-activities-contract-v2-070) (a phone with Android 17) and
+[iOS coverage](ios-coverage.md#070-additions) (the simulator suites, started by hand in CI, and an iPhone with iOS 18 for the contract). The Android device tests also ran on an
+Android 16 emulator, where a progress is posted now.
+
 ## Apple's secondary surfaces
 
 ActivityKit can show an activity that an iPhone started on other screens too, such as

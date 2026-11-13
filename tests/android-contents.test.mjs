@@ -96,8 +96,8 @@ test('the TypeScript declarations take every Android content of the fixture and 
   };
   const [plain] = contents;
   // A member that TypeScript does not declare, which Rust would have written.
-  refused('undeclared', [...contents, { ...plain, presentation: { ...plain.presentation, subText: 'Zzz' } }],
-    ["does not exist in type 'AndroidPresentation'", "'heldOnly'", '"/presentation/subText:string"']);
+  refused('undeclared', [...contents, { ...plain, presentation: { ...plain.presentation, category: 'Zzz' } }],
+    ["does not exist in type 'AndroidPresentation'", "'heldOnly'", '"/presentation/category:string"']);
   // A declared member that no content holds, so that nothing shows that Rust reads it.
   const summarized = (content) => style(content).kind === 'bigText' && 'summary' in style(content).value;
   refused('unread', contents.filter((content) => !summarized(content)), ["'declaredOnly'", `"${SUMMARY}:string"`]);
@@ -144,6 +144,22 @@ test("the Android library's device tests read the fixture, and every content say
   };
   assert.deepEqual([...new Set(contents.flatMap(files))], [`${folder}/badge.png`]);
   assert.ok(deviceTest.includes(`File(context.filesDir, "${folder}/badge.png")`));
+  // liveupdate's Android side refuses what the app does not have: an icon that is no resource of it, and a URL that
+  // none of its activities opens. The icons from the resources are drawables of the library, and the URLs are of the
+  // schemes that the activity of the device tests declares.
+  const named = (member) => (value) => {
+    if (typeof value !== 'object' || value === null) return [];
+    return Object.entries(value).flatMap(([name, held]) => [...member(name, held, value), ...named(member)(held)]);
+  };
+  const resources = named((name, held, holder) => (name === 'value' && holder.kind === 'resource' ? [held] : []));
+  for (const resource of new Set(contents.flatMap(resources))) {
+    assert.ok(existsSync(join(root, 'android/src/main/res/drawable', `${resource}.xml`)), resource);
+  }
+  const urls = named((name, held) => (name === 'openUrl' ? [held] : []));
+  const schemes = [...new Set(contents.flatMap(urls).map((url) => url.slice(0, url.indexOf(':'))))];
+  const manifest = read('android/src/androidTest/AndroidManifest.xml');
+  assert.ok(schemes.length > 0);
+  assert.deepEqual(schemes, Array.from(manifest.matchAll(/<data android:scheme="([^"]+)"/g), ([, scheme]) => scheme));
 
   for (const { name, android, android16, why } of cases) {
     assert.ok(['ok', 'INVALID_INPUT'].includes(android), name);

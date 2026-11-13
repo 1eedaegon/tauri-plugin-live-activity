@@ -6,6 +6,7 @@ import { validateRequest } from '../tools/validate-request.mjs';
 const start = fixtures[0].request;
 const withInput = (patch) => ({ ...start, input: { ...start.input, ...patch } });
 const withSnapshot = (patch) => withInput({ snapshot: { ...start.input.snapshot, ...patch } });
+const alert = { title: 'Arrived', body: 'At the door', sound: 'chime.aiff' };
 
 for (const fixture of fixtures) {
   test(fixture.name, () => {
@@ -52,6 +53,15 @@ for (const [name, request] of [
   ['unexpected policy timestamp', { command: 'end', input: { id: 'a', policy: { kind: 'immediate', at: 0 } } }],
   ['empty handle', { command: 'end', input: { id: '', policy: { kind: 'default' } } }],
   ['overlong handle', { command: 'end', input: { id: 'a'.repeat(257), policy: { kind: 'default' } } }],
+  // What the liveactivity crate takes beside a layout request is no part of a template's.
+  ['the options of a layout start on iOS', withInput({ ios: { transient: true } })],
+  ['a scheduled start', withInput({ scheduled: { at: 1793809500000, alert } })],
+  ['the options of a layout start on Android', withInput({ android: { visibility: 'private', placement: 'foreground' } })],
+  ['an alert with a start', withInput({ alert })],
+  ['an alert with an update', { command: 'update', input: { id: 'a', snapshot: start.input.snapshot, alert } }],
+  ['an alert with an end', { command: 'end', input: { id: 'a', policy: { kind: 'default' }, alert } }],
+  ['a relevance in a snapshot', withSnapshot({ relevance: 80 })],
+  ['an Android content in a snapshot', withSnapshot({ android: { title: 'a', status: 'b', presentation: { style: { kind: 'standard' } } } })],
 ]) {
   test(`rejects ${name}`, () => assert.equal(validateRequest(request).valid, false));
 }

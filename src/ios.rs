@@ -23,5 +23,5 @@ pub(crate) fn init<R: Runtime>(
         .push_to_start(push_to_start)
         .build()
         .map_err(|error| Error::new(error.code(), error.message()))?;
-    service::connect(app, ActivityKitBackend::with_kit(kit), None)
+    service::connect(app, ActivityKitBackend::with_kit(kit))
 }
