@@ -96,6 +96,33 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## A scheduled start, 0.8.0
+
+0.8.0 takes a scheduled start on Android, with liveactivity 0.6.0 and liveupdate 0.4.0, whose adapter the
+plugin's library carries. A Galaxy S23 with Android 17 (API 37) ran it. The demo declares no permission for exact
+alarms, so `exactStart` was false there, and each start was the demo's Scheduled start example, 30 s ahead.
+
+- The Android library's device tests, 9 of 9, on liveupdate 0.4.0's adapter.
+- The demo's lifecycle test, 28 of 28: four more checks than 0.7 had on Android, where a scheduled start was one
+  check, refused. It is pending, holds its key whatever the time, takes no update, is listed as pending and can
+  be ended.
+- With the app in front: `pending` in the page, and the notification 1.7 s after its time. The page heard `active`.
+  The plugin's thread asks at the time, so an app that runs does not wait for the alarm.
+- With the app's process ended right after the start: the notification 25 s after its time, posted by the alarm,
+  for which Android had started a process of the app. The app that was opened afterwards listed the activity as
+  `active`. Its page heard no `active`: that had gone out when the plugin started, before the page listened.
+- Ended before its time: nothing was shown in 13 minutes.
+- The notification permission taken away before its time: nothing was shown in 13 minutes, and the app that was
+  opened once the permission was back listed the activity as `dismissed`.
+
+A build of the demo that declares `SCHEDULE_EXACT_ALARM`, with the permission allowed (`exactStart` true), ran
+before liveactivity 0.6.0 was released, on its change: with the process ended, the notification was there at its
+time, looked for every 5 s; one ended before its time showed nothing in 95 s, and one whose notifications were
+off was `dismissed` at the next launch.
+
+Not run: a restart of the device, with and without the receiver declared for it; a doze; a start whose alarm
+could not be set; Android 16 and earlier.
+
 ## 0.7.2 on a phone
 
 0.7.2 changes nothing on Android but the version of liveactivity. It is the first version after the change that

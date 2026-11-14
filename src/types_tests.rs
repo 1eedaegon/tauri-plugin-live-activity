@@ -332,7 +332,7 @@ fn the_typescript_options_of_a_start_on_android_are_what_rust_reads_and_writes()
     );
 }
 
-// TP-JS-7
+// TP-JS-7, TP-ANDROID-17
 #[test]
 fn the_typescript_records_have_the_members_that_the_rust_models_write() {
     let ts = types();

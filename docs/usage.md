@@ -927,8 +927,8 @@ In Rust: `update.alert = Some(Alert::new(title, body))` on a `LayoutUpdateInput:
 
 ### Scheduled and transient starts
 
-`scheduled` starts the activity at a later time (iOS 26). `at` is epoch milliseconds, and the alert is
-required: the system shows it when the activity begins. Until then the record is `pending`: the key is
+`scheduled` starts the activity at a later time, on iOS 26 and on Android. `at` is epoch milliseconds, and the
+alert is required: the system shows it when the activity begins. Until then the record is `pending`: the key is
 held, the activity can be ended, and an update is `CONFLICT`, since the activity begins with the content of
 its start. `onState` reports `active` when it begins.
 
@@ -947,8 +947,29 @@ await startLayout({
 });
 ```
 
-Before iOS 26 and on Android a start with `scheduled` answers `UNSUPPORTED_FEATURE` and keeps nothing: a
-notification is posted when it is asked for, so the app starts the activity itself when the time comes.
+Before iOS 26 a start with `scheduled` answers `UNSUPPORTED_FEATURE` and keeps nothing.
+
+On Android the plugin's library begins the activity: it sets an alarm, and a receiver posts the notification at
+the time, also while the app does not run. `getCapabilities().androidPresentation.scheduledStart` says that it
+can. What differs from iOS:
+
+- **How close to the time.** With the permission for exact alarms, at its time: `exactStart` says whether the app
+  has it. Without it Android chooses the moment, within about ten minutes while the device is awake and later
+  while it dozes. The permission is the app's to declare:
+  [Android integration](android-integration.md#a-scheduled-start) has the manifest, and what a restart of the
+  device does to a start that waits.
+- **The alert is the notification's own.** It alerts when it is posted, where the device offers `alert`, with the
+  content of the activity: the alert's title and body are iOS's. Elsewhere it begins silently and the record names
+  `alert`. A `sound` is named `alert.sound`.
+- **States.** `onState` reports `pending` once, as it reports every state on Android. An activity that began
+  while the app did not run is `active` in the list of the app that opens afterwards. Its `active` goes out when
+  the plugin starts, before a page listens, so read the list at launch. One that the person removed meanwhile, or
+  that could not be posted because notifications were off by then, is `dismissed`.
+- **A start that failed** with another error than `INVALID_INPUT` leaves the activity `pending` without an alarm.
+  The same start again sets it.
+- **Not with the foreground placement**, `android: { placement: 'foreground' }`: `UNSUPPORTED_FEATURE`.
+
+A device whose `scheduledStart` is false answers `UNSUPPORTED_FEATURE` and keeps nothing.
 
 `ios: { transient: true }` asks for a transient activity (iOS 18). By Apple's description it shows in the
 expanded Dynamic Island, and the system ends it when the person locks the device, collapses that
@@ -969,7 +990,7 @@ await onPermissions(permissions => { /* the person changed them in Settings (iOS
 
 | Event | Function | iOS | Android |
 | --- | --- | --- | --- |
-| `live-activity://state` | `onState` | every new lifecycle state of an activity, of a template or a layout, while the app runs | `active`, `stale`, `ended` and `dismissed`, each once, for templates and layouts; `stale` arrives at the stale time while the app runs |
+| `live-activity://state` | `onState` | every new lifecycle state of an activity, of a template or a layout, while the app runs | `pending` for a scheduled start, `active`, `stale`, `ended` and `dismissed`, each once, for templates and layouts; `stale` arrives at the stale time while the app runs |
 | `live-activity://opened` | `onOpened` | none | the person opened the app from an activity's notification, by the notification or by an action that opens a URL |
 | `live-activity://started` | `onStarted` | a layout activity began: one the app started, or one a push started | none |
 | `live-activity://permissions` | `onPermissions` | Live Activities or frequent pushes were turned on or off in Settings | none |
@@ -978,7 +999,7 @@ An event reaches only the listeners there are when it goes out. What happened wh
 the page listened, is in the records: `list()` and `listLayout()` at launch give every activity with its state, and
 `checkPermissions()` the permissions. On Android liveupdate stores the dismissal of a notification as it stores a tap, and the plugin reports it
 when it drains them: at once while the app's process lives, else when the app starts. The plugin's events
-thread also wakes at an activity's stale time. The event names are public in Rust (`STATE_EVENT`, `STARTED_EVENT`,
+thread also wakes at an activity's stale time and at the time of a scheduled start. The event names are public in Rust (`STATE_EVENT`, `STARTED_EVENT`,
 `PERMISSIONS_EVENT`, `OPENED_EVENT`) for `app.listen`.
 
 An opening is in no record, and the one that launches the app is reported before its page has loaded. So the plugin

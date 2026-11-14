@@ -74,3 +74,15 @@ test("the plugin's permissions read the notification settings through liveupdate
     assert.doesNotMatch(own(file), /NotificationManager|CHANNEL_ID|areNotificationsEnabled|canPostPromotedNotifications/, file);
   }
 });
+
+// TP-ANDROID-17
+test("the library carries liveupdate's alarm and its start receiver, and leaves the exact time and the restart to the app", () => {
+  assert.ok(copiedFiles(liveupdateDir()).includes('android/src/main/java/io/github/eedaegon/liveupdate/ScheduledStarts.kt'));
+  const manifest = readFileSync(join(root, 'android/src/main/AndroidManifest.xml'), 'utf8');
+  assert.match(manifest, /<receiver android:name="io\.github\.eedaegon\.liveupdate\.LiveUpdateStartReceiver" android:exported="false" \/>/);
+  // The permission for exact alarms and the receiver's declaration for a restart of the device are the app's.
+  assert.doesNotMatch(manifest, /SCHEDULE_EXACT_ALARM|USE_EXACT_ALARM|BOOT_COMPLETED/);
+  // A page reads from the capabilities whether a start can be scheduled, and whether it begins at its time.
+  const types = readFileSync(join(root, 'guest-js/types.ts'), 'utf8');
+  for (const member of ['scheduledStart', 'exactStart']) assert.match(types, new RegExp(`readonly ${member}: boolean;`));
+});

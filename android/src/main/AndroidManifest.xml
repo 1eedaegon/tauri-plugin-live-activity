@@ -5,6 +5,7 @@
         <!-- liveupdate's receivers, from its Android adapter (tools/sync-liveupdate.mjs). -->
         <receiver android:name="io.github.eedaegon.liveupdate.LiveUpdateActionReceiver" android:exported="false" />
         <receiver android:name="io.github.eedaegon.liveupdate.LiveUpdateDismissReceiver" android:exported="false" />
+        <receiver android:name="io.github.eedaegon.liveupdate.LiveUpdateStartReceiver" android:exported="false" />
         <!-- Watches the app's activities from the start of the process, for the intents of liveupdate's notifications
              that open the app (Openings.kt). It holds no data. -->
         <provider

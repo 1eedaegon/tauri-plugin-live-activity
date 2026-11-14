@@ -61,6 +61,15 @@ with liveactivity 0.5.2: [iOS coverage](ios-coverage.md#072-on-two-iphones). A G
 it as well: [Android coverage](android-coverage.md#072-on-a-phone). Still not run: the UI tests on a phone, and
 so a touch on a phone's Lock Screen; Android 15 and earlier with these versions; a finger on either.
 
+## 0.8.0
+
+0.8.0 takes a scheduled start on Android. A Galaxy S23 with Android 17 began one with the app in front, at its
+time, and with the app's process ended, 25 s after its time without the permission for exact alarms; one that was
+ended first showed nothing, and one whose notifications were off was `dismissed`:
+[Android coverage](android-coverage.md#a-scheduled-start-080). Not run: a restart of the device, a doze, Android
+16 and earlier. On iOS nothing changes: the lifecycle test passed on an iPhone 16 with iOS 27.2 (3 of 3 runs) and
+on an iPhone XS with iOS 18.7 (2 of 2).
+
 ## Apple's secondary surfaces
 
 ActivityKit can show an activity that an iPhone started on other screens too, such as

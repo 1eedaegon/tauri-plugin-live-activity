@@ -419,7 +419,7 @@ const laterExample: LayoutExample = {
   id: 'later',
   name: 'Scheduled start',
   feature: 'A start with scheduled begins at its time with an alert, here 30 seconds from now. Until then it is pending: no update, but it can be ended.',
-  android: 'A notification is posted when it is asked for, so Android answers UNSUPPORTED_FEATURE and shows nothing.',
+  android: 'An alarm posts it at its time, also with the app closed. Without exact alarms, which this demo does not ask for, Android may take minutes unless the app runs.',
   start: now => ({
     activityKey: 'mochi:later', schemaVersion, fallback,
     layout: {

@@ -172,9 +172,9 @@ async function checkInteraction(api: API, runId: string, platform: string, check
 const SCHEDULED_AHEAD_MS = 600_000;
 
 /**
- * A start at a later time, through the real plugin. Where the system begins an activity by itself (iOS 26) it is
- * pending until then: it holds its key, takes no update, is listed and can be ended. Android, and an older iOS, start
- * an activity only when they are asked to, and refuse.
+ * A start at a later time, through the real plugin. Where the system begins an activity by itself (iOS 26, and
+ * Android through liveupdate's alarm) it is pending until then: it holds its key, takes no update, is listed and can
+ * be ended. An older iOS starts an activity only when it is asked to, and refuses.
  */
 async function checkScheduled(api: API, runId: string, check: Check, live: (id?: string) => void): Promise<void> {
   const at = Date.now() + SCHEDULED_AHEAD_MS;
