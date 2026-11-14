@@ -99,7 +99,8 @@ contract of the [liveactivity](https://github.com/1eedaegon/liveactivity-rs) cra
 `link` and `toggle` nodes, the node members `accessibility`, `transition`, `privacy` and `ifStale`, the
 layout's `url`, the Dynamic Island's `priority`, `belowIfTooWide` and `margins`, a style's
 `contentTransition`, the start options `ios` and `scheduled`, the alert's `sound` and the Android
-content's presentation members. It follows the [layout DSL RFC](rfc-layout-dsl.md) with the differences
+content's presentation members. Version 0.8 is that crate's 0.6.0: the JSON is the same, and Android takes a
+scheduled start. It follows the [layout DSL RFC](rfc-layout-dsl.md) with the differences
 listed at the end of this section. Contract v1 above is unchanged.
 
 In v2 the host sends a tree of nodes. On iOS activitykit's widget, `ActivityKitLayoutWidget`, draws
@@ -207,7 +208,7 @@ activitykit's contract allows it.
   "snapshot": { "revision": 0, "values": { "title": "Focus" }, "staleAt": 1790000000000, "timestamp": 1789999400000 },
   "android": { "visibility": "private" },     // optional; "public", "private" or "secret"
   "ios": { "transient": true },               // optional; what only iOS reads (iOS 18)
-  "scheduled": { "at": 1900000000000, "alert": { "title": "Break", "body": "Starts now", "sound": "chime.aiff" } }  // optional; iOS 26
+  "scheduled": { "at": 1900000000000, "alert": { "title": "Break", "body": "Starts now", "sound": "chime.aiff" } }  // optional; iOS 26 and Android
 }
 
 // update_layout; "alert" is optional
@@ -220,8 +221,8 @@ activitykit's contract allows it.
 
 `activityKey`, `id`, `revision`, `staleAt`, `fallback` and `policy` follow the v1 rules. `staleAt`
 and `timestamp` are optional in every snapshot. `android`, when present, must carry `visibility`;
-iOS ignores it. `ios` is ignored on Android. `scheduled` is `UNSUPPORTED_FEATURE` before iOS 26 and on
-Android, where nothing is kept.
+iOS ignores it. `ios` is ignored on Android. `scheduled` is `UNSUPPORTED_FEATURE` before iOS 26, and on an
+Android device whose capabilities do not offer `scheduledStart`; nothing is kept then.
 
 #### Beside the schema
 
@@ -235,7 +236,7 @@ everywhere or nowhere:
 | `android` | a snapshot | `{ "title", "status", "presentation" }` and no other member: a title of 1 to 120 and a status of 1 to 240 code points, not only whitespace, and a presentation of the liveupdate crate with a `style`; its members are checked on every platform | ignored; the record does not repeat it | shown in place of the projection of the layout. A snapshot may have another style than the activity's first where the device offers `styleChange`; elsewhere that is `UNSUPPORTED_FEATURE`. A member the device does not offer is `UNSUPPORTED_FEATURE`, the alert excepted |
 | `alert` | `update_layout` | `{ "title", "body" }` and no other member: 1 to 120 and 1 to 240 code points, not only whitespace; `sound`?: a file name of the app's bundle or `Library/Sounds`, such as `chime.aiff` | the device lights up, the Dynamic Island expands and an Apple Watch shows the two texts; `sound` plays that file | the update alerts again where the device offers `alert`, else it is silent and the record names `alert`; the channel's sound plays, and the record names `alert.sound` for a `sound` |
 | `ios` | a start | `{ "transient" }`: a boolean, required in it | `transient: true` asks for a transient activity (iOS 18; `UNSUPPORTED_FEATURE` before) | ignored; not part of the start's identity |
-| `scheduled` | a start | `{ "at", "alert" }`: `at` a time in epoch milliseconds, `alert` required and of an update's form | the activity begins at `at` (iOS 26); the record is `pending` until then, and an update is `CONFLICT`; `UNSUPPORTED_FEATURE` before | `UNSUPPORTED_FEATURE`, and nothing is kept |
+| `scheduled` | a start | `{ "at", "alert" }`: `at` a time in epoch milliseconds, `alert` required and of an update's form | the activity begins at `at` (iOS 26); the record is `pending` until then, and an update is `CONFLICT`; `UNSUPPORTED_FEATURE` before | an alarm of the plugin's library posts the notification at `at`, also while the app does not run; the record is `pending` until then, and an update is `CONFLICT`. The notification alerts where the device offers `alert`; the alert's text is not shown. `UNSUPPORTED_FEATURE` with the foreground placement |
 
 ```jsonc
 // a snapshot with a relevance and an Android content
@@ -316,7 +317,7 @@ list of them:
 
 The record has no `template` and does not repeat the layout. `state` is `pending`, `active`,
 `stale`, `ended`, `dismissed` or `unknown`; `pending` is the state of a scheduled start that has not begun
-(iOS 26, `scheduled` in a start).
+(iOS 26 and Android, `scheduled` in a start).
 
 ### Errors
 

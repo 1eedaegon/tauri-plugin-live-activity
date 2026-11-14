@@ -82,8 +82,8 @@ stopped, which an emulator started with `-no-boot-anim` never reports.
 
 The lifecycle test checks duplicate starts, newer/identical/stale revisions, conflicting payloads, list
 reconciliation, idempotent end and old-handle isolation of the templates; the same of a layout; a layout with a
-switch, a link and nodes that follow staleness; and a scheduled start, which is pending on iOS 26 and refused
-elsewhere. It ends its own activities. Launched with the argument `--self-test`, the app runs it at once, saves
+switch, a link and nodes that follow staleness; and a scheduled start, which is pending on iOS 26 and on Android
+and refused by an older iOS. It ends its own activities. Launched with the argument `--self-test`, the app runs it at once, saves
 the report with the demo's examples as it found them (`found`), and ends those examples: that is how a phone
 with no UI test runs it (`xcrun devicectl device process launch --device <id> <bundle id> --self-test`).
 `--start-later` has Rust start the Scheduled start example at launch. Results appear in the page and in

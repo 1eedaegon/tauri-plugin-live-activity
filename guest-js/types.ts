@@ -63,6 +63,10 @@ export interface AndroidPresentationSupport {
   readonly publicVersion: boolean;
   /** A small icon, an accent color and a sub text. */
   readonly branding: boolean;
+  /** A start with `scheduled`, which Android begins at its time, also while the app does not run; `UNSUPPORTED_FEATURE` without it. */
+  readonly scheduledStart: boolean;
+  /** Whether a scheduled start begins at its time: the app may set exact alarms. Without it Android chooses the moment, within minutes. */
+  readonly exactStart: boolean;
 }
 
 export interface Permissions {
@@ -134,7 +138,7 @@ export interface EndInput {
   readonly policy: EndPolicy;
 }
 
-/** `pending`: scheduled and not started yet (iOS 26). */
+/** `pending`: scheduled and not started yet (iOS 26 and Android). */
 export type ActivityState = 'pending' | 'active' | 'stale' | 'ended' | 'dismissed' | 'unknown';
 export type PromotionState = 'promoted' | 'notPromoted' | 'unknown' | 'notApplicable';
 
@@ -785,9 +789,12 @@ export interface LayoutIosOptions {
 }
 
 /**
- * A start at a later time instead of now (iOS 26; an older iOS and Android answer `UNSUPPORTED_FEATURE`, and nothing
- * is kept). Until then the record is `pending`: the activity holds its key, it can be ended, and an update is
- * `CONFLICT`, since it begins with the content of its start. `onState` reports `active` when it begins.
+ * A start at a later time instead of now: iOS 26, and Android where `getCapabilities().androidPresentation.scheduledStart`
+ * is true. Until then the record is `pending`: the activity holds its key, it can be ended, and an update is
+ * `CONFLICT`, since it begins with the content of its start. `onState` reports `active` when it begins. On Android
+ * it begins at its time with the permission for exact alarms (`exactStart`) and within minutes without. It is
+ * `UNSUPPORTED_FEATURE`, and nothing is kept, before iOS 26, with the foreground placement on Android, and where
+ * `scheduledStart` is false.
  */
 export interface LayoutScheduledStart {
   /** UTC Unix epoch milliseconds. A time that has passed starts the activity at once. */

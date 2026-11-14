@@ -156,7 +156,7 @@ fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
         snapshot: snapshot(0, "On time"),
         android: None, // Android only: `AndroidOptions::new(visibility)` for the lock screen
         ios: None,     // iOS only: `IosOptions::new(transient)` for a transient activity (iOS 18)
-        scheduled: None, // iOS 26: `ScheduledStart::new(at, alert)` starts it later
+        scheduled: None, // iOS 26 and Android: `ScheduledStart::new(at, alert)` starts it later
         push: None,    // iOS only: `Some(LayoutPush::Token)` asks for the activity's APNs token
     };
     let activity = app.live_activity().start_layout(input)?;
@@ -199,7 +199,7 @@ await updateLayout({ id: snack.id, snapshot: { revision: 1, values: { title: 'Mo
 await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 ```
 
-A start may also carry `scheduled: { at, alert }` to begin later (iOS 26), and `ios: { transient: true }` for a transient
+A start may also carry `scheduled: { at, alert }` to begin later (iOS 26 and Android), and `ios: { transient: true }` for a transient
 activity (iOS 18). The layout stays as it started; each update sends every value again, with a higher revision. Taps come to
 `onAction`, push tokens and pushed content to `onPushToken`, `onPushToStartToken` and `onUpdated`, and what happens
 to an activity outside the app's calls to `onState`, `onStarted`, `onOpened` (Android: the person opened the app from an

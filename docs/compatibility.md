@@ -26,7 +26,8 @@ Android notification styles, each of which the device reports in `getCapabilitie
 | iPhone layout buttons | iOS 17+ | activitykit's `ActivityKitActionIntent` brings the tap to the app process |
 | iPhone layout toggles | iOS 17+ | The switch; before it the label alone. A tap comes as `on` |
 | iPhone transient activity | iOS 18+ | `ios: { transient: true }`; `UNSUPPORTED_FEATURE` before |
-| iPhone scheduled start | iOS 26+ | `scheduled`, the record is `pending` until it begins; `UNSUPPORTED_FEATURE` before, and on Android |
+| iPhone scheduled start | iOS 26+ | `scheduled`, the record is `pending` until it begins; `UNSUPPORTED_FEATURE` before |
+| Android scheduled start | Android 8.0 / API 26+ | `scheduled`, the record is `pending` until an alarm of the plugin's library posts the notification, also while the app does not run. At its time with the permission for exact alarms, which the app declares (`exactStart`); within about ten minutes without |
 | Android layouts (v2) | Android 8.0 / API 26+ | Shown in part as a notification (title, body, progress bar, chronometer, up to three actions: buttons, links and toggles); the rest is listed in `degradedFeatures` |
 | Android notification styles | Android 8.0 / API 26+, by the device | Standard and big text everywhere; the progress style with segments and points from Android 16 (`progressStyle`), the metric style from Android 17 (`metricStyle`). `getCapabilities().androidPresentation` says which the device draws and offers |
 | Android links | Where the device offers `links` | A layout's `url` and a `link` open the app's URL; the app declares the scheme in an intent filter |

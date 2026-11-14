@@ -4,10 +4,11 @@ The Android adapter requires API 26 (Android 8) or newer and compile SDK 37. The
 its own target SDK and supplies its usual Tauri Android project. Register the Rust
 plugin and grant the Tauri command permissions, as the [usage guide](usage.md#install) shows.
 The plugin manifest merges `POST_NOTIFICATIONS` and `POST_PROMOTED_NOTIFICATIONS` and
-liveupdate's two receivers, which are not exported: one for button taps and one for
-dismissals. The plugin installs no foreground service, network client, custom `RemoteViews` or
-background task scheduler. A foreground service for the `foreground` placement is the app's own
-([A foreground service](#a-foreground-service)).
+liveupdate's three receivers, which are not exported: one for button taps, one for
+dismissals and one that posts [a scheduled start](#a-scheduled-start) when its alarm fires. The
+library sets an alarm for such a start and for nothing else. The plugin installs no foreground
+service, network client, custom `RemoteViews` or job scheduler. A foreground service for the
+`foreground` placement is the app's own ([A foreground service](#a-foreground-service)).
 
 Every activity, template or layout, runs on the [`liveupdate`](https://crates.io/crates/liveupdate)
 crate, driven by the Android backend of the [`liveactivity`](https://crates.io/crates/liveactivity)
@@ -180,7 +181,7 @@ the record names `alert` in `degradedFeatures`. Android alerts with the sound of
 `sound` is not played, and the record names `alert.sound`.
 
 Layouts with a `progress`, and contents of the `progress` style, are posted on Android 16. The adapter
-the plugin carries is liveupdate 0.3.2's, which does not call the method that only Android 17 has. Below
+the plugin carries is liveupdate 0.4.0's, which does not call the method that only Android 17 has. Below
 Android 16 liveupdate posts the plain bar, as the progress template does on every Android.
 
 Known: on Android 16 a notification whose time is more than two weeks past is not shown, and the app is
@@ -285,6 +286,51 @@ are the app's; the plugin's library declares none. The service attaches the acti
 placement, and the app's `LiveUpdateForeground.setListener` stops the service when the notification is released
 (an end). One running activity holds the placement at a time: a second is `SYSTEM_LIMIT`. A device that does not
 offer `foregroundPlacement` answers `UNSUPPORTED_FEATURE`. Without a service the notification is an ordinary one.
+
+## A scheduled start
+
+A start with `scheduled` is stored at once and begins at its time. liveupdate's adapter sets an alarm for it, and
+its receiver, `LiveUpdateStartReceiver`, posts the notification from what was stored. The app does not have to
+run, and neither Rust nor a web view is loaded for it. The receiver is in the plugin's manifest: an app writes
+nothing for a scheduled start.
+
+Two things are the app's to declare, in its own manifest
+(`src-tauri/gen/android/app/src/main/AndroidManifest.xml`). The plugin's library declares neither.
+
+- **A start on the minute.** Without the permission for exact alarms Android chooses the moment: within about
+  ten minutes while the device is awake, later while it dozes. With it the start is at its time, and
+  `getCapabilities().androidPresentation.exactStart` is true. From Android 14 the permission is off until the
+  person allows it under "Alarms & reminders". `USE_EXACT_ALARM` is for alarm and calendar apps only, by Google
+  Play's policy.
+
+  ```xml
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+  ```
+
+- **A start that survives a restart of the device.** Android drops alarms when the device restarts, when the
+  person force-stops the app, and when they take the permission for exact alarms away. The activity then begins
+  late, when the app next runs. To have the alarm set again after a restart, declare the receiver for it:
+
+  ```xml
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+  <receiver
+      android:name="io.github.eedaegon.liveupdate.LiveUpdateStartReceiver"
+      android:exported="false">
+      <intent-filter>
+          <action android:name="android.intent.action.BOOT_COMPLETED" />
+      </intent-filter>
+  </receiver>
+  ```
+
+While the app's process runs, the plugin's thread asks liveupdate at the start time, as it does at a stale time,
+so the activity begins then, also where the alarm would be late. An activity that must not appear late is the
+app's to end: compare the time with the clock at launch.
+
+A content whose header clock (a timer, or a chronometer of a content) is more than 14 days old is refused with
+`INVALID_INPUT` from Android 15 on, at a start, a scheduled start, an update and when a service attaches:
+Android would not show it. Android asks that a Live Update appears only when its activity is imminent,
+and mostly for activities the person started: schedule the start of something they asked for, not a reminder.
 
 ## Samsung Now Bar
 

@@ -1,7 +1,7 @@
 //! Android: the thread that hands liveupdate's stored events and the states of the activities to the plugin's sink.
 //!
 //! Android calls nobody. liveupdate's receivers store taps and dismissals and tell the plugin, and nothing tells
-//! anyone that a stale time has come. So the thread drains when it is told that an event was stored, and by itself
+//! anyone that a stale time or the time of a scheduled start has come. So the thread drains when it is told that an event was stored, and by itself
 //! at the time liveupdate names for the next state that no call brings (`next_check`). A call of the app may change
 //! that time, so each one has the thread look at it again.
 
@@ -45,7 +45,7 @@ const SOON: [Duration; 5] = [
 /// the waits of [`SOON`] it has taken in a row.
 fn wait(check: Option<NextCheck>, now: u64, tries: &mut usize) -> Option<Duration> {
     match check {
-        // The earliest stale time ahead: until then.
+        // The earliest time ahead, a stale time or the time of a scheduled start: until then.
         Some(NextCheck::At(time)) if time > now => {
             *tries = 0;
             Some(Duration::from_millis(time - now))

@@ -155,7 +155,7 @@ fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
         snapshot: snapshot(0, "On time"),
         android: None, // Android 전용: 잠금 화면 표시 범위는 `AndroidOptions::new(visibility)`
         ios: None,     // iOS 전용: `IosOptions::new(transient)`이면 일시적 액티비티(iOS 18)
-        scheduled: None, // iOS 26: `ScheduledStart::new(at, alert)`이면 나중에 시작
+        scheduled: None, // iOS 26과 Android: `ScheduledStart::new(at, alert)`이면 나중에 시작
         push: None,    // iOS 전용: `Some(LayoutPush::Token)`이면 액티비티의 APNs 토큰을 요청
     };
     let activity = app.live_activity().start_layout(input)?;
@@ -198,7 +198,7 @@ await updateLayout({ id: snack.id, snapshot: { revision: 1, values: { title: 'Mo
 await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 ```
 
-시작 요청에 `scheduled: { at, alert }`를 주면 나중에 시작하고(iOS 26), `ios: { transient: true }`이면 일시적 액티비티가 됩니다(iOS 18). 레이아웃은 시작한 모습 그대로이고, 갱신마다 모든 값을 더 높은 revision으로 다시 보냅니다. 탭은
+시작 요청에 `scheduled: { at, alert }`를 주면 나중에 시작하고(iOS 26과 Android), `ios: { transient: true }`이면 일시적 액티비티가 됩니다(iOS 18). 레이아웃은 시작한 모습 그대로이고, 갱신마다 모든 값을 더 높은 revision으로 다시 보냅니다. 탭은
 `onAction`으로, 푸시 토큰과 푸시된 내용은 `onPushToken`, `onPushToStartToken`, `onUpdated`로, 앱이 호출하지 않은
 액티비티의 변화는 `onState`, `onStarted`, `onOpened`(Android: 액티비티의 알림으로 앱을 연 일. 앱을 실행시킨 열림도 페이지가 구독할 때까지 보관됩니다), `onPermissions`로 옵니다.
 

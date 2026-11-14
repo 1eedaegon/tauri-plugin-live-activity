@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.8.0
+
+Built on liveactivity 0.6.0 and liveupdate 0.4.0: a scheduled start on Android.
+
+- A start with `scheduled` is taken on Android. The plugin's Android library, which carries liveupdate's adapter,
+  sets an alarm, and a receiver posts the notification at the time, also while the app does not run. Until then
+  the record is `pending`, as on iOS 26: the same start again answers it, whatever its time; an update is
+  `CONFLICT`; an end ends it, and nothing is shown. Until 0.7 Android answered `UNSUPPORTED_FEATURE`.
+- `getCapabilities().androidPresentation` has `scheduledStart` and `exactStart`: whether a start can be scheduled,
+  and whether it begins at its time or when Android chooses, which is within about ten minutes while the device is
+  awake.
+- The notification alerts when it begins, where the device offers `alert`; the alert's title and body are iOS's.
+- `onState` reports `pending` once on Android. An activity that began while the app did not run is `active` in
+  the list of the app that opens afterwards; one that the person removed meanwhile, or that could not be posted,
+  is `dismissed`.
+- A scheduled start with the foreground placement is `UNSUPPORTED_FEATURE`.
+
+When updating:
+
+- The plugin's manifest has one more receiver, `io.github.eedaegon.liveupdate.LiveUpdateStartReceiver`, not
+  exported. The library declares no permission for alarms. For a start on the minute an app declares
+  `SCHEDULE_EXACT_ALARM` itself, and for one that survives a restart of the device it declares that receiver for
+  `BOOT_COMPLETED`: [Android integration](docs/android-integration.md#a-scheduled-start) has both.
+- An app that counted on Android refusing a scheduled start, and started the activity itself when the time came,
+  now gets an activity that waits. Read `scheduledStart`, or drop the app's own timer.
+- In Rust, liveupdate's `StartRequest` and `ActivityRecord`, which liveactivity re-exports, have a new member: a
+  struct literal has to name it.
+
+Also, with liveupdate 0.3.3 and 0.4.0:
+
+- `LiveUpdateForeground.attach` answers true again for an activity that the plugin started. liveupdate 0.3.0 to
+  0.3.2 answered false, and the plugin's 0.7 versions carried 0.3.2: a foreground service could not take the
+  activity's notification there.
+- From Android 15 a content whose header clock is more than 14 days old is refused with `INVALID_INPUT`, at a
+  start, an update and when a service attaches. By liveupdate's account Android dropped such a notification
+  without a word.
+
 ## 0.7.2
 
 Built on liveactivity 0.5.2, which corrects the answer of an end on iOS. The defect showed when the demo ran on an
