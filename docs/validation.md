@@ -1,3 +1,39 @@
+# 0.7.2 validation
+
+0.7.2 moves the plugin to liveactivity 0.5.2, which corrects the answer of an end on iOS. The defect showed when
+0.7.1 ran on an iPhone 16 with iOS 27.2, the first iPhone with iOS 26 or later to run the plugin. None of the
+plugin's own code changes, so it is a patch release. Checked before the tag:
+
+- 0.7.1 on the iPhone 16, launched with `--self-test`: the demo's lifecycle test failed in 6 of 12 runs. Each
+  time an end with the `immediate` policy had not answered `ended`: five times a template's, which answered
+  `dismissed` in the two runs of a build that named the state, and once that of a layout that waited for its
+  scheduled start.
+- 0.7.2 on that phone: the lifecycle test passed in 6 of 6 runs, 29 checks each. A build of 0.7.1 on the
+  corrected liveactivity, before its release, had passed in 10 of 10.
+- A scheduled start on that phone, once with 0.7.1 and once with 0.7.2: launched with `--start-later`, Rust
+  scheduled a start 30 s ahead, and the app was ended. No process of the app ran until the time. Then one did,
+  which the system had launched, and the app that was launched afterwards listed the activity as `active`.
+  [iOS coverage](ios-coverage.md#072-on-two-iphones) has the times.
+- 0.7.2 on an iPhone XS with iOS 18.7: the lifecycle test, 2 of 2 runs, 25 checks each.
+- 0.7.2 on a Galaxy S23 with Android 17, the first phone since Rust alone names the plugin's files: the device
+  tests, 9 of 9; installed over 0.7.1, the layouts of that version listed; the lifecycle test, 24 of 24; a touch
+  on the notification of an app whose process had ended, one opening; with the Now Bar extras off, touches on a
+  switch, a link and the notification through the system's shade.
+  [Android coverage](android-coverage.md#072-on-a-phone) has each run.
+- `npm test` (1761 tests in six suites) and `cargo test` (65), `cargo clippy`, `tools/spec-coverage.sh` (82
+  requirements, each with a test).
+- CI with the two simulator suites, started by hand on the change (run 43615577650, iOS 26.2): the suite on the
+  built demo passed its 11 tests on the first try, and the one on `tauri ios dev` its 4. Main has since gained one
+  Rust test and two lines of the specification, which alter nothing an app runs; the suites were not run again
+  for them. The pull request's own run and the main run of the release commit.
+
+Not checked: the demo's UI tests on a phone. A copy of them that signs its runner was started on the iPhone 16
+and stopped where the phone turns UI automation on, which a person allows on the phone: so no touch has reached
+a phone's Lock Screen, and nothing has looked at what it draws. A finger on the glass, on either system. Android
+15 and earlier with this version. What the app does when the system launches it for a scheduled start.
+
+The record of 0.7.1 follows.
+
 # 0.7.1 validation
 
 0.7.1 corrects two defects of 0.7.0 that kept an opening of the app from a notification from reaching `onOpened`
