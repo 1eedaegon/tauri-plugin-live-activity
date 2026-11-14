@@ -44,6 +44,15 @@ the Android notification styles that the device reports, and the Android progres
 [iOS coverage](ios-coverage.md#070-additions) (the simulator suites, started by hand in CI, and an iPhone with iOS 18 for the contract). The Android device tests also ran on an
 Android 16 emulator, where a progress is posted now.
 
+## 0.7.1
+
+0.7.1 ran what 0.7.0 had left: touches on a switch, on a link and on the notification through the shade of a
+phone with Android 17, an app that Android brings back after it ended its process, and on the iOS 26 simulator a
+switch, a link, stale content and a scheduled start on the Lock Screen. Two defects of 0.7.0 showed on the phone
+and are corrected: [Android coverage](android-coverage.md#openings-and-touches-071),
+[iOS coverage](ios-coverage.md#071-additions). Still not run: Android 15 and earlier with these versions, an
+iPhone with iOS 26 or later, and a finger on either.
+
 ## Apple's secondary surfaces
 
 ActivityKit can show an activity that an iPhone started on other screens too, such as

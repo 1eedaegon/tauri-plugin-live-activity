@@ -48,6 +48,30 @@ end that removed an activity at once was reported there as `dismissed` without `
 toggle, a stale layout on a Lock Screen or a scheduled start on iOS 26 through the plugin, so the version floors
 above are activitykit's documented ones.
 
+## 0.7.1 additions
+
+0.7.1 adds four tests to the simulator suite on the built demo, each through the demo's page, Tauri, the plugin
+and activitykit, on iOS 26:
+
+- A switch on the Lock Screen shows its flag as off; a tap reaches Rust with `on: true`, Rust's update turns the
+  switch, and the page hears the tap with that state; a second tap asks for off.
+- A link on the Lock Screen, tapped while the app is not in front, brings the app to the front.
+- Content whose stale time has passed turns the Lock Screen, with no update and with the app ended: the node for
+  fresh content goes and the node for stale content comes. The app that is launched afterwards lists the activity
+  as stale, and its update brings the fresh content back.
+- A scheduled start is `pending` in the page; the app is ended before the activity's time, the system begins the
+  activity on the Lock Screen, and the app that is launched afterwards lists it as running. activitykit's own
+  suite had not tried a scheduled start with the app ended.
+
+Started by hand in CI on the head of the pull request, the suite on the built demo passed its 11 tests on the first try, on iOS 26.2, and the one on
+`tauri ios dev`, which keeps its four tests, passed them on the first try.
+
+On an iPhone XS with iOS 18.7 the demo, launched with `--self-test`, ran its lifecycle test through the plugin:
+25 of 25. A layout with a switch, a link and one node each for fresh and for stale content started with nothing
+left out, an update set the switch's flag, and a scheduled start answered `UNSUPPORTED_FEATURE`, as below iOS 26.
+No iPhone with iOS 26 ran: the one at hand went offline while the demo was built for it. So a scheduled start
+has begun on a simulator only, and what a phone's Lock Screen draws of the new nodes was not looked at.
+
 ## Tests added after the first release
 
 - Exact encoded Unicode title/status equality: NFC and NFD strings must conflict at the same revision, matching JS/Rust/Android contracts. Swift's default canonical string equivalence incorrectly accepted the changed text. A failing core test and the actual published alpha.1 consumer reproduced it; the local fix compares UTF-8 bytes.
