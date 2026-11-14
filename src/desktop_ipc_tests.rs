@@ -1,4 +1,5 @@
 use serde_json::{Value, json};
+use std::collections::BTreeSet;
 use tauri::{
     ipc::{CallbackFn, InvokeBody},
     test::{MockRuntime, mock_builder, mock_context, noop_assets},
@@ -254,4 +255,83 @@ fn default_permission_grants_only_the_read_commands() {
             [format!("allow-{slug}"), format!("deny-{slug}")]
         );
     }
+}
+
+/// The commands that a permission of the plugin allows. The build lists every permission in the schema: the default
+/// set, and for each command of build.rs the generated `allow-` and `deny-`, which name that command alone. Any
+/// other is written by hand and may allow any command: one of another name, or a second definition of a generated
+/// one, which is the one that counts.
+fn commands_with_a_permission() -> BTreeSet<String> {
+    let schema: Value = serde_json::from_str(include_str!("../permissions/schemas/schema.json"))
+        .expect("the schema of the permissions is JSON");
+    let identifiers: Vec<&str> = schema["definitions"]["PermissionKind"]["oneOf"]
+        .as_array()
+        .expect("the schema lists the permissions under definitions.PermissionKind.oneOf")
+        .iter()
+        .map(|kind| kind["const"].as_str().expect("a permission has its name"))
+        .collect();
+    let unique: BTreeSet<&str> = identifiers.iter().copied().collect();
+    assert_eq!(
+        unique.len(),
+        identifiers.len(),
+        "a permission is defined twice, and the later definition counts: {identifiers:?}"
+    );
+    let commands: BTreeSet<String> = unique
+        .iter()
+        .filter(|identifier| **identifier != "default")
+        .map(|identifier| {
+            let slug = identifier
+                .strip_prefix("allow-")
+                .or_else(|| identifier.strip_prefix("deny-"));
+            let Some(slug) = slug else {
+                panic!("{identifier} is no permission of a command: say here what it allows");
+            };
+            slug.replace('-', "_")
+        })
+        .collect();
+    let listed: BTreeSet<String> = include_str!("../build.rs")
+        .split_once("const COMMANDS: &[&str] = &[")
+        .and_then(|(_, rest)| rest.split_once("];"))
+        .expect("build.rs lists the commands in COMMANDS")
+        .0
+        .split('"')
+        .skip(1)
+        .step_by(2)
+        .map(str::to_owned)
+        .collect();
+    assert_eq!(
+        commands, listed,
+        "a permission that the build did not make for a command of build.rs"
+    );
+    commands
+}
+
+// TP-PERM-1
+#[test]
+fn every_permission_names_a_command_that_rust_answers() {
+    let commands = commands_with_a_permission();
+    let granted: Vec<&str> = commands.iter().map(String::as_str).collect();
+    assert!(
+        granted.contains(&"start"),
+        "no command has a permission, so nothing is checked: {granted:?}"
+    );
+
+    // Tauri answers a granted command that the plugin's Rust does not answer with "not found" on a desktop. On
+    // Android it hands such a command to the Kotlin side, as the command of that name in camel case. The Kotlin
+    // side has commands that only Rust is to call, the channel to liveupdate's adapter among them: a permission
+    // for one of those would let a page call it around Rust.
+    let webview = webview_with_grants(&granted);
+    for command in &granted {
+        assert_ne!(
+            invoke(&webview, command, json!({})),
+            Err(json!(format!("Command {command} not found"))),
+            "{command} has a permission, and Rust does not answer it"
+        );
+    }
+    let lacking = "a_command_that_rust_lacks";
+    assert_eq!(
+        invoke(&webview_with_grants(&[lacking]), lacking, json!({})),
+        Err(json!(format!("Command {lacking} not found"))),
+        "Tauri says something else of a granted command that the plugin lacks: the check above proves nothing"
+    );
 }

@@ -153,7 +153,7 @@ React is an optional peer dependency that only this entry imports.
 | ID | Behavior | Input → result | Errors | Platform |
 | --- | --- | --- | --- | --- |
 | TP-DESKTOP-1 | On desktop `get_capabilities` and `check_permissions` answer `unsupported` and `notApplicable`; every other command checks its request and then fails; `on_action` drops its handler. | A valid start → error; an invalid one → `INVALID_INPUT`. | `UNSUPPORTED_PLATFORM`, `INVALID_INPUT` | desktop |
-| TP-PERM-1 | Each command has `allow-` and `deny-` permissions; `default` allows the reads, capabilities, permissions, `list`, `list_layout` and `push_tokens`, and `openings`, with which a page takes the openings that wait for it (TP-EVENT-3); what starts, updates or ends an activity needs its own grant. | — | Tauri's refusal | all |
+| TP-PERM-1 | Each command has `allow-` and `deny-` permissions; `default` allows the reads, capabilities, permissions, `list`, `list_layout` and `push_tokens`, and `openings`, with which a page takes the openings that wait for it (TP-EVENT-3); what starts, updates or ends an activity needs its own grant. The plugin's permissions name the commands that Rust answers and no other. On Android, Tauri hands a granted command that the plugin's Rust does not answer to the Kotlin side, as the command of that name in camel case; the Kotlin side has commands that only Rust is to call, the channel to liveupdate's adapter among them, and no permission of the plugin lets a page call one. | A permission for a command that Rust does not answer, one that is defined twice, or one that the build did not make for a command of `build.rs` → test failure. | Tauri's refusal | all |
 | TP-CONFIG-1 | `plugins.live-activity` is optional and strict: `receipts` (`full` or `redacted`), `android.samsungNowBar` and `pushToStart`; an unknown key or a wrong type fails the plugin's setup. | `{"android":{"samsungNowbar":true}}` → error. | setup error | all |
 
 ## End to end
@@ -286,6 +286,12 @@ the plugin's own tests prove that its commands, its Rust API and its events carr
   the tap then reaches the handlers with its key is liveactivity's, with its own tests. Of TP-ANDROID-11 a host test
   runs what the answer becomes (`src/files.rs`), and that the transport hands liveactivity just that is checked as
   text.
+- TP-PERM-1: the test of the commands that Rust answers runs on a desktop, where Tauri answers a granted command
+  that the plugin's Rust lacks with `not found`. That it hands the same command to the Kotlin side on Android is
+  read from Tauri's source (2.12.5), which decides both by the one answer of the plugin's handler. The test is of
+  the plugin's own permissions. An app's own permission can name a command of a plugin in full
+  (`plugin:live-activity|liveUpdate`): Tauri's build reads an app's permissions as they are written (tauri-build
+  2.7.4) and its resolver takes their commands as written (tauri-utils 2.10.2). That grant is the app's.
 
 ## Tests
 
@@ -353,7 +359,7 @@ the plugin's own tests prove that its commands, its Rust API and its events carr
 | TP-ANDROID-15 | `src/drain.rs::the_wait_follows_what_liveupdate_says_of_the_next_state` (unit)<br>`src/drain.rs::the_thread_drains_when_told_and_by_itself_when_a_stale_time_comes` (unit)<br>`src/drain.rs::the_thread_ends_once_the_plugin_is_gone` (unit) |
 | TP-ANDROID-16 | `android/src/androidTest/java/io/github/eedaegon/liveactivity/NativeBridgeTest.kt::theIntentsThatOpenAnActivityAreStoredAsOpeningsFromItsCreationOn` (kotlin)<br>`android/src/androidTest/java/io/github/eedaegon/liveactivity/NativeBridgeTest.kt::anIntentThatAndroidHandsOutAgainIsNotCountedAgain` (kotlin) |
 | TP-DESKTOP-1 | `src/command_tests.rs::desktop_queries_report_unavailable_and_mutations_fail_explicitly` (unit)<br>`src/command_tests.rs::desktop_layout_commands_validate_before_they_fail_explicitly` (unit)<br>`src/command_tests.rs::write_image_checks_the_png_then_reports_that_desktop_has_no_widget` (unit)<br>`src/desktop_ipc_tests.rs::granted_desktop_ipc_returns_structured_unsupported_errors` (unit)<br>`tests/contract.rs::the_changing_styles_example_binds_a_color_that_an_update_changes` (unit) |
-| TP-PERM-1 | `src/desktop_ipc_tests.rs::layout_commands_need_their_own_grants` (unit)<br>`src/desktop_ipc_tests.rs::default_permission_grants_only_the_read_commands` (unit)<br>`src/command_tests.rs::ipc_denies_ungranted_mutations_and_remote_content` (unit) |
+| TP-PERM-1 | `src/desktop_ipc_tests.rs::layout_commands_need_their_own_grants` (unit)<br>`src/desktop_ipc_tests.rs::default_permission_grants_only_the_read_commands` (unit)<br>`src/desktop_ipc_tests.rs::every_permission_names_a_command_that_rust_answers` (unit)<br>`src/command_tests.rs::ipc_denies_ungranted_mutations_and_remote_content` (unit) |
 | TP-CONFIG-1 | `src/config.rs::the_android_options_are_optional_and_strict` (unit)<br>`src/command_tests.rs::plugin_accepts_an_absent_null_or_redacted_configuration` (unit) |
 | TP-E2E-1 | `tests/ios/DemoUITests/UITests/DemoTests.swift::test1BoundStyleShowsOnTheLockScreen` (simulator) |
 | TP-E2E-2 | `tests/ios/DemoUITests/UITests/DemoTests.swift::test2LockScreenButtonReachesRustAndJavaScript` (simulator) |
