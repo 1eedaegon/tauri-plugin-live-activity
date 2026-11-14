@@ -2,9 +2,11 @@
 
 Contract v1 is the request input used since `0.1.0-alpha.1`. 0.2.0 leaves it unchanged
 and adds [contract v2](#request-contract-v2-layout) for layouts. Validator tests in other
-languages reuse `contracts/request.schema.json` and `tests/fixtures/requests.json`.
+languages reuse the schema and `tests/fixtures/requests.json`.
 `tools/validate-request.mjs` is the reference implementation, for development only. Since 0.5
-the schema file is a copy of the activitykit crate's, which also holds contract v2. The contract
+the schema is the activitykit crate's
+([`contracts/request.schema.json`](https://github.com/1eedaegon/activitykit-rs/blob/main/contracts/request.schema.json)),
+which also holds contract v2; the plugin keeps no copy and reads it from the crate. The contract
 that the plugin carries is the [liveactivity](https://github.com/1eedaegon/liveactivity-rs) crate's,
 on which the plugin runs: it takes [three members beside that schema](#beside-the-schema).
 
@@ -112,18 +114,18 @@ liveactivity crate's Android backend over liveupdate. The Rust validator is live
 a request in its own types, converts the part that activitykit knows into activitykit's types and
 checks it there, and checks itself what it takes [beside the schema](#beside-the-schema).
 
-`contracts/request.schema.json` holds the shapes of both versions. Its envelope
+activitykit's `contracts/request.schema.json` holds the shapes of both versions. Its envelope
 `{ "command", "input" }` takes the v1 and the v2 command names.
-`tests/fixtures/layout-requests.json` lists requests with the result every validator must give:
+Its `tests/fixtures/layout-requests.json` lists requests with the result every validator must give:
 a `valid` start, update or end with final content states its weight, and an `invalid` case states
 its error code. A third list, `updates`, holds a `start` and the `update` after it, which a runner
 checks the way the native layer checks an update against the activity it started; a valid pair
 states the weight of the layout, the styles and the new values, and an invalid one its error code.
 A fourth list, `ends`, holds a `start` and an `end_layout` with final content, checked the same way.
-Both files are activitykit's, byte for byte, at the version that the plugin's `Cargo.lock` holds:
-`node tools/sync-contract.mjs --write` copies them after activitykit changed, and
-`tests/contract-sync.test.mjs` fails when they differ. Change the contract in activitykit, not
-here. Most cases use
+Both files are activitykit's, and the plugin keeps no copy of them: its validator and its tests read them
+from the activitykit that the plugin's `Cargo.lock` names, in the folder where cargo has that crate
+(`node tools/activitykit.mjs` prints it; `tests/contract-files.test.mjs`). Change the contract in
+activitykit, not here. Most cases use
 `start_layout`, `update_layout` or `end_layout`. A few invalid cases send a body to the
 v1 `start` or `update` command, and a runner passes those to its v1 validator. Two use command
 names that the envelope does not take: `startLayout`, the JavaScript function name, and

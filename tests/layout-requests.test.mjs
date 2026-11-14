@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import fixtures from './fixtures/layout-requests.json' with { type: 'json' };
 import v1Fixtures from './fixtures/requests.json' with { type: 'json' };
+import { LAYOUT_FIXTURES, contract, contractPath } from '../tools/activitykit.mjs';
 import { validateLayoutEnd, validateLayoutUpdate, validateRequest, weight } from '../tools/validate-request.mjs';
+
+// activitykit's fixtures, from the crate that the plugin builds with.
+const fixtures = contract(LAYOUT_FIXTURES);
 
 const LOCK = '/input/layout/lockScreen';
 const ISLAND = '/input/layout/island';
@@ -470,7 +473,7 @@ test('the fixture file holds JSON only as JSON.stringify writes it', () => {
     }
     return out;
   };
-  const source = readFileSync(new URL('./fixtures/layout-requests.json', import.meta.url), 'utf8');
+  const source = readFileSync(contractPath(LAYOUT_FIXTURES), 'utf8');
   assert.equal(normalized(source), JSON.stringify(JSON.parse(source)));
   for (const odd of ['{"a":1,"a":2}', '{"a":1.0}', '{"a":-0}', '[1e-400]', '[1E1]']) {
     assert.notEqual(normalized(odd), JSON.stringify(JSON.parse(odd)), odd);

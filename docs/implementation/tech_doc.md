@@ -1,6 +1,6 @@
 # Alpha implementation contract
 
-Inputs follow [request schema](../../contracts/request.schema.json). Unicode lengths
+Inputs follow the [request schema](https://github.com/1eedaegon/activitykit-rs/blob/main/contracts/request.schema.json) of the activitykit crate. Unicode lengths
 count code points. Numbers are finite and JS safe; null/unknown fields are rejected.
 Native code additionally enforces encoded ActivityKit size and OS lifecycle policy.
 

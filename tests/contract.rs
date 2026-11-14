@@ -1,4 +1,5 @@
 use serde_json::{Value, json};
+use std::{fs, path::Path, process::Command, sync::OnceLock};
 use tauri_plugin_live_activity::{
     Error, LayoutEndInput, LayoutStartInput, LayoutUpdateInput, LiveActivityExt, Validate,
     validate_request, weight,
@@ -118,10 +119,41 @@ fn validates_timer_order_and_end_policy() {
     }
 }
 
+/// The layout fixtures of the activitykit version in Cargo.lock, from that crate's own folder: the plugin keeps no
+/// copy of them.
+fn layout_fixtures() -> &'static Value {
+    static FIXTURES: OnceLock<Value> = OnceLock::new();
+    FIXTURES.get_or_init(|| {
+        let metadata = Command::new(env!("CARGO"))
+            .args(["metadata", "--format-version", "1", "--locked"])
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .output()
+            .expect("cargo answers its metadata");
+        assert!(
+            metadata.status.success(),
+            "cargo metadata failed: {}",
+            String::from_utf8_lossy(&metadata.stderr)
+        );
+        let metadata: Value = serde_json::from_slice(&metadata.stdout).unwrap();
+        let manifest = metadata["packages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|package| package["name"] == "activitykit")
+            .expect("activitykit is a dependency")["manifest_path"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let file = Path::new(&manifest)
+            .parent()
+            .unwrap()
+            .join("tests/fixtures/layout-requests.json");
+        serde_json::from_slice(&fs::read(file).expect("activitykit ships its fixtures")).unwrap()
+    })
+}
+
 fn layout_cases(verdict: &str) -> Vec<Value> {
-    let fixtures: Value =
-        serde_json::from_str(include_str!("fixtures/layout-requests.json")).unwrap();
-    fixtures[verdict].as_array().unwrap().clone()
+    layout_fixtures()[verdict].as_array().unwrap().clone()
 }
 
 /// Weight of a start (layout, styles, values) or an update (values) as the fixtures state it.

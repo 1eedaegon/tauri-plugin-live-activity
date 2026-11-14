@@ -1,5 +1,8 @@
 import Ajv2020 from 'ajv/dist/2020.js';
-import schema from '../contracts/request.schema.json' with { type: 'json' };
+import { SCHEMA, contract } from './activitykit.mjs';
+
+// activitykit's schema, from the crate that the plugin builds with.
+const schema = contract(SCHEMA);
 
 // activitykit's schema says `if` a member is there `then` another is, without repeating the type and the properties
 // around them, which two of Ajv's strict checks ask for; the others stay.
