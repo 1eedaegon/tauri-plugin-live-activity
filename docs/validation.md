@@ -1,3 +1,46 @@
+# 0.8.0 validation
+
+0.8.0 moves the plugin to liveactivity 0.6.0 and liveupdate 0.4.0, with which a scheduled start waits on Android
+and an alarm posts it at its time. The plugin's Android library declares one more receiver and carries one more
+file of liveupdate's adapter, the capabilities have two more members, and an activity can be `pending` on Android:
+a minor release. Checked before the tag:
+
+- A Galaxy S23 with Android 17, on the demo as it ships, which asks for no exact alarms: the Android library's
+  device tests, 9 of 9; the demo's lifecycle test, 28 of 28, with a scheduled start that is pending, holds its
+  key, takes no update and can be ended; a scheduled start 30 s ahead, shown 1.7 s after its time with the app in
+  front and 25 s after it with the app's process ended; one that was ended before its time and one whose
+  notification permission was taken away, nothing in 13 minutes each, and the second `dismissed` in the app that
+  was opened afterwards. [Android coverage](android-coverage.md#a-scheduled-start-080) has each run, and those of
+  a build with exact alarms.
+- An iPhone 16 with iOS 27.2 and an iPhone XS with iOS 18.7, where nothing changes: the lifecycle test, 5 of 5
+  runs with 29 checks each and 3 of 3 with 25.
+- The release commit differs from what those runs had by one text of the demo. It was built again for the three
+  phones, and the lifecycle test passed on each: 28 of 28 on the S23, and the last 2 and the last 1 of the runs
+  above on the iPhones.
+- `npm test` (1762 tests in six suites) and `cargo test` (65), `cargo clippy`, `tools/spec-coverage.sh` (83
+  requirements, each with a test), the Android library's unit tests and lint. What the new test of the library
+  holds (TP-ANDROID-17) was changed in place seven times, and a test failed each time: the receiver undeclared or
+  exported, a permission for exact alarms or the one for a restart in the library's manifest, either member gone
+  from the capabilities' type, the adapter's file of the alarm gone.
+- CI with the two simulator suites, started by hand on the release commit (run 43627060836, iOS 26.2). The suite
+  on the built demo passed its 11 tests, two of them on a second try: the scheduled start with the app ended,
+  whose app was first not launched in time, and the bound style, whose new values first did not show on the Lock
+  Screen in time. Of liveactivity's files that an iPhone builds, 0.6.0 changes comments only. The suite on
+  `tauri ios dev` passed its 4 on the first try, in a second attempt of its job: the first was cancelled eight
+  minutes in, and the run's record names no cause.
+- Main has since gained a Rust cache for CI, two changes of the simulator tests' harness and the removal of the
+  plugin's copies of activitykit's schema and fixtures, which alter nothing an app runs; the suites were not run
+  again for them. Merged with that main, `npm test` (1763), `cargo test` (65) and `tools/spec-coverage.sh` pass.
+  The pull request's own run and the main run of the release commit.
+
+Not checked: a restart of the device, with and without the receiver declared for it; a doze; a start whose alarm
+could not be set; Android 16 and earlier with this version. On a device, what 0.8.0 takes over from liveupdate
+beside the scheduled start: a foreground service that attaches to an activity of the plugin, and the refusal of a
+header clock more than 14 days old. The demo's UI tests on a phone, which still wait for a person to allow UI
+automation on it, and a finger on the glass, on either system.
+
+The record of 0.7.2 follows.
+
 # 0.7.2 validation
 
 0.7.2 moves the plugin to liveactivity 0.5.2, which corrects the answer of an end on iOS. The defect showed when
