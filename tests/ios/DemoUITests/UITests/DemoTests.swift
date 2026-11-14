@@ -134,6 +134,17 @@ final class DemoTests: XCTestCase {
         top.press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)))
     }
 
+    /// Pulls the Lock Screen over the Home Screen until `element` shows, at most three times: a shared runner's
+    /// simulator sometimes loses the pull and stays on the Home Screen (seen once, right after the app was ended).
+    private func pullLockScreenOverHome(until element: XCUIElement) -> Bool {
+        for attempt in 0..<3 {
+            if attempt > 0 { XCUIDevice.shared.press(.home) }
+            pullLockScreenOverHome()
+            if element.waitForExistence(timeout: system) { return true }
+        }
+        return false
+    }
+
     /// What the Lock Screen shows under `label`, whatever kind of element the system makes of it.
     private func onLockScreen(_ label: String) -> XCUIElement {
         springboard.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
@@ -256,6 +267,7 @@ final class DemoTests: XCTestCase {
 
     // TP-E2E-5, TP-ACTION-3
     func test6TapLaunchesTheAppForASlowRustHandler() {
+        endLeftoverButtons()
         launch()
         openLayouts("Buttons")
         tap("Start this example")
@@ -263,10 +275,8 @@ final class DemoTests: XCTestCase {
         app.terminate()
         XCTAssertTrue(app.wait(for: .notRunning, timeout: system))
         // The Lock Screen over the Home Screen: the system launches the app in the background for the tap.
-        let top = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01))
-        top.press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)))
         let pet = springboard.buttons["Pet Mochi"].firstMatch
-        XCTAssertTrue(pet.waitForExistence(timeout: system))
+        XCTAssertTrue(pullLockScreenOverHome(until: pet))
         XCTAssertTrue(springboard.staticTexts["No pets yet"].waitForExistence(timeout: redraw))
         pet.tap()
         // The handler takes a second (COUNTING in examples/demo/src-tauri/src/actions.rs), then updates the activity.
