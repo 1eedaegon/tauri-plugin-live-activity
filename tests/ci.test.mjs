@@ -108,8 +108,8 @@ test('the changes job starts each job for its paths, and the ios area is what th
   // The demo's Rust embeds its page (frontendDist), so the macOS job builds the page before the demo's Rust tests,
   // also when only the Rust changed.
   const contracts = job('contracts');
-  assert.ok(contracts.includes("if: env.JS == 'true' || env.RUST == 'true'\n        run: npm ci\n"), 'npm ci');
-  assert.ok(contracts.includes("if: env.RUST == 'true'\n        run: npm run build:demo && cargo test --locked --manifest-path examples/demo/src-tauri/Cargo.toml\n"), 'demo');
+  assert.ok(contracts.includes("if: env.AREA_JS == 'true' || env.AREA_RUST == 'true'\n        run: npm ci\n"), 'npm ci');
+  assert.ok(contracts.includes("if: env.AREA_RUST == 'true'\n        run: npm run build:demo && cargo test --locked --manifest-path examples/demo/src-tauri/Cargo.toml\n"), 'demo');
   // The specification check runs for every change, docs alone included.
   assert.match(workflow, /\n  spec:\n    name: Specification\n    runs-on: ubuntu-latest\n/);
   assert.match(workflow, /run: sh tools\/spec-coverage\.sh/);
@@ -149,7 +149,7 @@ test('CI caches the Rust builds and the built demo, pins its tools, and skips a 
     + '          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -';
   const rustCache = 'Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3';
   for (const name of ['contracts', 'desktop', 'e2e', 'e2e-dev']) assert.ok(job(name).includes(rustCache), name);
-  assert.match(job('contracts'), /taiki-e\/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2\.90\.3\n\s+if: env\.RUST == 'true'\n\s+with:\n\s+tool: cargo-llvm-cov@0\.9\.1/);
+  assert.match(job('contracts'), /taiki-e\/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2\.90\.3\n\s+if: env\.AREA_RUST == 'true'\n\s+with:\n\s+tool: cargo-llvm-cov@0\.9\.1/);
   assert.doesNotMatch(workflow, /cargo install cargo-llvm-cov/);
   // src/android.rs is compiled only for Android: the android job checks it, since nothing else builds it.
   assert.match(job('android'), /rustup toolchain install "\$TOOLCHAIN" --profile minimal --component clippy --target aarch64-linux-android[\s\S]*?- run: cargo clippy --locked --target aarch64-linux-android --lib -- -D warnings\n/);
@@ -219,6 +219,19 @@ test('the simulator suites start from one Rust cache, which a workflow of its ow
   const [, pins] = /name: The tools that CI pins\n        run: \|\n          ([^\n]+) >> "\$GITHUB_ENV"\n/.exec(fill);
   const exported = execFileSync('sh', ['-c', pins], { cwd: root, encoding: 'utf8' }).trim().split('\n');
   assert.deepEqual(exported, Object.entries(pinned).map(([name, value]) => `${name}=${value}`));
+  assert.ok(pins.endsWith(` | grep -E '^(${Object.keys(pinned).join('|')})='`), pins);
+  // The key of a Rust cache takes in every variable that begins with one of these, so no job names one so: the
+  // suites and the workflow that fills their cache compute one key, and so do the runs of the macOS job, whatever
+  // changed. And a variable that a step asks for is one that its job or the workflow defines.
+  const keyed = /^(CARGO|CC|CFLAGS|CXX|CMAKE|RUST)/;
+  const defined = text => [...text.matchAll(/^ {4}env:\n((?: {6}\w+: .*\n)+)/gm)]
+    .flatMap(([, block]) => [...block.matchAll(/^ {6}(\w+): /gm)].map(([, name]) => name));
+  for (const name of [...defined(workflow), ...defined(fill)]) assert.doesNotMatch(name, keyed, name);
+  assert.deepEqual(defined(job('contracts')), ['AREA_RUST', 'AREA_JS', 'AREA_IOS']);
+  for (const name of ['contracts', 'e2e', 'e2e-dev', 'android', 'desktop']) {
+    const known = new Set([...Object.keys(pinned), ...defined(job(name))]);
+    for (const [, asked] of job(name).matchAll(/\benv\.(\w+)/g)) assert.ok(known.has(asked), `${name}: env.${asked}`);
+  }
   const actions = [...fill.matchAll(/uses: (\S+@[0-9a-f]{40} # v[\d.]+)\n/g)].map(([, action]) => action);
   assert.equal(actions.length, 3);
   for (const action of actions) assert.ok(workflow.includes(`uses: ${action}\n`), action);

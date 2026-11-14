@@ -95,62 +95,65 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.js == 'true' || needs.changes.outputs.ios == 'true'
     runs-on: macos-15-intel
+    # Named so that none begins with RUST: rust-cache keys its cache on every variable that begins with CARGO, CC,
+    # CFLAGS, CXX, CMAKE or RUST, and a variable `RUST` here gave the job one cache where the Rust changed and another
+    # where it did not, of which main, the only ref that saves, has but one.
     env:
-      RUST: ${{ needs.changes.outputs.rust }}
-      JS: ${{ needs.changes.outputs.js }}
-      IOS: ${{ needs.changes.outputs.ios }}
+      AREA_RUST: ${{ needs.changes.outputs.rust }}
+      AREA_JS: ${{ needs.changes.outputs.js }}
+      AREA_IOS: ${{ needs.changes.outputs.ios }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # Node also for the Rust: the demo's Rust embeds its page, which build:demo makes.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: env.JS == 'true' || env.RUST == 'true'
+        if: env.AREA_JS == 'true' || env.AREA_RUST == 'true'
         with:
           node-version: ${{ env.NODE }}
           cache: npm
-      - if: env.RUST == 'true' || env.IOS == 'true'
+      - if: env.AREA_RUST == 'true' || env.AREA_IOS == 'true'
         run: rustup toolchain install "$TOOLCHAIN" --profile minimal --component rustfmt,clippy,llvm-tools-preview --target x86_64-apple-ios,aarch64-apple-ios && rustup default "$TOOLCHAIN"
       # Only main saves a Rust cache, here and in the desktop job. A run for a pull request or a branch reads main's and
       # builds what its Cargo.lock changes; when each saved its own, 2.8 GB for every lock file and ref, the repository
       # went past GitHub's 10 GB and the caches read longest ago were dropped within hours, main's among them.
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        if: env.RUST == 'true' || env.IOS == 'true'
+        if: env.AREA_RUST == 'true' || env.AREA_IOS == 'true'
         with:
           workspaces: |
             . -> target
             examples/demo/src-tauri -> target
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - if: env.JS == 'true' || env.RUST == 'true'
+      - if: env.AREA_JS == 'true' || env.AREA_RUST == 'true'
         run: npm ci
-      - if: env.JS == 'true'
+      - if: env.AREA_JS == 'true'
         run: npm test && npm run typecheck && npm run build:demo
       - name: Test release guards
-        if: env.JS == 'true'
+        if: env.AREA_JS == 'true'
         run: node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.mjs --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/release/release-guard.test.mjs
-      - if: env.RUST == 'true'
+      - if: env.AREA_RUST == 'true'
         run: cargo fmt --all -- --check
-      - if: env.RUST == 'true'
+      - if: env.AREA_RUST == 'true'
         run: cargo fmt --manifest-path examples/demo/src-tauri/Cargo.toml -- --check
-      - if: env.RUST == 'true'
+      - if: env.AREA_RUST == 'true'
         run: cargo clippy --locked --all-targets -- -D warnings
       - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
-        if: env.RUST == 'true'
+        if: env.AREA_RUST == 'true'
         with:
           tool: cargo-llvm-cov@0.9.1
-      - if: env.RUST == 'true'
+      - if: env.AREA_RUST == 'true'
         run: cargo llvm-cov --locked --summary-only --fail-under-lines 80
-      - if: env.RUST == 'true'
+      - if: env.AREA_RUST == 'true'
         run: npm run build:demo && cargo test --locked --manifest-path examples/demo/src-tauri/Cargo.toml
       # The plugin's iOS code on activitykit: checked for the device without Swift, then built for the simulator, which
       # builds activitykit's Swift bridge into the library.
-      - if: env.IOS == 'true'
+      - if: env.AREA_IOS == 'true'
         run: ACTIVITYKIT_SKIP_SWIFT=1 cargo clippy --locked --target aarch64-apple-ios --lib -- -D warnings
-      - if: env.IOS == 'true'
+      - if: env.AREA_IOS == 'true'
         run: cargo build --locked --target x86_64-apple-ios --lib
-      - if: env.JS == 'true'
+      - if: env.AREA_JS == 'true'
         run: npm pack --dry-run
-      - if: env.RUST == 'true'
+      - if: env.AREA_RUST == 'true'
         run: cargo package --locked
   # The demo app on an iOS Simulator (tests/ios/run.sh), built by `tauri ios build` (e2e) and by `tauri ios dev`
   # (e2e-dev). A suite skips when it already passed for the same inputs (tests/ci/cache.sh): the tracked files it reads,

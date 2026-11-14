@@ -26,9 +26,10 @@ on:
 permissions:
   contents: read
 
+# One at a time for a ref, and none cut short: a run that is cancelled while it saves leaves nothing.
 concurrency:
   group: rust-cache-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   ios-rust:
@@ -40,10 +41,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # CI's env block is the one place that names the pinned tools: TOOLCHAIN, XCODEGEN, XCODEGEN_SHA256 and NODE.
+      # CI's env block is the one place that names the pinned tools. These four and nothing else of it come here: a
+      # variable that begins with RUST or CARGO would change the key of the cache.
       - name: The tools that CI pins
         run: |
-          sed -n '/^env:$/,/^$/s/^  \([A-Z0-9_]*\): *\(.*\)$/\1=\2/p' .github/workflows/ci.yml | tr -d "'" >> "$GITHUB_ENV"
+          sed -n '/^env:$/,/^$/s/^  \([A-Z0-9_]*\): *\(.*\)$/\1=\2/p' .github/workflows/ci.yml | tr -d "'" | grep -E '^(TOOLCHAIN|XCODEGEN|XCODEGEN_SHA256|NODE)=' >> "$GITHUB_ENV"
       - name: Select Xcode
         run: |
           xcode=$(find /Applications -maxdepth 1 -name 'Xcode_*.app' | sort -V | tail -1)
