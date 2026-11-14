@@ -1,7 +1,10 @@
-//! Button taps of the demo's layout examples. They are handled in Rust, where they also arrive
-//! while the web view is suspended or was never created.
+//! Taps on the buttons and the switch of the demo's layout examples. They are handled in Rust, where they also
+//! arrive while the web view is suspended or was never created.
 
-use std::{thread, time::Duration};
+use std::{
+    thread,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use tauri::{App, AppHandle, Runtime};
 use tauri_plugin_live_activity::{
     ActionEvent, ActivityState, EndPolicy, LayoutActivityRecord, LayoutEndInput, LayoutSnapshot,
@@ -33,7 +36,7 @@ fn handle_tap<R: Runtime>(app: &AppHandle<R>, event: &ActionEvent) {
         let Some(record) = records.iter().find(|record| record.id == event.activity_id) else {
             return Ok(());
         };
-        match reply(&event.action_id, record) {
+        match reply(&event.action_id, event.on, record) {
             Some(Reply::Update(input)) => {
                 thread::sleep(COUNTING);
                 plugin.update_layout(input).map(drop)
@@ -75,22 +78,66 @@ pub fn buttons_start() -> LayoutStartInput {
     serde_json::from_value(request).expect("the Buttons example reads as a start")
 }
 
-/// Starts the Buttons example from Rust when `args` hold [`START_BUTTONS`], on a thread of its own: the plugin's calls
-/// block until iOS answers from the main thread.
-pub fn start_from_rust_if_asked<R: Runtime>(app: &App<R>, mut args: impl Iterator<Item = String>) {
-    if !args.any(|arg| arg == START_BUTTONS) {
+/// The launch argument that starts the Scheduled start example from Rust: a phone at hand has no UI test that
+/// presses the page's button, and the app is ended before the activity's time.
+pub const START_LATER: &str = "--start-later";
+
+/// How far ahead the Scheduled start example begins, as on the page (`startsIn` in `src/layouts.ts`).
+pub const STARTS_IN: Duration = Duration::from_secs(30);
+
+/// The Scheduled start example of the Layouts tab, as Rust starts it, to begin [`STARTS_IN`] after `now`.
+pub fn later_start(now: SystemTime) -> LayoutStartInput {
+    let at = now
+        .checked_add(STARTS_IN)
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map_or(0, |since| {
+            u64::try_from(since.as_millis()).unwrap_or(u64::MAX)
+        });
+    let request = serde_json::json!({
+        "activityKey": "mochi:later", "schemaVersion": 2, "fallback": "notification",
+        "layout": { "lockScreen": { "type": "vstack", "alignment": "leading", "spacing": 6, "style": "card", "children": [
+            { "type": "hstack", "spacing": 8, "children": [
+                { "type": "symbol", "name": "bell.fill", "style": "icon" },
+                { "type": "text", "bind": "title", "style": "title" }] },
+            { "type": "text", "bind": "status" }] } },
+        "styles": {
+            "card": { "padding": 16 },
+            "title": { "font": "headline" },
+            "icon": { "size": 20, "color": "orange" }
+        },
+        "snapshot": { "revision": 0, "values": { "title": "Mochi’s dinner bell", "status": "Dinner is served" } },
+        "scheduled": { "at": at, "alert": { "title": "Dinner time", "body": "Mochi’s bowl is full." } }
+    });
+    serde_json::from_value(request).expect("the Scheduled start example reads as a start")
+}
+
+/// Starts from Rust the examples that `args` name, [`START_BUTTONS`] and [`START_LATER`], on a thread of its own: the
+/// plugin's calls block until iOS answers from the main thread.
+pub fn start_from_rust_if_asked<R: Runtime>(app: &App<R>, args: impl Iterator<Item = String>) {
+    let starts: Vec<_> = args
+        .filter_map(|argument| match argument.as_str() {
+            START_BUTTONS => Some(buttons_start()),
+            START_LATER => Some(later_start(SystemTime::now())),
+            _ => None,
+        })
+        .collect();
+    if starts.is_empty() {
         return;
     }
     let handle = app.handle().clone();
     thread::spawn(move || {
-        if let Err(error) = handle.live_activity().start_layout(buttons_start()) {
-            eprintln!("Mochi demo: the Buttons example did not start: {error}");
+        for start in starts {
+            let key = start.activity_key.clone();
+            if let Err(error) = handle.live_activity().start_layout(start) {
+                eprintln!("Mochi demo: {key} did not start: {error}");
+            }
         }
     });
 }
 
-/// The reply to `action_id` on `record`, or `None` for a tap the demo does not handle.
-pub fn reply(action_id: &str, record: &LayoutActivityRecord) -> Option<Reply> {
+/// The reply to `action_id` on `record`, or `None` for a tap the demo does not handle. `on` is the state a tap on a
+/// switch asked for.
+pub fn reply(action_id: &str, on: Option<bool>, record: &LayoutActivityRecord) -> Option<Reply> {
     let ended = matches!(
         record.state,
         ActivityState::Ended | ActivityState::Dismissed
@@ -101,6 +148,10 @@ pub fn reply(action_id: &str, record: &LayoutActivityRecord) -> Option<Reply> {
     let id = record.id.clone();
     match action_id {
         "pet" => petted(&record.snapshot)
+            .map(|snapshot| Reply::Update(LayoutUpdateInput::new(id, snapshot))),
+        // The tap moves nothing: the switch shows the flag, so the update that sets it is what turns it.
+        "purr" => on
+            .and_then(|on| purring(&record.snapshot, on))
             .map(|snapshot| Reply::Update(LayoutUpdateInput::new(id, snapshot))),
         "done" | "wake" => Some(Reply::End(LayoutEndInput {
             id,
@@ -124,22 +175,54 @@ fn petted(snapshot: &LayoutSnapshot) -> Option<LayoutSnapshot> {
     } else {
         format!("Purring. {count} pets so far")
     };
+    Some(with(
+        snapshot,
+        &[
+            ("pets", Value::Number(count)),
+            ("status", Value::Text(status)),
+        ],
+    ))
+}
+
+/// The status lines of the Switch example, as the page starts it (`src/layouts.ts`).
+pub const PURRING: &str = "Purring out loud";
+pub const QUIET: &str = "Quiet as a mouse";
+
+/// The snapshot with the switch's flag as the person asked for it, and the status line that says so.
+fn purring(snapshot: &LayoutSnapshot, on: bool) -> Option<LayoutSnapshot> {
+    let (Some(Value::Bool(_)), Some(Value::Text(_))) = (
+        snapshot.values.get("purring"),
+        snapshot.values.get("status"),
+    ) else {
+        return None;
+    };
+    let status = if on { PURRING } else { QUIET };
+    Some(with(
+        snapshot,
+        &[
+            ("purring", Value::Bool(on)),
+            ("status", Value::Text(status.into())),
+        ],
+    ))
+}
+
+/// `snapshot` at the next revision with `changed` in place of the values of those keys, and every other key kept.
+fn with(snapshot: &LayoutSnapshot, changed: &[(&str, Value)]) -> LayoutSnapshot {
     let values = snapshot
         .values
         .iter()
         .map(|(key, value)| {
-            let value = match key.as_str() {
-                "pets" => Value::Number(count),
-                "status" => Value::Text(status.clone()),
-                _ => value.clone(),
-            };
-            (key.clone(), value)
+            let value = changed
+                .iter()
+                .find(|(name, _)| name == key)
+                .map_or(value, |(_, value)| value);
+            (key.clone(), value.clone())
         })
         .collect();
-    Some(LayoutSnapshot {
+    LayoutSnapshot {
         stale_at: snapshot.stale_at,
         ..LayoutSnapshot::new(snapshot.revision + 1, values)
-    })
+    }
 }
 
 #[cfg(test)]
@@ -179,7 +262,7 @@ mod tests {
     #[test]
     fn a_pet_counts_up_at_the_next_revision_and_keeps_every_key() {
         let before = buttons(0.0);
-        let first = updated(reply("pet", &before));
+        let first = updated(reply("pet", None, &before));
         assert_eq!(first.revision, 5);
         assert_eq!(first.values["pets"], Value::Number(1.0));
         assert_eq!(
@@ -192,18 +275,52 @@ mod tests {
             before.snapshot.values.keys().collect::<Vec<_>>()
         );
         assert_eq!(before.snapshot.values["pets"], Value::Number(0.0));
-        let third = updated(reply("pet", &buttons(2.0)));
+        let third = updated(reply("pet", None, &buttons(2.0)));
         assert_eq!(
             third.values["status"],
             Value::Text("Purring. 3 pets so far".into())
         );
     }
 
+    // TP-E2E-7
+    #[test]
+    fn a_tap_on_the_switch_sets_the_flag_the_person_asked_for() {
+        let switch = |purring: bool| {
+            record(
+                "mochi:switch",
+                "active",
+                json!({ "title": "Mochi’s purr alerts", "status": QUIET, "purring": purring }),
+            )
+        };
+        let on = updated(reply("purr", Some(true), &switch(false)));
+        assert_eq!(on.revision, 5);
+        assert_eq!(on.values["purring"], Value::Bool(true));
+        assert_eq!(on.values["status"], Value::Text(PURRING.into()));
+        assert_eq!(
+            on.values["title"],
+            Value::Text("Mochi’s purr alerts".into())
+        );
+        let off = updated(reply("purr", Some(false), &switch(true)));
+        assert_eq!(off.values["purring"], Value::Bool(false));
+        assert_eq!(off.values["status"], Value::Text(QUIET.into()));
+        // What the person asked for is set, also when the flag already says so: a tap may come twice.
+        let again = updated(reply("purr", Some(true), &switch(true)));
+        assert_eq!(again.values["purring"], Value::Bool(true));
+        // A tap that says no state is no switch's, and values of other types are not the example's.
+        assert_eq!(reply("purr", None, &switch(false)), None);
+        let wrong_types = record(
+            "mochi:switch",
+            "active",
+            json!({ "status": "x", "purring": "no" }),
+        );
+        assert_eq!(reply("purr", Some(true), &wrong_types), None);
+    }
+
     #[test]
     fn done_and_wake_end_the_activity_at_once() {
         for action in ["done", "wake"] {
             assert_eq!(
-                reply(action, &buttons(1.0)),
+                reply(action, None, &buttons(1.0)),
                 Some(Reply::End(LayoutEndInput {
                     id: "handle-1".into(),
                     policy: EndPolicy::Immediate {},
@@ -215,29 +332,29 @@ mod tests {
 
     #[test]
     fn other_taps_and_other_activities_are_left_alone() {
-        assert_eq!(reply("feed", &buttons(1.0)), None);
+        assert_eq!(reply("feed", None, &buttons(1.0)), None);
         let android = record(
             "mochi:android",
             "active",
             json!({ "title": "Nap", "status": "Dozing", "sleep": 0.2 }),
         );
-        assert_eq!(reply("pet", &android), None);
+        assert_eq!(reply("pet", None, &android), None);
         let wrong_types = record(
             "mochi:buttons",
             "active",
             json!({ "status": 1, "pets": "1" }),
         );
-        assert_eq!(reply("pet", &wrong_types), None);
+        assert_eq!(reply("pet", None, &wrong_types), None);
         let other = record(
             "someone:buttons",
             "active",
             json!({ "status": "x", "pets": 1 }),
         );
-        assert_eq!(reply("pet", &other), None);
-        assert_eq!(reply("done", &other), None);
+        assert_eq!(reply("pet", None, &other), None);
+        assert_eq!(reply("done", None, &other), None);
         for state in ["ended", "dismissed"] {
             assert_eq!(
-                reply("done", &record("mochi:buttons", state, json!({}))),
+                reply("done", None, &record("mochi:buttons", state, json!({}))),
                 None
             );
         }
@@ -253,11 +370,25 @@ mod tests {
             "active",
             serde_json::to_value(&start.snapshot.values).unwrap(),
         );
-        let first = updated(reply("pet", &record));
+        let first = updated(reply("pet", None, &record));
         assert_eq!(
             first.values["status"],
             Value::Text("Purring. 1 pet so far".into())
         );
         assert_eq!(START_BUTTONS, "--start-buttons");
+    }
+
+    #[test]
+    fn the_scheduled_start_that_rust_starts_is_valid_and_begins_half_a_minute_later() {
+        use tauri_plugin_live_activity::Validate;
+        let now = UNIX_EPOCH + Duration::from_millis(1_900_000_000_000);
+        let start = later_start(now);
+        assert_eq!(start.validate(), Ok(()));
+        assert_eq!(start.activity_key, "mochi:later");
+        let scheduled = start.scheduled.expect("the start is scheduled");
+        assert_eq!(scheduled.at, 1_900_000_030_000);
+        assert_eq!(scheduled.alert.title, "Dinner time");
+        assert_eq!(START_LATER, "--start-later");
+        assert_eq!(STARTS_IN, Duration::from_secs(30));
     }
 }

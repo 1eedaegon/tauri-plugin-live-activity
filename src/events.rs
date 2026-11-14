@@ -3,11 +3,11 @@
 //! a state due. Tauri runs the app's Rust listeners inline in an emit, on that thread: one that blocks delays the
 //! taps and the events behind it.
 
-use crate::actions::Actions;
+use crate::{actions::Actions, openings::Openings};
 use liveactivity::Event;
 use std::{
     panic::{AssertUnwindSafe, catch_unwind},
-    sync::mpsc,
+    sync::{Arc, mpsc},
     time::Duration,
 };
 use tauri::{AppHandle, Emitter, Runtime};
@@ -28,7 +28,8 @@ pub const STARTED_EVENT: &str = "live-activity://started";
 /// plugin looks, each once: `active`, `stale`, `ended` and `dismissed`.
 pub const STATE_EVENT: &str = "live-activity://state";
 /// The Tauri event that carries an [`OpenedEvent`](crate::OpenedEvent): the person opened the app from the
-/// notification of an activity (Android).
+/// notification of an activity (Android). The opening that launched the app goes out before the app's own listeners
+/// are there: [`take_openings`](crate::LiveActivity::take_openings) has every opening until it is taken.
 pub const OPENED_EVENT: &str = "live-activity://opened";
 /// The Tauri event that carries the [`Permissions`](crate::Permissions) after the person changed them in
 /// Settings (iOS).
@@ -39,20 +40,22 @@ const HANDLERS: Duration = Duration::from_secs(4);
 
 /// The sink of the backend's events. A tap goes to the handlers of `on_action` and then to JavaScript, and the sink
 /// returns once they are done, because on iOS the tap's intent is held until then; every other event goes to
-/// JavaScript. A Rust listener of the app that panics in an emit is caught here, so that it ends neither the thread
+/// JavaScript, and an opening is kept in `openings` as well, for the page that listens later. A Rust listener of the app that panics in an emit is caught here, so that it ends neither the thread
 /// that reports the events nor the taps behind it. Tauri itself delivers no event to the app's Rust listeners after
 /// such a panic, which poisons its registry of them; the web views, which it sends to first, go on receiving.
 pub(crate) fn sink<R: Runtime>(
     app: AppHandle<R>,
     actions: Actions,
+    openings: Arc<Openings>,
 ) -> impl Fn(Event) + Send + Sync + 'static {
-    sink_within(app, actions, HANDLERS)
+    sink_within(app, actions, openings, HANDLERS)
 }
 
 /// [`sink`] with the time that a tap waits for its handlers given, which a test shortens.
 pub(crate) fn sink_within<R: Runtime>(
     app: AppHandle<R>,
     actions: Actions,
+    openings: Arc<Openings>,
     handlers: Duration,
 ) -> impl Fn(Event) + Send + Sync + 'static {
     move |event| {
@@ -82,6 +85,8 @@ pub(crate) fn sink_within<R: Runtime>(
                 let _ = app.emit(PERMISSIONS_EVENT, permissions);
             }
             Event::Opened(opened) => {
+                // Kept before the event goes out: who hears the event takes the opening.
+                openings.keep(opened.clone());
                 let _ = app.emit(OPENED_EVENT, opened);
             }
             _ => {}

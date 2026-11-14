@@ -3,7 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { validateLayoutUpdate, validateRequest } from '../../../tools/validate-request.mjs';
 import {
-  actionMessage, findLayoutExample, layoutExamples, layoutRecordFor, nextLayoutSnapshot, runningLayoutExamples,
+  actionMessage, findLayoutExample, freshFor, layoutExamples, layoutRecordFor, nextLayoutSnapshot, openedMessage,
+  runningLayoutExamples, startsIn,
 } from '../src/layouts.ts';
 
 const NOW = 1_800_000_000_000;
@@ -25,7 +26,8 @@ const ofType = (id, type) => nodesOf(id).filter(node => node.type === type);
 
 test('offers one example per layout feature, each under its own key', () => {
   assert.deepEqual(layoutExamples.map(example => example.id), [
-    'text', 'symbols', 'image', 'paths', 'gauge', 'progress', 'timer', 'stacks', 'buttons', 'styles', 'island', 'android', 'nowBar',
+    'text', 'symbols', 'image', 'paths', 'gauge', 'progress', 'timer', 'stacks', 'buttons', 'switch', 'link', 'styles',
+    'staleness', 'later', 'island', 'android', 'nowBar',
   ]);
   const keys = layoutExamples.map(example => example.start(NOW).activityKey);
   assert.deepEqual(keys, layoutExamples.map(example => `mochi:${example.id}`));
@@ -132,6 +134,52 @@ test('buttons report pet and done, and have no in-app update', () => {
   assert.equal(findLayoutExample('buttons').next, undefined);
 });
 
+test('the switch shows a flag that is off and reports purr, with the lines Rust sets', () => {
+  const [purr] = ofType('switch', 'toggle');
+  assert.equal(ofType('switch', 'toggle').length, 1);
+  assert.deepEqual([purr.actionId, purr.bind, purr.child.value], ['purr', 'purring', 'Purr alerts']);
+  const values = startOf('switch').snapshot.values;
+  assert.equal(values.purring, false);
+  // Rust's handler writes the same two lines (src-tauri/src/actions.rs).
+  const rust = readFileSync(new URL('../src-tauri/src/actions.rs', import.meta.url), 'utf8');
+  assert.ok(rust.includes(`pub const QUIET: &str = "${values.status}";`));
+  assert.ok(rust.includes('pub const PURRING: &str = "Purring out loud";'));
+  assert.equal(findLayoutExample('switch').next, undefined);
+});
+
+test('the link opens a URL of a scheme that the Android app declares', () => {
+  const [jar] = ofType('link', 'link');
+  assert.equal(ofType('link', 'link').length, 1);
+  assert.equal(jar.url, 'mochi://treats');
+  assert.equal(jar.child.value, 'Open the treat jar');
+  // Android opens a link only in an activity of the app that takes its scheme; without one the link is left out.
+  const manifest = readFileSync(new URL('../src-tauri/gen/android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8');
+  assert.match(manifest, /<action android:name="android\.intent\.action\.VIEW" \/>[\s\S]*<data android:scheme="mochi" \/>/);
+});
+
+test('the staleness example is stale 45 seconds after its start and draws one line for each condition', () => {
+  const input = startOf('staleness');
+  assert.equal(freshFor, 45_000);
+  assert.equal(input.snapshot.staleAt, NOW + freshFor);
+  const conditional = nodesOf('staleness').filter(node => node.ifStale !== undefined);
+  assert.deepEqual(conditional.map(node => [node.ifStale, node.bind ?? node.value]), [
+    [false, 'news'], [true, 'Waiting for news of the snack'],
+  ]);
+  // An update carries no stale time: its content is fresh for good.
+  const record = { id: 's', activityKey: input.activityKey, snapshot: input.snapshot };
+  assert.equal(nextLayoutSnapshot(record, findLayoutExample('staleness')).staleAt, undefined);
+});
+
+test('the scheduled start begins 30 seconds after it is asked for, with an alert, and has no update', () => {
+  const input = startOf('later');
+  assert.equal(startsIn, 30_000);
+  assert.deepEqual(input.scheduled, { at: NOW + startsIn, alert: { title: 'Dinner time', body: 'Mochi’s bowl is full.' } });
+  assert.equal(findLayoutExample('later').next, undefined);
+  // The alert says other words than the activity, so that what shows at the time can be told apart.
+  const values = Object.values(input.snapshot.values);
+  assert.ok(!values.includes(input.scheduled.alert.title) && !values.includes(input.scheduled.alert.body));
+});
+
 test('the changing styles example binds a color, and an update turns the status red', () => {
   const input = startOf('styles');
   const { styles, snapshot: { values } } = input;
@@ -198,6 +246,17 @@ test('the next snapshot raises the revision and leaves the record alone', () => 
   assert.deepEqual(next.values, example.next(input.snapshot.values));
   assert.equal(record.snapshot.revision, 0);
   assert.throws(() => nextLayoutSnapshot(record, findLayoutExample('image')), /no update/);
+});
+
+test('an opening is described with what the person tapped and the example', () => {
+  assert.equal(openedMessage({ activityId: 'x', activityKey: 'mochi:link', actionId: 'link:1' }), 'You came in through “link:1” of the Link example.');
+  assert.equal(openedMessage({ activityId: 'x', activityKey: 'mochi:link' }), 'You came in through the notification of the Link example.');
+  assert.equal(openedMessage({ activityId: 'x' }), 'You came in through the notification of an activity.');
+});
+
+test('a tap on a switch is described with the state it asked for', () => {
+  assert.equal(actionMessage({ actionId: 'purr', activityId: 'x', activityKey: 'mochi:switch', on: true }), 'Mochi felt “purr”, asked on, from the Switch example.');
+  assert.equal(actionMessage({ actionId: 'purr', activityId: 'x', on: false }), 'Mochi felt “purr”, asked off, from an activity.');
 });
 
 test('a button tap is described with its action and example', () => {

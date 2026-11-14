@@ -17,9 +17,9 @@ library carries liveupdate's own Android adapter, copied from the crate
 (`node tools/sync-liveupdate.mjs`, which a test checks; the copy only renames liveupdate's `R` to
 the plugin's): a framework adapter with seven bounded operations, which stores Rust's receipts,
 posts and cancels notifications, observes them, and drains the taps and dismissals its
-receivers stored. The plugin's own Kotlin is the permission commands, the image folder and a
-channel that wakes Rust when an event is stored, and the hand-over of the intent that opened the app from
-a notification ([Opened](#opened)). Kotlin implements no lifecycle and draws no layout of its own, and it reads the notification settings through liveupdate's adapter alone.
+receivers stored. The plugin's own Kotlin is the permission commands, the image folder, a
+channel that wakes Rust when an event is stored, and a watch of the app's activities that hands liveupdate the
+intents which open the app from a notification ([Opened](#opened)). Kotlin implements no lifecycle and draws no layout of its own, and it reads the notification settings through liveupdate's adapter alone.
 
 Set `bundle.android.minSdkVersion` to `26` or higher in `tauri.conf.json`;
 `npx tauri-plugin-live-activity setup` does this, and sets `minSdk` in an existing
@@ -249,13 +249,32 @@ opens is `INVALID_INPUT`, and nothing is posted.
 ### Opened
 
 The person opened the app from a notification of an activity: the notification itself, or an action that
-opens a URL. The plugin's Kotlin hands the intent of each opening to liveupdate (`LiveUpdateEvents.opened`),
-when the activity is created with a new intent and when a running one gets a new intent, so an app writes no
-Kotlin for it. liveupdate stores the opening with the activity and the action, and the events thread reports
+opens a URL. The plugin's library hands the intent of each opening to liveupdate (`LiveUpdateEvents.opened`):
+the intent an activity is created for, and each one that brings a running activity forward, so an app writes
+no Kotlin for it. liveupdate stores the opening with the activity and the action, and the events thread reports
 it as `live-activity://opened` (`onOpened`, Rust `OPENED_EVENT`) with the activity's id and key. The action is
 absent when the person tapped the notification itself; otherwise it is `link:<n>` for the nth `link` of the
 lock screen tree, or the id of an action of an Android content. The URL itself reaches the app as any deep
 link, through the activity that declares its scheme.
+
+Two things make an opening reach the page whatever state the app was in:
+
+- The library watches the app's activities from the start of the process, through a provider in its manifest
+  (`OpeningsProvider`, with the authority `<applicationId>.live-activity-openings`; it holds no data). Tauri
+  loads a plugin only once its Rust has started, and Android delivers the intent that brings back an app whose
+  process it had ended before that. An activity that Android creates again from its saved state gets the intent
+  of its first creation again; that one is not counted a second time. The watch hears new intents through
+  AndroidX, which Tauri's activity is built on.
+- The plugin keeps each opening until a page has handed it to a handler. The opening that launched the app is
+  drained when the plugin starts, before the page has loaded, so `onOpened` asks for what waits when it
+  subscribes ([Usage](usage.md#starts-states-and-permission-changes)).
+
+What Android hands out again is not an opening. An activity that Android creates anew from its saved state, and
+one that it starts when the person brings the app back from the recent apps, get the intent of the activity's
+first creation, marks and all: the watch leaves both out. It cannot tell an app that Android starts again after a
+crash in the foreground, where there is neither a saved state nor a flag; an opening may then be counted twice.
+The watch runs in the app's main process: an activity that the manifest puts in another process is not watched.
+Do not remove the provider from the merged manifest (`tools:node="remove"`): nothing else hands the intents over.
 
 ## A foreground service
 
@@ -306,6 +325,13 @@ What the app can do:
   android:value="true" />` to the app's `<application>`. It does nothing unless Samsung
   has listed the package; it is needed only if Samsung lists it without the `RON` flag.
   The plugin does not add it.
+- Know what the extras cost. With them, One UI 9 draws a card of its own for the notification, in the shade and
+  under the status bar chip: the title and the status line, and none of the notification's actions. A button, a
+  switch or a link of the layout cannot be tapped there; a tap on the card opens the app (`onOpened` without an
+  action). Without the extras the same notification is drawn as Android draws it, with its actions, and its chip
+  shows the title. Seen on a Galaxy S23 with the developer option on, with the demo's Switch and Link examples;
+  whether an app on Samsung's list is drawn differently is not known. An activity that needs its actions on a
+  Galaxy leaves the option off.
 - Read the developer option with `Settings.Secure.getInt(resolver,
   "enable_notification_nowbar_test", -1)` (-1: absent). An app cannot change it.
 

@@ -9,5 +9,7 @@
                 <data android:scheme="mochi" />
             </intent-filter>
         </activity>
+        <!-- An activity as Tauri's is one: AndroidX tells its listeners of each new intent. -->
+        <activity android:name="io.github.eedaegon.liveactivity.OpeningsHostActivity" android:exported="false" />
     </application>
 </manifest>

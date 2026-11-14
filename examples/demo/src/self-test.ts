@@ -123,6 +123,88 @@ async function checkLayout(api: API, runId: string, platform: string, check: Che
   ));
 }
 
+/** A layout with a switch, a link and one line for fresh and one for stale content. */
+function interactionRequest(runId: string): PublicAPI.LayoutStartInput {
+  return {
+    activityKey: `integration-nodes:${runId}`, schemaVersion: 2, fallback: 'notification',
+    layout: {
+      lockScreen: {
+        type: 'vstack', children: [
+          { type: 'text', bind: 'status', ifStale: false },
+          { type: 'text', value: 'Out of date', ifStale: true },
+          { type: 'toggle', actionId: 'mute', bind: 'muted', child: { type: 'text', value: 'Mute' } },
+          { type: 'link', url: 'mochi://integration', child: { type: 'text', value: 'Open' } },
+        ],
+      },
+    },
+    snapshot: { revision: 0, values: { status: 'Starting', muted: false } },
+  };
+}
+
+/**
+ * The nodes a person acts on and the ones that follow staleness, through the real plugin: iOS draws all of them,
+ * and Android, whose notification is drawn once, names `layout.ifStale`. An update sets the switch's flag.
+ */
+async function checkInteraction(api: API, runId: string, platform: string, check: Check, live: (id?: string) => void): Promise<void> {
+  const started = await api.startLayout(interactionRequest(runId));
+  live(started.id);
+  await check('a layout with a switch, a link and nodes that follow staleness starts', async () => {
+    const leftOut = started.degradedFeatures;
+    ensure(platform === 'ios' ? leftOut.length === 0 : leftOut.includes('layout.ifStale'),
+      `The start left out ${JSON.stringify(leftOut)}`);
+  });
+  await check('an update sets the flag that a switch shows', async () => {
+    const updated = await api.updateLayout({ id: started.id, snapshot: { revision: 1, values: { status: 'Muted', muted: true } } });
+    ensure(updated.snapshot.values.muted === true, 'The update did not set the flag');
+  });
+  await check('the layout with a switch and a link ends', async () => {
+    ensure((await api.endLayout({ id: started.id, policy: { kind: 'immediate' } })).state === 'ended', 'The end did not report ended');
+  });
+  live(undefined);
+}
+
+/** How far ahead the scheduled start of the test is: it ends long before it would begin. */
+const SCHEDULED_AHEAD_MS = 600_000;
+
+/**
+ * A start at a later time, through the real plugin. Where the system begins an activity by itself (iOS 26) it is
+ * pending until then: it holds its key, takes no update, is listed and can be ended. Android, and an older iOS, start
+ * an activity only when they are asked to, and refuse.
+ */
+async function checkScheduled(api: API, runId: string, check: Check, live: (id?: string) => void): Promise<void> {
+  const at = Date.now() + SCHEDULED_AHEAD_MS;
+  const request: PublicAPI.LayoutStartInput = {
+    ...layoutRequest(runId), activityKey: `integration-later:${runId}`,
+    scheduled: { at, alert: { title: 'Integration test', body: 'A scheduled start began.' } },
+  };
+  let pending: PublicAPI.LayoutActivityRecord;
+  try {
+    pending = await api.startLayout(request);
+  } catch (error) {
+    await check('a scheduled start is refused where the system starts nothing later', () => rejectsCode(Promise.reject(error), 'UNSUPPORTED_FEATURE'));
+    return;
+  }
+  live(pending.id);
+  const { id } = pending;
+  await check('a scheduled start is pending until its time', async () => {
+    ensure(pending.state === 'pending', `The scheduled start is ${pending.state}`);
+  });
+  await check('a pending activity holds its key, whatever the time of the same start', async () => {
+    const again = await api.startLayout({ ...request, scheduled: { ...request.scheduled!, at: at + 60_000 } });
+    ensure(again.id === id && again.state === 'pending', 'The same start made another activity');
+  });
+  await check('a pending activity takes no update', () => rejectsCode(
+    api.updateLayout({ id, snapshot: { revision: 1, values: { status: 'Early' } } }), 'CONFLICT',
+  ));
+  await check('a pending activity is listed as pending', async () => {
+    ensure((await api.listLayout()).find(item => item.id === id)?.state === 'pending', 'The list did not say pending');
+  });
+  await check('a pending activity can be ended', async () => {
+    ensure((await api.endLayout({ id, policy: { kind: 'immediate' } })).state === 'ended', 'The end did not report ended');
+  });
+  live(undefined);
+}
+
 function checkPermission(platform: string, permissions: PublicAPI.Permissions): void {
   const permission = platform === 'ios' ? permissions.liveActivities : permissions.notifications;
   ensure(permission === 'granted', `Grant the ${platform} activity/notification permission before running the test (${permission})`);
@@ -193,6 +275,8 @@ export async function runLifecycleChecks(api: API, runId: string): Promise<SelfT
     liveId = undefined;
     await checkLayout(api, runId, capabilities.platform, check, id => { liveLayout = id; });
     await checkPush(api, runId, capabilities.push, check, id => { liveLayout = id; });
+    await checkInteraction(api, runId, capabilities.platform, check, id => { liveLayout = id; });
+    await checkScheduled(api, runId, check, id => { liveLayout = id; });
     report = { ...report, status: 'passed' };
   } catch (error) {
     report = { ...report, error: describeError(error) };

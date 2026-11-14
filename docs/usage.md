@@ -839,6 +839,10 @@ also needs this entry in the `<application>` of
 <meta-data android:name="com.samsung.android.support.ongoing_activity" android:value="true" />
 ```
 
+With the extras, One UI draws the notification as a card of its own, with the title and the body and without
+the notification's actions: a button, a switch or a link cannot be tapped there. An activity that needs them on
+a Galaxy leaves the option off.
+
 What was found about the Now Bar on One UI 9 is in [Android setup](android-integration.md#samsung-now-bar).
 
 ## Revisions, timestamps and ends
@@ -970,11 +974,37 @@ An event reaches only the listeners there are when it goes out. What happened wh
 the page listened, is in the records: `list()` and `listLayout()` at launch give every activity with its state, and
 `checkPermissions()` the permissions. On Android liveupdate stores the dismissal of a notification as it stores a tap, and the plugin reports it
 when it drains them: at once while the app's process lives, else when the app starts. The plugin's events
-thread also wakes at an activity's stale time. `onOpened` gives `{ activityId, activityKey, actionId }`:
-`actionId` is absent when the person tapped the notification itself, `link:<n>` for the nth `link` of the
-lock screen tree, and the id of an action of an Android content otherwise. The URL comes to the app as any
-deep link. The event names are public in Rust (`STATE_EVENT`, `STARTED_EVENT`, `PERMISSIONS_EVENT`,
-`OPENED_EVENT`) for `app.listen`.
+thread also wakes at an activity's stale time. The event names are public in Rust (`STATE_EVENT`, `STARTED_EVENT`,
+`PERMISSIONS_EVENT`, `OPENED_EVENT`) for `app.listen`.
+
+An opening is in no record, and the one that launches the app is reported before its page has loaded. So the plugin
+keeps every opening until a page has handed it to a handler, the newest 16, and `onOpened` asks for them: its handler
+first gets those that waited, oldest first, and then each one as it comes, each once. Subscribe when the page
+starts, and the opening that launched the app is the first thing the handler hears:
+
+```ts
+import { onOpened } from 'tauri-plugin-live-activity';
+
+await onOpened(({ activityId, activityKey, actionId }) => {
+  // actionId: absent for the notification itself, `link:<n>` for the nth link, or an Android action's id
+  router.push(routeOf(activityKey, actionId));
+});
+```
+
+`actionId` is absent when the person tapped the notification itself, `link:<n>` for the nth `link` of the lock
+screen tree, and the id of an action of an Android content otherwise. The URL comes to the app as any deep link.
+The handlers of one page share the openings, and one that subscribes later gets what is handed over from then on.
+While no handler is subscribed, an opening waits for the next one, so a handler that subscribes long after the
+page started is handed openings that are old by then. The plugin lets an opening go when the page tells it that a
+handler got it. A page that is reloaded in that moment has not said so, and the page that loads next hears the
+opening once more: let the handler bear an opening it has seen. A handler that throws is reported
+(`reportError`) and keeps nothing from the others. With several web views, each one that listens asks for
+itself, and the one that asks after another has let an opening go does not hear it.
+
+`onOpened` needs the command `openings`, which is in `live-activity:default`; a capability that lists the commands
+one by one adds `live-activity:allow-openings`. In Rust, `OPENED_EVENT` goes out for every opening as it comes,
+and `app.live_activity().take_openings()` takes what waits: an app that handles openings in Rust takes them at
+its start and at each event. What Rust takes is gone for the page, so let either the page or Rust take them.
 
 On iOS a start needs the app in the foreground and fails with `NOT_FOREGROUND` otherwise. The system ends an iOS
 activity after 8 hours and removes it from the Lock Screen after 12. [iOS integration](ios-integration.md) has the

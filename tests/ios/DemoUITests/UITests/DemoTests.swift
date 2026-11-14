@@ -16,12 +16,19 @@ final class DemoTests: XCTestCase {
     private let reaction: TimeInterval = 90
     /// How long the Lock Screen may take to draw content that it already reports.
     private let redraw: TimeInterval = 15
-    /// How long the demo's lifecycle test may take: its 19 checks go through Tauri and activitykit.
+    /// How long the demo's lifecycle test may take: its checks go through Tauri and activitykit.
     private let selfTest: TimeInterval = 120
     /// How long to look for the system's question about Live Activities, which comes once or not at all.
     private let prompt: TimeInterval = 2
     /// How long a tab may take to open before the tab is tapped again.
     private let retry: TimeInterval = 10
+    /// How long the Lock Screen may take to turn to stale content: the Staleness example is stale after 45 s
+    /// (`freshFor` in examples/demo/src/layouts.ts), and the system draws it some time after that.
+    private let staleness: TimeInterval = 180
+    /// How far ahead the Scheduled start example begins (`startsIn` in examples/demo/src/layouts.ts), and how long the
+    /// system may take to begin it and draw it from then.
+    private let startsIn: TimeInterval = 30
+    private let beginning: TimeInterval = 120
 
     override func setUp() {
         continueAfterFailure = false
@@ -119,6 +126,33 @@ final class DemoTests: XCTestCase {
         XCUIDevice.shared.press(.home)
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: system))
+    }
+
+    /// Pulls the Lock Screen over the Home Screen: the app is not in front, or does not run.
+    private func pullLockScreenOverHome() {
+        let top = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01))
+        top.press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)))
+    }
+
+    /// What the Lock Screen shows under `label`, whatever kind of element the system makes of it.
+    private func onLockScreen(_ label: String) -> XCUIElement {
+        springboard.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
+    }
+
+    /// Whether `condition` holds within `timeout`.
+    private func holds(within timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        return condition()
+    }
+
+    /// Ends the example that the page shows as running.
+    private func endExample() {
+        tap("End this example")
+        XCTAssertTrue(webText("has ended").waitForExistence(timeout: page))
     }
 
     // TP-E2E-1, TP-E2E-6, TP-BUILD-1, TP-IOS-1, TP-IOS-3
@@ -268,5 +302,121 @@ final class DemoTests: XCTestCase {
         capture("e2e-7-rust-start-and-button")
         springboard.buttons["All done"].firstMatch.tap()
         XCTAssertTrue(springboard.buttons["Pet Mochi"].waitForNonExistence(timeout: system))
+    }
+
+    // TP-E2E-7, TP-ACTION-1
+    /// A switch on the Lock Screen shows its flag. A tap reaches Rust with the state the person asked for, Rust's
+    /// update moves the switch, and the page hears the tap with that state.
+    func test8ASwitchReportsTheStateThePersonAskedFor() {
+        launch()
+        openLayouts("Switch")
+        tap("Start this example")
+        XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
+        let purr = onLockScreen("Purr alerts")
+        XCTAssertTrue(pullLockScreen(until: purr), springboard.debugDescription)
+        allow()
+        XCTAssertEqual(purr.elementType, .switch)
+        XCTAssertEqual(purr.value as? String, "0")
+        XCTAssertTrue(springboard.staticTexts["Quiet as a mouse"].waitForExistence(timeout: redraw))
+        capture("e2e-8-switch-off")
+        purr.tap()
+        // Rust's handler (examples/demo/src-tauri/src/actions.rs) sets the flag it was asked for, with an update.
+        XCTAssertTrue(springboard.staticTexts["Purring out loud"].waitForExistence(timeout: reaction))
+        XCTAssertTrue(holds(within: redraw) { purr.value as? String == "1" }, "the update moves the switch")
+        capture("e2e-8-switch-on")
+        leaveLockScreen()
+        tap("Developer tools")
+        XCTAssertTrue(webText("\"actionId\":\"purr\"").waitForExistence(timeout: page))
+        XCTAssertTrue(webText("\"on\":true").waitForExistence(timeout: page))
+        // The switch that is on asks for off.
+        XCTAssertTrue(pullLockScreen(until: purr))
+        purr.tap()
+        XCTAssertTrue(springboard.staticTexts["Quiet as a mouse"].waitForExistence(timeout: reaction))
+        XCTAssertTrue(holds(within: redraw) { purr.value as? String == "0" })
+        leaveLockScreen()
+        XCTAssertTrue(webText("\"on\":false").waitForExistence(timeout: page))
+        capture("e2e-8-switch-in-javascript")
+        endExample()
+    }
+
+    // TP-E2E-8
+    /// A link on the Lock Screen opens the app, which was not in front.
+    func test9ALinkOnTheLockScreenOpensTheApp() {
+        launch()
+        openLayouts("Link")
+        tap("Start this example")
+        XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(holds(within: system) { app.state != .runningForeground }, "the app leaves the foreground")
+        pullLockScreenOverHome()
+        let jar = onLockScreen("Open the treat jar")
+        XCTAssertTrue(jar.waitForExistence(timeout: system), springboard.debugDescription)
+        allow()
+        capture("e2e-9-link")
+        jar.tap()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: system), "the link opens the app")
+        XCTAssertTrue(web("Layouts").waitForExistence(timeout: pageLoad))
+        openLayouts("Link")
+        endExample()
+    }
+
+    // TP-E2E-9
+    /// Content whose stale time has passed turns the Lock Screen: the line for fresh content goes and the line for
+    /// stale content comes, with no update and with the app ended. The page then lists the activity as stale, and an
+    /// update makes it fresh again.
+    func test10ContentPastItsStaleTimeTurnsTheLockScreen() {
+        launch()
+        openLayouts("Staleness")
+        tap("Start this example")
+        XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
+        let fresh = springboard.staticTexts["Left the kitchen"]
+        let stale = springboard.staticTexts["Waiting for news of the snack"]
+        XCTAssertTrue(pullLockScreen(until: fresh))
+        allow()
+        XCTAssertFalse(stale.exists, "fresh content draws no node for stale content")
+        capture("e2e-10-fresh")
+        // The change is the system's and the widget's: the app does not run while the time passes.
+        app.terminate()
+        XCTAssertTrue(stale.waitForExistence(timeout: staleness), "past the stale time, the node for stale content shows")
+        XCTAssertTrue(fresh.waitForNonExistence(timeout: redraw), "and the node for fresh content is gone")
+        capture("e2e-10-stale")
+        XCUIDevice.shared.press(.home)
+        launch()
+        openLayouts("Staleness")
+        XCTAssertTrue(webText("NEEDS A LITTLE UPDATE").waitForExistence(timeout: page))
+        tap("Send new values")
+        XCTAssertTrue(webText("New values sent at revision 1").waitForExistence(timeout: page))
+        XCTAssertTrue(pullLockScreen(until: springboard.staticTexts["Around the corner"]))
+        XCTAssertTrue(stale.waitForNonExistence(timeout: redraw), "an update makes the content fresh again")
+        capture("e2e-10-fresh-again")
+        leaveLockScreen()
+        endExample()
+    }
+
+    // TP-E2E-10
+    /// A scheduled start is pending until its time. The system begins it then, with the app ended, and the app that
+    /// is launched afterwards lists it as running.
+    func test11AScheduledStartBeginsAtItsTimeWithTheAppEnded() {
+        launch()
+        openLayouts("Scheduled start")
+        let asked = Date()
+        tap("Start this example")
+        XCTAssertTrue(webText("is waiting for its time").waitForExistence(timeout: page))
+        XCTAssertTrue(webText("WAITING FOR ITS TIME").waitForExistence(timeout: page))
+        capture("e2e-11-pending")
+        app.terminate()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: system))
+        // The page set the time after `asked`: an app that ended sooner than that did not begin the activity.
+        XCTAssertLessThan(Date().timeIntervalSince(asked), startsIn, "the app ended before the activity's time")
+        pullLockScreenOverHome()
+        let dinner = springboard.staticTexts["Dinner is served"]
+        XCTAssertTrue(dinner.waitForExistence(timeout: startsIn + beginning), springboard.debugDescription)
+        allow()
+        capture("e2e-11-begun")
+        XCUIDevice.shared.press(.home)
+        launch()
+        openLayouts("Scheduled start")
+        XCTAssertTrue(webText("ON YOUR PHONE NOW").waitForExistence(timeout: page))
+        endExample()
     }
 }

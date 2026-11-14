@@ -12,6 +12,7 @@ const COMMANDS: &[&str] = &[
     "list_layout",
     "write_image",
     "push_tokens",
+    "openings",
 ];
 
 fn main() {

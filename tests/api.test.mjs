@@ -250,22 +250,364 @@ test('onStarted, onState and onPermissions listen to their events', async t => {
   assert.equal(started.length, 1);
 });
 
+/** How many openings the plugin of this page has kept so far. The tests of this file are one page with one plugin:
+ * its numbers go on from test to test, as the page's own do. */
+let openingsKept = 0;
+
+/**
+ * The plugin's side of the openings, as `src/openings.rs` keeps them: `opened` keeps one and says so with the event;
+ * the command lets go of the openings up to the number it is told and answers those that wait, with the number of
+ * the newest. `waiting` is what waits when the test begins, and what an earlier test left is gone. `asked` lists
+ * what each call said was taken. While `held` is set, an answer waits for `release`.
+ */
+function openingsOfThePlugin(waiting = []) {
+  const plugin = { waiting: [...waiting], asked: [], fails: false, forgetful: false, held: undefined, release: undefined,
+    unanswered: 0, mostUnanswered: 0 };
+  openingsKept += waiting.length;
+  Object.defineProperty(plugin, 'kept', { get: () => openingsKept });
+  mockIPC(async (command, payload) => {
+    if (command !== 'plugin:live-activity|openings') return undefined;
+    plugin.asked.push(payload.taken);
+    if (plugin.fails) throw { code: 'NATIVE_ERROR', message: 'Operation could not be completed.' };
+    // A forgetful plugin lets nothing go, which the real one never does: it answers what the page has handed over.
+    const before = plugin.kept - plugin.waiting.length;
+    if (!plugin.forgetful) plugin.waiting.splice(0, Math.max(0, Math.min(plugin.waiting.length, payload.taken - before)));
+    const answer = { openings: [...plugin.waiting], through: plugin.kept };
+    plugin.unanswered += 1;
+    plugin.mostUnanswered = Math.max(plugin.mostUnanswered, plugin.unanswered);
+    try {
+      if (plugin.held !== undefined) await plugin.held;
+      return answer;
+    } finally {
+      plugin.unanswered -= 1;
+    }
+  }, { shouldMockEvents: true });
+  plugin.keep = opening => {
+    plugin.waiting.push(opening);
+    openingsKept += 1;
+  };
+  plugin.opened = async opening => {
+    plugin.keep(opening);
+    await emit('live-activity://opened', opening);
+    await settled();
+  };
+  /** Holds the answers back from now on, until `plugin.release()`. */
+  plugin.hold = () => {
+    plugin.held = new Promise(resolve => {
+      plugin.release = () => {
+        plugin.held = undefined;
+        resolve();
+      };
+    });
+  };
+  return plugin;
+}
+
+/**
+ * Lets the questions that a subscription or an event started run to their end: fifty turns of the event loop, each
+ * of which runs every promise that is ready, however slow the machine. A question and its answer take a few.
+ */
+async function settled() {
+  for (let turn = 0; turn < 50; turn += 1) await new Promise(resolve => setImmediate(resolve));
+}
+
 // TP-EVENT-2
 test('onOpened hands each opening from a notification to its handler until it is unsubscribed', async t => {
   t.mock.method(console, 'warn', () => {});
-  mockIPC(() => undefined, { shouldMockEvents: true });
+  const plugin = openingsOfThePlugin();
   const openings = [];
   const unlisten = await activity.onOpened(event => openings.push(event));
   const byTheNotification = { activityId: layoutRecord.id, activityKey: layoutInput.activityKey };
   const byALink = { ...byTheNotification, actionId: 'link:1' };
-  await emit('live-activity://opened', byTheNotification);
-  await emit('live-activity://opened', byALink);
+  await plugin.opened(byTheNotification);
+  await plugin.opened(byALink);
   await emit('live-activity://state', { ...byTheNotification, state: 'active' });
+  await settled();
   assert.deepEqual(openings, [byTheNotification, byALink]);
+  // What was handed over was let go: the plugin holds nothing of it.
+  assert.deepEqual(plugin.waiting, []);
 
   await unlisten();
-  await emit('live-activity://opened', byTheNotification);
+  await settled();
+  await plugin.opened(byTheNotification);
   assert.equal(openings.length, 2);
+  // What nobody heard still waits in the plugin, for the next that subscribes.
+  assert.deepEqual(plugin.waiting, [byTheNotification]);
+});
+
+// TP-EVENT-3
+test('onOpened hands over the openings that waited for the page, then each as it comes, once and in order', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const launch = { activityId: 'la-1', activityKey: 'job:1', actionId: 'link:1' };
+  const second = { activityId: 'la-1', activityKey: 'job:1' };
+  // The opening that launched the app was reported before the page loaded: nothing heard its event.
+  const plugin = openingsOfThePlugin([launch, second]);
+  const openings = [];
+  const unlisten = await activity.onOpened(event => openings.push(event));
+  assert.deepEqual(openings, [launch, second]);
+  // One question brought them and a second one told the plugin that they were handed over.
+  assert.equal(plugin.asked.length, 2);
+  assert.equal(plugin.asked[1], plugin.kept);
+  assert.deepEqual(plugin.waiting, []);
+
+  // Later ones come with their event, each once, also two that come at once.
+  const third = { activityId: 'la-2' };
+  const fourth = { activityId: 'la-2', actionId: 'link:2' };
+  plugin.keep(third);
+  plugin.keep(fourth);
+  await Promise.all([emit('live-activity://opened', third), emit('live-activity://opened', fourth)]);
+  await settled();
+  assert.deepEqual(openings, [launch, second, third, fourth]);
+
+  // The event says that an opening came and carries nothing the page trusts: what the plugin hands over counts.
+  await emit('live-activity://opened', { activityId: 'not-kept' });
+  await settled();
+  assert.equal(openings.length, 4);
+
+  // A question that fails loses nothing: the opening waits, and the next event brings both.
+  plugin.fails = true;
+  await plugin.opened({ activityId: 'la-3' });
+  assert.equal(openings.length, 4);
+  plugin.fails = false;
+  await plugin.opened({ activityId: 'la-4' });
+  assert.deepEqual(openings.slice(4), [{ activityId: 'la-3' }, { activityId: 'la-4' }]);
+  assert.deepEqual(plugin.waiting, []);
+  await unlisten();
+  await settled();
+});
+
+// TP-EVENT-3
+test('an opening that comes while the plugin is being asked is handed over once, after the ones before it', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const plugin = openingsOfThePlugin([{ activityId: 'la-1' }]);
+  const openings = [];
+  plugin.hold();
+  const subscribing = activity.onOpened(event => openings.push(event.activityId));
+  await settled();
+  // The first answer, with la-1, is on its way. Two more openings come, each with its event.
+  plugin.keep({ activityId: 'la-2' });
+  await emit('live-activity://opened', { activityId: 'la-2' });
+  plugin.keep({ activityId: 'la-3' });
+  await emit('live-activity://opened', { activityId: 'la-3' });
+  assert.deepEqual(openings, []);
+  plugin.release();
+  const unlisten = await subscribing;
+  await settled();
+  assert.deepEqual(openings, ['la-1', 'la-2', 'la-3']);
+  assert.deepEqual(plugin.waiting, []);
+  // One question follows the other: the events that came meanwhile asked nothing until the first was answered.
+  assert.equal(plugin.mostUnanswered, 1);
+  assert.deepEqual(plugin.asked, [...plugin.asked].sort((a, b) => a - b));
+  await unlisten();
+  await settled();
+});
+
+// TP-EVENT-3
+test('an opening that no handler got stays with the plugin, for the next handler', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const plugin = openingsOfThePlugin([{ activityId: 'la-1' }]);
+  const heard = [];
+  const leave = await activity.onOpened(event => heard.push(event.activityId));
+  assert.deepEqual(heard, ['la-1']);
+
+  // The handler leaves while the plugin's answer to an event is on its way: the answer finds nobody. A second
+  // event came meanwhile, and its question waits behind the first.
+  plugin.hold();
+  plugin.keep({ activityId: 'la-2' });
+  await emit('live-activity://opened', { activityId: 'la-2' });
+  await emit('live-activity://opened', { activityId: 'la-2' });
+  await settled();
+  const asked = plugin.asked.length;
+  await leave();
+  plugin.release();
+  await settled();
+  assert.deepEqual(heard, ['la-1']);
+  assert.deepEqual(plugin.waiting, [{ activityId: 'la-2' }]);
+  // With nobody to hand to and nothing to let go, the question that waited is not asked.
+  assert.equal(plugin.asked.length, asked);
+  // The next handler of the page gets it, and then the plugin lets it go.
+  const later = [];
+  const leaveLater = await activity.onOpened(event => {
+    later.push(event.activityId);
+    // From la-3 on, the page cannot tell the plugin what it has handed over, as when it is torn down right then.
+    if (event.activityId === 'la-3') plugin.fails = true;
+  });
+  assert.deepEqual(later, ['la-2']);
+  assert.deepEqual(plugin.waiting, []);
+
+  // What was handed over but not let go stays with the plugin: the page that loads next hears it once more
+  // (tests/api-reload.test.mjs), and this page does not.
+  await plugin.opened({ activityId: 'la-3' });
+  assert.deepEqual(later, ['la-2', 'la-3']);
+  assert.deepEqual(plugin.waiting, [{ activityId: 'la-3' }]);
+  plugin.fails = false;
+  await leaveLater();
+  await settled();
+});
+
+// TP-EVENT-3
+test('a page hears an opening once, also when its word that it handed it over did not reach the plugin', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const plugin = openingsOfThePlugin();
+  const heard = [];
+  const leave = await activity.onOpened(event => {
+    heard.push(event.activityId);
+    plugin.fails = true;
+  });
+  // The question that would have let la-1 go fails, so the plugin still holds it.
+  await plugin.opened({ activityId: 'la-1' });
+  assert.deepEqual(plugin.waiting, [{ activityId: 'la-1' }]);
+  plugin.fails = false;
+  // The next question says it again: la-1 is let go and not heard again, and la-2 is heard.
+  await emit('live-activity://opened', { activityId: 'la-1' });
+  await settled();
+  assert.deepEqual(heard, ['la-1']);
+  assert.deepEqual(plugin.waiting, []);
+  await plugin.opened({ activityId: 'la-2' });
+  assert.deepEqual(heard, ['la-1', 'la-2']);
+
+  // A plugin that answered an opening again, which this page has handed over, would not have it heard twice.
+  plugin.fails = false;
+  plugin.forgetful = true;
+  await plugin.opened({ activityId: 'la-3' });
+  await emit('live-activity://opened', { activityId: 'la-3' });
+  await settled();
+  assert.deepEqual(heard, ['la-1', 'la-2', 'la-3']);
+  await leave();
+  await settled();
+});
+
+// TP-EVENT-3
+test('a subscription stands once the plugin has answered, also when the page cannot say what it handed over', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const plugin = openingsOfThePlugin([{ activityId: 'la-1' }]);
+  const heard = [];
+  // The first question is answered and la-1 handed over; the second, which would let it go, fails.
+  const leave = await activity.onOpened(event => {
+    heard.push(event.activityId);
+    if (event.activityId === 'la-1') plugin.fails = true;
+  });
+  assert.deepEqual(heard, ['la-1']);
+  assert.deepEqual(plugin.waiting, [{ activityId: 'la-1' }]);
+  // The handler is subscribed: the next opening reaches it, and the plugin is told of both.
+  plugin.fails = false;
+  await plugin.opened({ activityId: 'la-2' });
+  assert.deepEqual(heard, ['la-1', 'la-2']);
+  assert.deepEqual(plugin.waiting, []);
+  await leave();
+  await settled();
+});
+
+// TP-EVENT-3
+test('a handler that another handler unsubscribes is handed nothing more, not even the opening at hand', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const plugin = openingsOfThePlugin();
+  const heard = [];
+  let leaveSecond;
+  const leaveFirst = await activity.onOpened(event => {
+    heard.push(`first ${event.activityId}`);
+    leaveSecond();
+  });
+  leaveSecond = await activity.onOpened(event => heard.push(`second ${event.activityId}`));
+  await plugin.opened({ activityId: 'la-1' });
+  assert.deepEqual(heard, ['first la-1']);
+  // A handler that leaves in its own callback, as the last one, ends the subscription: the next opening waits.
+  const once = [];
+  const leaveOnce = await activity.onOpened(event => {
+    once.push(event.activityId);
+    leaveOnce();
+  });
+  await leaveFirst();
+  plugin.keep({ activityId: 'la-2' });
+  plugin.keep({ activityId: 'la-3' });
+  await emit('live-activity://opened', { activityId: 'la-2' });
+  await settled();
+  assert.deepEqual(once, ['la-2']);
+  assert.deepEqual(plugin.waiting, [{ activityId: 'la-3' }]);
+});
+
+// TP-EVENT-3
+test('the handlers of a page share the openings, and the last to leave ends the subscription', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const plugin = openingsOfThePlugin([{ activityId: 'la-1' }]);
+  const first = [];
+  const second = [];
+  const leaveFirst = await activity.onOpened(event => first.push(event));
+  // What waited went to the handler there was; one that subscribes later gets what is handed over from then on.
+  const leaveSecond = await activity.onOpened(event => second.push(event));
+  assert.deepEqual([first, second], [[{ activityId: 'la-1' }], []]);
+  await plugin.opened({ activityId: 'la-2' });
+  assert.deepEqual(first, [{ activityId: 'la-1' }, { activityId: 'la-2' }]);
+  assert.deepEqual(second, [{ activityId: 'la-2' }]);
+  // One subscription serves both handlers: an opening is two questions, one that brings it and one that lets it go.
+  const asked = plugin.asked.length;
+  await plugin.opened({ activityId: 'la-3' });
+  assert.equal(plugin.asked.length, asked + 2);
+
+  await leaveFirst();
+  await leaveFirst();
+  await plugin.opened({ activityId: 'la-4' });
+  assert.equal(first.length, 3);
+  assert.deepEqual(second.map(event => event.activityId), ['la-2', 'la-3', 'la-4']);
+
+  // With nobody left the page asks nothing: the opening waits for the next handler.
+  await leaveSecond();
+  await settled();
+  const idle = plugin.asked.length;
+  await plugin.opened({ activityId: 'la-5' });
+  assert.equal(plugin.asked.length, idle);
+  const third = [];
+  const leaveThird = await activity.onOpened(event => third.push(event));
+  assert.deepEqual(third, [{ activityId: 'la-5' }]);
+  // The subscription of the handlers that left is gone, not only idle: with it still there, an opening would be
+  // three questions, the third from the listener that stayed.
+  const again = plugin.asked.length;
+  await plugin.opened({ activityId: 'la-6' });
+  assert.equal(plugin.asked.length, again + 2);
+  await leaveThird();
+  await settled();
+});
+
+// TP-EVENT-3
+test('a handler that throws keeps no opening from the other handlers or from itself later', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const reported = [];
+  t.mock.method(console, 'error', error => reported.push(error.message));
+  const plugin = openingsOfThePlugin([{ activityId: 'la-1' }, { activityId: 'la-2' }]);
+  const heard = [];
+  const leaveFaulty = await activity.onOpened(event => {
+    heard.push(`faulty ${event.activityId}`);
+    if (event.activityId === 'la-1') throw new Error('the handler failed');
+  });
+  const leaveSound = await activity.onOpened(event => heard.push(`sound ${event.activityId}`));
+  // Both openings of the first answer reached the handler that threw at the first.
+  assert.deepEqual(heard, ['faulty la-1', 'faulty la-2']);
+  assert.deepEqual(reported, ['the handler failed']);
+  await plugin.opened({ activityId: 'la-3' });
+  assert.deepEqual(heard.slice(2), ['faulty la-3', 'sound la-3']);
+  await leaveFaulty();
+  await leaveSound();
+  await settled();
+});
+
+// TP-EVENT-3
+test('onOpened gives up its subscription when the plugin cannot be asked for the openings that wait', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const plugin = openingsOfThePlugin([{ activityId: 'la-1' }]);
+  plugin.fails = true;
+  const openings = [];
+  await assert.rejects(activity.onOpened(event => openings.push(event)), { code: 'NATIVE_ERROR' });
+  // Nothing is subscribed: an event starts no question, and the opening still waits.
+  const asked = plugin.asked.length;
+  await emit('live-activity://opened', { activityId: 'la-1' });
+  await settled();
+  assert.equal(plugin.asked.length, asked);
+  assert.deepEqual(openings, []);
+  plugin.fails = false;
+  const leave = await activity.onOpened(event => openings.push(event));
+  assert.deepEqual(openings, [{ activityId: 'la-1' }]);
+  await leave();
+  await settled();
 });
 
 // TP-PUSH-2, TP-PUSH-8
