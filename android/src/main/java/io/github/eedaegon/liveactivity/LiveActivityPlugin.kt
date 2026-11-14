@@ -18,7 +18,6 @@ import io.github.eedaegon.liveupdate.LiveUpdateBridge
 import io.github.eedaegon.liveupdate.LiveUpdateEvents
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.File
 
 /** The argument of `registerEvents`: the channel that tells Rust that liveupdate stored an event. */
 @InvokeArg
@@ -75,11 +74,14 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
         LiveUpdateBridge.invoke(activity, args.getString("command"), args.getString("payload"))
     }
 
-    /** Where Rust writes the PNGs of `writeImage`: the app's private files, where liveupdate reads large icons. */
+    /**
+     * The folder of the app's private files. Rust keeps the layouts under it and writes the PNGs of `writeImage`
+     * there, where liveupdate reads large icons; the names of both are Rust's.
+     */
     @Command
-    fun imageDirectory(invoke: Invoke) = respond(invoke) {
+    fun filesDirectory(invoke: Invoke) = respond(invoke) {
         Input.keys(invoke.getArgs(), emptySet())
-        JSONObject().put("path", File(activity.applicationContext.filesDir, IMAGE_FOLDER).absolutePath)
+        JSONObject().put("path", activity.applicationContext.filesDir.absolutePath)
     }
 
     /**
@@ -133,10 +135,5 @@ class LiveActivityPlugin(private val activity: Activity) : Plugin(activity) {
         }
         val json = JSONObject().put("code", failure.code).put("message", failure.message)
         invoke.resolve(JSObject().put("ok", false).put("error", json) as JSObject)
-    }
-
-    private companion object {
-        /** Under the app's files: the pictures of `writeImage`, which liveupdate takes as app files. */
-        const val IMAGE_FOLDER = "tauri-live-activity/images"
     }
 }

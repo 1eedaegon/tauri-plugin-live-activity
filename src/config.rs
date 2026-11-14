@@ -22,7 +22,8 @@ pub struct AndroidConfig {
     pub samsung_now_bar: Option<bool>,
 }
 
-/// `plugins.live-activity` in the Tauri configuration. The native side reads the same object.
+/// `plugins.live-activity` in the Tauri configuration. Rust reads it once, at the plugin's setup, and hands each
+/// setting to the backend that takes it; the Kotlin side reads none of it.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Config {

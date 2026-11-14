@@ -94,6 +94,19 @@ class NativeBridgeTest {
         assertEquals("INVALID_INPUT", outer.getJSONObject("error").getString("code"))
     }
 
+    // TP-ANDROID-11
+    @Test
+    fun theFolderOfTheAppsFilesIsAnsweredWithNothingBelowIt() {
+        val reply = call("filesDirectory", JSONObject(), plugin::filesDirectory)
+        assertTrue(reply.toString(), reply.getBoolean("ok"))
+        // Rust names the plugin's files under this folder, so the answer is the folder itself.
+        assertEquals(context.filesDir.absolutePath, reply.getJSONObject("data").getString("path"))
+
+        val extra = call("filesDirectory", JSONObject().put("folder", "images"), plugin::filesDirectory)
+        assertFalse(extra.toString(), extra.getBoolean("ok"))
+        assertEquals("INVALID_INPUT", extra.getJSONObject("error").getString("code"))
+    }
+
     // TP-ANDROID-13
     @Test
     fun permissionsFollowWhatLiveupdatesAdapterObserves() {
@@ -275,7 +288,7 @@ class NativeBridgeTest {
     fun liveupdatesAdapterPostsEveryAndroidContentThatRustWrites() {
         val fixture = instrumentation.context.assets.open("contents.json").bufferedReader().use { it.readText() }
         val cases = JSONArray(fixture)
-        // How the guide tells an app that it runs on Android 16, where the fixture has answers of its own.
+        // The styles that the device draws follow its Android: a progress with segments from 16, metrics from 17.
         val styles = liveUpdate("capabilities").getJSONObject("data").getJSONObject("presentation")
         assertEquals(Build.VERSION.SDK_INT >= 36, styles.getBoolean("progressStyle"))
         assertEquals(Build.VERSION.SDK_INT >= 37, styles.getBoolean("metricStyle"))
@@ -291,7 +304,7 @@ class NativeBridgeTest {
                 inCase(case.getString("name")) {
                     val content = moved(case.getJSONObject("content"), shift)
                     val (answer, detail) = answerTo(contentRecord(content))
-                    assertEquals(detail, expected(case), answer)
+                    assertEquals(detail, case.getString("android"), answer)
                     if (answer == "ok") {
                         assertShows(content, posted())
                         liveUpdate("cancel", JSONObject().put("id", ACTIVITY_ID))
@@ -308,10 +321,6 @@ class NativeBridgeTest {
     private fun inCase(name: String, check: () -> Unit) {
         try { check() } catch (failure: AssertionError) { throw AssertionError("$name: ${failure.message}", failure) }
     }
-
-    /** What the fixture says of [case] on this device: Android 16 has an answer of its own where it differs. */
-    private fun expected(case: JSONObject): String =
-        if (Build.VERSION.SDK_INT == 36 && case.has("android16")) case.getString("android16") else case.getString("android")
 
     /**
      * [content] with each of its times [shift] later: the timer of a timer style or of a chronometer, the start of a
@@ -336,17 +345,13 @@ class NativeBridgeTest {
 
     /**
      * What liveupdate's Android side answers to a post of [record], `ok` or the code of its refusal, and the answer
-     * in full. The one method that liveupdate, up to 0.3.1, calls and Android 16 lacks is `NATIVE_ERROR`: Tauri, which
-     * calls the command, rejects it when it throws, and the Rust side knows no more of a rejected command. Another
-     * missing method would be a difference that the fixture does not name.
+     * in full. A method that the device's Android lacks is an answer too: liveupdate's adapter answers it as
+     * `NATIVE_ERROR`.
      */
-    private fun answerTo(record: JSONObject): Pair<String, String> = try {
+    private fun answerTo(record: JSONObject): Pair<String, String> {
         val answer = innerResponse("post", JSONObject().put("record", record))
         val code = if (answer.getString("status") == "ok") "ok" else answer.getJSONObject("error").getString("code")
-        code to answer.toString()
-    } catch (error: NoSuchMethodError) {
-        assertTrue(error.toString(), error.message.orEmpty().contains("setSemanticStyle"))
-        "NATIVE_ERROR" to error.toString()
+        return code to answer.toString()
     }
 
     /** What Android holds of [content] once liveupdate's adapter has posted it. */
