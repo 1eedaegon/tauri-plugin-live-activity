@@ -17,7 +17,7 @@ library carries liveupdate's own Android adapter, copied from the crate
 (`node tools/sync-liveupdate.mjs`, which a test checks; the copy only renames liveupdate's `R` to
 the plugin's): a framework adapter with seven bounded operations, which stores Rust's receipts,
 posts and cancels notifications, observes them, and drains the taps and dismissals its
-receivers stored. The plugin's own Kotlin is the permission commands, the image folder, a
+receivers stored. The plugin's own Kotlin is the permission commands, the folder of the app's files, a
 channel that wakes Rust when an event is stored, and a watch of the app's activities that hands liveupdate the
 intents which open the app from a notification ([Opened](#opened)). Kotlin implements no lifecycle and draws no layout of its own, and it reads the notification settings through liveupdate's adapter alone.
 

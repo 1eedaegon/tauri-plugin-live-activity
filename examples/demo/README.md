@@ -61,6 +61,25 @@ and iOS projects are under `src-tauri/gen`. Android notifications require permis
 grant it with the app's permission button or the emulator's app settings before running the
 lifecycle test.
 
+`android dev` and `ios dev` stay until you stop them, and a change shows without building the app
+again where it can:
+
+- **The page.** Both start `node build.mjs --watch`, which writes `dist` again after each change
+  of the demo's sources and of the plugin's `guest-js`, and Tauri's dev server has the app load
+  the page again. On an Android emulator the page was back 0.6 s after a change of
+  `src/layouts.ts`.
+- **An activity.** It keeps the layout and the values it was started with. End it and start it
+  again to see a changed layout; changed values go with the next update.
+- **Rust.** A change under `src-tauri` builds, installs and launches the app again. The plugin's
+  own Rust is outside that folder: add `--additional-watch-folders "$(cd ../../src && pwd)"` to
+  have a change there do the same.
+- **Kotlin and Swift** are compiled when the app is built, so they show after such a build.
+
+With more than one Android device attached, name the device (`android dev <name>`) and set
+`ANDROID_SERIAL` to its serial: Tauri's CLI asks adb for the app's process without naming the
+device, and waits for an answer that never comes. It also waits for the boot animation to have
+stopped, which an emulator started with `-no-boot-anim` never reports.
+
 The lifecycle test checks duplicate starts, newer/identical/stale revisions, conflicting payloads, list
 reconciliation, idempotent end and old-handle isolation of the templates; the same of a layout; a layout with a
 switch, a link and nodes that follow staleness; and a scheduled start, which is pending on iOS 26 and refused

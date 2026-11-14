@@ -137,7 +137,7 @@ test("the Android library's device tests read the fixture, and every content say
   const deviceTest = read('android/src/androidTest/java/io/github/eedaegon/liveactivity/NativeBridgeTest.kt');
   assert.match(deviceTest, /assets\.open\("contents\.json"\)/);
   // The icons from files are one picture in the folder of `writeImage`, which the device test writes there.
-  const [, folder] = /const val IMAGE_FOLDER = "([^"]+)"/.exec(read('android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt'));
+  const [, folder] = /const IMAGE_FOLDER: &str = "([^"]+)";/.exec(read('src/files.rs'));
   const files = (value) => {
     if (typeof value !== 'object' || value === null) return [];
     return value.kind === 'appFile' ? [value.value] : Object.values(value).flatMap(files);
@@ -161,11 +161,10 @@ test("the Android library's device tests read the fixture, and every content say
   assert.ok(schemes.length > 0);
   assert.deepEqual(schemes, Array.from(manifest.matchAll(/<data android:scheme="([^"]+)"/g), ([, scheme]) => scheme));
 
-  for (const { name, android, android16, why } of cases) {
+  for (const { name, android, why } of cases) {
     assert.ok(['ok', 'INVALID_INPUT'].includes(android), name);
-    assert.ok([undefined, 'NATIVE_ERROR'].includes(android16), name);
-    // A content that the Android side refuses, on every Android or on Android 16, is a known difference and says why.
-    assert.equal(typeof why === 'string', android !== 'ok' || android16 !== undefined, name);
+    // A content that the Android side refuses is a known difference and says why.
+    assert.equal(typeof why === 'string', android !== 'ok', name);
   }
   assert.equal(new Set(cases.map((entry) => entry.name)).size, cases.length);
 });

@@ -1,34 +1,26 @@
 //! Android: the default backend of the `liveactivity` crate over the plugin's Kotlin side, which carries
 //! liveupdate's Android adapter. The plugin adds what needs an Activity or Tauri: the permissions and their dialog,
-//! the folder of the app's files, and the thread that drains the events ([`crate::drain`]), with the signal that
-//! wakes it.
+//! the folder of the app's files ([`crate::files`]), and the thread that drains the events ([`crate::drain`]), with
+//! the signal that wakes it.
 
 use crate::{
     Config, Error, LiveActivity, PermissionKind, Permissions, Result,
     drain::{self, Wake},
+    files::FilesDirectory,
     service,
 };
 use liveactivity::{
     ActivityRecord, BackendContext, BackendFuture, Capabilities, EndInput, LayoutActivityRecord,
     LayoutEndInput, LayoutStartInput, LayoutUpdateInput, LiveActivityBackend, PushTokens,
-    StartInput, UpdateInput,
-    android::{AndroidFiles, LiveUpdateBackend},
-    liveupdate,
+    StartInput, UpdateInput, android::LiveUpdateBackend, liveupdate,
 };
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use std::{
-    path::PathBuf,
-    sync::{Arc, mpsc},
-};
+use serde::{Serialize, de::DeserializeOwned};
+use std::sync::{Arc, mpsc};
 use tauri::{
     AppHandle, Runtime,
     ipc::Channel,
     plugin::{PluginApi, PluginHandle},
 };
-
-/// The folders of the plugin under the app's files, as every version of the plugin has named them.
-const LAYOUT_STORE: &str = "tauri-live-activity/layouts.json";
-const IMAGE_FOLDER: &str = "tauri-live-activity/images";
 
 /// liveupdate's string transport on Tauri's call to the Kotlin side.
 struct TauriBridge<R: Runtime> {
@@ -63,12 +55,6 @@ fn call<T: DeserializeOwned>(
         .run_mobile_plugin(command, input)
         .map_err(|_| Error::native())?;
     crate::bridge::decode(reply)
-}
-
-/// The answer of the Kotlin side's `imageDirectory`.
-#[derive(Deserialize)]
-struct ImageFolder {
-    path: PathBuf,
 }
 
 type Engine<R> = LiveUpdateBackend<liveupdate::JsonDriver<TauriBridge<R>>>;
@@ -182,23 +168,12 @@ pub(crate) fn init<R: Runtime>(
     let handle = api
         .register_android_plugin("io.github.eedaegon.liveactivity", "LiveActivityPlugin")
         .map_err(|_| Error::native())?;
-    let images: ImageFolder = call(&handle, "imageDirectory", serde_json::json!({}))?;
-    // The image folder is `<files>/tauri-live-activity/images`.
-    let files = images
-        .path
-        .ancestors()
-        .nth(2)
-        .map(PathBuf::from)
-        .ok_or_else(Error::native)?;
+    let directory: FilesDirectory = call(&handle, "filesDirectory", serde_json::json!({}))?;
     let bridge = TauriBridge {
         handle: handle.clone(),
     };
-    let engine = LiveUpdateBackend::over_bridge(bridge).with_files(AndroidFiles {
-        layout_store: LAYOUT_STORE.into(),
-        image_folder: IMAGE_FOLDER.into(),
-        samsung_now_bar,
-        ..AndroidFiles::new(app.package_info().name.clone(), files)
-    });
+    let engine = LiveUpdateBackend::over_bridge(bridge)
+        .with_files(directory.for_app(app.package_info().name.clone(), samsung_now_bar));
     // The thread that drains the events holds the backend weakly, and the backend what wakes the thread: the
     // thread ends at its first wake or wait after the plugin, which holds the backend, is gone.
     let (signal, woken) = mpsc::channel();

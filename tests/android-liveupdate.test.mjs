@@ -36,7 +36,7 @@ test('the plugin has no Kotlin lifecycle, renderer, receivers or validator for l
   assert.deepEqual(files, ['Input.kt', 'LiveActivityPlugin.kt', 'Models.kt', 'Openings.kt', 'PermissionPolicy.kt']);
   const plugin = own('LiveActivityPlugin.kt');
   const commands = [...plugin.matchAll(/@Command\s+(?:override )?fun (\w+)/g)].map(([, name]) => name).sort();
-  assert.deepEqual(commands, ['checkPermissions', 'imageDirectory', 'liveUpdate', 'registerEvents', 'requestPermissions']);
+  assert.deepEqual(commands, ['checkPermissions', 'filesDirectory', 'liveUpdate', 'registerEvents', 'requestPermissions']);
   assert.match(plugin, /LiveUpdateBridge\.invoke\(activity, args\.getString\("command"\), args\.getString\("payload"\)\)/);
   // The plugin's one component of its own is the provider that watches for the intents which open the app
   // (TP-ANDROID-16). It hands them to liveupdate and does nothing else: it posts nothing and stores nothing.
@@ -50,11 +50,13 @@ test('the plugin has no Kotlin lifecycle, renderer, receivers or validator for l
   const rust = readFileSync(join(root, 'src/android.rs'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
   const called = [...rust.matchAll(/\b(?:run_mobile_plugin\(|call(?:::<[^>]+>)?\(\s*&[\w.]+,)\s*"(\w+)"/g)].map(([, name]) => name);
   assert.deepEqual([...new Set(called)].sort(), commands);
-  // The image folder is named on both sides: Rust takes the app's files from two folders above the one Kotlin answers.
-  const folder = rust.match(/const IMAGE_FOLDER: &str = "([^"]+)";/)[1];
-  assert.equal(plugin.match(/const val IMAGE_FOLDER = "([^"]+)"/)[1], folder);
-  assert.equal(folder.split('/').length, 2);
-  assert.match(rust, /\.ancestors\(\)\s*\.nth\(2\)/);
+  // Rust alone names the plugin's files under the app's files: the Kotlin side answers the folder of the app's
+  // files and names nothing below it, and Rust hands liveactivity what `src/files.rs` makes of that answer. The
+  // unit test there holds the names.
+  assert.match(plugin, /put\("path", activity\.applicationContext\.filesDir\.absolutePath\)/);
+  for (const file of files) assert.doesNotMatch(own(file), /tauri-live-activity/, file);
+  assert.match(rust, /let directory: FilesDirectory = call\(&handle, "filesDirectory",/);
+  assert.match(rust, /\.with_files\(directory\.for_app\(/);
   // R8 keeps what Tauri and Jackson reach by reflection: the plugin and the argument classes of its commands.
   const kept = [...readFileSync(join(root, 'android/consumer-rules.pro'), 'utf8')
     .matchAll(/^-keep class io\.github\.eedaegon\.liveactivity\.(\w+) \{ \*; \}$/gm)].map(([, name]) => name).sort();

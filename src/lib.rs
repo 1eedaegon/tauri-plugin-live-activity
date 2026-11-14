@@ -25,6 +25,8 @@ mod desktop_ipc_tests;
 #[cfg(any(target_os = "android", test))]
 mod drain;
 mod events;
+#[cfg(any(target_os = "android", test))]
+mod files;
 #[cfg(target_os = "ios")]
 mod ios;
 mod openings;

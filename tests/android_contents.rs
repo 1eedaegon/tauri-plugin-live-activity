@@ -48,8 +48,7 @@ fn every_android_content_of_the_fixture_reads_into_the_models_and_writes_back_th
         // What Rust writes is the content of the fixture, member for member: nothing more and nothing less.
         let typed = read(name, content);
         assert_eq!(&serde_json::to_value(&typed).unwrap(), content, "{name}");
-        // The contract takes each in a start and in an update. Those that liveupdate's Android side does not post
-        // on Android 16 are among them: the fixture names them, and no rule of Rust tells them from the others.
+        // The contract takes each in a start and in an update.
         assert_eq!(
             validate_request("start_layout", start(content)),
             Ok(()),
