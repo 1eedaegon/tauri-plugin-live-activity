@@ -1,0 +1,85 @@
+name: Rust cache of the simulator suites
+
+# The Rust that both simulator suites of CI start from (ci.yml: e2e and e2e-dev read this cache and never write it).
+# Those suites run for a branch, in a run started by hand, and a run reads the caches of its own branch and of main,
+# never another branch's. Nothing else on main builds the demo's Rust for the simulator, so without this workflow main
+# had no such cache and every new branch compiled all of it in each suite: 18 of the dev suite's 42 minutes.
+#
+# It builds the demo as the suite on the built demo does, with cargo inside Xcode's build, and saves the cache under
+# the key that the suites read. When the cache has that key already it builds nothing. It runs when a push to main
+# changes what the key is made of (the demo's dependencies, the pinned toolchain in ci.yml); twice a week, because the
+# key also names the Rust that the runner's image brings, which changes without a push, and because GitHub drops a
+# cache that nothing has read for a week; and by hand (`gh workflow run rust-cache.yml`, with `--ref` for a branch
+# that changes many dependencies). It is a workflow of its own so that no run of CI waits for it or fails with it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - examples/demo/src-tauri/Cargo.toml
+      - examples/demo/src-tauri/Cargo.lock
+      - .github/workflows/ci.yml
+      - .github/workflows/rust-cache.yml
+  schedule:
+    - cron: '23 4 * * 1,4'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One at a time for a ref, and none cut short: a run that is cancelled while it saves leaves nothing.
+concurrency:
+  group: rust-cache-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ios-rust:
+    name: Build the demo's Rust for the simulator
+    if: github.repository == '1eedaegon/tauri-plugin-live-activity'
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # CI's env block is the one place that names the pinned tools. These four and nothing else of it come here: a
+      # variable that begins with RUST or CARGO would change the key of the cache.
+      - name: The tools that CI pins
+        run: |
+          sed -n '/^env:$/,/^$/s/^  \([A-Z0-9_]*\): *\(.*\)$/\1=\2/p' .github/workflows/ci.yml | tr -d "'" | grep -E '^(TOOLCHAIN|XCODEGEN|XCODEGEN_SHA256|NODE)=' >> "$GITHUB_ENV"
+      - name: Select Xcode
+        run: |
+          xcode=$(find /Applications -maxdepth 1 -name 'Xcode_*.app' | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+      # Before the cache: its key names the toolchains that are installed.
+      - run: rustup toolchain install "$TOOLCHAIN" --profile minimal --target x86_64-apple-ios && rustup default "$TOOLCHAIN"
+      # Saved only after a build that succeeded: half a build under the key would count as the whole from then on.
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        id: rust
+        with:
+          workspaces: examples/demo/src-tauri -> target
+          shared-key: ios-demo
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.rust.outputs.cache-hit != 'true'
+        with:
+          node-version: ${{ env.NODE }}
+          cache: npm
+      - if: steps.rust.outputs.cache-hit != 'true'
+        run: npm ci
+      - name: Install XcodeGen
+        if: steps.rust.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+      # As tests/ios/run.sh builds the demo. Tauri archives after the build, which needs a signing team, so its
+      # command fails once the Rust library is there; the library is what tells whether the build succeeded.
+      - name: Build the demo for the simulator
+        if: steps.rust.outputs.cache-hit != 'true'
+        run: |
+          npm run build:demo
+          mkdir -p examples/demo/src-tauri/gen/apple/Externals examples/demo/src-tauri/gen/apple/assets
+          xcodegen generate --spec examples/demo/src-tauri/gen/apple/project.yml --quiet
+          (cd examples/demo && ../../node_modules/.bin/tauri ios build --debug --target x86_64 --ci) || true
+          ls -l examples/demo/src-tauri/target/x86_64-apple-ios/debug/libapp_lib.a
