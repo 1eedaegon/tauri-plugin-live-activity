@@ -184,8 +184,10 @@ for test in $only; do set -- "$@" "-only-testing:DemoUITests/$test"; done
 # A shared runner's simulator sometimes loses a tap or its accessibility server.
 if [ -n "${CI:-}" ]; then set -- "$@" -retry-tests-on-failure -test-iterations 3; fi
 # The status goes through a file: the group runs in a subshell of the pipe, where `set -e` would end it at a failing
-# xcodebuild before the status is written. A shared runner's test runner sometimes cannot start ("failed to initialize
-# for UI testing", waiting for the accessibility server): then no test ran, and the tests run once more.
+# xcodebuild before the status is written. On a shared runner the tests sometimes cannot start: the test runner does
+# not come up ("failed to initialize for UI testing", waiting for the accessibility server), or xcodebuild does not
+# find the simulator that this run created and booted ("Unable to find a device matching the provided destination
+# specifier"). Then no test ran, and the tests run once more.
 attempt=1
 while :; do
   { tested=0
@@ -193,8 +195,9 @@ while :; do
       -resultBundlePath "$work/result.xcresult" test-without-building "$@" 2>&1 || tested=$?
     echo "$tested" >"$work/status"; } | tee "$work/xcodebuild-$attempt.log"
   status=$(cat "$work/status")
-  if [ "$status" -ne 0 ] && [ "$attempt" -eq 1 ] && grep -q 'failed to initialize for UI testing' "$work/xcodebuild-$attempt.log"; then
-    echo "::warning title=UI test runner::the test runner could not start; the tests run once more"
+  if [ "$status" -ne 0 ] && [ "$attempt" -eq 1 ] && grep -q -e 'failed to initialize for UI testing' \
+    -e 'Unable to find a device matching the provided destination specifier' "$work/xcodebuild-$attempt.log"; then
+    echo "::warning title=UI test runner::the tests could not start; they run once more"
     rm -rf -- "${work:?}/result.xcresult"
     attempt=2
     continue

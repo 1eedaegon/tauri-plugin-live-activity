@@ -185,6 +185,67 @@ test('CI caches the Rust builds and the built demo, pins its tools, and skips a 
   assert.match(read('.gitignore'), /^\.ios-build\/$/m);
 });
 
+// TP-CI-3
+test('the simulator suites start from one Rust cache, which a workflow of its own fills on main', () => {
+  const workflow = read('.github/workflows/ci.yml');
+  const fill = read('.github/workflows/rust-cache.yml');
+  // One cache for both suites, which read it and never write it: a run for a branch reads that branch's caches and
+  // main's, never another branch's, and nothing else on main builds the demo's Rust for the simulator.
+  const shared = '          workspaces: examples/demo/src-tauri -> target\n          shared-key: ios-demo\n';
+  for (const name of ['e2e', 'e2e-dev']) assert.ok(job(name).includes(`${shared}          save-if: false\n`), name);
+  assert.ok(fill.includes(shared));
+  assert.doesNotMatch(workflow, /\n {10}key: ios-|cache-on-failure/);
+  // The workflow that fills it saves only a build that succeeded: half a build under the key would count as the
+  // whole from then on, and nothing would build the rest.
+  assert.doesNotMatch(fill, /cache-on-failure|save-if/);
+  // The other Rust caches are saved by main alone. A run for a pull request reads main's: when each ref saved its
+  // own, the repository went past GitHub's limit and the caches read longest ago were dropped, main's among them.
+  const mainOnly = "          save-if: ${{ github.ref == 'refs/heads/main' }}\n";
+  for (const name of ['contracts', 'desktop']) assert.ok(job(name).includes(mainOnly), name);
+
+  // It runs when a push to main changes what the key is made of, twice a week (the key names the Rust of the
+  // runner's image too, and GitHub drops a cache that nothing read for a week), and by hand. It is no part of CI's
+  // own runs, which a release waits for.
+  assert.ok(fill.includes("\non:\n  push:\n    branches: [main]\n    paths:\n      - examples/demo/src-tauri/Cargo.toml\n"
+    + '      - examples/demo/src-tauri/Cargo.lock\n      - .github/workflows/ci.yml\n      - .github/workflows/rust-cache.yml\n'
+    + "  schedule:\n    - cron: '23 4 * * 1,4'\n  workflow_dispatch:\n"));
+  assert.ok(fill.includes('\npermissions:\n  contents: read\n'));
+  assert.doesNotMatch(workflow, /rust-cache\.yml|rust_cache/);
+  // Its tools are CI's: the pinned versions come out of CI's env block by the command of the workflow itself, and
+  // each action is one that CI uses, at the same commit.
+  const env = /^env:\n((?:  .*\n)+)/m.exec(workflow)[1];
+  const pinned = Object.fromEntries([...env.matchAll(/^  (\w+): '?([^'\n]+)'?$/gm)].map(([, name, value]) => [name, value]));
+  assert.deepEqual(Object.keys(pinned), ['TOOLCHAIN', 'XCODEGEN', 'XCODEGEN_SHA256', 'NODE']);
+  const [, pins] = /name: The tools that CI pins\n        run: \|\n          ([^\n]+) >> "\$GITHUB_ENV"\n/.exec(fill);
+  const exported = execFileSync('sh', ['-c', pins], { cwd: root, encoding: 'utf8' }).trim().split('\n');
+  assert.deepEqual(exported, Object.entries(pinned).map(([name, value]) => `${name}=${value}`));
+  const actions = [...fill.matchAll(/uses: (\S+@[0-9a-f]{40} # v[\d.]+)\n/g)].map(([, action]) => action);
+  assert.equal(actions.length, 3);
+  for (const action of actions) assert.ok(workflow.includes(`uses: ${action}\n`), action);
+  const install = 'curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN/xcodegen.zip"\n'
+    + '          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -';
+  assert.ok(fill.includes(install));
+  // The key names the toolchains that are installed, so the pinned Rust is there before the cache is read; and when
+  // the cache has the key already, nothing is built.
+  const cache = 'Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3';
+  assert.ok(fill.indexOf('rustup toolchain install "$TOOLCHAIN" --profile minimal --target x86_64-apple-ios') < fill.indexOf(cache));
+  assert.ok(fill.includes(`${cache}\n        id: rust\n`));
+  const later = fill.slice(fill.indexOf(cache)).split('\n      - ').slice(1);
+  assert.equal(later.length, 4);
+  for (const step of later) assert.ok(step.includes("if: steps.rust.outputs.cache-hit != 'true'\n"), step);
+  // It builds the demo as tests/ios/run.sh does for the suite on the built demo, with cargo inside Xcode's build.
+  // Tauri's command fails at the archive, after the build, so the Rust library is what tells a build that succeeded.
+  assert.ok(fill.includes('          npm run build:demo\n'
+    + '          mkdir -p examples/demo/src-tauri/gen/apple/Externals examples/demo/src-tauri/gen/apple/assets\n'
+    + '          xcodegen generate --spec examples/demo/src-tauri/gen/apple/project.yml --quiet\n'
+    + '          (cd examples/demo && ../../node_modules/.bin/tauri ios build --debug --target x86_64 --ci) || true\n'
+    + '          ls -l examples/demo/src-tauri/target/x86_64-apple-ios/debug/libapp_lib.a\n'));
+  const script = read('tests/ios/run.sh');
+  assert.match(script, /npm run build:demo >\/dev\/null\)\n[^\n]*\n[^\n]*\n\s+mkdir -p "\$apple\/Externals" "\$apple\/assets"\n\s+xcodegen generate --spec "\$apple\/project\.yml" --quiet\n/);
+  assert.match(script, /tauri" ios build --debug --target "\$target" --ci\)/);
+  assert.match(read('examples/demo/src-tauri/Cargo.toml'), /^\[lib\]\nname = "app_lib"$/m);
+});
+
 // TP-E2E-6
 test('CI runs the demo of tauri ios dev on the simulator in a job of its own', () => {
   const dev = job('e2e-dev');
@@ -212,6 +273,9 @@ test('run.sh tests through the scheme of the project it generates, retries in CI
   assert.doesNotMatch(script, /REUSE/);
   // In CI a failed test runs again, up to three times in all; OUTPUT/passed only after a full pass.
   assert.match(script, /if \[ -n "\$\{CI:-\}" \]; then set -- "\$@" -retry-tests-on-failure -test-iterations 3; fi/);
+  // A run whose tests could not start, the test runner or the simulator not being there for xcodebuild, starts them
+  // once more: no test ran.
+  assert.match(script, /grep -q -e 'failed to initialize for UI testing' \\\n\s+-e 'Unable to find a device matching the provided destination specifier' "\$work\/xcodebuild-\$attempt\.log"/);
   assert.match(script, /if \[ "\$status" -eq 0 \] && \[ -z "\$\{ONLY:-\}" \]; then printf '%s' "\$retried" >"\$output\/passed"; fi/);
   // The checkout as it was: tracked files of gen/apple restored, only the run's own files replaced in OUTPUT, the
   // process tree of tauri ios dev stopped, and a signal ends the run after the cleanup.

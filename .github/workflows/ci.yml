@@ -111,12 +111,16 @@ jobs:
           cache: npm
       - if: env.RUST == 'true' || env.IOS == 'true'
         run: rustup toolchain install "$TOOLCHAIN" --profile minimal --component rustfmt,clippy,llvm-tools-preview --target x86_64-apple-ios,aarch64-apple-ios && rustup default "$TOOLCHAIN"
+      # Only main saves a Rust cache, here and in the desktop job. A run for a pull request or a branch reads main's and
+      # builds what its Cargo.lock changes; when each saved its own, 2.8 GB for every lock file and ref, the repository
+      # went past GitHub's 10 GB and the caches read longest ago were dropped within hours, main's among them.
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         if: env.RUST == 'true' || env.IOS == 'true'
         with:
           workspaces: |
             . -> target
             examples/demo/src-tauri -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - if: env.JS == 'true' || env.RUST == 'true'
         run: npm ci
       - if: env.JS == 'true'
@@ -202,8 +206,8 @@ jobs:
         if: steps.passed.outputs.found != 'true' && steps.products.outputs.cache-hit != 'true'
         with:
           workspaces: examples/demo/src-tauri -> target
-          key: ios-simulator
-          cache-on-failure: true
+          shared-key: ios-demo
+          save-if: false
       - name: Install XcodeGen
         if: steps.passed.outputs.found != 'true'
         run: |
@@ -298,8 +302,8 @@ jobs:
         if: steps.passed.outputs.found != 'true'
         with:
           workspaces: examples/demo/src-tauri -> target
-          key: ios-dev
-          cache-on-failure: true
+          shared-key: ios-demo
+          save-if: false
       - name: Install XcodeGen
         if: steps.passed.outputs.found != 'true'
         run: |
@@ -394,4 +398,6 @@ jobs:
       - run: rustup toolchain install "$TOOLCHAIN" --profile minimal && rustup default "$TOOLCHAIN"
         shell: bash
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo test --locked

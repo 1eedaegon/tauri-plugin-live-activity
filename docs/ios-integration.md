@@ -345,6 +345,10 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
   their inputs change, which takes 30 to 50 minutes. Run `tests/ios/run.sh` and `MODE=dev tests/ios/run.sh` on a Mac
   before pushing a change to what they read. A run of CI started by hand with `simulator` on runs both
   (`gh workflow run ci.yml -f simulator=true`).
+- Both suites start from one Rust cache, which main keeps: a run for a branch can read main's caches and its own, no
+  other branch's. `.github/workflows/rust-cache.yml` builds the demo on main and saves that cache when a push changes
+  the demo's dependencies or the pinned toolchain, and twice a week. `gh workflow run rust-cache.yml` fills it by
+  hand, and with `--ref <branch>` gives a branch that changes many dependencies a cache of its own.
 
 The Swift layer's own tests (its validators, the lifecycle and receipts, the C bridge and a test host on a simulator)
 are activitykit's ([testing](https://github.com/1eedaegon/activitykit-rs/blob/main/docs/testing.md)). 0.3's
