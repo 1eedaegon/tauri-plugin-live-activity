@@ -5,7 +5,7 @@
   "identifier": "io.github.eedaegon.liveactivitydemo",
   "build": {
     "frontendDist": "../dist",
-    "beforeDevCommand": "node build.mjs",
+    "beforeDevCommand": "node build.mjs --watch",
     "beforeBuildCommand": "node build.mjs"
   },
   "app": {
