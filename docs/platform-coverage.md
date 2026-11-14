@@ -53,6 +53,14 @@ and are corrected: [Android coverage](android-coverage.md#openings-and-touches-0
 [iOS coverage](ios-coverage.md#071-additions). Still not run: Android 15 and earlier with these versions, an
 iPhone with iOS 26 or later, and a finger on either.
 
+## 0.7.2
+
+0.7.2 ran on an iPhone with iOS 26 or later for the first time, an iPhone 16 with iOS 27.2. A scheduled start
+began there with the app ended. An end that had answered `dismissed` in half the runs of 0.7.1 answers `ended`,
+with liveactivity 0.5.2: [iOS coverage](ios-coverage.md#072-on-two-iphones). A Galaxy S23 with Android 17 ran
+it as well: [Android coverage](android-coverage.md#072-on-a-phone). Still not run: the UI tests on a phone, and
+so a touch on a phone's Lock Screen; Android 15 and earlier with these versions; a finger on either.
+
 ## Apple's secondary surfaces
 
 ActivityKit can show an activity that an iPhone started on other screens too, such as

@@ -96,6 +96,24 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## 0.7.2 on a phone
+
+0.7.2 changes nothing on Android but the version of liveactivity. It is the first version after the change that
+has Rust alone name the plugin's files, and a Galaxy S23 with Android 17 (API 37) was the first phone to run that.
+
+- The Android library's device tests, 9 of 9.
+- The demo installed over 0.7.1, while a layout of 0.7.1 was running. The new build listed the 37 layouts of the
+  old one, from `files/tauri-live-activity/layouts.json`. The one that had been running was `dismissed`: its
+  notification was gone once the app was replaced, before the new build ran, and liveupdate reports that as it
+  reports a notification the person removed.
+- The demo's lifecycle test, 24 of 24. A layout's stale time of 6 s passed with no call of the app, and the page
+  heard `stale` 6.1 s after the start; an opening intent gave one opening.
+- With the app's process ended in the background, a touch on the notification brought the app back, and its
+  page heard one opening.
+- With the Now Bar extras off, through the system's shade, as for 0.7.1: a switch asked for on and then for off,
+  and Rust's update moved it each time; a link gave one opening with `link:1`, and the notification itself one
+  without an action.
+
 ## Openings and touches, 0.7.1
 
 0.7.1 was driven on a Galaxy S23 with Android 17 (API 37), to run what 0.7.0 had left out: touches on the

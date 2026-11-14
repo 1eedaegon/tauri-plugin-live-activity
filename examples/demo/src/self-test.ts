@@ -25,6 +25,11 @@ function ensure(value: boolean, message: string): asserts value {
   if (!value) throw new Error(message);
 }
 
+/** The answer of an end is the record as ended; a failure names the state it answered instead. */
+function ensureEnded(record: { state: string }, end: string): void {
+  ensure(record.state === 'ended', `${end} answered ${record.state}, not ended`);
+}
+
 async function rejectsCode(operation: Promise<unknown>, expectedCode: string): Promise<void> {
   try {
     await operation;
@@ -68,10 +73,10 @@ async function checkActive(api: API, initial: Record, input: PublicAPI.StartInpu
 async function checkEnded(api: API, current: Record, check: Check): Promise<void> {
   const input = { id: current.id, policy: { kind: 'immediate' as const } };
   await check('immediate end ends the generation', async () => {
-    ensure((await api.end(input)).state === 'ended', 'End did not report ended');
+    ensureEnded(await api.end(input), 'The end');
   });
   await check('repeated end is idempotent', async () => {
-    ensure((await api.end(input)).state === 'ended', 'Repeated end did not report ended');
+    ensureEnded(await api.end(input), 'A repeated end');
   });
   await check('late update cannot revive an ended handle', () => rejectsCode(
     api.update({ id: current.id, snapshot: { ...current.snapshot, revision: 2 } }), 'NOT_FOUND',
@@ -116,7 +121,7 @@ async function checkLayout(api: API, runId: string, platform: string, check: Che
       'The end did not report its final content');
   });
   await check('a repeated layout end answers the record', async () => {
-    ensure((await api.endLayout({ id, policy: { kind: 'immediate' } })).state === 'ended', 'A repeated end did not report ended');
+    ensureEnded(await api.endLayout({ id, policy: { kind: 'immediate' } }), 'A repeated end');
   });
   await check('a late layout update cannot revive the ended activity', () => rejectsCode(
     api.updateLayout({ id, snapshot: { revision: 7, values: { status: 'Late' } } }), 'NOT_FOUND',
@@ -158,7 +163,7 @@ async function checkInteraction(api: API, runId: string, platform: string, check
     ensure(updated.snapshot.values.muted === true, 'The update did not set the flag');
   });
   await check('the layout with a switch and a link ends', async () => {
-    ensure((await api.endLayout({ id: started.id, policy: { kind: 'immediate' } })).state === 'ended', 'The end did not report ended');
+    ensureEnded(await api.endLayout({ id: started.id, policy: { kind: 'immediate' } }), 'The end');
   });
   live(undefined);
 }
@@ -200,7 +205,7 @@ async function checkScheduled(api: API, runId: string, check: Check, live: (id?:
     ensure((await api.listLayout()).find(item => item.id === id)?.state === 'pending', 'The list did not say pending');
   });
   await check('a pending activity can be ended', async () => {
-    ensure((await api.endLayout({ id, policy: { kind: 'immediate' } })).state === 'ended', 'The end did not report ended');
+    ensureEnded(await api.endLayout({ id, policy: { kind: 'immediate' } }), 'The end of a pending activity');
   });
   live(undefined);
 }
@@ -270,7 +275,7 @@ export async function runLifecycleChecks(api: API, runId: string): Promise<SelfT
       api.update({ id: initial.id, snapshot: { ...input.snapshot, revision: 2 } }), 'NOT_FOUND',
     ));
     await check('the final generation is cleaned up', async () => {
-      ensure((await api.end({ id: next.id, policy: { kind: 'immediate' } })).state === 'ended', 'Cleanup failed');
+      ensureEnded(await api.end({ id: next.id, policy: { kind: 'immediate' } }), 'The end of the final generation');
     });
     liveId = undefined;
     await checkLayout(api, runId, capabilities.platform, check, id => { liveLayout = id; });

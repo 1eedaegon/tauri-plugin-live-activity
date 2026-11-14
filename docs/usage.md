@@ -932,6 +932,10 @@ required: the system shows it when the activity begins. Until then the record is
 held, the activity can be ended, and an update is `CONFLICT`, since the activity begins with the content of
 its start. `onState` reports `active` when it begins.
 
+The system begins the activity whether the app runs or not. On an iPhone 16 with iOS 27.2 it also launched the
+app in the background at that time: the app had been ended, and its process ran again when the activity began.
+What the app does in that launch was not looked at.
+
 ```ts
 await startLayout({
   activityKey: 'mochi:ride',

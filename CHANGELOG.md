@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.2
+
+Built on liveactivity 0.5.2, which corrects the answer of an end on iOS. The defect showed when the demo ran on an
+iPhone 16 with iOS 27.2, the first iPhone with iOS 26 or later to run the plugin.
+
+- On iOS `end` and `endLayout` answer the record as `ended`, as the contract says, also when the system has
+  already reported the activity as `dismissed`. After an end with the `immediate` policy that report can come
+  before the answer was read, and the answer then said `dismissed`: in 6 of 12 runs of the demo's lifecycle test
+  on that phone. `onState` and the lists are unchanged. They say what the system says, so a page can hear
+  `dismissed` before the answer of its end comes: take either of `ended` and `dismissed` as the end there.
+
+Also:
+
+- A scheduled start has begun on a phone. With the app ended before the time, the system began the activity, and
+  it launched the app in the background at that time. [Usage](docs/usage.md#scheduled-and-transient-starts) says
+  so.
+- The demo's lifecycle test names the state that an end answered when it is not `ended`.
+
 ## 0.7.1
 
 Two defects of 0.7.0 kept an opening of the app from a notification from reaching `onOpened` (Android). Both showed

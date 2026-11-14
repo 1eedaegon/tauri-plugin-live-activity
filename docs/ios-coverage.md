@@ -72,6 +72,33 @@ left out, an update set the switch's flag, and a scheduled start answered `UNSUP
 No iPhone with iOS 26 ran: the one at hand went offline while the demo was built for it. So a scheduled start
 has begun on a simulator only, and what a phone's Lock Screen draws of the new nodes was not looked at.
 
+## 0.7.2 on two iPhones
+
+An iPhone 16 with iOS 27.2 was the first iPhone with iOS 26 or later to run the plugin. It ran the demo, launched
+with `--self-test` for the lifecycle test and with `--start-later` for a scheduled start. Nothing touched its
+screen.
+
+- 0.7.1 failed the lifecycle test in 6 of 12 runs. Each time an end with the `immediate` policy had not answered
+  `ended`: five times a template's, which answered `dismissed` in the two runs of a build that named the state,
+  and once that of a layout that waited for its scheduled start. The system reports `dismissed` right after such
+  an end, and liveactivity read its answer from a handle that had already heard that. liveactivity 0.5.2 answers
+  `ended`.
+- 0.7.2 passed in 6 of 6 runs, 29 checks each. Among them: a layout with a switch, a link and nodes that follow
+  staleness starts with nothing left out, and a scheduled start is pending, holds its key, takes no update, is
+  listed and can be ended.
+- A scheduled start began on the phone, twice. Rust scheduled it 30 s ahead, and the app was ended 9 s after its
+  launch. No process of the app ran until the time. Then one did, and nothing but the system had been asked to
+  launch it: it was there 37 s after the first launch and 38 s after the second, and not at the look about 5 s
+  before each. The app that was launched afterwards listed the activity as `active`. What the app does in the
+  launch by the system was not looked at.
+
+An iPhone XS with iOS 18.7 passed the lifecycle test of 0.7.2 in 2 of 2 runs, 25 checks each, with the scheduled
+start refused as below iOS 26.
+
+The demo's UI tests have not run on a phone. A copy of them that signs its runner was started on the iPhone 16
+and stopped where the phone turns UI automation on, which a person allows on the phone. So no touch has reached
+a phone's Lock Screen, and nothing has looked at what it draws.
+
 ## Tests added after the first release
 
 - Exact encoded Unicode title/status equality: NFC and NFD strings must conflict at the same revision, matching JS/Rust/Android contracts. Swift's default canonical string equivalence incorrectly accepted the changed text. A failing core test and the actual published alpha.1 consumer reproduced it; the local fix compares UTF-8 bytes.
