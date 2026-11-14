@@ -1,8 +1,9 @@
 # Request contract
 
 Contract v1 is the request input used since `0.1.0-alpha.1`. 0.2.0 leaves it unchanged
-and adds [contract v2](#request-contract-v2-layout) for layouts. Validator tests in other
-languages reuse the schema and `tests/fixtures/requests.json`.
+and adds [contract v2](#request-contract-v2-layout) for layouts. Its eleven fixtures are
+`tests/fixtures/requests.json`: the reference validator's tests run them here, and liveactivity's
+Rust tests run a byte copy of them, so a change goes to both.
 `tools/validate-request.mjs` is the reference implementation, for development only. Since 0.5
 the schema is the activitykit crate's
 ([`contracts/request.schema.json`](https://github.com/1eedaegon/activitykit-rs/blob/main/contracts/request.schema.json)),
@@ -68,7 +69,7 @@ tests cover the lifecycle.
 ## Who checks what
 
 JSON Schema checks shape, length, range and the template match. The reference tool also
-checks the order of the timer times. The Rust fixture tests apply the same rules.
+checks the order of the timer times. liveactivity's Rust tests apply the same rules to the same fixtures.
 The Rust that checks a request is the liveactivity crate's; the plugin's commands hand every
 request to it and keep no validator of their own. On iOS it checks a v1 request, turns it into a
 layout activity ([below](#the-templates-on-ios)) and checks that as a v2 request; activitykit's
@@ -473,7 +474,8 @@ values again, ranges and bound members included, against the layout and styles i
 Rust and the reference tool check an update or an end alone, since they keep no layout;
 `LayoutStartInput::validate_update` and `validate_end` in Rust and `validateLayoutUpdate` and
 `validateLayoutEnd` in `tools/validate-request.mjs` apply the native check to a start and the
-request after it that the caller passes, and run the `updates` and `ends` fixtures.
+request after it that the caller passes. The `updates` and `ends` fixtures run through both: in
+liveactivity's tests for the Rust, in the reference validator's tests here.
 
 ### Styles
 
