@@ -8,8 +8,11 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { mockIPC, clearMocks } from '@tauri-apps/api/mocks';
 import { emit } from '@tauri-apps/api/event';
-import fixtures from './fixtures/layout-requests.json' with { type: 'json' };
+import { LAYOUT_FIXTURES, contract } from '../tools/activitykit.mjs';
 import * as activity from '../dist-js/index.js';
+
+// activitykit's fixtures, from the crate that the plugin builds with.
+const fixtures = contract(LAYOUT_FIXTURES);
 
 globalThis.window = {};
 afterEach(() => clearMocks());

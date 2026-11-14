@@ -55,14 +55,14 @@ test('the changes job starts each job for its paths, and the ios area is what th
     rust: ['src/lib.rs', 'src/service.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml',
       'tests/contract.rs', 'examples/demo/src-tauri/src/lib.rs', 'guest-js/types.ts',
       'android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt'],
-    js: ['guest-js/index.ts', 'cli/setup.mjs', 'tools/sync-contract.mjs', 'tests/api.test.mjs',
+    js: ['guest-js/index.ts', 'cli/setup.mjs', 'tools/activitykit.mjs', 'tests/api.test.mjs',
       'tests/release/release-guard.test.mjs', 'tests/jsx/elements.tsx', 'tests/declarations/members.ts',
       'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/src/main.ts',
       'src/android.rs', 'src/files.rs', 'src/lib.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml',
       'tests/android_contents.rs', 'android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt',
       'android/consumer-rules.pro', 'android/build.gradle.kts', 'tests/android/settings.gradle.kts'],
     ios: ['src/ios.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml', 'guest-js/types.ts', 'cli/ios.mjs',
-      'tools/sync-contract.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/link-activitykit.mjs',
+      'tools/activitykit.mjs', 'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/link-activitykit.mjs',
       'tests/ios/run.sh', 'tests/ci/cache.sh'],
     android: ['android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt', 'tests/android/settings.gradle.kts',
       'Cargo.toml', 'Cargo.lock', 'src/android.rs', 'src/bridge.rs', 'src/lib.rs', 'build.rs'],
@@ -77,7 +77,7 @@ test('the changes job starts each job for its paths, and the ios area is what th
   for (const [area, paths] of Object.entries(starts)) for (const path of paths) assert.ok(started(path).includes(area), `${path} → ${area}`);
   for (const [area, paths] of Object.entries(not)) for (const path of paths) assert.ok(!started(path).includes(area), `${path} ↛ ${area}`);
   assert.deepEqual(started('docs/usage.md'), []);
-  for (const path of ['tests/fixtures/layout-requests.json', 'contracts/request.schema.json', '.github/workflows/ci.yml']) {
+  for (const path of ['tests/fixtures/requests.json', 'tests/fixtures/android/contents.json', '.github/workflows/ci.yml']) {
     assert.deepEqual(started(path), ['rust', 'js', 'ios', 'android'], path);
   }
   // The ios area names exactly the tracked files that the simulator suites read, as cache.sh hashes them.

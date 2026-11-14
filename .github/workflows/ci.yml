@@ -61,7 +61,7 @@ jobs:
           if ! files=$(git diff --name-only "$BASE" "$HEAD"); then all "git diff failed"; exit 0; fi
           printf '%s\n' "$files"
           # The workflows and the fixtures every language reads concern every part.
-          if grep -qE '^(\.github/workflows/|tests/fixtures/|contracts/)' <<< "$files"; then all "workflow or shared fixtures"; exit 0; fi
+          if grep -qE '^(\.github/workflows/|tests/fixtures/)' <<< "$files"; then all "workflow or shared fixtures"; exit 0; fi
           area() { grep -qE "$2" <<< "$files" && echo "$1=true" >> "$GITHUB_OUTPUT" || echo "$1=false" >> "$GITHUB_OUTPUT"; }
           # The Rust tests read the TypeScript types and the Kotlin as text (src/types_tests.rs: the error codes of the
           # three languages are one list), so those start the Rust jobs too.
