@@ -308,7 +308,7 @@ fn an_opening_from_a_notification_reaches_tauri_listeners() {
         let _ = sender.send(payload);
     });
     let actions = crate::actions::spawn(|_| {}).unwrap();
-    let sink = crate::events::sink(app.handle().clone(), actions);
+    let sink = crate::events::sink(app.handle().clone(), actions, Default::default());
     let opened = |action: Option<&str>| {
         Event::Opened(crate::OpenedEvent {
             activity_id: "la-1".into(),
@@ -328,6 +328,105 @@ fn an_opening_from_a_notification_reaches_tauri_listeners() {
         heard.recv_timeout(wait).unwrap(),
         json!({"activityId":"la-1","activityKey":"job:1","actionId":"link:1"})
     );
+}
+
+/// A backend that only takes where to send its events, and keeps it for the test to report through.
+struct Reporting(std::sync::Arc<std::sync::Mutex<Option<liveactivity::BackendContext>>>);
+
+impl liveactivity::LiveActivityBackend for Reporting {
+    fn attach(&self, events: liveactivity::BackendContext) -> crate::Result<()> {
+        *self.0.lock().unwrap() = Some(events);
+        Ok(())
+    }
+    fn capabilities(&self) -> liveactivity::BackendFuture<'_, crate::Capabilities> {
+        Box::pin(async { unimplemented!("the test asks for no capabilities") })
+    }
+    fn permissions(&self) -> liveactivity::BackendFuture<'_, crate::Permissions> {
+        Box::pin(async { unimplemented!("the test asks for no permissions") })
+    }
+    fn start(
+        &self,
+        _: crate::StartInput,
+    ) -> liveactivity::BackendFuture<'_, crate::ActivityRecord> {
+        Box::pin(async { unimplemented!("the test starts nothing") })
+    }
+    fn update(
+        &self,
+        _: crate::UpdateInput,
+    ) -> liveactivity::BackendFuture<'_, crate::ActivityRecord> {
+        Box::pin(async { unimplemented!("the test updates nothing") })
+    }
+    fn end(&self, _: crate::EndInput) -> liveactivity::BackendFuture<'_, crate::ActivityRecord> {
+        Box::pin(async { unimplemented!("the test ends nothing") })
+    }
+    fn list(&self) -> liveactivity::BackendFuture<'_, Vec<crate::ActivityRecord>> {
+        Box::pin(async { unimplemented!("the test lists nothing") })
+    }
+}
+
+// TP-EVENT-3
+#[test]
+fn an_opening_that_the_backend_reports_waits_in_the_plugin_and_goes_out_as_an_event() {
+    use crate::{LiveActivityExt, OPENED_EVENT, OpenedEvent};
+    use liveactivity::Event;
+    use tauri::{Listener, Manager};
+    let app = mock_builder().build(mock_context(noop_assets())).unwrap();
+    let handle = app.handle().clone();
+    // The plugin as its setup connects it, on a backend whose events the test reports.
+    let context = std::sync::Arc::default();
+    let plugin = crate::service::connect(&handle, Reporting(std::sync::Arc::clone(&context)));
+    assert!(app.manage(plugin.unwrap()));
+    let backend = context
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("the backend was attached");
+    let opened = |action: Option<&str>| OpenedEvent {
+        activity_id: "la-1".into(),
+        activity_key: Some("job:1".into()),
+        action_id: action.map(str::to_owned),
+    };
+    // Nothing listens yet, as when an opening launched the app.
+    backend.emit(Event::Opened(opened(Some("link:1"))));
+    backend.emit(Event::Opened(opened(None)));
+    // A state is no opening and does not wait.
+    backend.emit(Event::State(crate::StateEvent {
+        activity_id: "la-1".into(),
+        activity_key: None,
+        state: crate::ActivityState::Active,
+    }));
+    let ask = |taken| {
+        let answer = tauri::async_runtime::block_on(commands::openings(handle.clone(), taken));
+        serde_json::to_value(answer.unwrap()).unwrap()
+    };
+    // The page that came later is answered both, oldest first. They stay until it says it has handed them over.
+    let both = json!({
+        "openings": [
+            {"activityId":"la-1","activityKey":"job:1","actionId":"link:1"},
+            {"activityId":"la-1","activityKey":"job:1"}
+        ],
+        "through": 2
+    });
+    assert_eq!(ask(0), both);
+    assert_eq!(ask(0), both);
+    assert_eq!(ask(2), json!({"openings": [], "through": 2}));
+
+    // An opening still goes out as it comes, and it is kept before it does: a listener that takes the openings
+    // when it hears the event finds the one it heard.
+    let (sender, heard) = std::sync::mpsc::channel();
+    let listening = handle.clone();
+    app.listen(OPENED_EVENT, move |event| {
+        let payload: Value = serde_json::from_str(event.payload()).unwrap();
+        let _ = sender.send((payload, listening.live_activity().take_openings()));
+    });
+    backend.emit(Event::Opened(opened(None)));
+    let (payload, taken) = heard
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .unwrap();
+    assert_eq!(payload, json!({"activityId":"la-1","activityKey":"job:1"}));
+    assert_eq!(taken, [opened(None)]);
+    // What Rust took is gone for the page, and the numbers go on.
+    assert_eq!(ask(2), json!({"openings": [], "through": 3}));
 }
 
 // TP-DESKTOP-1
@@ -441,7 +540,7 @@ fn push_events_reach_tauri_listeners() {
     ];
     // The sink of the backend's events, as the plugin connects it.
     let actions = crate::actions::spawn(|_| {}).unwrap();
-    let sink = crate::events::sink(app.handle().clone(), actions);
+    let sink = crate::events::sink(app.handle().clone(), actions, Default::default());
     for event in &events {
         sink(event.clone());
     }
@@ -545,7 +644,7 @@ fn the_sink_holds_a_tap_until_its_handlers_have_run_and_its_event_went_out() {
         std::thread::sleep(std::time::Duration::from_millis(300));
         slow.lock().unwrap().push("handled");
     });
-    let sink = crate::events::sink(app.handle().clone(), actions);
+    let sink = crate::events::sink(app.handle().clone(), actions, Default::default());
     sink(Event::Action(pet_tap()));
     // liveactivity lets the tap's intent go, and reports its next event, when the sink returns: the handler and the
     // event are done by then.
@@ -578,7 +677,7 @@ fn the_sink_lets_a_tap_go_when_its_time_is_up_while_a_handler_still_runs() {
         handled.lock().unwrap().push("handled");
     });
     let limit = Duration::from_millis(100);
-    let sink = crate::events::sink_within(app.handle().clone(), actions, limit);
+    let sink = crate::events::sink_within(app.handle().clone(), actions, Default::default(), limit);
     let started = Instant::now();
     sink(Event::Action(pet_tap()));
     // The system gives a tap's intent a limited time: the sink returns then, whatever the handlers do.
@@ -605,7 +704,7 @@ fn a_panicking_rust_listener_ends_neither_the_thread_of_the_events_nor_the_taps(
     actions.subscribe(move |event| {
         let _ = sender.send(event.action_id);
     });
-    let sink = crate::events::sink(app.handle().clone(), actions);
+    let sink = crate::events::sink(app.handle().clone(), actions, Default::default());
     let token = || {
         Event::PushToken(PushTokenEvent {
             activity_id: "la-1".into(),
@@ -665,7 +764,7 @@ fn starts_states_and_permissions_reach_tauri_listeners() {
         "frequentPushes":"denied"}))
     .unwrap();
     let actions = crate::actions::spawn(|_| {}).unwrap();
-    let sink = crate::events::sink(app.handle().clone(), actions);
+    let sink = crate::events::sink(app.handle().clone(), actions, Default::default());
     sink(Event::Started(crate::StartedEvent {
         record: record.clone(),
     }));

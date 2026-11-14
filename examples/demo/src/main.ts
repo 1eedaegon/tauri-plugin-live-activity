@@ -4,7 +4,7 @@ import { describeError, runLifecycleChecks } from './self-test.js';
 import { permissionAction, permissionFeedback } from './ui-state.js';
 import { advanceMochiActivity, countdown, selectMochiActivity, snackStage, snackSteps, startMochiActivity, type MochiMode } from './mochi.js';
 import {
-  actionMessage, layoutExamples, layoutRecordFor, nextLayoutSnapshot, runningLayoutExamples,
+  actionMessage, layoutExamples, layoutRecordFor, nextLayoutSnapshot, openedMessage, runningLayoutExamples,
   type LayoutExample,
 } from './layouts.js';
 
@@ -26,6 +26,8 @@ let layoutSupported = false;
 let platform = 'unknown';
 let permissionState: activity.PermissionState = 'unknown';
 let busy = false;
+/** How many openings from a notification this page has heard. */
+let openings = 0;
 const show = (id: string, value: unknown) => { element(id).textContent = JSON.stringify(value, null, 2); };
 const text = (id: string, value: string) => { element(id).textContent = value; };
 const currentLayout = () => layoutRecordFor(layoutRecords, example.id);
@@ -109,7 +111,7 @@ function renderScene(): void {
   text('cat-title', scene.cat);
   text('activity-kind', scene.kind);
   const shown = mode === 'layout' ? currentLayout() : current;
-  text('activity-badge', shown === undefined ? 'READY WHEN YOU ARE' : shown.state === 'unknown' ? 'SENT TO YOUR PHONE' : shown.state === 'stale' ? 'NEEDS A LITTLE UPDATE' : mode === 'layout' ? 'ON YOUR PHONE NOW' : mode === 'nap' ? 'DO NOT DISTURB' : current?.snapshot.progress === 1 ? 'HAPPY CAT CLUB' : 'A LITTLE ADVENTURE');
+  text('activity-badge', shown === undefined ? 'READY WHEN YOU ARE' : shown.state === 'unknown' ? 'SENT TO YOUR PHONE' : shown.state === 'pending' ? 'WAITING FOR ITS TIME' : shown.state === 'stale' ? 'NEEDS A LITTLE UPDATE' : mode === 'layout' ? 'ON YOUR PHONE NOW' : mode === 'nap' ? 'DO NOT DISTURB' : current?.snapshot.progress === 1 ? 'HAPPY CAT CLUB' : 'A LITTLE ADVENTURE');
   if (mode === 'layout') renderLayout();
   else {
     text('activity-heading', mode === 'nap' ? 'Big dreams. Tiny paws.' : 'A snack worth waiting for.');
@@ -198,8 +200,9 @@ async function startLayout(): Promise<void> {
   for (const running of runningLayoutExamples(layoutRecords)) {
     rememberLayout(await activity.endLayout({ id: running.id, policy: { kind: 'immediate' } }));
   }
-  rememberLayout(await activity.startLayout(example.start(Date.now())));
-  message(`${example.name} is on its way to your phone.`);
+  const started = await activity.startLayout(example.start(Date.now()));
+  rememberLayout(started);
+  message(started.state === 'pending' ? `${example.name} is waiting for its time.` : `${example.name} is on its way to your phone.`);
   await refresh();
 }
 
@@ -222,6 +225,9 @@ async function endLayout(): Promise<void> {
 async function selfTest(): Promise<void> {
   element('self-test-report').dataset.status = 'running';
   text('self-test-report', 'Running native lifecycle checks…');
+  // The demo's examples as the launch found them: a scheduled start that began while the app did not run shows here.
+  const found = layoutRecords.filter(record => record.activityKey.startsWith('mochi:'))
+    .map(({ activityKey, state }) => ({ activityKey, state }));
   const report = await runLifecycleChecks(activity, String(Date.now()));
   show('self-test-report', report);
   element('self-test-report').dataset.status = report.status;
@@ -229,10 +235,24 @@ async function selfTest(): Promise<void> {
   // Explicit integration-test output, consumed by emulator tooling.
   console.info(`LIVE_ACTIVITY_SELF_TEST ${JSON.stringify(report)}`);
   try {
-    const path = await invoke<string>('save_self_test_report', { report });
+    const path = await invoke<string>('save_self_test_report', { report: { ...report, found } });
     text('report-path', `Saved report: ${path}`);
   } catch (error) { text('report-path', `Report could not be saved: ${describeError(error)}`); }
   message(`Integration test: ${report.status}. Visibility remains an OS decision.`);
+  await refresh();
+}
+
+/** Whether the app was launched to run the lifecycle test by itself (`--self-test`), as on a phone with no UI test. */
+async function selfTestAsked(): Promise<boolean> {
+  if (new URLSearchParams(location.search).get('selftest') === '1') return true;
+  try { return await invoke<boolean>('self_test_requested'); } catch { return false; }
+}
+
+/** Ends the examples that are running, so that a run nobody watches leaves the phone as it was. */
+async function endExamples(): Promise<void> {
+  for (const running of runningLayoutExamples(layoutRecords)) {
+    rememberLayout(await activity.endLayout({ id: running.id, policy: { kind: 'immediate' } }));
+  }
   await refresh();
 }
 
@@ -245,6 +265,26 @@ async function listenForTaps(): Promise<void> {
     });
     text('tap-status', 'Listening for button taps.');
   } catch (error) { text('tap-status', `Button taps cannot reach this page: ${describeError(error)}`); }
+}
+
+// What happens to an activity outside the app's calls: a state the system gave it, as when its stale time passes or
+// a scheduled start begins, and on Android an opening of the app from its notification. The opening that launched
+// the app waited in the plugin for this page: its handler hears it while it subscribes.
+async function listenForStatesAndOpenings(): Promise<void> {
+  try {
+    text('state-status', 'Listening for states.');
+    text('opened-status', 'Listening for openings from a notification.');
+    await activity.onState(event => {
+      text('state-status', `Last state: ${JSON.stringify(event)}`);
+      // The lists follow, without the message and the busy buttons of something the person asked for.
+      void refresh().catch(() => undefined);
+    });
+    await activity.onOpened(event => {
+      openings += 1;
+      text('opened-status', `Last opening, of ${openings}: ${JSON.stringify(event)}`);
+      message(openedMessage(event));
+    });
+  } catch (error) { text('state-status', `States and openings cannot reach this page: ${describeError(error)}`); }
 }
 
 const handlers: Readonly<Record<string, () => Promise<void>>> = {
@@ -283,8 +323,13 @@ element('nap-duration').addEventListener('change', renderClock);
 window.setInterval(renderClock, 1000);
 renderScene();
 void listenForTaps();
+void listenForStatesAndOpenings();
 void perform(async () => {
   await refresh();
-  message(supported ? 'Mochi’s ready when you are.' : 'This device has no supported activity backend. Open an iOS or Android build.');
-  if (new URLSearchParams(location.search).get('selftest') === '1') await selfTest();
+  // The person who came in from a notification has been told so already.
+  if (openings === 0) message(supported ? 'Mochi’s ready when you are.' : 'This device has no supported activity backend. Open an iOS or Android build.');
+  if (await selfTestAsked()) {
+    await selfTest();
+    await endExamples();
+  }
 });

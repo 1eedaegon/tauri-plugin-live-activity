@@ -1,3 +1,36 @@
+# 0.7.1 validation
+
+0.7.1 corrects two defects of 0.7.0 that kept an opening of the app from a notification from reaching `onOpened`
+on Android, and adds the demo examples and the tests that showed them. The JavaScript API and the Android library
+change and one command is new, so it is a patch release with a note for capabilities that list commands one by
+one. Checked before the tag:
+
+- `npm test` (1761 tests in six suites) and `cargo test` (63), `cargo clippy` for the host and for Android,
+  `tools/spec-coverage.sh` (82 requirements, each with a test). Each rule of `onOpened` was changed in place, eleven
+  in all, and a test failed each time.
+- The Android library on a Galaxy S23 with Android 17: unit tests and lint, and the device tests, 8 of 8. Each of
+  the four rules of the watch for opening intents was changed in place, and a device test failed each time.
+- The demo on that phone, with touches through the system's own shade: a switch asked for on and then for off, and
+  Rust's update moved it; a link and the notification itself each gave one opening; `stale` came 2.2 s after the
+  stale time with no call of the app; a scheduled start was refused. With the app's process ended in the
+  background, a touch on the notification brought the app back and its page heard one opening, where a build with
+  0.7.0's Kotlin heard none; launched anew from a link, the page heard one, and brought back from its icon after
+  the process had ended again, no second one. [Android coverage](android-coverage.md#openings-and-touches-071) has
+  each run.
+- An iPhone XS with iOS 18.7, launched with `--self-test`: the demo's lifecycle test through the plugin, 25 of 25,
+  with a layout of a switch, a link and nodes that follow staleness, and a scheduled start refused as below iOS 26.
+- CI of the pull request and the main run of the release commit. The two simulator suites, started by hand on the
+  head of the pull request: the one on the built demo passed its 11 tests on the first try, on iOS 26.2, among them the four new ones (a switch, a link,
+  stale content and a scheduled start that began with the app ended); the one on `tauri ios dev` passed them on the first try.
+
+Not checked: a finger on the glass, on either system: every touch was injected, by `adb shell input tap` through
+the system's shade on Android and by a UI test on the simulator. Android 15 and earlier with this version. An
+iPhone with iOS 26 or later: the one at hand went offline while the demo was built for it, so no phone has begun a
+scheduled start. What an iPhone's Lock Screen draws: the phone runs the lifecycle test and nothing looks at its
+screen.
+
+The record of 0.7.0 follows.
+
 # 0.7.0 validation
 
 0.7.0 moves the plugin to liveactivity 0.5.1 (activitykit 0.5.0, liveupdate 0.3.2): links, toggles, nodes that

@@ -61,9 +61,13 @@ and iOS projects are under `src-tauri/gen`. Android notifications require permis
 grant it with the app's permission button or the emulator's app settings before running the
 lifecycle test.
 
-The lifecycle test verifies 13 assertions, including duplicate starts, newer/identical/stale
-revisions, conflicting payloads, list reconciliation, idempotent end and old-handle isolation.
-It ends its own activities. Results appear in the page and in
+The lifecycle test checks duplicate starts, newer/identical/stale revisions, conflicting payloads, list
+reconciliation, idempotent end and old-handle isolation of the templates; the same of a layout; a layout with a
+switch, a link and nodes that follow staleness; and a scheduled start, which is pending on iOS 26 and refused
+elsewhere. It ends its own activities. Launched with the argument `--self-test`, the app runs it at once, saves
+the report with the demo's examples as it found them (`found`), and ends those examples: that is how a phone
+with no UI test runs it (`xcrun devicectl device process launch --device <id> <bundle id> --self-test`).
+`--start-later` has Rust start the Scheduled start example at launch. Results appear in the page and in
 `live-activity-self-test.json` under the app's data directory. The JSON report contains
 `status`, `platform`, `checks`, and `visibility: "unknown"`; it is not evidence of visual delivery.
 

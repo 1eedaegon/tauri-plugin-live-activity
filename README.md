@@ -203,7 +203,7 @@ A start may also carry `scheduled: { at, alert }` to begin later (iOS 26), and `
 activity (iOS 18). The layout stays as it started; each update sends every value again, with a higher revision. Taps come to
 `onAction`, push tokens and pushed content to `onPushToken`, `onPushToStartToken` and `onUpdated`, and what happens
 to an activity outside the app's calls to `onState`, `onStarted`, `onOpened` (Android: the person opened the app from an
-activity's notification) and `onPermissions`.
+activity's notification; the opening that launched the app waits for the page) and `onPermissions`.
 
 A snapshot may also carry a `relevance`, which decides which of the app's activities the Dynamic Island shows, and
 an `android` content, the notification in Android's own terms (a segmented progress, metrics, the chip text) in

@@ -9,8 +9,11 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.Build
+import androidx.activity.ComponentActivity
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import app.tauri.plugin.Invoke
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.eedaegon.liveupdate.LiveUpdateEvents
@@ -27,6 +30,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 class TestHostActivity : Activity()
+
+/** An activity as Tauri's is one: AndroidX tells its listeners of each new intent. */
+class OpeningsHostActivity : ComponentActivity()
 
 @RunWith(AndroidJUnit4::class)
 class NativeBridgeTest {
@@ -142,38 +148,119 @@ class NativeBridgeTest {
 
     /**
      * An intent that one of liveupdate's notifications opened the app with carries the activity it came from, and the
-     * action when one opened it. The plugin hands liveupdate each intent that brings the activity forward; liveupdate
-     * stores an opening for an activity it knows, takes the marks off the intent, and tells the plugin to drain.
+     * action when one opened it. The plugin's library watches the app's activities from the start of the process: it
+     * hands liveupdate the intent an activity is created for and each one that brings it forward. liveupdate stores
+     * an opening for an activity it knows, takes the marks off the intent, and tells the plugin to drain.
      */
     // TP-ANDROID-16
     @Test
-    fun anIntentOfANotificationIsStoredOnceAsAnOpeningOfItsActivity() {
+    fun theIntentsThatOpenAnActivityAreStoredAsOpeningsFromItsCreationOn() {
         val heard = AtomicInteger()
         plugin.registerEventSink { heard.incrementAndGet() }
+        var host: Activity? = null
         try {
             liveUpdate("write", JSONObject().put("records", JSONArray().put(record())))
             liveUpdate("events")
-            val opening = { id: String -> Intent(context, TestHostActivity::class.java).putExtra(OPENED_ACTIVITY, id) }
-            val byALink = opening(ACTIVITY_ID).putExtra(OPENED_ACTION, "link:1")
-            instrumentation.runOnMainSync { plugin.onNewIntent(byALink) }
+            // The intent the activity is created for, as when a link of a notification launches the app. No plugin
+            // was told of this activity: the watch began with the process.
+            val created = instrumentation.startActivitySync(opening(ACTIVITY_ID, "link:1"))
+            host = created
+            assertEquals(listOf<String?>("link:1"), openings())
             assertEquals(1, heard.get())
-            val events = liveUpdate("events").getJSONObject("data").getJSONArray("events")
-            assertEquals(1, events.length())
-            assertEquals(ACTIVITY_ID, events.getJSONObject(0).getString("activityId"))
-            val kind = events.getJSONObject(0).getJSONObject("kind")
-            assertEquals("opened", kind.getString("kind"))
-            assertEquals("link:1", kind.getString("actionId"))
+            // An intent that brings the running activity forward, here by the notification itself.
+            val forward = opening(ACTIVITY_ID, null)
+            instrumentation.runOnMainSync { instrumentation.callActivityOnNewIntent(created, forward) }
+            assertEquals(listOf<String?>(null), openings())
+            assertEquals(2, heard.get())
 
             // The same intent again, an intent for an activity liveupdate does not know, and one of another kind.
             instrumentation.runOnMainSync {
-                plugin.onNewIntent(byALink)
-                plugin.onNewIntent(opening("no-such-activity"))
-                plugin.onNewIntent(Intent(context, TestHostActivity::class.java))
+                instrumentation.callActivityOnNewIntent(created, forward)
+                instrumentation.callActivityOnNewIntent(created, opening("no-such-activity", null))
+                instrumentation.callActivityOnNewIntent(created, opening(null, null))
             }
-            assertEquals(1, heard.get())
-            assertEquals(0, liveUpdate("events").getJSONObject("data").getJSONArray("events").length())
+            assertEquals(emptyList<String?>(), openings())
+            assertEquals(2, heard.get())
         } finally {
             LiveUpdateEvents.setListener(null)
+            instrumentation.runOnMainSync { host?.finish() }
+        }
+    }
+
+    /**
+     * Android keeps the intent an activity was first created for, marks and all, and hands it out again: to the
+     * activity it creates anew from its saved state, as after it ended the app's process in the background, and to
+     * the one it creates when the person brings a task back from the recent apps. Neither is a new opening: the
+     * intent was counted when it was new. What brought the app back comes as a new intent, and counts.
+     */
+    // TP-ANDROID-16
+    @Test
+    fun anIntentThatAndroidHandsOutAgainIsNotCountedAgain() {
+        liveUpdate("write", JSONObject().put("records", JSONArray().put(record())))
+        liveUpdate("events")
+        var host: Activity = instrumentation.startActivitySync(opening(ACTIVITY_ID, "link:1"))
+        try {
+            assertEquals(listOf<String?>("link:1"), openings())
+            // liveupdate took the marks off the activity's copy of the intent. Android's own copy keeps them, so they
+            // are put back here, and Android then creates the activity again from its saved state, with that intent.
+            val first = host
+            instrumentation.runOnMainSync {
+                first.intent.putExtra(OPENED_ACTIVITY, ACTIVITY_ID).putExtra(OPENED_ACTION, "link:1")
+                first.recreate()
+            }
+            host = restored(first)
+            assertEquals(ACTIVITY_ID, host.intent.getStringExtra(OPENED_ACTIVITY))
+            assertEquals(emptyList<String?>(), openings())
+            // The activity that Android created again hears the intents that follow.
+            val again = host
+            instrumentation.runOnMainSync { instrumentation.callActivityOnNewIntent(again, opening(ACTIVITY_ID, null)) }
+            assertEquals(listOf<String?>(null), openings())
+            instrumentation.runOnMainSync { again.finish() }
+
+            // A task brought back from the recent apps: Android starts its activity anew with the first intent, and
+            // says so with a flag.
+            host = instrumentation.startActivitySync(
+                opening(ACTIVITY_ID, "link:2").addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY),
+            )
+            assertEquals(emptyList<String?>(), openings())
+        } finally {
+            val last = host
+            instrumentation.runOnMainSync { last.finish() }
+        }
+    }
+
+    /** The activity that Android created in place of `former`, once it is in front. */
+    private fun restored(former: Activity): Activity {
+        var found: Activity? = null
+        repeat(100) {
+            if (found == null) {
+                instrumentation.waitForIdleSync()
+                instrumentation.runOnMainSync {
+                    found = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                        .firstOrNull { it is OpeningsHostActivity && it !== former }
+                }
+                if (found == null) Thread.sleep(50)
+            }
+        }
+        return found ?: throw AssertionError("Android did not create the activity again")
+    }
+
+    /** An intent for the activity that hears new intents, with liveupdate's marks for the activity `id` and `action`. */
+    private fun opening(id: String?, action: String?): Intent =
+        Intent(context, OpeningsHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).apply {
+            if (id != null) putExtra(OPENED_ACTIVITY, id)
+            if (action != null) putExtra(OPENED_ACTION, action)
+        }
+
+    /** Drains liveupdate's events, which must all be openings of the test's activity, and answers their actions. */
+    private fun openings(): List<String?> {
+        val events = liveUpdate("events").getJSONObject("data").getJSONArray("events")
+        return (0 until events.length()).map { index ->
+            val event = events.getJSONObject(index)
+            assertEquals(ACTIVITY_ID, event.getString("activityId"))
+            val kind = event.getJSONObject("kind")
+            assertEquals("opened", kind.getString("kind"))
+            kind.textOrNull("actionId")
         }
     }
 

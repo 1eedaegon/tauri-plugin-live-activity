@@ -1,15 +1,16 @@
 // One layout example per feature of request contract v2, each a complete start request.
 import type {
-  ActionEvent, LayoutActivityRecord, LayoutColor, LayoutSnapshot, LayoutStartInput, LayoutStyle, LayoutValues,
+  ActionEvent, LayoutActivityRecord, LayoutColor, LayoutSnapshot, LayoutStartInput, LayoutStyle, LayoutValues, OpenedEvent,
 } from '../../../guest-js/index.js';
 import {
-  bind, bound, button, divider, gauge, hstack, image, path, progress, spacer, symbol, text, timerText, vstack, zstack,
+  bind, bound, button, divider, gauge, hstack, image, link, path, progress, spacer, symbol, text, timerText, toggle, vstack,
+  zstack,
 } from '../../../guest-js/layout.ts';
 import { snackSteps } from './mochi.ts';
 
 export type LayoutExampleId =
-  | 'text' | 'symbols' | 'image' | 'paths' | 'gauge' | 'progress' | 'timer' | 'stacks' | 'buttons' | 'styles'
-  | 'island' | 'android' | 'nowBar';
+  | 'text' | 'symbols' | 'image' | 'paths' | 'gauge' | 'progress' | 'timer' | 'stacks' | 'buttons' | 'switch' | 'link'
+  | 'styles' | 'staleness' | 'later' | 'island' | 'android' | 'nowBar';
 
 export interface LayoutExample {
   readonly id: LayoutExampleId;
@@ -25,6 +26,10 @@ export interface LayoutExample {
 }
 
 const minute = 60_000;
+/** How long the content of the Staleness example stays fresh. A Lock Screen was not seen to turn for a much shorter time. */
+export const freshFor = 45_000;
+/** How far ahead the Scheduled start example begins. */
+export const startsIn = 30_000;
 const fallback = 'notification';
 const schemaVersion = 2;
 
@@ -307,6 +312,49 @@ const buttonsExample: LayoutExample = {
   }),
 };
 
+/** What the Switch example says while its flag is off. Rust sets this line and the other (src-tauri/src/actions.rs). */
+const quiet = 'Quiet as a mouse';
+
+const switchExample: LayoutExample = {
+  id: 'switch',
+  name: 'Switch',
+  feature: 'A toggle shows a flag and reports the state the person asked for. Rust answers with an update, and only that moves the switch.',
+  android: 'A switch becomes a notification action labelled with its text, with ✓ before it while the flag is on.',
+  start: () => ({
+    activityKey: 'mochi:switch', schemaVersion, fallback,
+    layout: {
+      lockScreen: vstack([
+        hstack([symbol('bell.fill', { style: 'icon' }), bound('title', { style: 'title' })], { spacing: 8 }),
+        bound('status', { style: 'status' }),
+        toggle('purr', 'purring', text('Purr alerts')),
+      ], { alignment: 'leading', spacing: 8, style: 'card' }),
+      background,
+    },
+    styles: { card, title, status, icon: { size: 20, color: coral } },
+    snapshot: { revision: 0, values: { title: 'Mochi’s purr alerts', status: quiet, purring: false } },
+  }),
+};
+
+const linkExample: LayoutExample = {
+  id: 'link',
+  name: 'Link',
+  feature: 'A link opens the app with its URL, like any deep link. Here the last line opens the treat jar.',
+  android: 'A link becomes a notification action that opens the URL in the app, and onOpened reports it.',
+  start: () => ({
+    activityKey: 'mochi:link', schemaVersion, fallback,
+    layout: {
+      lockScreen: vstack([
+        hstack([symbol('basket.fill', { style: 'icon' }), bound('title', { style: 'title' })], { spacing: 8 }),
+        bound('status', { style: 'status' }),
+        link('mochi://treats', text('Open the treat jar', { style: 'jar' })),
+      ], { alignment: 'leading', spacing: 8, style: 'card' }),
+      background,
+    },
+    styles: { card, title, status, icon: { size: 20, color: coral }, jar: { font: 'subheadline', weight: 'semibold', color: teal } },
+    snapshot: { revision: 0, values: { title: 'Mochi’s treat jar', status: 'Three treats left' } },
+  }),
+};
+
 /**
  * Delivery states and the colors they show. A bound color is a name or one hex color for both appearances,
  * never a light and dark pair.
@@ -341,6 +389,50 @@ const stylesExample: LayoutExample = {
     snapshot: { revision: 0, values: { title: 'Mochi’s snack', ...deliveries[0] } },
   }),
   next: values => ({ ...values, ...after(deliveries, deliveries.find(item => item.status === values.status) ?? deliveries[2]) }),
+};
+
+/** The news of the Staleness example, each fresh when it is sent. */
+const news = ['Left the kitchen', 'Around the corner', 'At the door'] as const;
+
+const stalenessExample: LayoutExample = {
+  id: 'staleness',
+  name: 'Staleness',
+  feature: 'A node with ifStale shows only while the content is stale, or only while it is fresh. This content is stale after 45 seconds, with no update.',
+  android: 'A notification stays as it was posted and lists layout.ifStale. The app hears of the stale state through onState and can update.',
+  start: now => ({
+    activityKey: 'mochi:staleness', schemaVersion, fallback,
+    layout: {
+      lockScreen: vstack([
+        hstack([symbol('clock.fill', { style: 'icon' }), bound('title', { style: 'title' })], { spacing: 8 }),
+        bound('news', { style: 'status', ifStale: false }),
+        text('Waiting for news of the snack', { style: 'status', ifStale: true }),
+      ], { alignment: 'leading', spacing: 6, style: 'card' }),
+      background,
+    },
+    styles: { card, title, status, icon: { size: 20, color: coral } },
+    snapshot: { revision: 0, values: { title: 'Mochi’s snack tracker', news: news[0] }, staleAt: now + freshFor },
+  }),
+  next: values => ({ ...values, news: after(news, news.find(item => item === values.news) ?? news[2]) }),
+};
+
+const laterExample: LayoutExample = {
+  id: 'later',
+  name: 'Scheduled start',
+  feature: 'A start with scheduled begins at its time with an alert, here 30 seconds from now. Until then it is pending: no update, but it can be ended.',
+  android: 'A notification is posted when it is asked for, so Android answers UNSUPPORTED_FEATURE and shows nothing.',
+  start: now => ({
+    activityKey: 'mochi:later', schemaVersion, fallback,
+    layout: {
+      lockScreen: vstack([
+        hstack([symbol('bell.fill', { style: 'icon' }), bound('title', { style: 'title' })], { spacing: 8 }),
+        bound('status', { style: 'status' }),
+      ], { alignment: 'leading', spacing: 6, style: 'card' }),
+      background,
+    },
+    styles: { card, title, status, icon: { size: 20, color: coral } },
+    snapshot: { revision: 0, values: { title: 'Mochi’s dinner bell', status: 'Dinner is served' } },
+    scheduled: { at: now + startsIn, alert: { title: 'Dinner time', body: 'Mochi’s bowl is full.' } },
+  }),
 };
 
 const islandExample: LayoutExample = {
@@ -442,7 +534,8 @@ const nowBarExample: LayoutExample = {
 
 export const layoutExamples: readonly LayoutExample[] = [
   textExample, symbolsExample, imageExample, pathsExample, gaugeExample, progressExample, timerExample,
-  stacksExample, buttonsExample, stylesExample, islandExample, androidExample, nowBarExample,
+  stacksExample, buttonsExample, switchExample, linkExample, stylesExample, stalenessExample, laterExample,
+  islandExample, androidExample, nowBarExample,
 ];
 
 export function findLayoutExample(id: string): LayoutExample | undefined {
@@ -467,7 +560,19 @@ export function nextLayoutSnapshot(record: Pick<LayoutActivityRecord, 'snapshot'
   return { revision: record.snapshot.revision + 1, values: example.next(record.snapshot.values) };
 }
 
+const exampleOf = (key: string | undefined) => key === undefined ? undefined : exampleKeys.get(key);
+const from = (key: string | undefined) => {
+  const example = exampleOf(key);
+  return example === undefined ? 'an activity' : `the ${example.name} example`;
+};
+
 export function actionMessage(event: ActionEvent): string {
-  const example = event.activityKey === undefined ? undefined : exampleKeys.get(event.activityKey);
-  return `Mochi felt “${event.actionId}” from ${example === undefined ? 'an activity' : `the ${example.name} example`}.`;
+  const asked = event.on === undefined ? '' : event.on ? ', asked on,' : ', asked off,';
+  return `Mochi felt “${event.actionId}”${asked} from ${from(event.activityKey)}.`;
+}
+
+/** What the page says when the person came in from an activity's notification (Android). */
+export function openedMessage(event: OpenedEvent): string {
+  const through = event.actionId === undefined ? 'the notification' : `“${event.actionId}”`;
+  return `You came in through ${through} of ${from(event.activityKey)}.`;
 }

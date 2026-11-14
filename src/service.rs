@@ -1,16 +1,17 @@
 use crate::{
     ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutEndInput,
-    LayoutStartInput, LayoutUpdateInput, PermissionKind, Permissions, PushTokens, Result,
-    StartInput, UpdateInput,
+    LayoutStartInput, LayoutUpdateInput, OpenedEvent, PermissionKind, Permissions, PushTokens,
+    Result, StartInput, UpdateInput,
     actions::{self, Actions},
     events::{self, ACTION_EVENT},
+    openings::Openings,
 };
 use liveactivity::{LiveActivityBackend, wait};
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 use tauri::{AppHandle, Emitter, Runtime};
 
-/// The plugin on `backend`: its taps go to the handlers of `on_action` and to JavaScript, its push events to
-/// JavaScript.
+/// The plugin on `backend`: its taps go to the handlers of `on_action` and to JavaScript, its other events to
+/// JavaScript, and its openings wait as well until they are taken.
 pub(crate) fn connect<R: Runtime>(
     app: &AppHandle<R>,
     backend: impl LiveActivityBackend,
@@ -19,13 +20,15 @@ pub(crate) fn connect<R: Runtime>(
     let actions = actions::spawn(move |event| {
         let _ = emitter.emit(ACTION_EVENT, event);
     })?;
+    let openings = Arc::<Openings>::default();
     let live = liveactivity::LiveActivity::builder()
         .backend(backend)
-        .event_sink(events::sink(app.clone(), actions.clone()))
+        .event_sink(events::sink(app.clone(), actions.clone(), openings.clone()))
         .build()?;
     Ok(LiveActivity {
         live,
         actions,
+        openings,
         runtime: PhantomData,
     })
 }
@@ -36,6 +39,7 @@ pub(crate) fn connect<R: Runtime>(
 pub struct LiveActivity<R: Runtime> {
     pub(crate) live: liveactivity::LiveActivity,
     actions: Actions,
+    pub(crate) openings: Arc<Openings>,
     runtime: PhantomData<fn() -> R>,
 }
 
@@ -88,6 +92,16 @@ impl<R: Runtime> LiveActivity<R> {
     /// Desktop checks the PNG and returns `UNSUPPORTED_PLATFORM`.
     pub fn write_image(&self, name: &str, png: &[u8]) -> Result<()> {
         wait(self.live.write_image(name, png))
+    }
+
+    /// Takes the openings of the app from an activity's notification that nobody has taken yet (Android), oldest
+    /// first: each is handed over once. [`OPENED_EVENT`](crate::OPENED_EVENT) reports an opening as it comes, but
+    /// the one that launched the app comes before the app's listeners and its page are there, and no record holds
+    /// an opening. So the plugin keeps each until it is taken, the newest [`OPENINGS_KEPT`](crate::OPENINGS_KEPT).
+    /// The page's `onOpened` asks for them when it subscribes and at every event; an app that handles openings in
+    /// Rust takes them here instead, at its start and when the event comes. What Rust takes is gone for the page.
+    pub fn take_openings(&self) -> Vec<OpenedEvent> {
+        self.openings.take()
     }
 
     /// Calls `handler` for every tap on a button or a toggle node, on a thread of the plugin and never on the main

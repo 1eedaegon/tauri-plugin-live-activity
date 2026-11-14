@@ -1,6 +1,6 @@
 use crate::{
     ActivityRecord, Capabilities, Error, ImageInput, LayoutActivityRecord, LiveActivityExt,
-    Permissions, PushTokens, Result, parse_request,
+    Permissions, PushTokens, Result, openings::WaitingOpenings, parse_request,
 };
 use serde_json::Value;
 use tauri::{AppHandle, Runtime};
@@ -23,6 +23,13 @@ pub(crate) async fn check_permissions<R: Runtime>(app: AppHandle<R>) -> Result<P
 #[tauri::command]
 pub(crate) async fn push_tokens<R: Runtime>(app: AppHandle<R>) -> Result<PushTokens> {
     live(&app).push_tokens().await
+}
+
+/// The openings that wait for a page, after those numbered up to `taken`, which the page has handed to its
+/// handlers, are let go.
+#[tauri::command]
+pub(crate) async fn openings<R: Runtime>(app: AppHandle<R>, taken: u64) -> Result<WaitingOpenings> {
+    Ok(app.live_activity().openings.waiting(taken))
 }
 
 #[tauri::command]

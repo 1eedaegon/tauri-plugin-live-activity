@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.7.1
+
+Two defects of 0.7.0 kept an opening of the app from a notification from reaching `onOpened` (Android). Both showed
+when the demo ran on a phone.
+
+- An opening that came before the page listened was lost. The opening that launched the app is reported when the
+  plugin starts, before the page has loaded, and an event reaches only the listeners there are. The plugin now keeps
+  every opening until a page has handed it to a handler, the newest 16, and `onOpened` asks for them: its handler
+  first gets those that waited, oldest first, and then each one as it comes, each once. An opening that found no
+  handler waits for the next one, and one whose page was reloaded before it could say that a handler got it is
+  heard once more by the next page. `take_openings()` takes them in Rust.
+- When Android had ended the app's process in the background and a notification brought the app back, no opening was
+  stored. Android delivers that intent before Tauri has loaded the plugin, and the plugin was what handed intents to
+  liveupdate. The plugin's Android library now watches the app's activities from the start of the process, through a
+  provider in its manifest (`OpeningsProvider`, with the authority `<applicationId>.live-activity-openings`; it
+  holds no data). It leaves out the intents that Android hands out again: to an activity it restores from its saved
+  state, and to one it starts when the person brings the app back from the recent apps, which 0.7.0 counted as a
+  second opening.
+
+When updating:
+
+- A capability that lists the plugin's commands one by one, instead of `live-activity:default`, needs
+  `live-activity:allow-openings` for `onOpened`, which rejects without it.
+- An app writes no Kotlin and no manifest entry for either change.
+
+Also:
+
+- With `samsungNowBar` on, One UI 9 draws a card of its own for the notification, in the shade and under the status
+  bar chip, with the title and the text and without the notification's actions: a button, a switch or a link of a
+  layout cannot be tapped there, and a tap on the card opens the app. With the option off, the same notification
+  has its actions. That is One UI's doing, seen on a Galaxy S23, and is now in the documents; the plugin sends what
+  it sent.
+- The demo has four more layout examples (Switch, Link, Staleness, Scheduled start), its lifecycle test takes in
+  the new nodes and a scheduled start, and the launch argument `--self-test` runs it on a phone that has no UI
+  test. The simulator suite has four more tests: a switch, a link, stale content and a scheduled start, on the
+  Lock Screen.
+
 ## 0.7.0
 
 The plugin is an adapter of the [`liveactivity`](https://crates.io/crates/liveactivity) crate 0.5.1, which runs iOS on

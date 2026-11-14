@@ -33,13 +33,19 @@ const own = file => readFileSync(join(root, OWN, file), 'utf8');
 // TP-ANDROID-11
 test('the plugin has no Kotlin lifecycle, renderer, receivers or validator for layouts', () => {
   const files = readdirSync(join(root, OWN)).sort();
-  assert.deepEqual(files, ['Input.kt', 'LiveActivityPlugin.kt', 'Models.kt', 'PermissionPolicy.kt']);
+  assert.deepEqual(files, ['Input.kt', 'LiveActivityPlugin.kt', 'Models.kt', 'Openings.kt', 'PermissionPolicy.kt']);
   const plugin = own('LiveActivityPlugin.kt');
   const commands = [...plugin.matchAll(/@Command\s+(?:override )?fun (\w+)/g)].map(([, name]) => name).sort();
   assert.deepEqual(commands, ['checkPermissions', 'imageDirectory', 'liveUpdate', 'registerEvents', 'requestPermissions']);
   assert.match(plugin, /LiveUpdateBridge\.invoke\(activity, args\.getString\("command"\), args\.getString\("payload"\)\)/);
+  // The plugin's one component of its own is the provider that watches for the intents which open the app
+  // (TP-ANDROID-16). It hands them to liveupdate and does nothing else: it posts nothing and stores nothing.
   const manifest = readFileSync(join(root, 'android/src/main/AndroidManifest.xml'), 'utf8');
-  assert.doesNotMatch(manifest, /io\.github\.eedaegon\.liveactivity\./);
+  const components = [...manifest.matchAll(/android:name="(io\.github\.eedaegon\.liveactivity\.[\w.]+)"/g)].map(([, name]) => name);
+  assert.deepEqual(components, ['io.github.eedaegon.liveactivity.OpeningsProvider']);
+  const openings = own('Openings.kt');
+  assert.match(openings, /LiveUpdateEvents\.opened\(activity, /);
+  assert.doesNotMatch(openings, /Notification|SharedPreferences|BroadcastReceiver|LiveUpdateBridge/);
   // Rust calls no command that the Kotlin side lacks.
   const rust = readFileSync(join(root, 'src/android.rs'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
   const called = [...rust.matchAll(/\b(?:run_mobile_plugin\(|call(?:::<[^>]+>)?\(\s*&[\w.]+,)\s*"(\w+)"/g)].map(([, name]) => name);

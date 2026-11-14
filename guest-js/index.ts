@@ -178,13 +178,108 @@ export function onState(handler: (event: StateEvent) => void): Promise<UnlistenF
   return listen<StateEvent>('live-activity://state', event => handler(event.payload));
 }
 
+/** What the plugin answers when it is asked for the openings: those that wait, oldest first, and the newest one's number. */
+interface WaitingOpenings {
+  readonly openings: readonly OpenedEvent[];
+  /** The number of the newest opening the plugin has kept. It numbers them in their order, from 1. */
+  readonly through: number;
+}
+
+/** The handlers of this page for openings. They share one subscription. */
+const openingHandlers = new Set<(event: OpenedEvent) => void>();
+/** The page's subscription to the event that says an opening came, while the page has handlers. */
+let openingEvents: Promise<UnlistenFn> | undefined;
+/** The questions of this page to the plugin, one after another, so that the openings keep their order. */
+let openingTakes: Promise<void> = Promise.resolve();
+/** The number of the newest opening that this page has handed to its handlers. */
+let openingsHanded = 0;
+/** The number up to which this page has told the plugin to let the openings go. */
+let openingsLetGo = 0;
+
+/**
+ * Hands `opening` to `handler`. A handler that throws is reported, as the browser reports a listener that throws,
+ * and keeps the opening from nobody else.
+ */
+function hand(handler: (event: OpenedEvent) => void, opening: OpenedEvent): void {
+  try {
+    handler(opening);
+  } catch (error) {
+    const report = (globalThis as { reportError?: (error: unknown) => void }).reportError;
+    if (typeof report === 'function') report(error);
+    else console.error(error);
+  }
+}
+
+/**
+ * Asks the plugin for the openings that wait and hands each new one to the handlers there are, until none is left.
+ * Every question also says how far this page has handed them over, and the plugin lets those go. So an opening
+ * that no handler got stays with the plugin, for a handler that comes later or for the page that loads next.
+ */
+function takeOpenings(): Promise<void> {
+  const taken = openingTakes.then(async () => {
+    let answered = false;
+    // With nobody to hand to, the plugin is only told what it may let go.
+    while (openingHandlers.size > 0 || openingsLetGo < openingsHanded) {
+      const handed = openingsHanded;
+      let waiting: WaitingOpenings;
+      try {
+        waiting = await invoke<WaitingOpenings>('plugin:live-activity|openings', { taken: handed });
+      } catch (error) {
+        // Once the plugin has answered, a question that fails only leaves it for the next one to say what was
+        // handed over.
+        if (answered) return;
+        throw error;
+      }
+      answered = true;
+      openingsLetGo = Math.max(openingsLetGo, handed);
+      const first = waiting.through - waiting.openings.length + 1;
+      for (const [index, opening] of waiting.openings.entries()) {
+        // The plugin answers what comes after `handed`. One that this page has handed over is not handed again.
+        if (first + index <= openingsHanded) continue;
+        if (openingHandlers.size === 0) break;
+        // A handler that another one unsubscribed meanwhile is not called.
+        for (const handler of [...openingHandlers]) if (openingHandlers.has(handler)) hand(handler, opening);
+        openingsHanded = first + index;
+      }
+      if (openingsHanded === handed) return;
+    }
+  });
+  // A question that failed does not stop the next one: what it left still waits in the plugin.
+  openingTakes = taken.catch(() => undefined);
+  return taken;
+}
+
 /**
  * Receive each opening of the app from the notification of an activity (Android): which activity the person
  * opened it from, and by which action when it was one that opens a URL. The URL itself comes to the app as any deep
  * link. iOS hands the URL to the app and reports nothing here.
+ *
+ * The opening that launched the app is reported before the page has loaded, so the plugin keeps every opening until
+ * a page has handed it to a handler, the newest 16. The handler first gets those that waited, oldest first, and
+ * then each one as it comes, each once: subscribe when the page starts. The handlers of a page share the openings;
+ * one that subscribes later gets what is handed over from then on. Rejects, subscribed to nothing, when the plugin
+ * does not answer the first question for what waits.
  */
-export function onOpened(handler: (event: OpenedEvent) => void): Promise<UnlistenFn> {
-  return listen<OpenedEvent>('live-activity://opened', event => handler(event.payload));
+export async function onOpened(handler: (event: OpenedEvent) => void): Promise<UnlistenFn> {
+  // A function may subscribe twice: each subscription is its own and ends alone.
+  const subscribed = (event: OpenedEvent): void => handler(event);
+  const leave = (): void => {
+    if (!openingHandlers.delete(subscribed) || openingHandlers.size > 0) return;
+    const events = openingEvents;
+    openingEvents = undefined;
+    void events?.then(unlisten => unlisten()).catch(() => undefined);
+  };
+  openingHandlers.add(subscribed);
+  try {
+    // The event says that an opening came. The plugin hands it over when it is asked.
+    openingEvents ??= listen<OpenedEvent>('live-activity://opened', () => { void takeOpenings().catch(() => undefined); });
+    await openingEvents;
+    await takeOpenings();
+  } catch (error) {
+    leave();
+    throw error;
+  }
+  return leave;
 }
 
 /**

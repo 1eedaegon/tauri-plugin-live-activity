@@ -27,6 +27,7 @@ mod drain;
 mod events;
 #[cfg(target_os = "ios")]
 mod ios;
+mod openings;
 mod service;
 #[cfg(test)]
 mod types_tests;
@@ -38,6 +39,7 @@ pub use events::{
 };
 /// The contract: the requests, records, layout types, errors and checks.
 pub use liveactivity::contract::*;
+pub use openings::OPENINGS_KEPT;
 pub use service::LiveActivity;
 
 /// Access the registered plugin from a Tauri application or window.
@@ -68,7 +70,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R, Option<Config>> {
             commands::end_layout,
             commands::list_layout,
             commands::write_image,
-            commands::push_tokens
+            commands::push_tokens,
+            commands::openings
         ])
         .setup(|app, _api| {
             #[cfg(target_os = "android")]

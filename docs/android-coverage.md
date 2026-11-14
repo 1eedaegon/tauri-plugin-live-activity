@@ -96,6 +96,48 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## Openings and touches, 0.7.1
+
+0.7.1 was driven on a Galaxy S23 with Android 17 (API 37), to run what 0.7.0 had left out: touches on the
+notification, and an app that Android brings back. Two defects came of it, which 0.7.1 corrects
+([Opened](android-integration.md#opened)).
+
+- The Android library's device tests, 8 of 8. Two of them replace the one of the opening intents: an AndroidX
+  activity is started by a marked intent and gets new ones; then it gets its marks back and is created again from
+  its saved state, and another is started with the flag of the recent apps, and neither counts. Each of the
+  watch's four rules was changed in place, and a device test failed each time: without the provider, without the
+  listener for new intents, without the look at the saved state, and without the look at the flag.
+- The demo, with the Now Bar extras off, through the system's shade. Each touch was injected with
+  `adb shell input tap` at the place where uiautomator found the action's title, so the system's own shade sent the
+  notification's intent.
+  - Switch: a touch on `Purr alerts` reached the page as `{actionId: "purr", on: true}`, Rust's handler updated the
+    activity, and the action read `✓ Purr alerts` under the text "Purring out loud"; a touch on that reached the
+    page with `on: false`, and the action read `Purr alerts` again.
+  - Link: from the Home screen, a touch on `Open the treat jar` brought the app to the front, and the page heard
+    one opening with `actionId: "link:1"`. A touch on the notification itself gave one opening without an action.
+  - Staleness: the record named `layout.ifStale`; with no call of the app, the page heard `stale` 2.2 s after the
+    stale time, 45 s after the start, and showed the activity as stale; the notification stayed as it was; an
+    update made the activity `active` again.
+  - Scheduled start: `UNSUPPORTED_FEATURE`, and nothing was shown or kept.
+  - The app's process ended in the background (`am kill`), its task and its notification kept: a touch on the
+    notification brought the app back, and its page heard one opening. The same with 0.7.0's Kotlin and this
+    page gave none.
+  - The process ended and the task removed (`am stack remove`), the notification kept: a touch on the link's action
+    launched the app anew, and its page heard one opening with `actionId: "link:1"`. With the process ended once
+    more and the app brought back from its icon, Android restored the activity with that first intent, and the
+    page heard no opening.
+- The demo with the Now Bar extras on, as it ships: One UI drew its own card in the shade and under the status bar
+  chip, with the title and the text and no action; a touch on the card opened the app, and the page heard an
+  opening without an action.
+
+Once in about twenty launches the demo's page started without its bridge: Tauri refused the page's first calls as
+if it were at `about:blank` (`event.listen not allowed on window "main", webview "main", URL: about:blank`), and a
+reload of the page put it right. The shell had stopped and launched the app a moment before. That is Tauri's
+start on Android, not the plugin's, and no cause was looked for.
+
+Not run: a finger on the glass, Android 15 and earlier with this version, the foreground placement with a service
+of the app.
+
 ## Layout activities (contract v2), 0.7.0
 
 0.7.0 runs on liveupdate 0.3.2 and adds links, toggles, the wider Android content, the states of an activity and the

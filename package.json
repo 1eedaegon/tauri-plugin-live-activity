@@ -1,6 +1,6 @@
 {
   "name": "tauri-plugin-live-activity",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates with ongoing notification fallback",
   "author": "1eedaegon",
   "type": "module",
@@ -34,7 +34,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p examples/demo/tsconfig.json",
     "test": "npm run build && npm run test:contracts && npm run test:api && npm run test:jsx && npm run test:react && npm run test:demo && npm run test:setup",
     "test:contracts": "node --test --experimental-test-coverage \"--test-coverage-include=tools/validate-request.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/requests.test.mjs tests/layout-requests.test.mjs tests/contract-sync.test.mjs tests/android-liveupdate.test.mjs tests/android-contents.test.mjs tests/ci.test.mjs tests/ci-cache.test.mjs tests/spec-coverage.test.mjs",
-    "test:api": "node --test --experimental-test-coverage \"--test-coverage-include=dist-js/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/api.test.mjs",
+    "test:api": "node --test --experimental-test-coverage \"--test-coverage-include=dist-js/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/api.test.mjs tests/api-reload.test.mjs",
     "test:jsx": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=dist-js/jsx/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/jsx.test.mjs",
     "test:react": "node --test --experimental-test-coverage \"--test-coverage-include=dist-js/react/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/react.test.mjs",
     "test:demo": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=examples/demo/src/*.ts\" \"--test-coverage-exclude=examples/demo/tests/**\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 examples/demo/tests/self-test.test.mjs examples/demo/tests/ui-state.test.mjs examples/demo/tests/layouts.test.mjs examples/demo/tests/setup.test.mjs",

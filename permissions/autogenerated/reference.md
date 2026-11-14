@@ -1,6 +1,6 @@
 ## Default Permission
 
-Read capabilities, permissions and activities. Mutations require explicit grants.
+Read capabilities, permissions, activities and push tokens, and take the openings that wait for the page. Starting, updating and ending an activity require explicit grants.
 
 #### This default permission set includes the following:
 
@@ -9,6 +9,7 @@ Read capabilities, permissions and activities. Mutations require explicit grants
 - `allow-list`
 - `allow-list-layout`
 - `allow-push-tokens`
+- `allow-openings`
 
 ## Permission Table
 
@@ -171,6 +172,32 @@ Enables the list_layout command without any pre-configured scope.
 <td>
 
 Denies the list_layout command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:allow-openings`
+
+</td>
+<td>
+
+Enables the openings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:deny-openings`
+
+</td>
+<td>
+
+Denies the openings command without any pre-configured scope.
 
 </td>
 </tr>
