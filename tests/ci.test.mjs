@@ -53,7 +53,8 @@ test('the changes job starts each job for its paths, and the ios area is what th
   assert.deepEqual(Object.keys(areas().found), ['rust', 'js', 'ios', 'android']);
   const starts = {
     rust: ['src/lib.rs', 'src/service.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml',
-      'tests/contract.rs', 'examples/demo/src-tauri/src/lib.rs'],
+      'tests/contract.rs', 'examples/demo/src-tauri/src/lib.rs', 'guest-js/types.ts',
+      'android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt'],
     js: ['guest-js/index.ts', 'cli/setup.mjs', 'tools/sync-contract.mjs', 'tests/api.test.mjs',
       'tests/release/release-guard.test.mjs', 'tests/jsx/elements.tsx', 'tests/declarations/members.ts',
       'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/src/main.ts',
@@ -67,7 +68,8 @@ test('the changes job starts each job for its paths, and the ios area is what th
       'Cargo.toml', 'Cargo.lock', 'src/android.rs', 'src/bridge.rs', 'src/lib.rs', 'build.rs'],
   };
   const not = {
-    rust: ['cli/setup.mjs', 'guest-js/index.ts', 'tests/api.test.mjs', 'tests/ios/run.sh', 'docs/spec.md'],
+    rust: ['cli/setup.mjs', 'guest-js/index.ts', 'tests/api.test.mjs', 'tests/ios/run.sh', 'docs/spec.md',
+      'android/build.gradle.kts', 'android/src/androidTest/AndroidManifest.xml'],
     js: ['tests/ios/run.sh', 'tests/ci/cache.sh', 'docs/spec.md', 'README.md'],
     ios: ['tests/api.test.mjs', 'tests/contract.rs', 'tests/ci.test.mjs', 'android/build.gradle.kts', 'docs/spec.md', 'README.md'],
     android: ['guest-js/index.ts', 'tests/ios/run.sh', 'tests/api.test.mjs'],
@@ -90,6 +92,13 @@ test('the changes job starts each job for its paths, and the ios area is what th
   for (const path of git('ls-files')) {
     if (found.rust.test(path) || found.android.test(path)) assert.ok(found.js.test(path), `${path} → js`);
   }
+  // And the Rust tests read the TypeScript types and the Kotlin, where the error codes of the three languages are
+  // one list: what they read starts the Rust jobs.
+  const readByRust = [...read('src/types_tests.rs').matchAll(/\b(?:source|raised)\(\s*"([^"]+)"/g)].map(([, path]) => path);
+  assert.deepEqual(readByRust, ['guest-js/types.ts', 'android/src/main']);
+  const kotlin = git('ls-files', '--', ...readByRust);
+  assert.ok(kotlin.length > 5, String(kotlin.length));
+  for (const path of kotlin) assert.ok(found.rust.test(path), `${path} → rust`);
   assert.match(workflow, /if: needs\.changes\.outputs\.rust == 'true' \|\| needs\.changes\.outputs\.js == 'true' \|\| needs\.changes\.outputs\.ios == 'true'\n\s+runs-on: macos-/);
   // The simulator jobs run only in a run started by hand with `simulator` on: a push or a pull request never starts them.
   const byHand = "if: github.event_name == 'workflow_dispatch' && inputs.simulator && needs.changes.outputs.ios == 'true'";

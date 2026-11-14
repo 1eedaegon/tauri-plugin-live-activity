@@ -63,7 +63,9 @@ jobs:
           # The workflows and the fixtures every language reads concern every part.
           if grep -qE '^(\.github/workflows/|tests/fixtures/|contracts/)' <<< "$files"; then all "workflow or shared fixtures"; exit 0; fi
           area() { grep -qE "$2" <<< "$files" && echo "$1=true" >> "$GITHUB_OUTPUT" || echo "$1=false" >> "$GITHUB_OUTPUT"; }
-          area rust '^(src/|build\.rs$|Cargo\.(toml|lock)$|permissions/|tests/[^/]+\.rs$|examples/demo/src-tauri/)'
+          # The Rust tests read the TypeScript types and the Kotlin as text (src/types_tests.rs: the error codes of the
+          # three languages are one list), so those start the Rust jobs too.
+          area rust '^(src/|build\.rs$|Cargo\.(toml|lock)$|permissions/|tests/[^/]+\.rs$|examples/demo/src-tauri/|guest-js/types\.ts$|android/src/main/)'
           # tests/jsx and tests/declarations hold the TypeScript that node tests compile. The node tests also read the
           # Rust and the Kotlin as text (the commands of both sides, the names of the plugin's files, the copy of
           # liveupdate's adapter against the crate that Cargo.lock names, the permissions that setup grants), so they
