@@ -16,7 +16,7 @@ include = [
     "/android/build.gradle.kts", "/android/consumer-rules.pro", "/android/src/main/**",
     "/Cargo.toml", "/Cargo.lock", "/LICENSE*", "/README.md",
     "/docs/ios-integration.md", "/docs/android-integration.md",
-    "/tests/contract.rs", "/tests/fixtures/requests.json",
+    "/tests/contract.rs",
 ]
 
 [dependencies]
