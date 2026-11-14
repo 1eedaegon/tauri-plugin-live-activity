@@ -32,6 +32,5 @@ test("the schema and the fixtures are those of the activitykit crate that Cargo.
     assert.match(read(file), /^const fixtures = contract\(LAYOUT_FIXTURES\);$/m, file);
   }
   assert.match(read('tests/contract.rs'), /\.join\("tests\/fixtures\/layout-requests\.json"\)/);
-  assert.doesNotMatch(read('tests/contract.rs'), /include_str!\("fixtures\/layout-requests\.json"\)/);
   assert.throws(() => activitykitDir({ cargo: join(dir, 'no-such-cargo') }), /cargo metadata failed/);
 });

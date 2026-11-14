@@ -129,7 +129,11 @@ fn layout_fixtures() -> &'static Value {
             .current_dir(env!("CARGO_MANIFEST_DIR"))
             .output()
             .expect("cargo answers its metadata");
-        assert!(metadata.status.success(), "cargo metadata failed");
+        assert!(
+            metadata.status.success(),
+            "cargo metadata failed: {}",
+            String::from_utf8_lossy(&metadata.stderr)
+        );
         let metadata: Value = serde_json::from_slice(&metadata.stdout).unwrap();
         let manifest = metadata["packages"]
             .as_array()

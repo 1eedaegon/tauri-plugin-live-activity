@@ -69,8 +69,9 @@ jobs:
           # tests/jsx and tests/declarations hold the TypeScript that node tests compile. The node tests also read the
           # Rust and the Kotlin as text (the commands of both sides, the names of the plugin's files, the copy of
           # liveupdate's adapter against the crate that Cargo.lock names, the permissions that setup grants), so they
-          # run for whatever starts the Rust or the Android job too.
-          area js '^(guest-js/|cli/|tools/|tests/[^/]+\.(mjs|rs)$|tests/(release|jsx|declarations|android)/|package(-lock)?\.json$|tsconfig\.json$|examples/demo/|src/|android/|build\.rs$|Cargo\.(toml|lock)$|permissions/)'
+          # run for whatever starts the Rust or the Android job too. And for `contracts/`, a folder that is gone: a copy
+          # of activitykit's schema that comes back there is refused by a node test.
+          area js '^(contracts/|guest-js/|cli/|tools/|tests/[^/]+\.(mjs|rs)$|tests/(release|jsx|declarations|android)/|package(-lock)?\.json$|tsconfig\.json$|examples/demo/|src/|android/|build\.rs$|Cargo\.(toml|lock)$|permissions/)'
           # iOS is what the simulator suites read, as tests/ci/cache.sh lists it: the plugin's Rust on activitykit
           # (Cargo.lock holds activitykit's version), the TypeScript API, setup, the tools of the demo's build, the demo,
           # the UI tests and the CI scripts.
