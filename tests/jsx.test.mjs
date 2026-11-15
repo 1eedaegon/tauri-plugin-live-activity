@@ -11,7 +11,7 @@ import {
 } from '../dist-js/jsx/index.js';
 import { jsx, jsxs } from '../dist-js/jsx/jsx-runtime.js';
 import { jsxDEV } from '../dist-js/jsx/jsx-dev-runtime.js';
-import { validateRequest } from '../tools/validate-request.mjs';
+import { keep } from './typescript-requests.mjs';
 import { layoutExamples } from '../examples/demo/src/layouts.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -216,24 +216,18 @@ test('a fragment neither loads nor bundles', async () => {
   assert.match(bundled.stderr, /No matching export in "dist-js\/jsx\/jsx-runtime\.js" for import "Fragment"/);
 });
 
-// TP-JSX-5
-test("the demo's buttons example in TSX is the builders' request and passes the reference validator", async () => {
+// TP-JSX-5, TP-CONTRACT-9
+test("a layout written in TSX is the builders' request, and is kept for Rust to judge", async (t) => {
   const compiled = spawnSync(tsc, ['-p', join(fixtures, 'tsconfig.json')], { encoding: 'utf8' });
   assert.equal(compiled.status, 0, compiled.stdout + compiled.stderr);
+  // The lock screen of the demo's buttons example.
   const { lockScreen } = await import(join(fixtures, 'out/buttons.js'));
-  const example = layoutExamples.find(({ id }) => id === 'buttons');
-  const built = example.start(0);
-  const written = { ...built, layout: { ...built.layout, lockScreen } };
-  assert.deepEqual(written, built);
-  assert.deepEqual(validateRequest({ command: 'start_layout', input: JSON.parse(JSON.stringify(written)) }), { valid: true, issues: [] });
-});
-
-// TP-JSX-5
-test('a lock screen in TSX with a link, a toggle and the members any node may carry passes the reference validator', async () => {
-  const compiled = spawnSync(tsc, ['-p', join(fixtures, 'tsconfig.json')], { encoding: 'utf8' });
-  assert.equal(compiled.status, 0, compiled.stdout + compiled.stderr);
+  const buttons = layoutExamples.find(({ id }) => id === 'buttons').start(0);
+  const written = { ...buttons, layout: { ...buttons.layout, lockScreen } };
+  assert.deepEqual(written, buttons);
+  // A lock screen with a link, a toggle and the members any node may carry.
   const { recorder } = await import(join(fixtures, 'out/elements.js'));
-  const built = vstack([
+  assert.deepEqual(recorder, vstack([
     hstack([
       symbol('mic.fill', { accessibility: { hidden: true } }),
       bound('elapsed', { ifStale: false, privacy: 'sensitive' }),
@@ -246,20 +240,17 @@ test('a lock screen in TSX with a link, a toggle and the members any node may ca
       link('myapp://recordings', symbol('list.bullet', { accessibility: { label: 'All recordings' } })),
       button('stop', text('Stop')),
     ], { spacing: 8 }),
-  ], { spacing: 8, accessibility: { label: 'Recorder' } });
-  assert.deepEqual(recorder, built);
+  ], { spacing: 8, accessibility: { label: 'Recorder' } }));
   const values = { elapsed: '0:42', level: 0.4, percent: '40 percent', muted: false, target: 'myapp://recordings/7' };
-  const request = (lockScreen, given = values) => ({
-    command: 'start_layout',
-    input: JSON.parse(JSON.stringify({
-      activityKey: 'recorder:7', schemaVersion: 2, fallback: 'notification', layout: { lockScreen, url: bind('target') },
-      snapshot: { revision: 0, values: given, staleAt: 1_790_000_900_000 },
-    })),
+  const recording = (given) => ({
+    activityKey: 'recorder:7', schemaVersion: 2, fallback: 'notification', layout: { lockScreen: recorder, url: bind('target') },
+    snapshot: { revision: 0, values: { ...values, ...given }, staleAt: 1_790_000_900_000 },
   });
-  assert.deepEqual(validateRequest(request(recorder)), { valid: true, issues: [] });
-  assert.deepEqual(validateRequest(request(recorder)), validateRequest(request(built)));
-  // The validator reads what the elements say: a flag that is no boolean and a target that is no URL are refused.
-  assert.deepEqual(validateRequest(request(recorder, { ...values, muted: 'no', target: 'recordings' })).issues.map(({ path }) => path), [
-    '/input/layout/lockScreen/children/2/children/0/bind', '/input/layout/lockScreen/children/2/children/1/url', '/input/layout/url',
+  keep(t, 'jsx', [
+    { name: "the demo's buttons example, its lock screen written in TSX", command: 'start_layout', input: written },
+    { name: 'a lock screen in TSX with a link, a toggle and the members any node may carry', command: 'start_layout', input: recording() },
+    // Rust reads what the elements say: a flag that is no boolean and a target that is no URL are refused.
+    { name: 'that lock screen with a flag that is no boolean', command: 'start_layout', input: recording({ muted: 'no' }), code: 'INVALID_INPUT' },
+    { name: 'that lock screen with a target that is no URL', command: 'start_layout', input: recording({ target: 'recordings' }), code: 'INVALID_INPUT' },
   ]);
 });

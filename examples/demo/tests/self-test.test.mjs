@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { validateRequest } from '../../../tools/validate-request.mjs';
+import { keep } from '../../../tests/typescript-requests.mjs';
 import { runLifecycleChecks } from '../src/self-test.ts';
 
 const snapshot = { revision: 0, title: 'Integration test', status: 'Starting', progress: 0.1 };
@@ -129,13 +129,11 @@ test('runs start/update/end and generation safety checks through the supplied pu
   const nodes = harness.calls.slice(23, 26).map(({ input }) => input);
   assert.deepEqual(nodes[0].layout.lockScreen.children.map(node => [node.type, node.ifStale]),
     [['text', false], ['text', true], ['toggle', undefined], ['link', undefined]]);
-  assert.deepEqual(validateRequest({ command: 'start_layout', input: nodes[0] }), { valid: true, issues: [] });
   assert.equal(nodes[1].snapshot.values.muted, true);
   assert.deepEqual(nodes[2], { id: 'layout-nodes', policy: { kind: 'immediate' } });
   // A start ten minutes ahead, the same start for another time, an update, the list and the end.
   const later = harness.calls.slice(26).map(({ method, input }) => [method, input]);
   assert.ok(later[0][1].scheduled.at > Date.now() + 500_000);
-  assert.deepEqual(validateRequest({ command: 'start_layout', input: later[0][1] }), { valid: true, issues: [] });
   assert.equal(later[1][1].activityKey, later[0][1].activityKey);
   assert.equal(later[1][1].scheduled.at, later[0][1].scheduled.at + 60_000);
   assert.deepEqual(later.slice(2).map(([method]) => method), ['updateLayout', 'listLayout', 'endLayout']);
@@ -186,6 +184,41 @@ test('ends a layout on Android with the default policy, which Android takes, and
   assert.match(failed.error, /STALE_REVISION/);
   assert.deepEqual(failing.calls.at(-1).input, { id: 'layout-1', policy: { kind: 'immediate' } });
   assert.equal(failing.consumed(), true);
+});
+
+/** The command that each function of the API invokes with a request. */
+const COMMANDS = {
+  start: 'start', update: 'update', end: 'end', startLayout: 'start_layout', updateLayout: 'update_layout', endLayout: 'end_layout',
+};
+
+// TP-CONTRACT-9
+test('every request of the lifecycle test, on iOS and on Android, is kept for Rust to judge', async (t) => {
+  // The run reads the clock for the times it asks for: an end after a time, and a scheduled start.
+  t.mock.timers.enable({ apis: ['Date'], now: 1_800_000_000_000 });
+  // A request that was sent before, after the same start, is kept once, under the name of its first sending.
+  const cases = new Map();
+  for (const [platform, steps] of [['iOS', passingSteps()], ['Android', androidSteps()]]) {
+    const harness = scripted(steps);
+    const report = await runLifecycleChecks(harness.api, 'test');
+    assert.equal(report.status, 'passed', JSON.stringify(report));
+    // The id that a layout start of this run answered, with the name of that start: Rust judges what follows a
+    // start against it.
+    const started = new Map();
+    harness.calls.forEach(({ method, input }, index) => {
+      // A read sends no request.
+      if (input === undefined) return;
+      const after = started.get(input.id);
+      const request = JSON.stringify([method, input, after]);
+      const kept = cases.get(request) ?? { name: `on ${platform}, call ${index + 1}: ${method}`, command: COMMANDS[method], input, after };
+      cases.set(request, kept);
+      const answered = steps[index].result?.id;
+      if (method === 'startLayout' && answered !== undefined && !started.has(answered)) started.set(answered, kept.name);
+    });
+  }
+  const kept = [...cases.values()];
+  // Every update and end of a layout follows a start of the run, the end with final content among them.
+  for (const { name, command, after } of kept) assert.equal(after !== undefined, ['update_layout', 'end_layout'].includes(command), name);
+  keep(t, 'demo-self-test', kept);
 });
 
 test('marks unsupported platforms separately without pretending a native test passed', async () => {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { keep } from '../../../tests/typescript-requests.mjs';
 import { permissionAction, permissionFeedback, selectCurrent } from '../src/ui-state.ts';
 import { startMochiActivity, advanceMochiActivity, snackStage, countdown, selectMochiActivity } from '../src/mochi.ts';
 
@@ -92,4 +93,23 @@ test('invalid nap durations are rejected before constructing a native request', 
   for (const minutes of [0, -1, Number.NaN, 0.5, 120]) {
     assert.throws(() => startMochiActivity('nap', 100, minutes));
   }
+});
+
+// TP-CONTRACT-9
+test("the requests of Mochi's snack and nap are kept for Rust to judge", (t) => {
+  const now = 1_800_000_000_000;
+  const update = (snapshot) => ({ id: 'handle', snapshot });
+  const snack = startMochiActivity('snack', now, 5);
+  const onTheWay = advanceMochiActivity(snack);
+  const home = advanceMochiActivity({ snapshot: onTheWay });
+  // The shortest and the longest nap that a start takes.
+  const [short, long] = [1, 60].map((minutes) => startMochiActivity('nap', now, minutes));
+  keep(t, 'demo-templates', [
+    { name: 'the snack starts', command: 'start', input: snack },
+    { name: 'the snack is on its way', command: 'update', input: update(onTheWay) },
+    { name: 'the snack is home', command: 'update', input: update(home) },
+    { name: 'a nap of one minute starts', command: 'start', input: short },
+    { name: 'a nap of an hour starts', command: 'start', input: long },
+    { name: 'the nap of an hour is a minute longer', command: 'update', input: update(advanceMochiActivity(long)) },
+  ]);
 });

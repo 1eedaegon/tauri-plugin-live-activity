@@ -1,0 +1,453 @@
+[
+  {
+    "name": "the demo's buttons example, its lock screen written in TSX",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:buttons",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "cat.fill",
+                  "style": "icon"
+                },
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            },
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "button",
+                  "actionId": "pet",
+                  "child": {
+                    "type": "text",
+                    "value": "Pet Mochi"
+                  },
+                  "style": "action"
+                },
+                {
+                  "type": "button",
+                  "actionId": "done",
+                  "child": {
+                    "type": "text",
+                    "value": "All done"
+                  },
+                  "style": "quiet"
+                }
+              ],
+              "spacing": 8
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 8,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "icon": {
+          "size": 20,
+          "color": "#C9654D"
+        },
+        "action": {
+          "buttonStyle": "borderedProminent",
+          "tint": "#C9654D"
+        },
+        "quiet": {
+          "buttonStyle": "bordered",
+          "tint": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi wants attention",
+          "status": "No pets yet",
+          "pets": 0
+        }
+      }
+    }
+  },
+  {
+    "name": "a lock screen in TSX with a link, a toggle and the members any node may carry",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "recorder:7",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "mic.fill",
+                  "accessibility": {
+                    "hidden": true
+                  }
+                },
+                {
+                  "type": "text",
+                  "bind": "elapsed",
+                  "ifStale": false,
+                  "privacy": "sensitive"
+                },
+                {
+                  "type": "text",
+                  "value": "Paused",
+                  "ifStale": true,
+                  "transition": "opacity"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "progress",
+              "bind": "level",
+              "accessibility": {
+                "label": "Input level",
+                "value": {
+                  "bind": "percent"
+                }
+              }
+            },
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "toggle",
+                  "actionId": "mute",
+                  "bind": "muted",
+                  "child": {
+                    "type": "text",
+                    "value": "Mute"
+                  }
+                },
+                {
+                  "type": "link",
+                  "url": {
+                    "bind": "target"
+                  },
+                  "child": {
+                    "type": "text",
+                    "value": "Open"
+                  }
+                },
+                {
+                  "type": "link",
+                  "url": "myapp://recordings",
+                  "child": {
+                    "type": "symbol",
+                    "name": "list.bullet",
+                    "accessibility": {
+                      "label": "All recordings"
+                    }
+                  }
+                },
+                {
+                  "type": "button",
+                  "actionId": "stop",
+                  "child": {
+                    "type": "text",
+                    "value": "Stop"
+                  }
+                }
+              ],
+              "spacing": 8
+            }
+          ],
+          "spacing": 8,
+          "accessibility": {
+            "label": "Recorder"
+          }
+        },
+        "url": {
+          "bind": "target"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "elapsed": "0:42",
+          "level": 0.4,
+          "percent": "40 percent",
+          "muted": false,
+          "target": "myapp://recordings/7"
+        },
+        "staleAt": 1790000900000
+      }
+    }
+  },
+  {
+    "name": "that lock screen with a flag that is no boolean",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "recorder:7",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "mic.fill",
+                  "accessibility": {
+                    "hidden": true
+                  }
+                },
+                {
+                  "type": "text",
+                  "bind": "elapsed",
+                  "ifStale": false,
+                  "privacy": "sensitive"
+                },
+                {
+                  "type": "text",
+                  "value": "Paused",
+                  "ifStale": true,
+                  "transition": "opacity"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "progress",
+              "bind": "level",
+              "accessibility": {
+                "label": "Input level",
+                "value": {
+                  "bind": "percent"
+                }
+              }
+            },
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "toggle",
+                  "actionId": "mute",
+                  "bind": "muted",
+                  "child": {
+                    "type": "text",
+                    "value": "Mute"
+                  }
+                },
+                {
+                  "type": "link",
+                  "url": {
+                    "bind": "target"
+                  },
+                  "child": {
+                    "type": "text",
+                    "value": "Open"
+                  }
+                },
+                {
+                  "type": "link",
+                  "url": "myapp://recordings",
+                  "child": {
+                    "type": "symbol",
+                    "name": "list.bullet",
+                    "accessibility": {
+                      "label": "All recordings"
+                    }
+                  }
+                },
+                {
+                  "type": "button",
+                  "actionId": "stop",
+                  "child": {
+                    "type": "text",
+                    "value": "Stop"
+                  }
+                }
+              ],
+              "spacing": 8
+            }
+          ],
+          "spacing": 8,
+          "accessibility": {
+            "label": "Recorder"
+          }
+        },
+        "url": {
+          "bind": "target"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "elapsed": "0:42",
+          "level": 0.4,
+          "percent": "40 percent",
+          "muted": "no",
+          "target": "myapp://recordings/7"
+        },
+        "staleAt": 1790000900000
+      }
+    },
+    "code": "INVALID_INPUT"
+  },
+  {
+    "name": "that lock screen with a target that is no URL",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "recorder:7",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "mic.fill",
+                  "accessibility": {
+                    "hidden": true
+                  }
+                },
+                {
+                  "type": "text",
+                  "bind": "elapsed",
+                  "ifStale": false,
+                  "privacy": "sensitive"
+                },
+                {
+                  "type": "text",
+                  "value": "Paused",
+                  "ifStale": true,
+                  "transition": "opacity"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "progress",
+              "bind": "level",
+              "accessibility": {
+                "label": "Input level",
+                "value": {
+                  "bind": "percent"
+                }
+              }
+            },
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "toggle",
+                  "actionId": "mute",
+                  "bind": "muted",
+                  "child": {
+                    "type": "text",
+                    "value": "Mute"
+                  }
+                },
+                {
+                  "type": "link",
+                  "url": {
+                    "bind": "target"
+                  },
+                  "child": {
+                    "type": "text",
+                    "value": "Open"
+                  }
+                },
+                {
+                  "type": "link",
+                  "url": "myapp://recordings",
+                  "child": {
+                    "type": "symbol",
+                    "name": "list.bullet",
+                    "accessibility": {
+                      "label": "All recordings"
+                    }
+                  }
+                },
+                {
+                  "type": "button",
+                  "actionId": "stop",
+                  "child": {
+                    "type": "text",
+                    "value": "Stop"
+                  }
+                }
+              ],
+              "spacing": 8
+            }
+          ],
+          "spacing": 8,
+          "accessibility": {
+            "label": "Recorder"
+          }
+        },
+        "url": {
+          "bind": "target"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "elapsed": "0:42",
+          "level": 0.4,
+          "percent": "40 percent",
+          "muted": false,
+          "target": "recordings"
+        },
+        "staleAt": 1790000900000
+      }
+    },
+    "code": "INVALID_INPUT"
+  }
+]

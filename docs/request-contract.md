@@ -1,15 +1,21 @@
 # Request contract
 
 Contract v1 is the request input used since `0.1.0-alpha.1`. 0.2.0 leaves it unchanged
-and adds [contract v2](#request-contract-v2-layout) for layouts. Its eleven fixtures are
-`tests/fixtures/requests.json`: the reference validator's tests run them here, and liveactivity's
-Rust tests run a byte copy of them, so a change goes to both.
-`tools/validate-request.mjs` is the reference implementation, for development only. Since 0.5
-the schema is the activitykit crate's
+and adds [contract v2](#request-contract-v2-layout) for layouts. Its eleven fixtures are the
+liveactivity crate's
+([`tests/fixtures/requests.json`](https://github.com/1eedaegon/liveactivity-rs/blob/main/crates/liveactivity/tests/fixtures/requests.json)),
+whose Rust tests run them. Since 0.5 the schema is the activitykit crate's
 ([`contracts/request.schema.json`](https://github.com/1eedaegon/activitykit-rs/blob/main/contracts/request.schema.json)),
-which also holds contract v2; the plugin keeps no copy and reads it from the crate. The contract
+which also holds contract v2; the plugin keeps no copy and runs none. The contract
 that the plugin carries is the [liveactivity](https://github.com/1eedaegon/liveactivity-rs) crate's,
 on which the plugin runs: it takes [three members beside that schema](#beside-the-schema).
+
+A request is checked in Rust, by that crate, in every command. The plugin has no validator in
+JavaScript: through 0.8.0 its tests ran one, `tools/validate-request.mjs`, which is gone. Requests
+that the plugin's own TypeScript builds are kept as JSON under `tests/fixtures/typescript` and
+judged by the Rust checks (`tests/typescript_requests.rs`): what the React entry sends, the layouts
+written in TSX, and of the demo its template activities, its layout examples with their updates
+and its lifecycle test. A request that an app builds is judged when its command runs.
 
 ## Format
 
@@ -63,13 +69,12 @@ accepts is checked natively; passing the schema does not mean the OS supports th
   only for a known ended activity; an unknown handle gets `NOT_FOUND`.
 
 Concurrency, restarts and idempotency are tested in the Rust and native layers, which
-hold the state. The development validator checks input only and has no lifecycle; native
-tests cover the lifecycle.
+hold the state.
 
 ## Who checks what
 
-JSON Schema checks shape, length, range and the template match. The reference tool also
-checks the order of the timer times. liveactivity's Rust tests apply the same rules to the same fixtures.
+JSON Schema checks shape, length, range and the template match; the order of the timer times is
+beyond it. liveactivity's Rust checks all of these, and its tests hold the rules with the fixtures.
 The Rust that checks a request is the liveactivity crate's; the plugin's commands hand every
 request to it and keep no validator of their own. On iOS it checks a v1 request, turns it into a
 layout activity ([below](#the-templates-on-ios)) and checks that as a v2 request; activitykit's
@@ -124,17 +129,17 @@ its error code. A third list, `updates`, holds a `start` and the `update` after 
 checks the way the native layer checks an update against the activity it started; a valid pair
 states the weight of the layout, the styles and the new values, and an invalid one its error code.
 A fourth list, `ends`, holds a `start` and an `end_layout` with final content, checked the same way.
-Both files are activitykit's, and the plugin keeps no copy of them: its validator and its tests read them
+Both files are activitykit's, and the plugin keeps no copy of them: its tests read the fixtures
 from the activitykit that the plugin's `Cargo.lock` names, in the folder where cargo has that crate
-(`node tools/activitykit.mjs` prints it; `tests/contract-files.test.mjs`). Change the contract in
-activitykit, not here. Most cases use
+(`node tools/activitykit.mjs` prints it; `tests/contract-files.test.mjs`), and run no schema. Change
+the contract in activitykit, not here. Most cases use
 `start_layout`, `update_layout` or `end_layout`. A few invalid cases send a body to the
 v1 `start` or `update` command, and a runner passes those to its v1 validator. Two use command
 names that the envelope does not take: `startLayout`, the JavaScript function name, and
 `list_layout`, which takes no input. A runner answers both with `INVALID_INPUT`. An `input` that
 is not an object, such as `null`, an array or a string, is `INVALID_INPUT` as well. The verdict,
-the error code and the weight are the contract; the issue list of `tools/validate-request.mjs`
-only helps to find the broken rule.
+the error code and the weight are the contract. A refusal says no more than its code: the message
+is the same text for every broken rule, and names neither the rule nor the place.
 
 The three Tauri commands take `{ input: ... }`; `list_layout` takes no input.
 
@@ -251,11 +256,10 @@ everywhere or nowhere:
 
 The presentation is liveupdate's own type, and liveupdate's Rust checks it in full: the styles
 `standard`, `bigText`, `progress`, `timer` and `metric`, a chip text of at most 7 code points, up
-to three actions and the rest ([usage](usage.md#android-content)). The reference tool checks the
-outline only: the three members, the two texts and a known `style.kind`. `relevance` is the
+to three actions and the rest ([usage](usage.md#android-content)). `relevance` is the
 example of an unknown member in one of activitykit's fixtures (`rejects an unknown member in the
-final content`); that request is valid here, in Rust and in the reference tool, and the fixture
-tests say so by name.
+final content`); that request is valid here, and liveactivity's tests of the fixtures say so by
+name.
 
 `timestamp` is a time by the v1 rule: when the snapshot's content was made. ActivityKit uses it
 from iOS 17.2 to drop content older than what it shows; such a request still succeeds. Without one,
@@ -471,11 +475,11 @@ A style that no node uses and a value that no node reads are allowed. The number
 
 On update, and for the final content of an end, the native layer checks the rules that depend on
 values again, ranges and bound members included, against the layout and styles it stored at start.
-Rust and the reference tool check an update or an end alone, since they keep no layout;
-`LayoutStartInput::validate_update` and `validate_end` in Rust and `validateLayoutUpdate` and
-`validateLayoutEnd` in `tools/validate-request.mjs` apply the native check to a start and the
-request after it that the caller passes. The `updates` and `ends` fixtures run through both: in
-liveactivity's tests for the Rust, in the reference validator's tests here.
+Rust's `validate_request` checks an update or an end alone, since it keeps no layout;
+`LayoutStartInput::validate_update` and `validate_end` apply the native check to a start and the
+request after it that the caller passes. The `updates` and `ends` fixtures run through them in
+liveactivity's tests, and the updates and ends that the plugin's own TypeScript builds in the
+plugin's (`tests/typescript_requests.rs`).
 
 ### Styles
 
@@ -665,11 +669,12 @@ The JSON Schema checks shapes, ranges and patterns, including the characters all
 shape of a binding (`$defs/bound`), the props of a custom node and `fontFamily` beside `design`. It
 leaves the grammar of `d`, `min` below `max`, lone surrogates, the structural limits, the reference
 rules (the values of bound members and the bindings of props among them) and the weight to the
-validators: activitykit's in Rust and Swift, liveactivity's Rust around it and
-`tools/validate-request.mjs`, which check those as well and give the results the fixtures record. The
+validators: activitykit's in Rust and Swift and liveactivity's Rust around it, which check those
+as well and give the results the fixtures record. The
 schema is activitykit's and does not describe `relevance`, `android` or `alert`
-([beside the schema](#beside-the-schema)); a schema of the whole contract would be liveactivity's. The tool checks a request against the definitions of its
-own contract version only, so a v1 request gets the same issues as before v2.
+([beside the schema](#beside-the-schema)); a schema of the whole contract would be liveactivity's.
+The plugin runs no schema: activitykit's own tests run it against the fixtures, on its main since
+[`e8501e4`](https://github.com/1eedaegon/activitykit-rs/commit/e8501e4).
 
 ### Differences from the RFC draft
 

@@ -1,0 +1,402 @@
+[
+  {
+    "name": "on iOS, call 3: start",
+    "command": "start",
+    "input": {
+      "activityKey": "integration:test",
+      "schemaVersion": 1,
+      "template": "progress",
+      "fallback": "notification",
+      "snapshot": {
+        "revision": 0,
+        "title": "Integration test",
+        "status": "Starting",
+        "progress": 0.1
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 5: update",
+    "command": "update",
+    "input": {
+      "id": "generation-1",
+      "snapshot": {
+        "revision": 1,
+        "title": "Integration test",
+        "status": "Updated",
+        "progress": 0.5
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 7: update",
+    "command": "update",
+    "input": {
+      "id": "generation-1",
+      "snapshot": {
+        "revision": 0,
+        "title": "Integration test",
+        "status": "Starting",
+        "progress": 0.1
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 8: update",
+    "command": "update",
+    "input": {
+      "id": "generation-1",
+      "snapshot": {
+        "revision": 1,
+        "title": "Integration test",
+        "status": "Updated",
+        "progress": 0.9
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 10: end",
+    "command": "end",
+    "input": {
+      "id": "generation-1",
+      "policy": {
+        "kind": "immediate"
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 12: update",
+    "command": "update",
+    "input": {
+      "id": "generation-1",
+      "snapshot": {
+        "revision": 2,
+        "title": "Integration test",
+        "status": "Updated",
+        "progress": 0.5
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 14: update",
+    "command": "update",
+    "input": {
+      "id": "generation-1",
+      "snapshot": {
+        "revision": 2,
+        "title": "Integration test",
+        "status": "Starting",
+        "progress": 0.1
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 15: end",
+    "command": "end",
+    "input": {
+      "id": "generation-2",
+      "policy": {
+        "kind": "immediate"
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 16: startLayout",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "integration-layout:test",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "text",
+          "bind": "status"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "status": "Starting"
+        }
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 17: updateLayout",
+    "command": "update_layout",
+    "input": {
+      "id": "layout-1",
+      "snapshot": {
+        "revision": 5,
+        "values": {
+          "status": "Jumped"
+        }
+      }
+    },
+    "after": "on iOS, call 16: startLayout"
+  },
+  {
+    "name": "on iOS, call 18: updateLayout",
+    "command": "update_layout",
+    "input": {
+      "id": "layout-1",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "status": "Old"
+        }
+      }
+    },
+    "after": "on iOS, call 16: startLayout"
+  },
+  {
+    "name": "on iOS, call 19: endLayout",
+    "command": "end_layout",
+    "input": {
+      "id": "layout-1",
+      "policy": {
+        "kind": "after",
+        "at": 1800000001000
+      },
+      "snapshot": {
+        "revision": 6,
+        "values": {
+          "status": "Done"
+        }
+      }
+    },
+    "after": "on iOS, call 16: startLayout"
+  },
+  {
+    "name": "on iOS, call 20: endLayout",
+    "command": "end_layout",
+    "input": {
+      "id": "layout-1",
+      "policy": {
+        "kind": "immediate"
+      }
+    },
+    "after": "on iOS, call 16: startLayout"
+  },
+  {
+    "name": "on iOS, call 21: updateLayout",
+    "command": "update_layout",
+    "input": {
+      "id": "layout-1",
+      "snapshot": {
+        "revision": 7,
+        "values": {
+          "status": "Late"
+        }
+      }
+    },
+    "after": "on iOS, call 16: startLayout"
+  },
+  {
+    "name": "on iOS, call 22: startLayout",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "integration-push:test",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "text",
+          "bind": "status"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "status": "Starting"
+        }
+      },
+      "push": "token"
+    }
+  },
+  {
+    "name": "on iOS, call 24: startLayout",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "integration-nodes:test",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "text",
+              "bind": "status",
+              "ifStale": false
+            },
+            {
+              "type": "text",
+              "value": "Out of date",
+              "ifStale": true
+            },
+            {
+              "type": "toggle",
+              "actionId": "mute",
+              "bind": "muted",
+              "child": {
+                "type": "text",
+                "value": "Mute"
+              }
+            },
+            {
+              "type": "link",
+              "url": "mochi://integration",
+              "child": {
+                "type": "text",
+                "value": "Open"
+              }
+            }
+          ]
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "status": "Starting",
+          "muted": false
+        }
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 25: updateLayout",
+    "command": "update_layout",
+    "input": {
+      "id": "layout-nodes",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "status": "Muted",
+          "muted": true
+        }
+      }
+    },
+    "after": "on iOS, call 24: startLayout"
+  },
+  {
+    "name": "on iOS, call 26: endLayout",
+    "command": "end_layout",
+    "input": {
+      "id": "layout-nodes",
+      "policy": {
+        "kind": "immediate"
+      }
+    },
+    "after": "on iOS, call 24: startLayout"
+  },
+  {
+    "name": "on iOS, call 27: startLayout",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "integration-later:test",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "text",
+          "bind": "status"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "status": "Starting"
+        }
+      },
+      "scheduled": {
+        "at": 1800000600000,
+        "alert": {
+          "title": "Integration test",
+          "body": "A scheduled start began."
+        }
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 28: startLayout",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "integration-later:test",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "text",
+          "bind": "status"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "status": "Starting"
+        }
+      },
+      "scheduled": {
+        "at": 1800000660000,
+        "alert": {
+          "title": "Integration test",
+          "body": "A scheduled start began."
+        }
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 29: updateLayout",
+    "command": "update_layout",
+    "input": {
+      "id": "layout-later",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "status": "Early"
+        }
+      }
+    },
+    "after": "on iOS, call 27: startLayout"
+  },
+  {
+    "name": "on iOS, call 31: endLayout",
+    "command": "end_layout",
+    "input": {
+      "id": "layout-later",
+      "policy": {
+        "kind": "immediate"
+      }
+    },
+    "after": "on iOS, call 27: startLayout"
+  },
+  {
+    "name": "on Android, call 19: endLayout",
+    "command": "end_layout",
+    "input": {
+      "id": "layout-1",
+      "policy": {
+        "kind": "default"
+      },
+      "snapshot": {
+        "revision": 6,
+        "values": {
+          "status": "Done"
+        }
+      }
+    },
+    "after": "on iOS, call 16: startLayout"
+  },
+  {
+    "name": "on Android, call 24: endLayout",
+    "command": "end_layout",
+    "input": {
+      "id": "layout-push",
+      "policy": {
+        "kind": "immediate"
+      }
+    },
+    "after": "on iOS, call 22: startLayout"
+  }
+]

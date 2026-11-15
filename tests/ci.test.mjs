@@ -80,7 +80,9 @@ test('the changes job starts each job for its paths, and the ios area is what th
   for (const [area, paths] of Object.entries(starts)) for (const path of paths) assert.ok(started(path).includes(area), `${path} → ${area}`);
   for (const [area, paths] of Object.entries(not)) for (const path of paths) assert.ok(!started(path).includes(area), `${path} ↛ ${area}`);
   assert.deepEqual(started('docs/usage.md'), []);
-  for (const path of ['tests/fixtures/requests.json', 'tests/fixtures/android/contents.json', '.github/workflows/ci.yml']) {
+  // The fixtures concern every part. Among them are the requests that the TypeScript side builds, which node tests
+  // keep and Rust judges (tests/typescript_requests.rs): one that is written again starts the Rust jobs.
+  for (const path of ['tests/fixtures/typescript/jsx.json', 'tests/fixtures/android/contents.json', '.github/workflows/ci.yml']) {
     assert.deepEqual(started(path), ['rust', 'js', 'ios', 'android'], path);
   }
   // The ios area names exactly the tracked files that the simulator suites read, as cache.sh hashes them.

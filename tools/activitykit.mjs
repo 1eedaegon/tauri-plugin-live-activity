@@ -1,14 +1,14 @@
-// The request contract belongs to the activitykit crate. The plugin keeps no copy of its schema and its fixtures:
-// the tools and tests here read them from the activitykit that Cargo.lock names, in the folder where cargo has it.
-// `node tools/activitykit.mjs` prints that folder.
+// The request contract belongs to the activitykit crate. The plugin keeps no copy of its fixtures, nor of its schema,
+// which nothing here runs: the tests read the fixtures from the activitykit that Cargo.lock names, in the folder
+// where cargo has it, and the demo links that folder for the crate's Swift package. `node tools/activitykit.mjs`
+// prints the folder.
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-/** The files of the contract, by their path in the activitykit crate. */
-export const SCHEMA = 'contracts/request.schema.json';
+/** The layout fixtures of the contract, by their path in the activitykit crate. */
 export const LAYOUT_FIXTURES = 'tests/fixtures/layout-requests.json';
 
 /** The folder of the activitykit crate that the crate of `manifest` builds with, from `cargo metadata`. */

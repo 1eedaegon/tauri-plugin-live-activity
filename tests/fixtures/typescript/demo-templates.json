@@ -1,0 +1,98 @@
+[
+  {
+    "name": "the snack starts",
+    "command": "start",
+    "input": {
+      "activityKey": "mochi:snack:1800000000000",
+      "schemaVersion": 1,
+      "fallback": "notification",
+      "template": "progress",
+      "snapshot": {
+        "revision": 0,
+        "title": "Mochi’s snack delivery",
+        "status": "Packing a tiny treat",
+        "progress": 0.15
+      }
+    }
+  },
+  {
+    "name": "the snack is on its way",
+    "command": "update",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "title": "Mochi’s snack delivery",
+        "status": "On the way to Mochi",
+        "progress": 0.65
+      }
+    }
+  },
+  {
+    "name": "the snack is home",
+    "command": "update",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "title": "Mochi’s snack delivery",
+        "status": "Snack time! Made it home",
+        "progress": 1
+      }
+    }
+  },
+  {
+    "name": "a nap of one minute starts",
+    "command": "start",
+    "input": {
+      "activityKey": "mochi:nap:1800000000000",
+      "schemaVersion": 1,
+      "fallback": "notification",
+      "template": "timer",
+      "snapshot": {
+        "revision": 0,
+        "title": "Mochi’s nap",
+        "status": "A little snooze, a little peace",
+        "timer": {
+          "startedAt": 1800000000000,
+          "endsAt": 1800000060000
+        }
+      }
+    }
+  },
+  {
+    "name": "a nap of an hour starts",
+    "command": "start",
+    "input": {
+      "activityKey": "mochi:nap:1800000000000",
+      "schemaVersion": 1,
+      "fallback": "notification",
+      "template": "timer",
+      "snapshot": {
+        "revision": 0,
+        "title": "Mochi’s nap",
+        "status": "A little snooze, a little peace",
+        "timer": {
+          "startedAt": 1800000000000,
+          "endsAt": 1800003600000
+        }
+      }
+    }
+  },
+  {
+    "name": "the nap of an hour is a minute longer",
+    "command": "update",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "title": "Mochi’s nap",
+        "status": "Just one more minute…",
+        "timer": {
+          "startedAt": 1800000000000,
+          "endsAt": 1800003660000
+        }
+      }
+    }
+  }
+]

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { validateLayoutUpdate, validateRequest } from '../../../tools/validate-request.mjs';
+import { keep } from '../../../tests/typescript-requests.mjs';
 import {
   actionMessage, findLayoutExample, freshFor, layoutExamples, layoutRecordFor, nextLayoutSnapshot, openedMessage,
   runningLayoutExamples, startsIn,
@@ -21,6 +21,18 @@ function nodes(layout) {
 }
 
 const startOf = id => findLayoutExample(id).start(NOW);
+/** How many updates of an example the tests follow. */
+const UPDATES = 4;
+/** The values of the first updates of `example`, each made from the one before it; none when it has no update. */
+function updatesOf(example) {
+  const chain = [];
+  let { values } = example.start(NOW).snapshot;
+  for (let step = 0; example.next !== undefined && step < UPDATES; step += 1) {
+    values = example.next(values);
+    chain.push(values);
+  }
+  return chain;
+}
 const nodesOf = id => nodes(startOf(id).layout);
 const ofType = (id, type) => nodesOf(id).filter(node => node.type === type);
 
@@ -38,13 +50,12 @@ test('offers one example per layout feature, each under its own key', () => {
   }
 });
 
-test('every example starts with a valid contract v2 request that asks for the notification fallback', () => {
+test('every example starts with a contract v2 request that asks for the notification fallback', () => {
   for (const example of layoutExamples) {
     const input = example.start(NOW);
     assert.equal(input.schemaVersion, 2);
     assert.equal(input.fallback, 'notification');
     assert.equal(input.snapshot.revision, 0);
-    assert.deepEqual(validateRequest({ command: 'start_layout', input }), { valid: true, issues: [] }, example.id);
   }
 });
 
@@ -52,18 +63,37 @@ test('updates keep the keys and value types of the start and change what is show
   for (const example of layoutExamples.filter(item => item.next !== undefined)) {
     const first = example.start(NOW).snapshot.values;
     let values = first;
-    for (let step = 0; step < 4; step += 1) {
-      const next = example.next(values);
+    assert.equal(updatesOf(example).length, UPDATES, example.id);
+    for (const next of updatesOf(example)) {
       assert.deepEqual(Object.keys(next).sort(), Object.keys(first).sort(), example.id);
       for (const key of Object.keys(first)) assert.equal(typeof next[key], typeof first[key], `${example.id}.${key}`);
       assert.notDeepEqual(next, values, example.id);
-      const input = { id: 'handle', snapshot: { revision: step + 1, values: next } };
-      assert.deepEqual(validateRequest({ command: 'update_layout', input }), { valid: true, issues: [] }, example.id);
-      // The check the native layer makes against the stored layout and styles.
-      assert.deepEqual(validateLayoutUpdate(example.start(NOW), input), { valid: true, issues: [] }, example.id);
       values = next;
     }
   }
+});
+
+// TP-CONTRACT-9
+test('the start of every example and the updates that follow it are kept for Rust to judge', (t) => {
+  const cases = layoutExamples.flatMap((example) => {
+    const start = { name: `the ${example.id} example starts`, command: 'start_layout', input: example.start(NOW) };
+    // Rust judges each update against the layout and the styles of its start, as the native layer does.
+    const updates = updatesOf(example).map((values, index) => ({
+      name: `the ${example.id} example, update ${index + 1}`, command: 'update_layout',
+      input: { id: 'handle', snapshot: { revision: index + 1, values } }, after: start.name,
+    }));
+    return [start, ...updates];
+  });
+  // A value that a bound member cannot take: a request on its own, and none after the start that binds it, as an
+  // update and as the final content of an end.
+  const { values } = startOf('styles').snapshot;
+  const snapshot = { revision: 1, values: { ...values, tone: 'crimson' } };
+  const refused = { after: 'the styles example starts', code: 'INVALID_INPUT' };
+  keep(t, 'demo-layouts', [
+    ...cases,
+    { name: 'the styles example, an update with a color that is none', command: 'update_layout', input: { id: 'handle', snapshot }, ...refused },
+    { name: 'the styles example, an end with a color that is none', command: 'end_layout', input: { id: 'handle', policy: { kind: 'default' }, snapshot }, ...refused },
+  ]);
 });
 
 test('text binds values, names styles and hides nodes with if and unless', () => {
@@ -181,8 +211,7 @@ test('the scheduled start begins 30 seconds after it is asked for, with an alert
 });
 
 test('the changing styles example binds a color, and an update turns the status red', () => {
-  const input = startOf('styles');
-  const { styles, snapshot: { values } } = input;
+  const { styles, snapshot: { values } } = startOf('styles');
   const status = nodesOf('styles').find(node => node.type === 'text' && node.bind === 'status');
   assert.deepEqual(styles[status.style].color, { bind: 'tone' });
   assert.deepEqual(styles[status.style].weight, { bind: 'weight' });
@@ -197,9 +226,6 @@ test('the changing styles example binds a color, and an update turns the status 
   const home = example.next(late);
   assert.match(home.tone, /^#[0-9A-F]{6}$/);
   assert.deepEqual(example.next(home), values);
-  // A value the bound member cannot take is refused before the native layer.
-  const update = { id: 'handle', snapshot: { revision: 1, values: { ...values, tone: 'crimson' } } };
-  assert.equal(validateLayoutUpdate(input, update).valid, false);
 });
 
 test('the Dynamic Island example fills every region and tints the keyline', () => {

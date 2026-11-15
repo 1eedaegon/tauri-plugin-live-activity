@@ -1,0 +1,63 @@
+[
+  {
+    "name": "the hook's start_layout",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "delivery:42",
+      "schemaVersion": 2,
+      "fallback": "none",
+      "layout": {
+        "lockScreen": {
+          "type": "text",
+          "bind": "status"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "status": "Preparing",
+          "done": 0.1
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16
+        }
+      },
+      "android": {
+        "visibility": "public"
+      },
+      "ios": {
+        "transient": true
+      },
+      "push": "token"
+    }
+  },
+  {
+    "name": "the hook's update_layout",
+    "command": "update_layout",
+    "input": {
+      "id": "activity-1",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "status": "On the way",
+          "done": 0.6
+        }
+      }
+    },
+    "after": "the hook's start_layout"
+  },
+  {
+    "name": "the hook's end_layout",
+    "command": "end_layout",
+    "input": {
+      "id": "activity-1",
+      "policy": {
+        "kind": "after",
+        "at": 1900000000000
+      }
+    },
+    "after": "the hook's start_layout"
+  }
+]

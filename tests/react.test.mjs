@@ -6,6 +6,7 @@ import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { emit } from '@tauri-apps/api/event';
 import { useLiveActivity } from '../dist-js/react/index.js';
 import { Session } from '../dist-js/react/session.js';
+import { keep } from './typescript-requests.mjs';
 
 // The event mock draws its listener ids from window.crypto.
 globalThis.window = { crypto: globalThis.crypto };
@@ -282,6 +283,24 @@ test('enabled false ends the activity and true starts it again', async () => {
   const never = await mount(options({ enabled: false }));
   assert.deepEqual(idle.calls, []);
   assert.equal(never.state.status, 'idle');
+});
+
+// TP-CONTRACT-9
+test('what the hook sends, a start with every option, an update and an end, is kept for Rust to judge', async (t) => {
+  const native = plugin();
+  const every = {
+    styles: { card: { padding: 16 } }, fallback: 'none', android: { visibility: 'public' }, ios: { transient: true }, push: 'token',
+    endPolicy: { kind: 'after', at: 1_900_000_000_000 },
+  };
+  const view = await mount(options(every));
+  await view.rerender(options({ ...every, values: { status: 'On the way', done: 0.6 } }));
+  await view.unmount();
+  // A read sends no request.
+  const [start, ...following] = native.calls.filter(({ input }) => input !== undefined)
+    .map(({ name, input }) => ({ name: `the hook's ${name}`, command: name, input }));
+  assert.deepEqual([start, ...following].map(({ command }) => command), ['start_layout', 'update_layout', 'end_layout']);
+  // Rust judges the update and the end against the start, as the native layer does.
+  keep(t, 'react', [start, ...following.map((request) => ({ ...request, after: start.name }))]);
 });
 
 // TP-REACT-4
