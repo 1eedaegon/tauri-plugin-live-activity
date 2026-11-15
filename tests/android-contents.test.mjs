@@ -7,7 +7,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { validateRequest } from '../tools/validate-request.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (path) => readFileSync(join(root, path), 'utf8');
@@ -118,14 +117,6 @@ test('the TypeScript declarations take every Android content of the fixture and 
 test('the types that compare a declaration with a fixture give what members.check.ts says of a small type', () => {
   const compiled = compile(join(root, 'tests/declarations/members.check.ts'));
   assert.equal(compiled.status, 0, compiled.stdout + compiled.stderr);
-});
-
-// TP-CONTRACT-8
-test('the reference validator takes every Android content of the fixture in a snapshot', () => {
-  for (const { name, content } of cases) {
-    const request = { command: 'update_layout', input: { id: 'opaque-handle-1', snapshot: { revision: 1, values: { title: 'Mochi' }, android: content } } };
-    assert.deepEqual(validateRequest(request), { valid: true, issues: [] }, name);
-  }
 });
 
 // TP-ANDROID-14

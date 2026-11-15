@@ -1,0 +1,2391 @@
+[
+  {
+    "name": "the text example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:text",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "text",
+              "bind": "title",
+              "style": "title"
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status",
+              "unless": "arrived"
+            },
+            {
+              "type": "text",
+              "value": "Snack time! Made it home",
+              "style": "done",
+              "if": "arrived"
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 4,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "done": {
+          "font": "subheadline",
+          "weight": "bold",
+          "color": "#C9654D"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Packing a tiny treat",
+          "arrived": false
+        }
+      }
+    }
+  },
+  {
+    "name": "the text example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On the way to Mochi",
+          "arrived": false
+        }
+      }
+    },
+    "after": "the text example starts"
+  },
+  {
+    "name": "the text example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On the way to Mochi",
+          "arrived": true
+        }
+      }
+    },
+    "after": "the text example starts"
+  },
+  {
+    "name": "the text example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Packing a tiny treat",
+          "arrived": false
+        }
+      }
+    },
+    "after": "the text example starts"
+  },
+  {
+    "name": "the text example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On the way to Mochi",
+          "arrived": false
+        }
+      }
+    },
+    "after": "the text example starts"
+  },
+  {
+    "name": "the symbols example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:symbols",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "hstack",
+          "children": [
+            {
+              "type": "symbol",
+              "name": "cat.fill",
+              "style": "icon"
+            },
+            {
+              "type": "symbol",
+              "name": "heart.fill",
+              "rendering": "multicolor",
+              "style": "icon"
+            },
+            {
+              "type": "symbol",
+              "name": "speaker.wave.3.fill",
+              "rendering": "hierarchical",
+              "variableBind": "purr",
+              "style": "level"
+            },
+            {
+              "type": "vstack",
+              "children": [
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                },
+                {
+                  "type": "text",
+                  "bind": "status",
+                  "style": "status"
+                }
+              ],
+              "alignment": "leading",
+              "spacing": 2
+            }
+          ],
+          "spacing": 12,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "icon": {
+          "size": 26,
+          "color": "#C9654D"
+        },
+        "level": {
+          "size": 26,
+          "color": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Purr meter",
+          "status": "A soft purr",
+          "purr": 0.35
+        }
+      }
+    }
+  },
+  {
+    "name": "the symbols example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Purr meter",
+          "status": "Purring nicely",
+          "purr": 0.7
+        }
+      }
+    },
+    "after": "the symbols example starts"
+  },
+  {
+    "name": "the symbols example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Purr meter",
+          "status": "Full purr engine",
+          "purr": 1
+        }
+      }
+    },
+    "after": "the symbols example starts"
+  },
+  {
+    "name": "the symbols example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Purr meter",
+          "status": "A soft purr",
+          "purr": 0.35
+        }
+      }
+    },
+    "after": "the symbols example starts"
+  },
+  {
+    "name": "the symbols example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Purr meter",
+          "status": "Purring nicely",
+          "purr": 0.7
+        }
+      }
+    },
+    "after": "the symbols example starts"
+  },
+  {
+    "name": "the image example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:image",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "hstack",
+          "children": [
+            {
+              "type": "image",
+              "source": {
+                "asset": "mochi"
+              },
+              "resizable": true,
+              "contentMode": "fit",
+              "style": "portrait"
+            },
+            {
+              "type": "vstack",
+              "children": [
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                },
+                {
+                  "type": "text",
+                  "bind": "status",
+                  "style": "status"
+                }
+              ],
+              "alignment": "leading",
+              "spacing": 2
+            }
+          ],
+          "spacing": 12,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "portrait": {
+          "frame": {
+            "width": 56,
+            "height": 56
+          }
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s portrait",
+          "status": "Hello from the asset catalog"
+        }
+      }
+    }
+  },
+  {
+    "name": "the paths example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:paths",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "hstack",
+          "children": [
+            {
+              "type": "zstack",
+              "children": [
+                {
+                  "type": "path",
+                  "d": "M14 40C12 32 11 22 14 14Q15 11 18 13L35 27Q50 23 65 27L82 13Q85 11 86 14C89 22 88 32 86 40C93 48 94 61 87 71C79 81 66 85 50 85C34 85 21 81 13 71C6 61 7 48 14 40Z",
+                  "box": [
+                    100,
+                    90
+                  ],
+                  "style": "fur"
+                },
+                {
+                  "type": "path",
+                  "d": "M14 40C12 32 11 22 14 14Q15 11 18 13L35 27Q50 23 65 27L82 13Q85 11 86 14C89 22 88 32 86 40C93 48 94 61 87 71C79 81 66 85 50 85C34 85 21 81 13 71C6 61 7 48 14 40Z",
+                  "box": [
+                    100,
+                    90
+                  ],
+                  "stroke": 1.5,
+                  "style": "ink"
+                },
+                {
+                  "type": "path",
+                  "d": "M28 54Q33 58 38 54M62 54Q67 58 72 54",
+                  "box": [
+                    100,
+                    90
+                  ],
+                  "stroke": 2,
+                  "style": "ink"
+                },
+                {
+                  "type": "path",
+                  "d": "M48 64Q50 62 52 64Q50 66 48 64Z",
+                  "box": [
+                    100,
+                    90
+                  ],
+                  "style": "nose"
+                }
+              ],
+              "style": "face"
+            },
+            {
+              "type": "vstack",
+              "children": [
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                },
+                {
+                  "type": "text",
+                  "bind": "status",
+                  "style": "status"
+                }
+              ],
+              "alignment": "leading",
+              "spacing": 2
+            }
+          ],
+          "spacing": 12,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "face": {
+          "frame": {
+            "width": 60,
+            "height": 54
+          }
+        },
+        "fur": {
+          "color": "#F6E9CD"
+        },
+        "ink": {
+          "color": "#3F4438"
+        },
+        "nose": {
+          "color": "#C9654D"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi, drawn from paths",
+          "status": "Fast asleep in four shapes"
+        }
+      }
+    }
+  },
+  {
+    "name": "the gauge example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:gauge",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "hstack",
+          "children": [
+            {
+              "type": "gauge",
+              "bind": "bowl",
+              "max": 100,
+              "kind": "circular",
+              "style": "meter"
+            },
+            {
+              "type": "vstack",
+              "children": [
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                },
+                {
+                  "type": "text",
+                  "bind": "status",
+                  "style": "status"
+                },
+                {
+                  "type": "gauge",
+                  "bind": "bowl",
+                  "max": 100,
+                  "style": "meter"
+                }
+              ],
+              "alignment": "leading",
+              "spacing": 4
+            }
+          ],
+          "spacing": 12,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "meter": {
+          "tint": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Snack bowl",
+          "status": "80 g of kibble left",
+          "bowl": 80
+        }
+      }
+    }
+  },
+  {
+    "name": "the gauge example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Snack bowl",
+          "status": "Half a bowl to go",
+          "bowl": 45
+        }
+      }
+    },
+    "after": "the gauge example starts"
+  },
+  {
+    "name": "the gauge example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Snack bowl",
+          "status": "Time for a refill",
+          "bowl": 10
+        }
+      }
+    },
+    "after": "the gauge example starts"
+  },
+  {
+    "name": "the gauge example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Snack bowl",
+          "status": "80 g of kibble left",
+          "bowl": 80
+        }
+      }
+    },
+    "after": "the gauge example starts"
+  },
+  {
+    "name": "the gauge example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Snack bowl",
+          "status": "Half a bowl to go",
+          "bowl": 45
+        }
+      }
+    },
+    "after": "the gauge example starts"
+  },
+  {
+    "name": "the progress example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:progress",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                },
+                {
+                  "type": "spacer"
+                },
+                {
+                  "type": "progress",
+                  "bind": "done",
+                  "kind": "circular",
+                  "style": "meter"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            },
+            {
+              "type": "progress",
+              "bind": "done",
+              "style": "meter"
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 6,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "meter": {
+          "tint": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s snack delivery",
+          "status": "Packing a tiny treat",
+          "done": 0.15
+        }
+      }
+    }
+  },
+  {
+    "name": "the progress example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s snack delivery",
+          "status": "On the way to Mochi",
+          "done": 0.65
+        }
+      }
+    },
+    "after": "the progress example starts"
+  },
+  {
+    "name": "the progress example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Mochi’s snack delivery",
+          "status": "Snack time! Made it home",
+          "done": 1
+        }
+      }
+    },
+    "after": "the progress example starts"
+  },
+  {
+    "name": "the progress example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Mochi’s snack delivery",
+          "status": "Packing a tiny treat",
+          "done": 0.15
+        }
+      }
+    },
+    "after": "the progress example starts"
+  },
+  {
+    "name": "the progress example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Mochi’s snack delivery",
+          "status": "On the way to Mochi",
+          "done": 0.65
+        }
+      }
+    },
+    "after": "the progress example starts"
+  },
+  {
+    "name": "the timer example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:timer",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "moon.zzz.fill",
+                  "style": "moon"
+                },
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "timerText",
+              "start": "start",
+              "end": "end",
+              "style": "clock"
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 4,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "moon": {
+          "color": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        },
+        "clock": {
+          "size": 34,
+          "weight": "semibold",
+          "design": "rounded",
+          "monospacedDigit": true,
+          "color": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          },
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s nap",
+          "status": "A little snooze",
+          "start": 1800000000000,
+          "end": 1800000300000
+        }
+      }
+    }
+  },
+  {
+    "name": "the timer example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s nap",
+          "status": "Just one more minute…",
+          "start": 1800000000000,
+          "end": 1800000360000
+        }
+      }
+    },
+    "after": "the timer example starts"
+  },
+  {
+    "name": "the timer example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Mochi’s nap",
+          "status": "Just one more minute…",
+          "start": 1800000000000,
+          "end": 1800000420000
+        }
+      }
+    },
+    "after": "the timer example starts"
+  },
+  {
+    "name": "the timer example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Mochi’s nap",
+          "status": "Just one more minute…",
+          "start": 1800000000000,
+          "end": 1800000480000
+        }
+      }
+    },
+    "after": "the timer example starts"
+  },
+  {
+    "name": "the timer example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Mochi’s nap",
+          "status": "Just one more minute…",
+          "start": 1800000000000,
+          "end": 1800000540000
+        }
+      }
+    },
+    "after": "the timer example starts"
+  },
+  {
+    "name": "the stacks example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:stacks",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "zstack",
+                  "children": [
+                    {
+                      "type": "symbol",
+                      "name": "circle.fill",
+                      "style": "badge"
+                    },
+                    {
+                      "type": "symbol",
+                      "name": "pawprint.fill",
+                      "style": "mark"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                },
+                {
+                  "type": "spacer"
+                },
+                {
+                  "type": "text",
+                  "bind": "eta",
+                  "style": "eta"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "divider"
+            },
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "vstack",
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "From",
+                      "style": "label"
+                    },
+                    {
+                      "type": "text",
+                      "bind": "from"
+                    }
+                  ],
+                  "alignment": "leading"
+                },
+                {
+                  "type": "spacer",
+                  "minLength": 16
+                },
+                {
+                  "type": "vstack",
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "To",
+                      "style": "label"
+                    },
+                    {
+                      "type": "text",
+                      "bind": "to"
+                    }
+                  ],
+                  "alignment": "trailing"
+                }
+              ]
+            }
+          ],
+          "spacing": 10,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "badge": {
+          "size": 28,
+          "color": "#C9654D"
+        },
+        "mark": {
+          "size": 13,
+          "color": "#FFFAF3"
+        },
+        "eta": {
+          "font": "headline",
+          "monospacedDigit": true,
+          "color": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        },
+        "label": {
+          "font": "caption",
+          "color": "secondary"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Snack route",
+          "eta": "4 min",
+          "from": "Kitchen",
+          "to": "Mochi’s bowl"
+        }
+      }
+    }
+  },
+  {
+    "name": "the stacks example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Snack route",
+          "eta": "2 min",
+          "from": "Kitchen",
+          "to": "Mochi’s bowl"
+        }
+      }
+    },
+    "after": "the stacks example starts"
+  },
+  {
+    "name": "the stacks example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Snack route",
+          "eta": "Here",
+          "from": "Kitchen",
+          "to": "Mochi’s bowl"
+        }
+      }
+    },
+    "after": "the stacks example starts"
+  },
+  {
+    "name": "the stacks example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Snack route",
+          "eta": "4 min",
+          "from": "Kitchen",
+          "to": "Mochi’s bowl"
+        }
+      }
+    },
+    "after": "the stacks example starts"
+  },
+  {
+    "name": "the stacks example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Snack route",
+          "eta": "2 min",
+          "from": "Kitchen",
+          "to": "Mochi’s bowl"
+        }
+      }
+    },
+    "after": "the stacks example starts"
+  },
+  {
+    "name": "the buttons example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:buttons",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "cat.fill",
+                  "style": "icon"
+                },
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            },
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "button",
+                  "actionId": "pet",
+                  "child": {
+                    "type": "text",
+                    "value": "Pet Mochi"
+                  },
+                  "style": "action"
+                },
+                {
+                  "type": "button",
+                  "actionId": "done",
+                  "child": {
+                    "type": "text",
+                    "value": "All done"
+                  },
+                  "style": "quiet"
+                }
+              ],
+              "spacing": 8
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 8,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "icon": {
+          "size": 20,
+          "color": "#C9654D"
+        },
+        "action": {
+          "buttonStyle": "borderedProminent",
+          "tint": "#C9654D"
+        },
+        "quiet": {
+          "buttonStyle": "bordered",
+          "tint": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi wants attention",
+          "status": "No pets yet",
+          "pets": 0
+        }
+      }
+    }
+  },
+  {
+    "name": "the switch example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:switch",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "bell.fill",
+                  "style": "icon"
+                },
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            },
+            {
+              "type": "toggle",
+              "actionId": "purr",
+              "bind": "purring",
+              "child": {
+                "type": "text",
+                "value": "Purr alerts"
+              }
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 8,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "icon": {
+          "size": 20,
+          "color": "#C9654D"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s purr alerts",
+          "status": "Quiet as a mouse",
+          "purring": false
+        }
+      }
+    }
+  },
+  {
+    "name": "the link example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:link",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "basket.fill",
+                  "style": "icon"
+                },
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            },
+            {
+              "type": "link",
+              "url": "mochi://treats",
+              "child": {
+                "type": "text",
+                "value": "Open the treat jar",
+                "style": "jar"
+              }
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 8,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "icon": {
+          "size": 20,
+          "color": "#C9654D"
+        },
+        "jar": {
+          "font": "subheadline",
+          "weight": "semibold",
+          "color": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s treat jar",
+          "status": "Three treats left"
+        }
+      }
+    }
+  },
+  {
+    "name": "the styles example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:styles",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "clock.fill",
+                  "style": "badge"
+                },
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            },
+            {
+              "type": "progress",
+              "bind": "done",
+              "style": "meter"
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 6,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "badge": {
+          "color": {
+            "bind": "tone"
+          }
+        },
+        "status": {
+          "font": "subheadline",
+          "weight": {
+            "bind": "weight"
+          },
+          "color": {
+            "bind": "tone"
+          },
+          "lineLimit": 1
+        },
+        "meter": {
+          "tint": {
+            "bind": "tone"
+          }
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On time",
+          "tone": "green",
+          "weight": "regular",
+          "done": 0.3
+        }
+      }
+    }
+  },
+  {
+    "name": "the styles example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Running 5 min late",
+          "tone": "red",
+          "weight": "bold",
+          "done": 0.5
+        }
+      }
+    },
+    "after": "the styles example starts"
+  },
+  {
+    "name": "the styles example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Home at last",
+          "tone": "#2E8B7A",
+          "weight": "semibold",
+          "done": 1
+        }
+      }
+    },
+    "after": "the styles example starts"
+  },
+  {
+    "name": "the styles example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On time",
+          "tone": "green",
+          "weight": "regular",
+          "done": 0.3
+        }
+      }
+    },
+    "after": "the styles example starts"
+  },
+  {
+    "name": "the styles example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Running 5 min late",
+          "tone": "red",
+          "weight": "bold",
+          "done": 0.5
+        }
+      }
+    },
+    "after": "the styles example starts"
+  },
+  {
+    "name": "the staleness example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:staleness",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "clock.fill",
+                  "style": "icon"
+                },
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "text",
+              "bind": "news",
+              "style": "status",
+              "ifStale": false
+            },
+            {
+              "type": "text",
+              "value": "Waiting for news of the snack",
+              "style": "status",
+              "ifStale": true
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 6,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "icon": {
+          "size": 20,
+          "color": "#C9654D"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s snack tracker",
+          "news": "Left the kitchen"
+        },
+        "staleAt": 1800000045000
+      }
+    }
+  },
+  {
+    "name": "the staleness example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s snack tracker",
+          "news": "Around the corner"
+        }
+      }
+    },
+    "after": "the staleness example starts"
+  },
+  {
+    "name": "the staleness example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Mochi’s snack tracker",
+          "news": "At the door"
+        }
+      }
+    },
+    "after": "the staleness example starts"
+  },
+  {
+    "name": "the staleness example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Mochi’s snack tracker",
+          "news": "Left the kitchen"
+        }
+      }
+    },
+    "after": "the staleness example starts"
+  },
+  {
+    "name": "the staleness example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Mochi’s snack tracker",
+          "news": "Around the corner"
+        }
+      }
+    },
+    "after": "the staleness example starts"
+  },
+  {
+    "name": "the later example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:later",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "bell.fill",
+                  "style": "icon"
+                },
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 6,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "icon": {
+          "size": 20,
+          "color": "#C9654D"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s dinner bell",
+          "status": "Dinner is served"
+        }
+      },
+      "scheduled": {
+        "at": 1800000030000,
+        "alert": {
+          "title": "Dinner time",
+          "body": "Mochi’s bowl is full."
+        }
+      }
+    }
+  },
+  {
+    "name": "the island example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:island",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "text",
+              "bind": "title",
+              "style": "title"
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            },
+            {
+              "type": "progress",
+              "bind": "done",
+              "style": "meter"
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 6,
+          "style": "card"
+        },
+        "island": {
+          "expanded": {
+            "leading": {
+              "type": "image",
+              "source": {
+                "asset": "mochi"
+              },
+              "resizable": true,
+              "contentMode": "fit",
+              "style": "portrait"
+            },
+            "center": {
+              "type": "text",
+              "bind": "title",
+              "style": "islandTitle"
+            },
+            "trailing": {
+              "type": "text",
+              "bind": "eta",
+              "style": "islandValue"
+            },
+            "bottom": {
+              "type": "vstack",
+              "children": [
+                {
+                  "type": "text",
+                  "bind": "status",
+                  "style": "islandStatus"
+                },
+                {
+                  "type": "progress",
+                  "bind": "done",
+                  "style": "islandMeter"
+                }
+              ],
+              "alignment": "leading",
+              "spacing": 4
+            }
+          },
+          "compactLeading": {
+            "type": "symbol",
+            "name": "pawprint.fill",
+            "style": "mint"
+          },
+          "compactTrailing": {
+            "type": "text",
+            "bind": "eta",
+            "style": "islandValue"
+          },
+          "minimal": {
+            "type": "progress",
+            "bind": "done",
+            "kind": "circular",
+            "style": "islandMeter"
+          }
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        },
+        "keyline": "#A3D9C2"
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "meter": {
+          "tint": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        },
+        "portrait": {
+          "frame": {
+            "width": 44,
+            "height": 44
+          }
+        },
+        "islandTitle": {
+          "font": "headline",
+          "design": "rounded",
+          "color": "white",
+          "lineLimit": 1
+        },
+        "islandStatus": {
+          "font": "caption",
+          "color": "#FFFFFFBF",
+          "lineLimit": 1
+        },
+        "islandValue": {
+          "font": "caption",
+          "weight": "semibold",
+          "monospacedDigit": true,
+          "color": "#A3D9C2"
+        },
+        "islandMeter": {
+          "tint": "#A3D9C2"
+        },
+        "mint": {
+          "color": "#A3D9C2"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Packing a tiny treat",
+          "done": 0.15,
+          "eta": "9 min"
+        }
+      }
+    }
+  },
+  {
+    "name": "the island example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On the way to Mochi",
+          "done": 0.65,
+          "eta": "4 min"
+        }
+      }
+    },
+    "after": "the island example starts"
+  },
+  {
+    "name": "the island example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Snack time! Made it home",
+          "done": 1,
+          "eta": "Here"
+        }
+      }
+    },
+    "after": "the island example starts"
+  },
+  {
+    "name": "the island example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Packing a tiny treat",
+          "done": 0.15,
+          "eta": "9 min"
+        }
+      }
+    },
+    "after": "the island example starts"
+  },
+  {
+    "name": "the island example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On the way to Mochi",
+          "done": 0.65,
+          "eta": "4 min"
+        }
+      }
+    },
+    "after": "the island example starts"
+  },
+  {
+    "name": "the android example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:android",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "moon.zzz.fill"
+                },
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "text",
+              "bind": "status"
+            },
+            {
+              "type": "progress",
+              "bind": "sleep"
+            },
+            {
+              "type": "button",
+              "actionId": "wake",
+              "child": {
+                "type": "text",
+                "value": "Wake Mochi"
+              }
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 6,
+          "style": "card"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s nap",
+          "status": "Dozing off",
+          "sleep": 0.2
+        }
+      },
+      "android": {
+        "visibility": "public"
+      }
+    }
+  },
+  {
+    "name": "the android example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s nap",
+          "status": "Fast asleep",
+          "sleep": 0.6
+        }
+      }
+    },
+    "after": "the android example starts"
+  },
+  {
+    "name": "the android example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Mochi’s nap",
+          "status": "Dreaming of snacks",
+          "sleep": 1
+        }
+      }
+    },
+    "after": "the android example starts"
+  },
+  {
+    "name": "the android example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Mochi’s nap",
+          "status": "Dozing off",
+          "sleep": 0.2
+        }
+      }
+    },
+    "after": "the android example starts"
+  },
+  {
+    "name": "the android example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Mochi’s nap",
+          "status": "Fast asleep",
+          "sleep": 0.6
+        }
+      }
+    },
+    "after": "the android example starts"
+  },
+  {
+    "name": "the nowBar example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:nowBar",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "text",
+              "bind": "title",
+              "style": "title"
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            },
+            {
+              "type": "progress",
+              "bind": "done",
+              "style": "meter"
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 6,
+          "style": "card"
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "meter": {
+          "tint": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s snack delivery",
+          "status": "Packing a tiny treat",
+          "done": 0.15
+        }
+      },
+      "android": {
+        "visibility": "public"
+      }
+    }
+  },
+  {
+    "name": "the nowBar example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s snack delivery",
+          "status": "On the way to Mochi",
+          "done": 0.65
+        }
+      }
+    },
+    "after": "the nowBar example starts"
+  },
+  {
+    "name": "the nowBar example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Mochi’s snack delivery",
+          "status": "Snack time! Made it home",
+          "done": 1
+        }
+      }
+    },
+    "after": "the nowBar example starts"
+  },
+  {
+    "name": "the nowBar example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Mochi’s snack delivery",
+          "status": "Packing a tiny treat",
+          "done": 0.15
+        }
+      }
+    },
+    "after": "the nowBar example starts"
+  },
+  {
+    "name": "the nowBar example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Mochi’s snack delivery",
+          "status": "On the way to Mochi",
+          "done": 0.65
+        }
+      }
+    },
+    "after": "the nowBar example starts"
+  },
+  {
+    "name": "the styles example, an update with a color that is none",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On time",
+          "tone": "crimson",
+          "weight": "regular",
+          "done": 0.3
+        }
+      }
+    },
+    "after": "the styles example starts",
+    "code": "INVALID_INPUT"
+  },
+  {
+    "name": "the styles example, an end with a color that is none",
+    "command": "end_layout",
+    "input": {
+      "id": "handle",
+      "policy": {
+        "kind": "default"
+      },
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On time",
+          "tone": "crimson",
+          "weight": "regular",
+          "done": 0.3
+        }
+      }
+    },
+    "after": "the styles example starts",
+    "code": "INVALID_INPUT"
+  }
+]

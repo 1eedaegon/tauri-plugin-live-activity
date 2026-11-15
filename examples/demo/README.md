@@ -121,9 +121,12 @@ target of your Mac.
 
 ## Unit tests
 
-Unit tests of the self-test runner and the layout examples use no native API. The layout
-tests check every example with the reference validator, and the demo's iOS project against
-activitykit's widget template and products:
+Unit tests of the self-test runner and the layout examples use no native API. They keep the
+starts and updates of the snack and the nap, the start of every example with its updates, and
+every request of the self-test, as JSON under `tests/fixtures/typescript`, where the plugin's Rust
+tests judge each with the checks that the commands run (`npm run write:requests` writes the files
+again after a change), and they check the demo's iOS project against activitykit's widget template
+and products:
 
 ```sh
 npm run test:demo
