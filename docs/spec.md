@@ -283,16 +283,22 @@ holds yet.
   "The operation was canceled." and an empty `OUTPUT`, and when the job ended, 109 s and 60 s after the step, the
   runner still found processes of the step to end, an `xcrun` and a `Simulator` in one and a `sleep`, `cargo`,
   `esbuild` and a `Simulator` in the other. A script that no signal has reached leaves such processes; the lists do
-  not name the script itself, so they do not prove that it ran on. Why those jobs were cancelled is not known, and
-  no test cancels a job on a hosted runner. The shell handles a signal when the command it waits for has ended:
-  while `tauri ios dev` builds at once or after the look at the simulator that is under way, and during the build
-  of the UI tests, the simulator's boot and the tests only after them, for which the runner does not wait. The line
-  that names the part is in the step's log by then, and the log in `OUTPUT` needs no signal to be there. Of an `INT`
-  and a `TERM` that both wait for one command to end the run names one, and the shell chooses which, not the order
-  they came in: bash 3.2 the `TERM`, with 143, dash and bash 5.3 the `INT`, with 130. A shell cannot handle a signal
-  that was ignored when it started, and whether the runner starts a step so is not known. The seconds of a line of
-  progress are the run's count and not the clock's: a look at the simulator takes its own time on top of the five
-  seconds, and one that hangs stops the lines.
+  not name the script itself, so they do not prove that it ran on. Why those jobs were cancelled is not known. No
+  test cancels a job on a hosted runner; one run was cancelled by hand while its dev suite waited for Tauri
+  (43771586181, first attempt). There the script named `INT` eight seconds after the cancellation was asked for and
+  the step ended five seconds later; the artifact held the log of `tauri ios dev` as far as Tauri had come, the
+  app's launch, and of the step's processes the runner found only the Simulator app to end. A cancellation that a
+  person asks for has a second annotation, "The run was canceled by @…", which the two jobs did not have. The shell
+  handles a signal when the command it waits for has ended: while `tauri ios dev` builds at once or after the look
+  at the simulator that is under way, and during the build of the UI tests, the simulator's boot and the tests only
+  after them, for which the runner does not wait: the suite of the built demo, cancelled in that run during its
+  tests, named no signal, and the runner found its `xcodebuild` to end. The line that names the part is in the
+  step's log by then, and the log in `OUTPUT` needs no signal to be there. Of an `INT` and a `TERM` that both wait
+  for one command to end the run names one, and the shell chooses which, not the order they came in: bash 3.2 the
+  `TERM`, with 143, dash and bash 5.3 the `INT`, with 130. The seconds of a line of progress are the run's count and
+  not the clock's: a look at the simulator takes its own time on top of the five seconds. In that run and in its
+  second attempt, which passed, a minute of the count took between 71 s and 4 m 26 s, the longest under a load of
+  789: the lines are fewest where the runner is slowest. A look that hangs stops them.
 - TP-ANDROID-10, TP-ANDROID-11, TP-ANDROID-13, TP-ANDROID-14, TP-ANDROID-18: `NativeBridgeTest` is an instrumentation test: it runs on an emulator or a phone
   (`connectedDebugAndroidTest`), which CI does not start; CI builds it, and it sees the permissions only with
   notifications allowed. Android's dialog and Tauri's memory of a cancelled one are theirs: the unit tests prove the
