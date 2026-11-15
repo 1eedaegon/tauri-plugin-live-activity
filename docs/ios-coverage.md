@@ -121,12 +121,21 @@ the scheduled start, cannot pass below iOS 26, where the start is refused. On th
 where the phone turns UI automation on, with the phone unlocked: the switch for it in the phone's developer
 settings is off. So no UI test has run on a phone with iOS 26 or later.
 
-## 0.10.0 on an iPhone
+## 0.10.0 on two iPhones
 
 0.10.0 changes nothing on iOS but the answer of its new command, `UNSUPPORTED_FEATURE`: iOS begins a scheduled
 start itself. No run on a phone asked for that answer. A build of the release commit passed the lifecycle test on
-the iPhone XS with iOS 18.7 in 2 of 2 runs, 27 checks each. The iPhone 16 was not connected then, so this version
-has not run on a phone with iOS 26 or later.
+the iPhone XS with iOS 18.7 in 2 of 2 runs, 27 checks each. The iPhone 16 was not connected then.
+
+After the release the same build ran on the iPhone 16 with iOS 27.2:
+
+- The lifecycle test passed in 3 of 3 runs, 31 checks each.
+- A scheduled start began. Rust scheduled it 30 s ahead, and the app was ended a few seconds after its launch. No
+  process of the app was seen until the time. One that nothing but the system had been asked to launch was there
+  38 s after the launch, and the app that was launched afterwards listed the activity as `active`.
+- The demo's UI tests were started again, with the phone unlocked, and stopped where they had with 0.9.0: the
+  phone did not turn UI automation on in the minute the runner waits. So no UI test has run on a phone with
+  iOS 26 or later.
 
 ## Tests added after the first release
 

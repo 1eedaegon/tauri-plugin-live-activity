@@ -25,8 +25,13 @@ plugin's Android library has one more dependency: a minor release. Checked befor
   43719400174, iOS 26.2): the suite on the built demo passed its 11 tests and the one on `tauri ios dev` its 4,
   each test on its first try. The pull request's own run and the main run of the release commit.
 
-Not checked: an iPhone with iOS 26 or later with this version: the iPhone 16 was not connected, and 0.10.0 changes
-nothing on iOS but the command's refusal, which no run asked for. An Android below 14, where a new install holds
+After the tag, when the iPhone 16 with iOS 27.2 was connected again, the build of the release commit ran there:
+the lifecycle test passed, 31 of 31 in 3 of 3 runs, and a scheduled start 30 s ahead began with the app ended.
+[iOS coverage](ios-coverage.md#0100-on-two-iphones) has the runs.
+
+Not checked: the command's refusal on a phone, which is all that 0.10.0 changes on iOS and which no run asked
+for. The demo's UI tests on a phone with iOS 26 or later: on the iPhone 16 the runner still stops where the phone
+turns UI automation on. An Android below 14, where a new install holds
 the permission and the command should answer at once; a device without the setting; an activity that Android
 destroys while the setting is open. A restart of the device and a doze. The command also ran on an emulator of
 Android 16: the spec's note on TP-ANDROID-18 has that run.
