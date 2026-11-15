@@ -304,14 +304,20 @@ test('run.sh tests through the scheme of the project it generates, retries in CI
 
 // TP-CI-4
 test('run.sh starts the tests once more when they could not start, and only then', () => {
-  // The loop of the script itself, run by sh with an xcodebuild that answers what this test tells it to.
-  const [loop] = /^attempt=1\nwhile :; do\n[\s\S]*?\ndone\n/m.exec(read('tests/ios/run.sh'));
+  // The loop of the script itself, run by sh with an xcodebuild that answers what this test tells it to. As
+  // xcodebuild does, it says what it reports of itself on the error stream, and refuses a result bundle that is
+  // there already.
+  const found = /^attempt=1\nwhile :; do\n[\s\S]*?\ndone\n/m.exec(read('tests/ios/run.sh'));
+  assert.ok(found, 'run.sh has the loop that runs the tests');
+  const [loop] = found;
   const harness = `set -eu
 work=$1; tests=tests; destination=destination; build=build
 xcodebuild() {
   call=$(($(cat "$work/calls") + 1))
   echo "$call" >"$work/calls"
-  cat "$work/answer-$call"
+  [ ! -e "$work/result.xcresult" ] || return 70
+  mkdir "$work/result.xcresult"
+  cat "$work/answer-$call" >&2
   return "$(cat "$work/status-$call")"
 }
 set --
@@ -326,7 +332,8 @@ ${loop}echo "status=$status attempt=$attempt calls=$(cat "$work/calls")"
         writeFileSync(join(work, `answer-${index + 1}`), `${text}\n`);
         writeFileSync(join(work, `status-${index + 1}`), `${status}\n`);
       });
-      const output = execFileSync('sh', ['-c', harness, 'sh', work], { encoding: 'utf8' });
+      // A loop that starts the tests again without end is stopped here, and fails.
+      const output = execFileSync('sh', ['-c', harness, 'sh', work], { encoding: 'utf8', timeout: 10_000 });
       const [, status, attempt, calls] = /status=(\d+) attempt=(\d+) calls=(\d+)\n$/.exec(output);
       const warned = output.includes('::warning title=UI test runner::the tests could not start; they run once more');
       return { status: Number(status), attempt: Number(attempt), calls: Number(calls), warned };
