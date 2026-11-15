@@ -2,7 +2,9 @@
 // jobs key their caches and records on the files they read and pin their tools; run.sh tests through the scheme.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -298,4 +300,62 @@ test('run.sh tests through the scheme of the project it generates, retries in CI
   assert.match(script, /kill_tree "\$dev"/);
   assert.match(script, /trap 'cleanup; exit 130' INT/);
   assert.match(script, /trap 'cleanup; exit 143' TERM HUP/);
+});
+
+// TP-CI-4
+test('run.sh starts the tests once more when they could not start, and only then', () => {
+  // The loop of the script itself, run by sh with an xcodebuild that answers what this test tells it to. As
+  // xcodebuild does, it says what it reports of itself on the error stream, and refuses a result bundle that is
+  // there already.
+  const found = /^attempt=1\nwhile :; do\n[\s\S]*?\ndone\n/m.exec(read('tests/ios/run.sh'));
+  assert.ok(found, 'run.sh has the loop that runs the tests');
+  const [loop] = found;
+  const harness = `set -eu
+work=$1; tests=tests; destination=destination; build=build
+xcodebuild() {
+  call=$(($(cat "$work/calls") + 1))
+  echo "$call" >"$work/calls"
+  [ ! -e "$work/result.xcresult" ] || return 70
+  mkdir "$work/result.xcresult"
+  cat "$work/answer-$call" >&2
+  return "$(cat "$work/status-$call")"
+}
+set --
+${loop}echo "status=$status attempt=$attempt calls=$(cat "$work/calls")"
+`;
+  /** What the loop does when xcodebuild gives these answers one after another, each a text and an exit status. */
+  const run = (...answers) => {
+    const work = mkdtempSync(join(tmpdir(), 'live-activity-run-'));
+    try {
+      writeFileSync(join(work, 'calls'), '0\n');
+      answers.forEach(([text, status], index) => {
+        writeFileSync(join(work, `answer-${index + 1}`), `${text}\n`);
+        writeFileSync(join(work, `status-${index + 1}`), `${status}\n`);
+      });
+      // A loop that starts the tests again without end is stopped here, and fails.
+      const output = execFileSync('sh', ['-c', harness, 'sh', work], { encoding: 'utf8', timeout: 10_000 });
+      const [, status, attempt, calls] = /status=(\d+) attempt=(\d+) calls=(\d+)\n$/.exec(output);
+      const warned = output.includes('::warning title=UI test runner::the tests could not start; they run once more');
+      return { status: Number(status), attempt: Number(attempt), calls: Number(calls), warned };
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
+  };
+  const passed = ['** TEST EXECUTE SUCCEEDED **', 0];
+  const failed = ["Test Case '-[DemoUITests.DemoTests test1BoundStyleShowsOnTheLockScreen]' failed (12.3 seconds).", 65];
+  const noDevice = ['xcodebuild: error: Unable to find a device matching the provided destination specifier:', 70];
+  const noRunner = ['DemoUITests-Runner (1) encountered an error (The test runner failed to initialize for UI testing. '
+    + '(Underlying Error: Timed out waiting for AX loaded notification))', 65];
+  for (const first of [noDevice, noRunner]) {
+    // The tests could not start, so none ran: they start once more, and the second answer is the run's.
+    assert.deepEqual(run(first, passed), { status: 0, attempt: 2, calls: 2, warned: true }, first[0]);
+    assert.deepEqual(run(first, failed), { status: 65, attempt: 2, calls: 2, warned: true }, first[0]);
+    // Once, and not a third time.
+    assert.deepEqual(run(first, first, passed), { status: first[1], attempt: 2, calls: 2, warned: true }, first[0]);
+    // The same line in a run that passed starts nothing again.
+    assert.deepEqual(run([first[0], 0], passed), { status: 0, attempt: 1, calls: 1, warned: false }, first[0]);
+  }
+  // A test that failed has run: xcodebuild's own retries of a test are the only ones.
+  assert.deepEqual(run(failed, passed), { status: 65, attempt: 1, calls: 1, warned: false });
+  assert.deepEqual(run(passed), { status: 0, attempt: 1, calls: 1, warned: false });
 });
