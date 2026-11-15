@@ -10,7 +10,7 @@ or guarantee OEM lock-screen surfaces.
 | --- | --- | --- |
 | 24–25 | Unsupported by the current Tauri/Jackson dependency graph | Unchanged published alpha.2 APK installs on API 24, then fails before plugin initialization; API 25 not run |
 | 26 | Dedicated low-importance notification channel; ordinary ongoing notification | Eight native tests pass, including real Tauri `Invoke`/Jackson calls; stock WebView 58 blocks the full JavaScript pipeline |
-| 27–32 | Same channel and ordinary notification fallback | API 31 published npm + Cargo consumer passes 13 lifecycle checks and strict-fallback rejection |
+| 27–32 | Same channel and ordinary notification fallback | API 31 published npm + Cargo consumer passes 13 lifecycle checks and strict-fallback rejection; the demo of 0.10.0 passes its 30 lifecycle checks on a Galaxy Note10 with Android 12 |
 | 33–35 | Runtime `POST_NOTIFICATIONS`; ordinary notification fallback | API 33 published consumer passes 13 lifecycle checks and five real permission-dialog checks |
 | 36 | Requests promoted ongoing notifications using the documented extra | API 36 emulator lifecycle, permission dialogs and ordinary notification fallback |
 | 36.1 | Same request; Android's full Live Update presentation requirements apply | Compile SDK 36.1 build verified; no separate 36.1 runtime claim |
@@ -128,8 +128,37 @@ the web view's DevTools and the setting through touches on the screen.
   5 s apart.
   Without the permission it was 25 s late (0.8.0 and 0.9.0).
 
-The phone's setting was put back to its default afterwards. Not run: an Android below 14, where a new install
-holds the permission; a device without the screen; a restart of the device, and a doze.
+The phone's setting was put back to its default afterwards. An Android below 14, where a new install holds the
+permission, ran after the release: [the next section](#android-12-on-a-phone-0100) has it. Not run: a device
+without the screen; a restart of the device, and a doze.
+
+## Android 12 on a phone, 0.10.0
+
+A Galaxy Note10 with Android 12 (API 31, One UI 4.1, in Korean) ran the demo of 0.10.0 after the release: the
+build of the release commit, on a new install, driven as the S23 was.
+
+- Android had granted `SCHEDULE_EXACT_ALARM` at the install, and `exactStart` was true. Two calls of the command
+  at once were answered within 0.6 s, both with `exactStart: true`, and the app stayed on top: nothing opened.
+- The demo's lifecycle test, 30 of 30, on an ordinary notification: `nativeLiveActivity` is `unsupported` there.
+  The Android library's device tests: 9 passed, and the one for the setting said that it did not run, as it does
+  where the permission is held at the install.
+- The Scheduled start example, 30 s ahead, with the app's process ended right after the start: the notification
+  was there at the first look after its time, at most 4.6 s after it; the looks were 5 s apart.
+- With the permission taken away (`cmd appops set … deny`, which stopped the app's process), `exactStart` was
+  false, and a start ten minutes ahead waited with the two inexact alarms. Two calls at once opened the setting
+  once. What One UI 4.1 opens for the app's package is the list of all apps, each with its switch
+  (`Settings$AlarmsAndRemindersActivity`), and not a screen of the app: the package manager resolves the intent
+  to that list there, with the package and without it, and to the app's own screen on the S23. The person finds
+  the app in the list, which was several screens long. A touch on its switch applied at once, on this version of
+  One UI, and the back key brought the app back: both calls answered `exactStart: true`, and the start that
+  waited had its exact alarm beside the inexact one that is allowed while idle.
+- The permission taken back while a start three minutes ahead waited, by the demo's switch in that list: at the
+  touch Android stopped the app's process and removed the exact alarm, and the inexact one stayed. The
+  notification came 2 minutes 16 seconds after the start's time, at the end of that alarm's window, from a
+  process that Android started for it. The app that was opened afterwards listed the activity as `active`.
+
+The phone's setting was put back to its default afterwards. Not run: Android 13, and an Android 12 that is not
+One UI.
 
 ## The small region and liveupdate 0.4.1, 0.9.0
 

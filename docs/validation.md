@@ -32,10 +32,18 @@ start on the Lock Screen among them. A start of them earlier that day had stoppe
 automation on, as with 0.9.0, and why was not found. [iOS coverage](ios-coverage.md#0100-on-two-iphones) has the
 runs.
 
+Also after the tag, a Galaxy Note10 with Android 12 (One UI 4.1) ran the same build, on a new install, which
+holds the permission for exact alarms: the command answered two calls at once and opened nothing, the lifecycle
+test passed, 30 of 30, the Android library's device tests passed, 9 with the one for the setting not run there,
+and a scheduled start 30 s ahead with the process ended was there at the first look after its time. With the
+permission taken away the command opened the setting as the list of all apps, not as a screen of the app, and
+answered both calls after a touch on the app's switch there and the back key. Taken back while a start waited,
+the start began by the inexact alarm, 2 minutes 16 seconds after its time.
+[Android coverage](android-coverage.md#android-12-on-a-phone-0100) has the runs.
+
 Not checked: the command's refusal on a phone, which is all that 0.10.0 changes on iOS and which no run asked
-for. An Android below 14, where a new install holds
-the permission and the command should answer at once; a device without the setting; an activity that Android
-destroys while the setting is open. A restart of the device and a doze. The command also ran on an emulator of
+for. Android 13; a device without the setting; an activity that Android destroys while the setting is open. A
+restart of the device and a doze. The command also ran on an emulator of
 Android 16: the spec's note on TP-ANDROID-18 has that run.
 
 The record of 0.9.0 follows.

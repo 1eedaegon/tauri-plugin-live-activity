@@ -314,7 +314,10 @@ Two things are the app's to declare, in its own manifest
   Android has no dialog for this permission. `openExactAlarmSettings()` opens the setting for the app, which
   lists it only with the line above, and resolves when the person is back, with the capabilities as they are
   then; a start that already waits gets its exact alarm at that moment. Where the permission is there already it
-  opens nothing: all that the person could do in the setting is take it back.
+  opens nothing: all that the person could do in the setting is take it back. That is so on a new install on
+  Android 12 and 13, where the person can take it back later. Which screen opens is the device's: a Galaxy S23
+  with Android 17 opened the app's own, and a Galaxy Note10 with Android 12 (One UI 4.1) the list of all apps,
+  where the person finds the app by its name.
   [Using the plugin](usage.md#scheduled-and-transient-starts) has the call and its errors.
 
 - **A start that survives a restart of the device.** Android drops alarms when the device restarts and when the
