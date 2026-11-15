@@ -146,6 +146,9 @@ jobs:
         run: cargo llvm-cov --locked --summary-only --fail-under-lines 80
       - if: env.AREA_RUST == 'true'
         run: npm run build:demo && cargo test --locked --manifest-path examples/demo/src-tauri/Cargo.toml
+      # The demo's Rust is an app's code: clippy denies unwrap and expect there as in the plugin's crate (TP-BUILD-2).
+      - if: env.AREA_RUST == 'true'
+        run: cargo clippy --locked --manifest-path examples/demo/src-tauri/Cargo.toml --all-targets -- -D warnings
       # The plugin's iOS code on activitykit: checked for the device without Swift, then built for the simulator, which
       # builds activitykit's Swift bridge into the library.
       - if: env.AREA_IOS == 'true'

@@ -23,6 +23,27 @@ test('liveactivity is one line of Cargo.toml, brings both engines, and the crate
   assert.match(read('Cargo.lock'), /name = "activitykit"\nversion = "0\.6\.\d+"\nsource = "registry\+https:\/\/github\.com\/rust-lang\/crates\.io-index"/);
 });
 
+// TP-BUILD-2
+test('unwrap and expect are denied outside tests, in the crate and the demo, and the documents show neither', () => {
+  const denied = '#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]';
+  assert.ok(read('src/lib.rs').includes(denied), 'the plugin');
+  assert.ok(read('examples/demo/src-tauri/src/lib.rs').includes(denied), 'the demo');
+  // Clippy is what refuses one: it takes a warning for an error, on each target the plugin has code for and on the
+  // demo, whose crate has a lock of its own.
+  const workflow = read('.github/workflows/ci.yml');
+  for (const run of [
+    'cargo clippy --locked --all-targets -- -D warnings',
+    'cargo clippy --locked --target aarch64-apple-ios --lib -- -D warnings',
+    'cargo clippy --locked --target aarch64-linux-android --lib -- -D warnings',
+    'cargo clippy --locked --manifest-path examples/demo/src-tauri/Cargo.toml --all-targets -- -D warnings',
+  ]) assert.ok(workflow.includes(run), run);
+  // The Rust that a document tells an app to write.
+  for (const file of ['README.md', 'README.ko.md', 'docs/usage.md', 'docs/android-integration.md', 'docs/ios-integration.md']) {
+    const blocks = Array.from(read(file).matchAll(/```rust\n([\s\S]*?)```/g), ([, code]) => code);
+    for (const code of blocks) assert.doesNotMatch(code, /\.(unwrap|expect)\(/, file);
+  }
+});
+
 const root = new URL('..', import.meta.url);
 
 /** The `area` patterns of the changes job, by area, and the pattern of what concerns every job. */

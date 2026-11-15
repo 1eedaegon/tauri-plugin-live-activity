@@ -55,7 +55,7 @@ fn handle_tap<R: Runtime>(app: &AppHandle<R>, event: &ActionEvent) {
 pub const START_BUTTONS: &str = "--start-buttons";
 
 /// The Buttons example of the Layouts tab, as Rust starts it.
-pub fn buttons_start() -> LayoutStartInput {
+pub fn buttons_start() -> serde_json::Result<LayoutStartInput> {
     let request = serde_json::json!({
         "activityKey": "mochi:buttons", "schemaVersion": 2, "fallback": "notification",
         "layout": { "lockScreen": { "type": "vstack", "alignment": "leading", "spacing": 8, "style": "card", "children": [
@@ -75,7 +75,7 @@ pub fn buttons_start() -> LayoutStartInput {
         },
         "snapshot": { "revision": 0, "values": { "title": "Mochi wants attention", "status": "No pets yet", "pets": 0 } }
     });
-    serde_json::from_value(request).expect("the Buttons example reads as a start")
+    serde_json::from_value(request)
 }
 
 /// The launch argument that starts the Scheduled start example from Rust: a phone at hand has no UI test that
@@ -86,7 +86,7 @@ pub const START_LATER: &str = "--start-later";
 pub const STARTS_IN: Duration = Duration::from_secs(30);
 
 /// The Scheduled start example of the Layouts tab, as Rust starts it, to begin [`STARTS_IN`] after `now`.
-pub fn later_start(now: SystemTime) -> LayoutStartInput {
+pub fn later_start(now: SystemTime) -> serde_json::Result<LayoutStartInput> {
     let at = now
         .checked_add(STARTS_IN)
         .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
@@ -108,7 +108,7 @@ pub fn later_start(now: SystemTime) -> LayoutStartInput {
         "snapshot": { "revision": 0, "values": { "title": "Mochi’s dinner bell", "status": "Dinner is served" } },
         "scheduled": { "at": at, "alert": { "title": "Dinner time", "body": "Mochi’s bowl is full." } }
     });
-    serde_json::from_value(request).expect("the Scheduled start example reads as a start")
+    serde_json::from_value(request)
 }
 
 /// Starts from Rust the examples that `args` name, [`START_BUTTONS`] and [`START_LATER`], on a thread of its own: the
@@ -116,8 +116,8 @@ pub fn later_start(now: SystemTime) -> LayoutStartInput {
 pub fn start_from_rust_if_asked<R: Runtime>(app: &App<R>, args: impl Iterator<Item = String>) {
     let starts: Vec<_> = args
         .filter_map(|argument| match argument.as_str() {
-            START_BUTTONS => Some(buttons_start()),
-            START_LATER => Some(later_start(SystemTime::now())),
+            START_BUTTONS => Some((START_BUTTONS, buttons_start())),
+            START_LATER => Some((START_LATER, later_start(SystemTime::now()))),
             _ => None,
         })
         .collect();
@@ -126,10 +126,16 @@ pub fn start_from_rust_if_asked<R: Runtime>(app: &App<R>, args: impl Iterator<It
     }
     let handle = app.handle().clone();
     thread::spawn(move || {
-        for start in starts {
-            let key = start.activity_key.clone();
-            if let Err(error) = handle.live_activity().start_layout(start) {
-                eprintln!("Mochi demo: {key} did not start: {error}");
+        for (argument, start) in starts {
+            // A request that does not read as a start is said on the log like one that the plugin refuses.
+            let started = start.map_err(|error| error.to_string()).and_then(|start| {
+                let plugin = handle.live_activity();
+                plugin
+                    .start_layout(start)
+                    .map_err(|error| error.to_string())
+            });
+            if let Err(error) = started {
+                eprintln!("Mochi demo: the example of {argument} did not start: {error}");
             }
         }
     });
@@ -363,7 +369,7 @@ mod tests {
     #[test]
     fn the_buttons_example_that_rust_starts_is_valid_and_answers_a_pet() {
         use tauri_plugin_live_activity::Validate;
-        let start = buttons_start();
+        let start = buttons_start().unwrap();
         assert_eq!(start.validate(), Ok(()));
         let record = record(
             "mochi:buttons",
@@ -382,7 +388,7 @@ mod tests {
     fn the_scheduled_start_that_rust_starts_is_valid_and_begins_half_a_minute_later() {
         use tauri_plugin_live_activity::Validate;
         let now = UNIX_EPOCH + Duration::from_millis(1_900_000_000_000);
-        let start = later_start(now);
+        let start = later_start(now).unwrap();
         assert_eq!(start.validate(), Ok(()));
         assert_eq!(start.activity_key, "mochi:later");
         let scheduled = start.scheduled.expect("the start is scheduled");
