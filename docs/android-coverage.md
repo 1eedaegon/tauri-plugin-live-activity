@@ -96,6 +96,41 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## The setting for exact alarms, 0.10.0
+
+0.10.0 has a command that takes the person to Android's setting for exact alarms, and its demo declares
+`SCHEDULE_EXACT_ALARM`. A Galaxy S23 with Android 17 (API 37, One UI, in Korean) ran it. The demo was installed
+over that of 0.9.0, so the permission was off, as on a new install from Android 14. The page was driven through
+the web view's DevTools and the setting through touches on the screen.
+
+- The Android library's device tests, 10 of 10, the one for the setting among them, and the demo's lifecycle
+  test, 30 of 30.
+- With the permission off, `exactStart` was false and the Scheduled start example showed its note and its button.
+  A start ten minutes ahead waited with two inexact alarms: one with a window of ten minutes, and one that is
+  allowed while idle with a window of seven and a half.
+- Two calls of the command at once put One UI's "Alarms & reminders" screen of the app on top, once. A touch on
+  its switch and the back key brought the app back, and both calls answered `exactStart: true`. The start that
+  waited then had an exact alarm (`window=0`, `exactAllowReason=permission`) beside the inexact one that is
+  allowed while idle: the pair that liveupdate 0.4.1 sets.
+- With the permission a call answered in 17 ms and opened nothing.
+- One UI applies the switch when the person leaves the screen, not at the touch: the permission, the alarms and
+  the app's process were as before until the back key or the home key. The command answers when the app is in
+  front again, so it answers what holds then.
+- The permission taken back while that start waited, by the switch and the home key: Android stopped the app's
+  process and removed the exact alarm, and the inexact one stayed. The notification came 7 minutes 11 seconds
+  after the start's time, at the end of that alarm's window, from a process that Android started for it. The app
+  that was opened afterwards listed the activity as `active`. With 0.8.0 no alarm would have been left: this is
+  what liveupdate 0.4.1 corrects, and what 0.9.0's run could not show.
+- The page's own way: the example's button opened the screen, and after the switch and the back key the page
+  said that exact alarms are allowed, and the note was gone.
+- With the permission, the Scheduled start example, 30 s ahead, with the app's process ended right after the
+  start: the notification was there at the first look after its time, at most 3.9 s after it; the looks were
+  5 s apart.
+  Without the permission it was 25 s late (0.8.0 and 0.9.0).
+
+The phone's setting was put back to its default afterwards. Not run: an Android below 14, where a new install
+holds the permission; a device without the screen; a restart of the device, and a doze.
+
 ## The small region and liveupdate 0.4.1, 0.9.0
 
 0.9.0 takes a layout's `small` region, with liveactivity 0.7: what a paired Apple Watch and CarPlay show of an

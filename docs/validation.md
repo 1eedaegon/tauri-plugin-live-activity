@@ -1,3 +1,38 @@
+# 0.10.0 validation
+
+0.10.0 adds a command, `openExactAlarmSettings()`, which takes the person to Android's setting for exact alarms
+and answers when they are back. The engines are those of 0.9.0. The command has a permission of its own, and the
+plugin's Android library has one more dependency: a minor release. Checked before the tag:
+
+- A Galaxy S23 with Android 17 (One UI): the Android library's device tests, 10 of 10, the one for the setting
+  among them; the demo's lifecycle test, 30 of 30; and the command through the demo. Two calls at once opened One
+  UI's screen once, and both answered `exactStart: true` after a touch on the switch and the back key. A start
+  that waited got its exact alarm. With the permission a call answered at once and opened nothing, and a
+  scheduled start 30 s ahead with the process ended was there at the first look after its time. The page's button
+  did what the raw call did. [Android coverage](android-coverage.md#the-setting-for-exact-alarms-0100) has the
+  runs.
+- On the same phone, what 0.9.0 could not show of liveupdate 0.4.1: the permission taken back while a start
+  waited. Android stopped the app and removed the exact alarm, the inexact one stayed, and the start began by it
+  7 minutes 11 seconds after its time.
+- The release commit differs from what those runs had by the versions. It was built again: on the S23 the
+  lifecycle test passed, 30 of 30, and the command opened the setting once for two calls and answered both; on an
+  iPhone XS with iOS 18.7 the lifecycle test passed, 27 of 27, twice.
+- `npm test` (269 tests in six suites) and `cargo test` (48 unit and 7 integration tests), `cargo clippy`, which
+  now also refuses an `unwrap` or `expect` outside tests (TP-BUILD-2), `tools/spec-coverage.sh` (84 requirements,
+  each with a test), the Android library's unit tests (11) and lint.
+- CI: the pull request of the command (#37) and main's run of its merge (run 43715798371), and the two simulator
+  suites, started by hand on the head of the release's pull request before this record was added (run
+  43719400174, iOS 26.2): the suite on the built demo passed its 11 tests and the one on `tauri ios dev` its 4,
+  each test on its first try. The pull request's own run and the main run of the release commit.
+
+Not checked: an iPhone with iOS 26 or later with this version: the iPhone 16 was not connected, and 0.10.0 changes
+nothing on iOS but the command's refusal, which no run asked for. An Android below 14, where a new install holds
+the permission and the command should answer at once; a device without the setting; an activity that Android
+destroys while the setting is open. A restart of the device and a doze. The command also ran on an emulator of
+Android 16: the spec's note on TP-ANDROID-18 has that run.
+
+The record of 0.9.0 follows.
+
 # 0.9.0 validation
 
 0.9.0 moves the plugin to liveactivity 0.7.1, with activitykit 0.6 and liveupdate 0.4.1. A layout takes a `small`

@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.10.0
+
+A command that takes the person to Android's setting for exact alarms. The engines are those of 0.9.0:
+liveactivity 0.7.1, activitykit 0.6 and liveupdate 0.4.1.
 
 - `openExactAlarmSettings()` (in Rust `open_exact_alarm_settings`) takes the person to Android's setting for exact
   alarms, "Alarms & reminders", which a scheduled start needs to begin at its time, and answers when they are

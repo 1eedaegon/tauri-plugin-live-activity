@@ -121,6 +121,13 @@ the scheduled start, cannot pass below iOS 26, where the start is refused. On th
 where the phone turns UI automation on, with the phone unlocked: the switch for it in the phone's developer
 settings is off. So no UI test has run on a phone with iOS 26 or later.
 
+## 0.10.0 on an iPhone
+
+0.10.0 changes nothing on iOS but the answer of its new command, `UNSUPPORTED_FEATURE`: iOS begins a scheduled
+start itself. No run on a phone asked for that answer. A build of the release commit passed the lifecycle test on
+the iPhone XS with iOS 18.7 in 2 of 2 runs, 27 checks each. The iPhone 16 was not connected then, so this version
+has not run on a phone with iOS 26 or later.
+
 ## Tests added after the first release
 
 - Exact encoded Unicode title/status equality: NFC and NFD strings must conflict at the same revision, matching JS/Rust/Android contracts. Swift's default canonical string equivalence incorrectly accepted the changed text. A failing core test and the actual published alpha.1 consumer reproduced it; the local fix compares UTF-8 bytes.
