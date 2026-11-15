@@ -1017,8 +1017,9 @@ can. What differs from iOS:
   }
   ```
 
-  Call it after a tap, with a word of why. It resolves at once, and opens nothing, where exact alarms are allowed
-  or need no permission (before Android 12). Where they are not allowed it rejects with `CONFIGURATION_REQUIRED`
+  Call it after a tap, with a word of why and with the app's name: on some devices the setting opens as the list
+  of all apps, where the person has to find it (a Galaxy Note10 with Android 12 did). It resolves at once, and
+  opens nothing, where exact alarms are allowed or need no permission (before Android 12). Where they are not allowed it rejects with `CONFIGURATION_REQUIRED`
   when the app's manifest does not declare `SCHEDULE_EXACT_ALARM`, with `NOT_FOREGROUND` while the app is not on
   screen, and with `UNSUPPORTED_FEATURE` on a device without the setting. iOS, which begins a scheduled start
   itself, answers `UNSUPPORTED_FEATURE`, and desktop `UNSUPPORTED_PLATFORM`. A call that comes while the setting

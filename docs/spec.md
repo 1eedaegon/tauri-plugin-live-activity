@@ -335,8 +335,12 @@ holds yet.
   keeps; with the permission a call answered in 17 ms and opened nothing; and the page's button did the same
   through the demo. One UI applies the switch when the person leaves the screen, not at the touch
   ([Android coverage](android-coverage.md#the-setting-for-exact-alarms-0100)).
-  Not run: an Android below 14, where a new install has the permission and the device test says that it
-  did not run; a device without the screen; and an activity that Android destroys while the setting is open, where
+  And on a Galaxy Note10 with Android 12 (One UI 4.1), on a new install, which has the permission: two calls
+  answered at once and opened nothing, and the device test said that it did not run. With the permission taken
+  away there, two calls opened the setting once, as the list of all apps and not as a screen of the app, and a
+  touch on the app's switch in it and the back key answered both with `exactStart: true`
+  ([Android coverage](android-coverage.md#android-12-on-a-phone-0100)).
+  Not run: a device without the screen; and an activity that Android destroys while the setting is open, where
   Tauri still answers the call and the page that asked is gone. Which of the two answered in the run above, the
   screen's result or the app coming in front, it does not show: a test holds as text that the name Tauri looks
   the result's method up by is that of the method.
