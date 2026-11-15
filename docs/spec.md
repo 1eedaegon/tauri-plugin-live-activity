@@ -329,7 +329,13 @@ holds yet.
   - The demo's Scheduled start example offered the setting only while `exactStart` was false; its button opened
     the screen, and the page said that exact alarms are allowed once the person was back.
   - Taking the permission away stopped the app's process.
-  Not run: a phone; an Android below 14, where a new install has the permission and the device test says that it
+  And on a Galaxy S23 with Android 17 (One UI), the same way, with the device test passing there too: two calls at
+  once put One UI's screen of the app on top once, and a touch on its switch and the back key answered both with
+  `exactStart: true`; the start that waited then had an exact alarm beside the inexact one that liveupdate 0.4.1
+  keeps; with the permission a call answered in 17 ms and opened nothing; and the page's button did the same
+  through the demo. One UI applies the switch when the person leaves the screen, not at the touch
+  ([Android coverage](android-coverage.md#the-setting-for-exact-alarms-0100)).
+  Not run: an Android below 14, where a new install has the permission and the device test says that it
   did not run; a device without the screen; and an activity that Android destroys while the setting is open, where
   Tauri still answers the call and the page that asked is gone. Which of the two answered in the run above, the
   screen's result or the app coming in front, it does not show: a test holds as text that the name Tauri looks
