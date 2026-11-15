@@ -90,7 +90,7 @@ jobs:
         with:
           node-version: ${{ env.NODE }}
       - run: sh tools/spec-coverage.sh
-      - run: node --test tests/spec-coverage.test.mjs tests/ci.test.mjs tests/ci-cache.test.mjs
+      - run: node --test tests/spec-coverage.test.mjs tests/ci.test.mjs tests/ci-cache.test.mjs tests/ios-run.test.mjs
   contracts:
     name: Rust, TypeScript and iOS
     needs: changes
@@ -107,12 +107,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Node also for the Rust: the demo's Rust embeds its page, which build:demo makes.
+      # Node for every part: the demo's Rust embeds its page, which build:demo makes, and the tests of
+      # tests/ios/run.sh are node tests. The cache of npm only where `npm ci` follows: after a job that did not find
+      # it, setup-node saves npm's folder under the lock file's key as it is then, also when nothing has filled it.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: env.AREA_JS == 'true' || env.AREA_RUST == 'true'
         with:
           node-version: ${{ env.NODE }}
-          cache: npm
+          cache: ${{ (env.AREA_JS == 'true' || env.AREA_RUST == 'true') && 'npm' || '' }}
+      # tests/ios/run.sh under the sh that the simulator jobs run it with, bash 3.2, where the Specification job has
+      # dash: the two differ in what a run does once nobody reads its log (TP-CI-5). For the js area `npm test` below
+      # has these tests among its own.
+      - if: env.AREA_IOS == 'true' && env.AREA_JS != 'true'
+        run: node --test tests/ios-run.test.mjs
       - if: env.AREA_RUST == 'true' || env.AREA_IOS == 'true'
         run: rustup toolchain install "$TOOLCHAIN" --profile minimal --component rustfmt,clippy,llvm-tools-preview --target x86_64-apple-ios,aarch64-apple-ios && rustup default "$TOOLCHAIN"
       # Only main saves a Rust cache, here and in the desktop job. A run for a pull request or a branch reads main's and
@@ -222,13 +228,17 @@ jobs:
           echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+      # `exec`: the script is the step's own process then. The runner signals that process alone when the job is
+      # cancelled (INT, TERM 7.5 s later, a kill after 2.5 s more), and the bash that runs a step hands no signal on:
+      # after each of two cancelled jobs of the dev suite, which runs the same step, processes of the step still ran a
+      # minute and more later (TP-CI-5).
       - name: End to end on the simulator
         if: steps.passed.outputs.found != 'true'
         env:
           BUILD_KEY: ${{ steps.keys.outputs.products }}
           RUNTIME: ${{ steps.keys.outputs.runtime }}
           OUTPUT: ${{ runner.temp }}/ios-simulator
-        run: sh tests/ios/run.sh
+        run: exec sh tests/ios/run.sh
       # Saved once the build is complete, also when the tests then failed: a re-run tests the same products.
       - name: Check the build of the products
         id: built
@@ -318,12 +328,13 @@ jobs:
           echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
           unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+      # `exec` as in the job above: the runner's signals reach the script.
       - name: End to end on the simulator
         if: steps.passed.outputs.found != 'true'
         env:
           RUNTIME: ${{ steps.keys.outputs.runtime }}
           OUTPUT: ${{ runner.temp }}/ios-dev
-        run: sh tests/ios/run.sh
+        run: exec sh tests/ios/run.sh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always() && steps.passed.outputs.found != 'true'
         with:
