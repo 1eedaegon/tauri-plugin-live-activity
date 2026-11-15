@@ -104,8 +104,8 @@ themselves. The plugin's library carries liveupdate 0.4.1's adapter, which sets 
 one of a scheduled start. A Galaxy S23 with Android 17 (API 37) ran it.
 
 - The Android library's device tests, 9 of 9, on liveupdate 0.4.1's adapter.
-- The demo's lifecycle test, 30 of 30: two more checks than 0.8.0 had. A layout with a small region starts, its
-  record names `layout.small`, and it ends.
+- The demo's lifecycle test, 30 of 30 in each of 3 runs, the last with a build of the release commit: two more
+  checks than 0.8.0 had. A layout with a small region starts, its record names `layout.small`, and it ends.
 - The demo's example for a watch and a car, whose layout has an island and a small region: the record listed
   `layout.island`, `layout.small`, `layout.styles` and `layout.background`, in that order. The notification had the
   title and the status of the Lock Screen tree and no action, an update from the page changed its text, and the

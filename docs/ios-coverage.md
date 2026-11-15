@@ -106,14 +106,15 @@ was at hand, so nothing here shows the region drawn. What a phone can tell is wh
 the small family: the record of a start names `layout.small` when it does not.
 
 - The demo, whose widget extension sets `ActivityKitSmallFamily`, passed its lifecycle test on an iPhone 16 with
-  iOS 27.2 in 3 of 3 runs, 31 checks each, and on an iPhone XS with iOS 18.7 in 2 of 2, 27 checks each. Two of the
-  checks are new: a layout with a small region starts, and the record leaves nothing out; and it ends.
+  iOS 27.2 in 5 of 5 runs, 31 checks each, and on an iPhone XS with iOS 18.7 in 4 of 4, 27 checks each: the last
+  two runs on each phone with a build of the release commit. Two of the checks are new: a layout with a small
+  region starts, and the record leaves nothing out; and it ends.
 - The same demo built without the key passed on the iPhone 16 too, 31 checks, and there the record named
   `layout.small`. The check says in its name which of the two it saw.
 
 The demo's UI tests ran on a phone for the first time, on the iPhone XS: a copy of them that signs its runner and
-takes its pictures of the demo's card alone. With the demo of 0.8.0 and again with that of 0.9.0, 10 of the 11
-passed, in one run of ten minutes each: the bound style, the buttons, the list after a relaunch, the lifecycle
+takes its pictures of the demo's card alone. With the demo of 0.8.0 once and with that of 0.9.0 twice, the second
+time a build of the release commit, 10 of the 11 passed, in a run of ten minutes each: the bound style, the buttons, the list after a relaunch, the lifecycle
 test, the templates, the tap that launches the app for a slow handler, the start from Rust, the switch, the link
 and the staleness. Touches reached a phone's Lock Screen there, and the pictures show what it drew. The eleventh,
 the scheduled start, cannot pass below iOS 26, where the start is refused. On the iPhone 16 the runner still stops
