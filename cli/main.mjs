@@ -2,7 +2,7 @@
 import { formatReport } from './report.mjs';
 import { SetupError, setup } from './setup.mjs';
 
-const USAGE = `Usage: npx tauri-plugin-live-activity setup [--dry-run] [--ios-only] [--font <file>]... [--asset <file>]... [--app-group[=<id>]]
+const USAGE = `Usage: npx tauri-plugin-live-activity setup [--dry-run] [--ios-only] [--font <file>]... [--asset <file>]... [--app-group[=<id>]] [--small-family]
 
 Run it in the folder of a Tauri 2 app after \`cargo add\` and \`npm i\`. It grants the plugin's
 permissions, sets the Android minimum to API 26 and, on a Mac, adds the Live Activity widget
@@ -16,9 +16,11 @@ ever made from scratch.
                      name@2x.png and name@3x.png are scales of the asset name
   --app-group[=<id>] give the app and the widget extension an App Group, group.<app identifier> unless
                      named, so writeImage can share images; later runs keep it
+  --small-family     draw a layout's small region on a paired Apple Watch and in CarPlay, and there the
+                     compact parts of a layout without one; later runs keep it
 `;
 
-const FLAGS = { '--dry-run': 'dryRun', '--ios-only': 'iosOnly' };
+const FLAGS = { '--dry-run': 'dryRun', '--ios-only': 'iosOnly', '--small-family': 'smallFamily' };
 const FILES = { '--font': 'fonts', '--asset': 'assets' };
 const HELP = new Set(['help', '--help', '-h']);
 

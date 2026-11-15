@@ -149,7 +149,7 @@ fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
         fallback: Fallback::Notification,
         layout: Layout {
             lock_screen: Element::Text { value: None, bind: Some("status".into()) }.into(),
-            island: None, background: None, keyline: None, url: None,
+            island: None, background: None, keyline: None, url: None, small: None,
         },
         styles: None,
         snapshot: snapshot(0, "On time"),
@@ -241,6 +241,11 @@ island: {
 },
 keyline: '#A3D9C2', // 아일랜드 테두리 색
 ```
+
+페어링된 Apple Watch(iOS 18)와 CarPlay(iOS 26)는 아일랜드의 compact 부분을 보여 줍니다. 위젯 익스텐션이 그
+패밀리를 그리도록 해 두면(`setup --small-family`) `small`이 거기에 자기 트리를 줍니다. 노드는 12개까지이고
+버튼·링크·토글은 넣을 수 없습니다: `small: hstack([symbol('pawprint.fill'), bound('eta')])`. Android는 이를
+`degradedFeatures`에 적습니다. [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#apple-watch-and-carplay)
 
 ## 푸시 (iOS)
 

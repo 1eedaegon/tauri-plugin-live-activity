@@ -155,8 +155,9 @@ the device has no `chronometer`, and every other shown node are left out and nam
 `layout.custom`). Among the other names, `layout.ifStale` is listed when a node has `ifStale`, since
 Android draws the layout as it is while fresh; `layout.transition` for a shown node with a
 `transition`; and `layout.privacy` for a shown node with `privacy` when `android.visibility` is
-`public`. `layout.island`, `layout.styles`, `layout.background` and `layout.keyline` are added when the
-request has them: a notification draws no styles, so a bound color changes nothing on Android. A node
+`public`. `layout.island`, `layout.small`, `layout.styles`, `layout.background` and `layout.keyline` are
+added when the request has them: a notification draws no styles, so a bound color changes nothing on
+Android, and a watch and a car show the notification by themselves, so nothing of `small` is drawn. A node
 hidden by its condition is not listed. liveupdate's own `nativeLiveActivity` comes first. The list is
 computed from the current values, so it can change with an update.
 
@@ -181,7 +182,7 @@ the record names `alert` in `degradedFeatures`. Android alerts with the sound of
 `sound` is not played, and the record names `alert.sound`.
 
 Layouts with a `progress`, and contents of the `progress` style, are posted on Android 16. The adapter
-the plugin carries is liveupdate 0.4.0's, which does not call the method that only Android 17 has. Below
+the plugin carries is liveupdate 0.4.1's, which does not call the method that only Android 17 has. Below
 Android 16 liveupdate posts the plain bar, as the progress template does on every Android.
 
 Known: on Android 16 a notification whose time is more than two weeks past is not shown, and the app is
@@ -297,19 +298,22 @@ nothing for a scheduled start.
 Two things are the app's to declare, in its own manifest
 (`src-tauri/gen/android/app/src/main/AndroidManifest.xml`). The plugin's library declares neither.
 
-- **A start on the minute.** Without the permission for exact alarms Android chooses the moment: within about
-  ten minutes while the device is awake, later while it dozes. With it the start is at its time, and
-  `getCapabilities().androidPresentation.exactStart` is true. From Android 14 the permission is off until the
-  person allows it under "Alarms & reminders". `USE_EXACT_ALARM` is for alarm and calendar apps only, by Google
-  Play's policy.
+- **A start on the minute.** Without the permission for exact alarms Android chooses the moment: late by up to
+  three quarters of the wait, ten minutes at most while the device is awake and an hour while it dozes. With it
+  the start is at its time, and `getCapabilities().androidPresentation.exactStart` is true. From Android 14 the
+  permission is off until the person allows it under "Alarms & reminders". `USE_EXACT_ALARM` is for alarm and
+  calendar apps only, by Google Play's policy. When the person takes the permission back while a start waits,
+  Android removes the exact alarm and stops the app: the start then begins by the inexact alarm that the library
+  sets beside the exact one, from 0.9.0 (liveupdate 0.4.1). With 0.8.0 no alarm was left, and the activity began
+  when the app next ran.
 
   ```xml
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
   ```
 
-- **A start that survives a restart of the device.** Android drops alarms when the device restarts, when the
-  person force-stops the app, and when they take the permission for exact alarms away. The activity then begins
-  late, when the app next runs. To have the alarm set again after a restart, declare the receiver for it:
+- **A start that survives a restart of the device.** Android drops alarms when the device restarts and when the
+  person force-stops the app. The activity then begins late, when the app next runs. To have the alarms set
+  again after a restart, declare the receiver for it:
 
   ```xml
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -326,6 +330,15 @@ Two things are the app's to declare, in its own manifest
 While the app's process runs, the plugin's thread asks liveupdate at the start time, as it does at a stale time,
 so the activity begins then, also where the alarm would be late. An activity that must not appear late is the
 app's to end: compare the time with the clock at launch.
+
+liveupdate followed the alarms on the emulators of Android 16 and 17, with a package that targets API 36
+([its notes](https://github.com/1eedaegon/liveupdate-rs/blob/main/docs/testing.md)). With exact alarms a start
+began within a second of its time, awake and in Doze. Without them, a start 45 seconds ahead began 32 seconds
+late, and one 20 minutes ahead 5 minutes late while the device was awake and 15 minutes late in Doze. After a
+restart with the receiver declared, the alarms were set again 84 seconds after the device was up; an update of
+the app kept them; a force stop removed them until the app ran again. An app that nobody had opened, on a device
+that did not charge, had its inexact alarms put off: its start did not begin in the ten minutes it was watched.
+[Android coverage](android-coverage.md#a-scheduled-start-080) has what a phone showed with the plugin.
 
 A content whose header clock (a timer, or a chronometer of a content) is more than 14 days old is refused with
 `INVALID_INPUT` from Android 15 on, at a start, a scheduled start, an update and when a service attaches:

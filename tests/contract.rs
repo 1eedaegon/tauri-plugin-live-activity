@@ -87,6 +87,7 @@ mod changing_styles {
                 background: None,
                 keyline: None,
                 url: None,
+                small: None,
             },
             styles: Some(BTreeMap::from([("status".to_string(), style)])),
             snapshot: delivery(0, "On time", "green"),

@@ -25,16 +25,17 @@ const NPM_VERSION = JSON.parse(readFileSync(new URL('../package.json', import.me
 /**
  * Sets up the app in `cwd` (its folder or its src-tauri folder) and returns the steps with their
  * status, and notes for the person who runs it. `fonts` and `assets` are files for the widget
- * extension; `appGroup` is true or the name of an App Group. Throws SetupError when it cannot start.
+ * extension; `appGroup` is true or the name of an App Group; with `smallFamily` the widget draws a layout's small
+ * region. Throws SetupError when it cannot start.
  */
 export function setup({
   cwd = process.cwd(), env = process.env, dryRun = false, iosOnly = false, platform = process.platform,
-  fonts = [], assets = [], appGroup = undefined,
+  fonts = [], assets = [], appGroup = undefined, smallFamily = false,
 } = {}) {
   const files = widgetFiles(cwd, { fonts, assets });
   const app = findApp(cwd);
   const { plugin, activitykit } = findCrates(app, env);
-  const context = { ...app, plugin, activitykit, env, platform, files, appGroup, show: path => display(cwd, path) };
+  const context = { ...app, plugin, activitykit, env, platform, files, appGroup, smallFamily, show: path => display(cwd, path) };
   const planned = [...(iosOnly ? [] : [capabilitiesStep(context), ...androidSteps(context)]), ...iosSteps(context)];
   const steps = dryRun ? planned : planned.map(apply);
   return { dryRun, version: plugin.version, steps: steps.map(({ effect, ...rest }) => rest), notes: notes(context) };

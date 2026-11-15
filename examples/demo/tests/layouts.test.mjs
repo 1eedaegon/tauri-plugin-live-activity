@@ -11,11 +11,11 @@ const NOW = 1_800_000_000_000;
 const MINUTE = 60_000;
 const widget = new URL('../widget/', import.meta.url);
 
-/** Every node of the lock screen and of each island region, depth first. */
+/** Every node of the lock screen, of each island region and of the small region, depth first. */
 function nodes(layout) {
   const island = layout.island ?? {};
   const roots = [layout.lockScreen, ...Object.values(island.expanded ?? {}),
-    island.compactLeading, island.compactTrailing, island.minimal].filter(Boolean);
+    island.compactLeading, island.compactTrailing, island.minimal, layout.small].filter(Boolean);
   const walk = node => [node, ...(node.children ?? []).flatMap(walk), ...(node.child ? walk(node.child) : [])];
   return roots.flatMap(walk);
 }
@@ -39,7 +39,7 @@ const ofType = (id, type) => nodesOf(id).filter(node => node.type === type);
 test('offers one example per layout feature, each under its own key', () => {
   assert.deepEqual(layoutExamples.map(example => example.id), [
     'text', 'symbols', 'image', 'paths', 'gauge', 'progress', 'timer', 'stacks', 'buttons', 'switch', 'link', 'styles',
-    'staleness', 'later', 'island', 'android', 'nowBar',
+    'staleness', 'later', 'island', 'small', 'android', 'nowBar',
   ]);
   const keys = layoutExamples.map(example => example.start(NOW).activityKey);
   assert.deepEqual(keys, layoutExamples.map(example => `mochi:${example.id}`));
@@ -233,6 +233,19 @@ test('the Dynamic Island example fills every region and tints the keyline', () =
   assert.deepEqual(Object.keys(island.expanded).sort(), ['bottom', 'center', 'leading', 'trailing']);
   for (const region of ['compactLeading', 'compactTrailing', 'minimal']) assert.ok(island[region], region);
   assert.ok(keyline);
+});
+
+test('the watch and car example has a glance for the small family beside its compact parts', () => {
+  const { small, island } = startOf('small').layout;
+  // Where the widget extension does not draw the small family, a watch and a car show the compact parts.
+  for (const region of ['compactLeading', 'compactTrailing']) assert.ok(island[region], region);
+  const glance = nodes({ lockScreen: small });
+  // What the contract takes of the region, which Rust judges with the start (demo-layouts.json): few nodes, and
+  // nothing to tap.
+  assert.ok(glance.length <= 12, String(glance.length));
+  for (const node of glance) assert.equal(['button', 'link', 'toggle'].includes(node.type), false, node.type);
+  // It shows what the updates of the example change.
+  assert.deepEqual(glance.map(node => node.bind).filter(Boolean).sort(), ['done', 'eta', 'title']);
 });
 
 test('the Android and Now Bar examples are public and lead with a title and a body', () => {

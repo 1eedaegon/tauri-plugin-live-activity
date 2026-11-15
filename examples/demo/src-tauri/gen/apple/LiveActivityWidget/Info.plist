@@ -4,6 +4,8 @@
 <dict>
 	<key>ActivityKitLayout</key>
 	<integer>2</integer>
+	<key>ActivityKitSmallFamily</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>

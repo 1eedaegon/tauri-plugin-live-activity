@@ -180,7 +180,7 @@ document order with the values and conditions applied: the first `text` is the t
 the body, the first `progress` and `timerText` drive the progress bar and the chronometer, and up
 to three `button`s become notification actions labelled with the first text inside them. Every
 other shown node is left out and named once in `degradedFeatures` as `layout.<type>` (a custom node
-as `layout.custom`), followed by `layout.island`, `layout.styles`, `layout.background` and
+as `layout.custom`), followed by `layout.island`, `layout.small`, `layout.styles`, `layout.background` and
 `layout.keyline` when the request has them. The first shown `image` whose source is a `file` is the
 notification's large icon and is not listed. `android.visibility` sets the lock screen visibility, `private` when absent. A tap reaches
 `on_action` from liveupdate's durable queue, which the plugin drains when the Kotlin side signals
@@ -375,9 +375,18 @@ started activity.
   },
   "background": Color | Binding,   // optional; tint of the activity background
   "keyline": Color | Binding,      // optional; tint of the Dynamic Island keyline
-  "url": Url | Binding             // optional; what a tap on the activity opens the app with
+  "url": Url | Binding,            // optional; what a tap on the activity opens the app with
+  "small": Node                    // optional; for a paired Apple Watch and CarPlay
 }
 ```
+
+`small` is what the activity shows where iOS asks for the small activity family: the Smart Stack of a paired Apple
+Watch (iOS 18) and CarPlay (iOS 26). It has no default, is drawn on `background` and opens `url`, as the lock screen
+tree does. activitykit's widget draws the family only when the widget extension's Info.plist sets
+`ActivityKitSmallFamily` to the Boolean true, which `setup --small-family` writes: then a layout's `small` is drawn
+there, and a layout without it shows its `compactLeading` and `compactTrailing` parts, or their defaults, in a row.
+Without the key the system shows the compact parts itself, and the record of a layout with `small` lists
+`layout.small` in `degradedFeatures`, as it does below iOS 18 and on Android.
 
 An island part that the layout leaves out is drawn with a default:
 
@@ -448,7 +457,7 @@ feed as whitespace, and both accept path data without a command.
 - Depth: at most 8. The root node of a region has depth 1, and a node in `children` or the
   `child` of a button is one level deeper than its parent.
 - Nodes per region, containers included: `lockScreen` 40, each expanded region 12,
-  `compactLeading` 3, `compactTrailing` 3, `minimal` 3.
+  `compactLeading` 3, `compactTrailing` 3, `minimal` 3, `small` 12.
 - Buttons, links and toggles: only in `lockScreen` and the expanded regions, never inside one of them at any
   depth, and at most 4 per region, all three together.
 

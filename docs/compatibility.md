@@ -27,7 +27,8 @@ Android notification styles, each of which the device reports in `getCapabilitie
 | iPhone layout toggles | iOS 17+ | The switch; before it the label alone. A tap comes as `on` |
 | iPhone transient activity | iOS 18+ | `ios: { transient: true }`; `UNSUPPORTED_FEATURE` before |
 | iPhone scheduled start | iOS 26+ | `scheduled`, the record is `pending` until it begins; `UNSUPPORTED_FEATURE` before |
-| Android scheduled start | Android 8.0 / API 26+ | `scheduled`, the record is `pending` until an alarm of the plugin's library posts the notification, also while the app does not run. At its time with the permission for exact alarms, which the app declares (`exactStart`); within about ten minutes without |
+| A layout's `small` region | iOS 18+ with a paired Apple Watch (watchOS 11); iOS 26+ for CarPlay | Drawn in the watch's Smart Stack and on the car's display when the widget extension sets `ActivityKitSmallFamily` (`setup --small-family`); otherwise, and before iOS 18, the record names `layout.small`. Not seen by this project on a watch or in a car |
+| Android scheduled start | Android 8.0 / API 26+ | `scheduled`, the record is `pending` until an alarm of the plugin's library posts the notification, also while the app does not run. At its time with the permission for exact alarms, which the app declares (`exactStart`); without it late by up to three quarters of the wait, ten minutes at most while the device is awake and an hour while it dozes |
 | Android layouts (v2) | Android 8.0 / API 26+ | Shown in part as a notification (title, body, progress bar, chronometer, up to three actions: buttons, links and toggles); the rest is listed in `degradedFeatures` |
 | Android notification styles | Android 8.0 / API 26+, by the device | Standard and big text everywhere; the progress style with segments and points from Android 16 (`progressStyle`), the metric style from Android 17 (`metricStyle`). `getCapabilities().androidPresentation` says which the device draws and offers |
 | Android links | Where the device offers `links` | A layout's `url` and a `link` open the app's URL; the app declares the scheme in an intent filter |
@@ -35,7 +36,7 @@ Android notification styles, each of which the device reports in `getCapabilitie
 | Android end `after` | Where the device offers `delayedEnd` | The last content stays until its time; elsewhere `UNSUPPORTED_FEATURE` |
 | Samsung Now Bar extras | Android 17 / API 37+ | With `android.samsungNowBar` on, adds One UI's text extras. Does not put the app on Samsung's allow list |
 | macOS, Windows, Linux | No activity backend | Capability queries and a stable unsupported error; no desktop notification fallback yet |
-| watchOS, CarPlay, iPhone activities on a Mac | Not a target of their own | Secondary surfaces that the host widget and the OS forward to; they need their own device checks |
+| watchOS, CarPlay, iPhone activities on a Mac | Not a target of their own | Secondary surfaces that the host widget and the OS forward to; they need their own device checks. A layout's `small` region is what the watch and the car show (above) |
 | visionOS | Unsupported | ActivityKit refuses starts from compatible iPhone and iPad apps. The plugin's detection of that mode has not run there |
 | Browsers and other OSes | Unsupported | The plugin does not claim native activity support |
 

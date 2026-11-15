@@ -168,6 +168,39 @@ async function checkInteraction(api: API, runId: string, platform: string, check
   live(undefined);
 }
 
+/** A layout with a region for a paired Apple Watch and CarPlay beside its Lock Screen tree. */
+function smallRequest(runId: string): PublicAPI.LayoutStartInput {
+  return {
+    activityKey: `integration-small:${runId}`, schemaVersion: 2, fallback: 'notification',
+    layout: {
+      lockScreen: { type: 'text', bind: 'status' },
+      small: { type: 'hstack', children: [{ type: 'symbol', name: 'pawprint.fill' }, { type: 'text', bind: 'status' }] },
+    },
+    snapshot: { revision: 0, values: { status: 'Starting' } },
+  };
+}
+
+/**
+ * The region for a paired Apple Watch and CarPlay, through the real plugin. Where the widget extension draws the small
+ * family (the demo's says so, and iOS has the family from 18) the record leaves nothing out. Elsewhere the record
+ * names `layout.small`: on an older iOS, and on Android, where a watch and a car show the notification. The test
+ * does not know the version of iOS, so on iOS the name of the check says which of the two the record told.
+ */
+async function checkSmall(api: API, runId: string, platform: string, check: Check, live: (id?: string) => void): Promise<void> {
+  const started = await api.startLayout(smallRequest(runId));
+  live(started.id);
+  const leftOut = started.degradedFeatures;
+  const drawn = platform === 'ios' && leftOut.length === 0;
+  const outcome = drawn ? 'the widget extension draws the region' : 'its record names the region that is not drawn';
+  await check(`a layout with a small region starts, and ${outcome}`, async () => {
+    ensure(drawn || leftOut.includes('layout.small'), `The start left out ${JSON.stringify(leftOut)}`);
+  });
+  await check('the layout with a small region ends', async () => {
+    ensureEnded(await api.endLayout({ id: started.id, policy: { kind: 'immediate' } }), 'The end');
+  });
+  live(undefined);
+}
+
 /** How far ahead the scheduled start of the test is: it ends long before it would begin. */
 const SCHEDULED_AHEAD_MS = 600_000;
 
@@ -281,6 +314,7 @@ export async function runLifecycleChecks(api: API, runId: string): Promise<SelfT
     await checkLayout(api, runId, capabilities.platform, check, id => { liveLayout = id; });
     await checkPush(api, runId, capabilities.push, check, id => { liveLayout = id; });
     await checkInteraction(api, runId, capabilities.platform, check, id => { liveLayout = id; });
+    await checkSmall(api, runId, capabilities.platform, check, id => { liveLayout = id; });
     await checkScheduled(api, runId, check, id => { liveLayout = id; });
     report = { ...report, status: 'passed' };
   } catch (error) {

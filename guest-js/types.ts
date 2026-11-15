@@ -65,7 +65,10 @@ export interface AndroidPresentationSupport {
   readonly branding: boolean;
   /** A start with `scheduled`, which Android begins at its time, also while the app does not run; `UNSUPPORTED_FEATURE` without it. */
   readonly scheduledStart: boolean;
-  /** Whether a scheduled start begins at its time: the app may set exact alarms. Without it Android chooses the moment, within minutes. */
+  /**
+   * Whether a scheduled start begins at its time: the app may set exact alarms. Without it Android chooses the
+   * moment: up to ten minutes late while the device is awake, an hour while it dozes.
+   */
   readonly exactStart: boolean;
 }
 
@@ -747,6 +750,14 @@ export interface Layout {
    * app without a URL. On Android, where the device offers `links`, it is what a tap on the notification opens.
    */
   readonly url?: LayoutBindable<string>;
+  /**
+   * What the activity shows in the Smart Stack of a paired Apple Watch (iOS 18) and in CarPlay (iOS 26): at most 12
+   * nodes and no button, link or toggle. iOS draws it when the widget extension's Info.plist sets
+   * `ActivityKitSmallFamily` to true (`setup --small-family`); without the key the system shows the compact parts of
+   * the island there, and the record names `layout.small` in `degradedFeatures`. So does Android, where a watch and a
+   * car show the notification.
+   */
+  readonly small?: LayoutNode;
 }
 
 /** What only Android reads of a start. */
@@ -792,7 +803,7 @@ export interface LayoutIosOptions {
  * A start at a later time instead of now: iOS 26, and Android where `getCapabilities().androidPresentation.scheduledStart`
  * is true. Until then the record is `pending`: the activity holds its key, it can be ended, and an update is
  * `CONFLICT`, since it begins with the content of its start. `onState` reports `active` when it begins. On Android
- * it begins at its time with the permission for exact alarms (`exactStart`) and within minutes without. It is
+ * it begins at its time with the permission for exact alarms (`exactStart`) and late without, by minutes. It is
  * `UNSUPPORTED_FEATURE`, and nothing is kept, before iOS 26, with the foreground placement on Android, and where
  * `scheduledStart` is false.
  */

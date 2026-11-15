@@ -16,14 +16,15 @@ templates, is gone.
 
 The **Layouts** tab shows the layout nodes of request contract v2 one at a time: text
 and values, SF Symbols, an image, paths, a gauge, progress, a timer, stacks, buttons,
-styles that an update changes, the Dynamic Island, the Android notification and the Samsung
-Now Bar. Each example is
+styles that an update changes, the Dynamic Island, the region for a paired Apple Watch and
+CarPlay, the Android notification and the Samsung Now Bar. Each example is
 one complete `startLayout` request in [src/layouts.ts](src/layouts.ts); the tab shows
 it under **The request**. Starting an example ends the other examples first.
 
 - [widget/MochiWidgets.swift](widget/MochiWidgets.swift) is activitykit's widget template,
   `ActivityKitLayoutWidget()` in a `@main` widget bundle. The extension (iOS 16.2) links
-  activitykit's `ActivityKitWidget` product, sets `ActivityKitLayout` to `2`, and holds the
+  activitykit's `ActivityKitWidget` product, sets `ActivityKitLayout` to `2` and
+  `ActivityKitSmallFamily` to true, so that it draws a layout's `small` region, and holds the
   image `mochi` in its own [asset catalog](widget/Assets.xcassets), drawn from
   [mochi-portrait.svg](widget/mochi-portrait.svg).
 - The app target links `ActivityKitIntent`, the intent that a button's tap runs in the app,

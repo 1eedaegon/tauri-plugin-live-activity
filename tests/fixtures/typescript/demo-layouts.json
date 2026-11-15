@@ -2071,6 +2071,209 @@
     "after": "the island example starts"
   },
   {
+    "name": "the small example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:small",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "text",
+              "bind": "title",
+              "style": "title"
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            },
+            {
+              "type": "progress",
+              "bind": "done",
+              "style": "meter"
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 6,
+          "style": "card"
+        },
+        "island": {
+          "compactLeading": {
+            "type": "symbol",
+            "name": "pawprint.fill",
+            "style": "mint"
+          },
+          "compactTrailing": {
+            "type": "text",
+            "bind": "eta",
+            "style": "glanceValue"
+          }
+        },
+        "small": {
+          "type": "hstack",
+          "children": [
+            {
+              "type": "symbol",
+              "name": "pawprint.fill",
+              "style": "mint"
+            },
+            {
+              "type": "vstack",
+              "children": [
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "glanceTitle"
+                },
+                {
+                  "type": "text",
+                  "bind": "eta",
+                  "style": "glanceValue"
+                }
+              ],
+              "alignment": "leading",
+              "spacing": 2
+            },
+            {
+              "type": "progress",
+              "bind": "done",
+              "kind": "circular",
+              "style": "glanceMeter"
+            }
+          ],
+          "spacing": 8
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "meter": {
+          "tint": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        },
+        "glanceTitle": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "glanceValue": {
+          "font": "caption",
+          "weight": "semibold",
+          "monospacedDigit": true,
+          "color": "#A3D9C2"
+        },
+        "glanceMeter": {
+          "tint": "#A3D9C2"
+        },
+        "mint": {
+          "color": "#A3D9C2"
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Packing a tiny treat",
+          "done": 0.15,
+          "eta": "9 min"
+        }
+      }
+    }
+  },
+  {
+    "name": "the small example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On the way to Mochi",
+          "done": 0.65,
+          "eta": "4 min"
+        }
+      }
+    },
+    "after": "the small example starts"
+  },
+  {
+    "name": "the small example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Snack time! Made it home",
+          "done": 1,
+          "eta": "Here"
+        }
+      }
+    },
+    "after": "the small example starts"
+  },
+  {
+    "name": "the small example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Packing a tiny treat",
+          "done": 0.15,
+          "eta": "9 min"
+        }
+      }
+    },
+    "after": "the small example starts"
+  },
+  {
+    "name": "the small example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On the way to Mochi",
+          "done": 0.65,
+          "eta": "4 min"
+        }
+      }
+    },
+    "after": "the small example starts"
+  },
+  {
     "name": "the android example starts",
     "command": "start_layout",
     "input": {

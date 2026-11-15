@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "activitykit"
-version = "0.5.0"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf7a5c23c507ca6eee6f6381b30ff4b2e571132de5c5c6d6c2f124d9d65a18fb"
+checksum = "ed9b0d15286b015690ad4096a44c3dfbf932426f17eac891e3c3007dd51b6922"
 dependencies = [
  "async-channel",
  "serde",
@@ -1673,9 +1673,9 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "liveactivity"
-version = "0.6.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8344b84a5ac32a4fb62ba02c45aa53853733bc3c8c8a5a93fcc6900f25263acd"
+checksum = "c99a24a3e5f5c47a572636d562cd1815ae3fe6a4a433cbe27fbff5f8de00fa0b"
 dependencies = [
  "activitykit",
  "liveupdate",
@@ -1686,9 +1686,9 @@ dependencies = [
 
 [[package]]
 name = "liveupdate"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d241d607825089d81c68a3e2a09cc6970a322296873622bf24e97130b60684a"
+checksum = "874d16819966628d9101bf4f2b2d64f02f1e500ee945ec12e6806a7a30f8c313"
 dependencies = [
  "jni 0.22.4",
  "ndk-context",
@@ -3148,7 +3148,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-live-activity"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "liveactivity",
  "serde",

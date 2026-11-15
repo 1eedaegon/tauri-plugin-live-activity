@@ -41,6 +41,13 @@ test('the widget extension links ActivityKitWidget and declares layout support, 
   assert.match(read('../app/ActivityKitIntents.swift'), /^import ActivityKitIntent$/m);
 });
 
+// TP-SETUP-8
+test('the widget extension draws the small family, as a Boolean in its Info.plist', () => {
+  assert.match(target('LiveActivityWidget'), /\n {8}ActivityKitLayout: 2\n(?: {8}#.*\n)* {8}ActivityKitSmallFamily: true\n/);
+  // XcodeGen writes the file from the spec; activitykit's widget reads a Boolean there, and no text.
+  assert.match(read('../src-tauri/gen/apple/LiveActivityWidget/Info.plist'), /\t<key>ActivityKitSmallFamily<\/key>\n\t<true\/>\n/);
+});
+
 test('the app turns on the Samsung Now Bar extras and grants the layout commands', () => {
   const config = JSON.parse(read('../src-tauri/tauri.conf.json'));
   assert.deepEqual(config.plugins['live-activity'], { android: { samsungNowBar: true } });

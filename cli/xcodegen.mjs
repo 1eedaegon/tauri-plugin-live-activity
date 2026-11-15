@@ -10,6 +10,8 @@ export const WIDGET_ENTITLEMENTS = `${WIDGET}.entitlements`;
 export const APP_GROUP_KEY = 'ActivityKitAppGroup';
 /** The key of 0.2 and 0.3, which a spec they wrote may hold. */
 const OLD_APP_GROUP_KEY = 'TauriLiveActivityAppGroup';
+/** The Info.plist key of the extension with which activitykit's widget draws the small family. */
+export const SMALL_FAMILY_KEY = 'ActivityKitSmallFamily';
 /**
  * The files of the widget folder that the app target compiles too. The custom views file is Swift, so the app target
  * compiles Swift, which Xcode needs to take the App Intents metadata of the linked ActivityKitIntent product.
@@ -87,6 +89,11 @@ export function appGroupOf(spec = '') {
   return value && JSON.parse(value);
 }
 
+/** Whether a spec that setup wrote has the widget draw the small family, so that a later run keeps that. */
+export function drawsSmallFamily(spec = '') {
+  return new RegExp(`^\\s+${SMALL_FAMILY_KEY}: true$`, 'm').test(spec);
+}
+
 /**
  * Adds `file` to the spec's `include` list. Status: `added` (with the new `text`), `present`, or
  * `unsupported` when the list has a form this does not edit.
@@ -122,10 +129,12 @@ const quoted = value => JSON.stringify(String(value));
  * The included spec: activitykit's Swift package, the widget extension target, and in the app target the extension,
  * the button intent and the custom views. `fonts` go to the extension's UIAppFonts. An `appGroup` goes to the
  * entitlements of both targets, the app's at `appEntitlements`, and to the extension's Info.plist, where activitykit
- * and the widget read it. XcodeGen merges the app target's part into the target of project.yml.
+ * and the widget read it. With `smallFamily` the extension's Info.plist says that the widget draws the small family,
+ * for a paired Apple Watch and CarPlay. XcodeGen merges the app target's part into the target of project.yml.
  */
 export function widgetSpec({
   pluginVersion, packagePath, appTarget, bundleId, appVersion, buildVersion, teamGroup, fonts = [], appGroup, appEntitlements,
+  smallFamily = false,
 }) {
   const versions = appVersion === undefined ? [] : [
     `        CFBundleShortVersionString: ${quoted(appVersion)}`,
@@ -172,6 +181,7 @@ export function widgetSpec({
     '          NSExtensionPointIdentifier: com.apple.widgetkit-extension',
     '        # A start answers CONFIGURATION_REQUIRED without an extension that declares this.',
     '        ActivityKitLayout: 2',
+    ...(smallFamily ? [`        ${SMALL_FAMILY_KEY}: true`] : []),
     ...fontList,
     ...group,
     ...entitlements(WIDGET_ENTITLEMENTS),

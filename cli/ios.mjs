@@ -8,7 +8,9 @@ import { OLD_MODULES, RETIRED, released, renameCustomViews } from './migration.m
 import { newPlist, setTrueKey } from './plist.mjs';
 import { SetupError, parseJson, readText, step, tail, which, writeFile } from './steps.mjs';
 import { assetSteps, bundledFonts, fontSteps } from './widget-files.mjs';
-import { SPEC_FILE, WIDGET, addInclude, appGroupOf, readProject, widgetSpec, writtenBySetup } from './xcodegen.mjs';
+import {
+  SMALL_FAMILY_KEY, SPEC_FILE, WIDGET, addInclude, appGroupOf, drawsSmallFamily, readProject, widgetSpec, writtenBySetup,
+} from './xcodegen.mjs';
 
 /** The widget bundle: activitykit's template, under the name 0.2 and 0.3 gave the plugin's. */
 const WIDGET_FILE = 'LiveActivityWidget.swift';
@@ -32,9 +34,9 @@ export function iosSteps(context) {
   const plist = infoPlistStep(context);
   if (project.widget) {
     const detail = `already has a widget extension, ${project.widget}; add the plugin's widget to it by hand (docs/ios-integration.md)`;
-    const { files, appGroup } = context;
-    const given = [files.fonts.length && '--font', files.assets.length && '--asset', appGroup && '--app-group'].filter(Boolean);
-    const left = given.length === 0 ? [] : [step('todo', show(specPath), `${given.join(', ')} not applied: that widget is yours to give fonts, images and an App Group (docs/ios-integration.md)`)];
+    const { files, appGroup, smallFamily } = context;
+    const given = [files.fonts.length && '--font', files.assets.length && '--asset', appGroup && '--app-group', smallFamily && '--small-family'].filter(Boolean);
+    const left = given.length === 0 ? [] : [step('todo', show(specPath), `${given.join(', ')} not applied: that widget is yours to give fonts, images, an App Group and the small family (docs/ios-integration.md)`)];
     return [plist, step('skipped', show(specPath), detail), ...left];
   }
   if (!project.appTarget) {
@@ -43,12 +45,14 @@ export function iosSteps(context) {
   }
   const widget = join(apple, WIDGET);
   const appGroup = appGroupFor(context, apple, project);
+  // A spec that setup wrote with the small family keeps it on later runs, as it keeps its App Group.
+  const smallFamily = context.smallFamily || drawsSmallFamily(readText(join(apple, SPEC_FILE)));
   const include = includeStep(context, specPath, yaml);
   // XcodeGen lists the files of a folder when it generates, so a new or removed widget file also needs a run.
   const projectSteps = [
     widgetStep(context, widget), ...retiredSteps(context, widget, readText(join(apple, SPEC_FILE))), customViewsStep(context, widget),
     ...fontSteps(context, widget), ...assetSteps(context, widget),
-    specStep(context, apple, project, { fonts: bundledFonts(context, widget), appGroup }), include,
+    specStep(context, apple, project, { fonts: bundledFonts(context, widget), appGroup, smallFamily }), include,
   ];
   return [plist, ...projectSteps, xcodegenStep(context, apple, specPath, projectSteps, include)];
 }
@@ -133,11 +137,12 @@ function retiredSteps({ show }, widget, spec) {
   });
 }
 
-function specStep({ plugin, activitykit, config, srcTauri, show }, apple, project, { fonts, appGroup }) {
+function specStep({ plugin, activitykit, config, srcTauri, show }, apple, project, { fonts, appGroup, smallFamily }) {
   const path = join(apple, SPEC_FILE);
   const wanted = widgetSpec({
     fonts,
     appGroup,
+    smallFamily,
     // XcodeGen writes the entitlements file from the spec, so the App Group goes into the spec, at the app's path.
     appEntitlements: project.entitlements ?? `${project.appTarget}/${project.appTarget}.entitlements`,
     pluginVersion: plugin.version,
@@ -153,6 +158,10 @@ function specStep({ plugin, activitykit, config, srcTauri, show }, apple, projec
   }
   if (current === wanted) return step('unchanged', show(path));
   if (!writtenBySetup(current)) {
+    // The spec is the app's now: the key that --small-family asks for goes in by hand, as the rest of it did.
+    if (smallFamily && !drawsSmallFamily(current)) {
+      return step('todo', show(path), `it was changed by hand, so --small-family was not applied: add \`${SMALL_FAMILY_KEY}: true\` to the info properties of ${WIDGET}, or delete the file and run setup again`);
+    }
     return step('kept', show(path), 'it was changed by hand; delete it and run setup again to have it written anew');
   }
   return step('updated', show(path), 'for the current plugin, activitykit and app version', writeFile(path, wanted));

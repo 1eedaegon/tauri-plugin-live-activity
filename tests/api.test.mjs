@@ -1121,6 +1121,8 @@ test('the declarations take every valid layout fixture and the members beside th
     ]),
     typed('updates', 'LayoutUpdateInput', [...inputs('update_layout'), ...accepted(fixtures.updates).map(({ update }) => update), { ...layoutUpdate, alert }]),
     typed('ends', 'LayoutEndInput', [...inputs('end_layout'), ...accepted(fixtures.ends).map(({ end }) => end)]),
+    // A region for a paired Apple Watch and CarPlay: one node, as the Lock Screen's.
+    typed('layouts', 'Layout', [{ lockScreen: { type: 'text', value: 'a' }, small: { type: 'hstack', children: [{ type: 'text', value: 'a' }] } }]),
   ].join(''));
   assert.equal(taken.status, 0, taken.stdout + taken.stderr);
 
@@ -1154,6 +1156,10 @@ export const k: Start = { ios: {} };
 export const l: Start = { scheduled: { at: 1 } };
 // @ts-expect-error the sound of an alert is a file name
 export const m: plugin.LayoutAlert = { title: 'a', body: 'b', sound: 1 };
+// @ts-expect-error the small region is one node, as the Lock Screen's
+export const n: plugin.Layout = { lockScreen: child, small: [child] };
+// @ts-expect-error the small region has no parts, unlike the island
+export const o: plugin.Layout = { lockScreen: child, small: { minimal: child } };
 `);
   assert.equal(refused.status, 0, refused.stdout + refused.stderr);
   // The compiler does check the modules: a member that no declaration names fails.

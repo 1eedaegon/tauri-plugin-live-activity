@@ -15,7 +15,7 @@ import { setTrueKey } from '../cli/plist.mjs';
 import { formatReport } from '../cli/report.mjs';
 import { PERMISSIONS, SetupError, findCrates, setup } from '../cli/setup.mjs';
 import { fontNames } from '../cli/widget-files.mjs';
-import { addInclude, appGroupOf, readProject } from '../cli/xcodegen.mjs';
+import { addInclude, appGroupOf, drawsSmallFamily, readProject } from '../cli/xcodegen.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
 // The crate the fixtures stand in for has the package's own version unless a test says otherwise.
@@ -276,8 +276,8 @@ test('leaves an Xcode project with its own widget extension alone', t => {
   assert.equal(result.steps.some(step => step.status === 'todo'), false);
 
   const art = artwork(context);
-  const flags = run(context, { fonts: [art('Mono.otf')], appGroup: true });
-  assert.match(flags.steps.find(step => step.status === 'todo').detail, /^--font, --app-group not applied: that widget is yours/);
+  const flags = run(context, { fonts: [art('Mono.otf')], appGroup: true, smallFamily: true });
+  assert.match(flags.steps.find(step => step.status === 'todo').detail, /^--font, --app-group, --small-family not applied: that widget is yours/);
   assert.equal(existsSync(join(context.srcTauri, 'gen/apple/LiveActivityWidget')), false);
 });
 
@@ -832,7 +832,60 @@ test('checks the fonts and images it is given before it writes anything', t => {
   assert.deepEqual(snapshot(context.app), before);
 });
 
-test('the CLI takes --font, --asset and --app-group, with a value after the option or after =', t => {
+// TP-SETUP-8
+test('--small-family makes the widget draw the small region, and later runs keep it', t => {
+  const context = makeApp(t);
+  const spec = () => read(context, 'gen/apple/live-activity.yml');
+  const path = 'src-tauri/gen/apple/live-activity.yml';
+
+  // Without the option the key is absent: the system shows the compact parts on a watch and in a car.
+  run(context);
+  assert.equal(spec().includes('SmallFamily'), false);
+  assert.equal(drawsSmallFamily(spec()), false);
+
+  const asked = run(context, { smallFamily: true });
+  assert.equal(statuses(asked)[path], 'updated');
+  // XcodeGen writes a YAML true as the Boolean that activitykit's widget reads.
+  assert.ok(spec().includes('\n        ActivityKitLayout: 2\n        ActivityKitSmallFamily: true\n'), spec());
+  assert.equal(drawsSmallFamily(spec()), true);
+  assert.deepEqual(xcodegenRuns(context).length, 2);
+
+  assert.deepEqual([...new Set(run(context).steps.map(step => step.status))], ['unchanged']);
+  assert.equal(drawsSmallFamily(spec()), true);
+  // It stands beside the other things a later run keeps.
+  assert.equal(statuses(run(context, { appGroup: true }))[path], 'updated');
+  assert.ok(spec().includes('\n        ActivityKitSmallFamily: true\n        ActivityKitAppGroup: "group.com.example.lasetupcheck"\n'), spec());
+
+  // Only the key with the value true counts, as in the widget.
+  for (const line of ['ActivityKitSmallFamily: false', '# ActivityKitSmallFamily: true', 'ActivityKitSmallFamily: "true"', 'ActivityKitSmallFamily: truex']) {
+    assert.equal(drawsSmallFamily(`        ${line}\n`), false, line);
+  }
+  assert.equal(drawsSmallFamily(), false);
+});
+
+// TP-SETUP-8
+test('--small-family on a spec that was changed by hand is left to do, unless the spec has the key', t => {
+  const context = makeApp(t);
+  const path = 'src-tauri/gen/apple/live-activity.yml';
+  const specPath = join(context.srcTauri, 'gen/apple/live-activity.yml');
+  run(context);
+  const byHand = `${read(context, 'gen/apple/live-activity.yml')}# mine\n`;
+  writeFileSync(specPath, byHand);
+
+  // Without the option the spec is kept, and nothing is left to do.
+  assert.equal(statuses(run(context))[path], 'kept');
+  const asked = run(context, { smallFamily: true });
+  const left = asked.steps.find(step => step.path === path);
+  assert.equal(left.status, 'todo');
+  assert.match(left.detail, /changed by hand, so --small-family was not applied: add `ActivityKitSmallFamily: true`/);
+  assert.equal(read(context, 'gen/apple/live-activity.yml'), byHand);
+
+  // The key that a person wrote there is what the option asks for.
+  writeFileSync(specPath, byHand.replace('        ActivityKitLayout: 2\n', '        ActivityKitLayout: 2\n        ActivityKitSmallFamily: true\n'));
+  assert.equal(statuses(run(context, { smallFamily: true }))[path], 'kept');
+});
+
+test('the CLI takes --font, --asset and --app-group, with a value after the option or after =, and --small-family without one', t => {
   const context = makeApp(t);
   const art = artwork(context);
   const cli = join(repo, 'cli', 'bin.mjs');
@@ -843,7 +896,11 @@ test('the CLI takes --font, --asset and --app-group, with a value after the opti
   assert.match(done.stdout, /created +src-tauri\/gen\/apple\/LiveActivityWidget\/Fonts\/Pacifico-Regular\.ttf \(fontFamily: "Pacifico-Regular" or "Pacifico"\)/);
   assert.match(done.stdout, /created +src-tauri\/gen\/apple\/LiveActivityWidget\/Assets\.xcassets\/badge\.imageset\/badge\.png \(the asset "badge"\)/);
   assert.equal(appGroupOf(read(context, 'gen/apple/live-activity.yml')), 'group.com.example.art');
-  for (const args of [['--font'], ['--asset='], ['--fonts', 'a.ttf']]) {
+  assert.equal(drawsSmallFamily(read(context, 'gen/apple/live-activity.yml')), false);
+  assert.equal(exec('setup', '--small-family').status, 0);
+  assert.equal(drawsSmallFamily(read(context, 'gen/apple/live-activity.yml')), true);
+  assert.match(exec('setup', '--help').stdout, /--small-family +draw a layout's small region/);
+  for (const args of [['--font'], ['--asset='], ['--fonts', 'a.ttf'], ['--small-family=yes']]) {
     const wrong = exec('setup', ...args);
     assert.equal(wrong.status, 2, args.join(' '));
     assert.match(wrong.stderr, /needs a file|Unknown option/);
