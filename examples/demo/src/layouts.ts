@@ -10,7 +10,7 @@ import { snackSteps } from './mochi.ts';
 
 export type LayoutExampleId =
   | 'text' | 'symbols' | 'image' | 'paths' | 'gauge' | 'progress' | 'timer' | 'stacks' | 'buttons' | 'switch' | 'link'
-  | 'styles' | 'staleness' | 'later' | 'island' | 'android' | 'nowBar';
+  | 'styles' | 'staleness' | 'later' | 'island' | 'small' | 'android' | 'nowBar';
 
 export interface LayoutExample {
   readonly id: LayoutExampleId;
@@ -482,6 +482,49 @@ const islandExample: LayoutExample = {
   next: nextSnack,
 };
 
+const smallExample: LayoutExample = {
+  id: 'small',
+  name: 'Watch and car',
+  feature: 'The small member is what a paired Apple Watch and CarPlay show: a glance of at most 12 nodes, without buttons. The widget extension says that it draws it.',
+  android: 'A watch and a car show the notification by themselves. Android draws nothing of the region and lists layout.small.',
+  start: () => ({
+    activityKey: 'mochi:small', schemaVersion, fallback,
+    layout: {
+      lockScreen: vstack([
+        bound('title', { style: 'title' }),
+        bound('status', { style: 'status' }),
+        progress('done', { style: 'meter' }),
+      ], { alignment: 'leading', spacing: 6, style: 'card' }),
+      // Without the key in the widget extension, the watch and the car show these two.
+      island: {
+        compactLeading: symbol('pawprint.fill', { style: 'mint' }),
+        compactTrailing: bound('eta', { style: 'glanceValue' }),
+      },
+      small: hstack([
+        symbol('pawprint.fill', { style: 'mint' }),
+        vstack([
+          bound('title', { style: 'glanceTitle' }),
+          bound('eta', { style: 'glanceValue' }),
+        ], { alignment: 'leading', spacing: 2 }),
+        progress('done', { kind: 'circular', style: 'glanceMeter' }),
+      ], { spacing: 8 }),
+      background,
+    },
+    styles: {
+      card, title, status, meter,
+      glanceTitle: { font: 'headline', design: 'rounded', lineLimit: 1 },
+      glanceValue: { font: 'caption', weight: 'semibold', monospacedDigit: true, color: mint },
+      glanceMeter: { tint: mint },
+      mint: { color: mint },
+    },
+    snapshot: {
+      revision: 0,
+      values: { title: 'Mochi’s snack', status: snackStages[0].status, done: snackStages[0].done, eta: snackStages[0].eta },
+    },
+  }),
+  next: nextSnack,
+};
+
 const naps = [
   { status: 'Dozing off', sleep: 0.2 },
   { status: 'Fast asleep', sleep: 0.6 },
@@ -535,7 +578,7 @@ const nowBarExample: LayoutExample = {
 export const layoutExamples: readonly LayoutExample[] = [
   textExample, symbolsExample, imageExample, pathsExample, gaugeExample, progressExample, timerExample,
   stacksExample, buttonsExample, switchExample, linkExample, stylesExample, stalenessExample, laterExample,
-  islandExample, androidExample, nowBarExample,
+  islandExample, smallExample, androidExample, nowBarExample,
 ];
 
 export function findLayoutExample(id: string): LayoutExample | undefined {

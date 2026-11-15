@@ -96,6 +96,28 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## The small region and liveupdate 0.4.1, 0.9.0
+
+0.9.0 takes a layout's `small` region, with liveactivity 0.7: what a paired Apple Watch and CarPlay show of an
+iPhone's activity. A notification has no place for it, and a watch and a car show an Android notification by
+themselves. The plugin's library carries liveupdate 0.4.1's adapter, which sets an inexact alarm beside the exact
+one of a scheduled start. A Galaxy S23 with Android 17 (API 37) ran it.
+
+- The Android library's device tests, 9 of 9, on liveupdate 0.4.1's adapter.
+- The demo's lifecycle test, 30 of 30 in each of 3 runs, the last with a build of the release commit: two more
+  checks than 0.8.0 had. A layout with a small region starts, its record names `layout.small`, and it ends.
+- The demo's example for a watch and a car, whose layout has an island and a small region: the record listed
+  `layout.island`, `layout.small`, `layout.styles` and `layout.background`, in that order. The notification had the
+  title and the status of the Lock Screen tree and no action, an update from the page changed its text, and the
+  end removed it.
+- A scheduled start 30 s ahead, with the app's process ended right after the start and without the permission for
+  exact alarms, as the demo ships: the notification 25 s after its time, as with 0.8.0, and the app that was
+  opened afterwards listed the activity as `active`.
+
+Not run: a start whose exact alarm the person takes back while it waits, which is what liveupdate 0.4.1 corrects
+and which liveupdate saw on an emulator: the demo declares no exact alarms. Android 16 and earlier; a watch paired
+with the phone.
+
 ## A scheduled start, 0.8.0
 
 0.8.0 takes a scheduled start on Android, with liveactivity 0.6.0 and liveupdate 0.4.0, whose adapter the

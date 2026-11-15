@@ -99,6 +99,28 @@ The demo's UI tests have not run on a phone. A copy of them that signs its runne
 and stopped where the phone turns UI automation on, which a person allows on the phone. So no touch has reached
 a phone's Lock Screen, and nothing has looked at what it draws.
 
+## 0.9.0 on two iPhones
+
+0.9.0 takes a layout's `small` region, with liveactivity 0.7 and activitykit 0.6. No paired Apple Watch and no car
+was at hand, so nothing here shows the region drawn. What a phone can tell is whether the widget extension draws
+the small family: the record of a start names `layout.small` when it does not.
+
+- The demo, whose widget extension sets `ActivityKitSmallFamily`, passed its lifecycle test on an iPhone 16 with
+  iOS 27.2 in 5 of 5 runs, 31 checks each, and on an iPhone XS with iOS 18.7 in 4 of 4, 27 checks each: the last
+  two runs on each phone with a build of the release commit. Two of the checks are new: a layout with a small
+  region starts, and the record leaves nothing out; and it ends.
+- The same demo built without the key passed on the iPhone 16 too, 31 checks, and there the record named
+  `layout.small`. The check says in its name which of the two it saw.
+
+The demo's UI tests ran on a phone for the first time, on the iPhone XS: a copy of them that signs its runner and
+takes its pictures of the demo's card alone. With the demo of 0.8.0 once and with that of 0.9.0 twice, the second
+time a build of the release commit, 10 of the 11 passed, in a run of ten minutes each: the bound style, the buttons, the list after a relaunch, the lifecycle
+test, the templates, the tap that launches the app for a slow handler, the start from Rust, the switch, the link
+and the staleness. Touches reached a phone's Lock Screen there, and the pictures show what it drew. The eleventh,
+the scheduled start, cannot pass below iOS 26, where the start is refused. On the iPhone 16 the runner still stops
+where the phone turns UI automation on, with the phone unlocked: the switch for it in the phone's developer
+settings is off. So no UI test has run on a phone with iOS 26 or later.
+
 ## Tests added after the first release
 
 - Exact encoded Unicode title/status equality: NFC and NFD strings must conflict at the same revision, matching JS/Rust/Android contracts. Swift's default canonical string equivalence incorrectly accepted the changed text. A failing core test and the actual published alpha.1 consumer reproduced it; the local fix compares UTF-8 bytes.

@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.9.0
+
+Built on liveactivity 0.7.1, activitykit 0.6 and liveupdate 0.4.1: a layout's region for a paired Apple Watch
+and CarPlay, and an alarm that stays for a scheduled start on Android.
+
+- A layout takes `small`: what the activity shows in the Smart Stack of a paired Apple Watch (iOS 18 with watchOS
+  11) and in CarPlay (iOS 26). It is one tree of at most 12 nodes, without buttons, links or toggles, on the
+  layout's `background`, and a tap opens the layout's `url`. A request that breaks its rules is `INVALID_INPUT` on
+  every platform. `Layout` has the member in TypeScript and in Rust.
+- `npx tauri-plugin-live-activity setup --small-family` has the widget extension draw that family: it writes
+  `ActivityKitSmallFamily: true` into the extension's Info.plist in `live-activity.yml`, and later runs keep it.
+  With the key the widget draws `small` on the watch and in the car, and for a layout without the region its
+  compact parts in a row. Without the key iOS shows the compact parts itself, as until 0.8, and the record of a
+  layout with `small` names `layout.small` in `degradedFeatures`.
+- Android draws nothing of the region, which a notification has no place for, and names `layout.small`, after
+  `layout.island`.
+- A scheduled start on Android still begins when the person takes the permission for exact alarms back while it
+  waits. Android then removes every exact alarm and stops the app; with 0.8.0 no alarm was left, and the activity
+  began when the app next ran. The plugin's Android library, with liveupdate 0.4.1's adapter, sets an inexact alarm
+  beside the exact one, and that one stays. Nothing changes for an app without exact alarms.
+- The documents say how late a scheduled start can be on Android without exact alarms, by liveupdate's
+  measurements: up to three quarters of the wait, ten minutes at most while the device is awake and an hour
+  while it dozes.
+
+When updating:
+
+- Nothing changes for an app that sends no `small` and runs setup without the option.
+- In Rust, `Layout` (activitykit's `LayoutRegions`, which liveactivity re-exports) has the new member `small`: a
+  struct literal has to name it, `small: None` for a layout without the region.
+- A widget extension of the app's own, and a `live-activity.yml` that was changed by hand, take the key by hand:
+  [iOS integration](docs/ios-integration.md#infoplist-keys).
+
 ## 0.8.0
 
 Built on liveactivity 0.6.0 and liveupdate 0.4.0: a scheduled start on Android.

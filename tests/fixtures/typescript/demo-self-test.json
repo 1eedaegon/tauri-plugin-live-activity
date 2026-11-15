@@ -294,6 +294,51 @@
     "name": "on iOS, call 27: startLayout",
     "command": "start_layout",
     "input": {
+      "activityKey": "integration-small:test",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "text",
+          "bind": "status"
+        },
+        "small": {
+          "type": "hstack",
+          "children": [
+            {
+              "type": "symbol",
+              "name": "pawprint.fill"
+            },
+            {
+              "type": "text",
+              "bind": "status"
+            }
+          ]
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "status": "Starting"
+        }
+      }
+    }
+  },
+  {
+    "name": "on iOS, call 28: endLayout",
+    "command": "end_layout",
+    "input": {
+      "id": "layout-small",
+      "policy": {
+        "kind": "immediate"
+      }
+    },
+    "after": "on iOS, call 27: startLayout"
+  },
+  {
+    "name": "on iOS, call 29: startLayout",
+    "command": "start_layout",
+    "input": {
       "activityKey": "integration-later:test",
       "schemaVersion": 2,
       "fallback": "notification",
@@ -319,7 +364,7 @@
     }
   },
   {
-    "name": "on iOS, call 28: startLayout",
+    "name": "on iOS, call 30: startLayout",
     "command": "start_layout",
     "input": {
       "activityKey": "integration-later:test",
@@ -347,7 +392,7 @@
     }
   },
   {
-    "name": "on iOS, call 29: updateLayout",
+    "name": "on iOS, call 31: updateLayout",
     "command": "update_layout",
     "input": {
       "id": "layout-later",
@@ -358,10 +403,10 @@
         }
       }
     },
-    "after": "on iOS, call 27: startLayout"
+    "after": "on iOS, call 29: startLayout"
   },
   {
-    "name": "on iOS, call 31: endLayout",
+    "name": "on iOS, call 33: endLayout",
     "command": "end_layout",
     "input": {
       "id": "layout-later",
@@ -369,7 +414,7 @@
         "kind": "immediate"
       }
     },
-    "after": "on iOS, call 27: startLayout"
+    "after": "on iOS, call 29: startLayout"
   },
   {
     "name": "on Android, call 19: endLayout",

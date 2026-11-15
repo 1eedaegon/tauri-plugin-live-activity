@@ -1,3 +1,50 @@
+# 0.9.0 validation
+
+0.9.0 moves the plugin to liveactivity 0.7.1, with activitykit 0.6 and liveupdate 0.4.1. A layout takes a `small`
+region for a paired Apple Watch and CarPlay, setup has the option `--small-family`, and the plugin's Android
+library carries liveupdate 0.4.1's adapter, whose scheduled start keeps an inexact alarm beside the exact one.
+`Layout` has a new member, in TypeScript and in Rust: a minor release. No paired Apple Watch and no car was at
+hand, so nothing below shows the region drawn. Checked before the tag:
+
+- An iPhone 16 with iOS 27.2 and an iPhone XS with iOS 18.7, on the demo, whose widget extension sets
+  `ActivityKitSmallFamily`: the lifecycle test, 3 of 3 runs with 31 checks each and 2 of 2 with 27. A layout with
+  a small region starts there with nothing left out. Built without the key, the demo passed on the iPhone 16 with
+  the record naming `layout.small`. [iOS coverage](ios-coverage.md#090-on-two-iphones) has the runs.
+- The demo's UI tests on a phone, for the first time: on the iPhone XS, with a copy that signs its runner, 10 of
+  11 with the demo of 0.8.0 and again with that of 0.9.0. The eleventh is the scheduled start, which iOS 18
+  refuses.
+- A Galaxy S23 with Android 17: the Android library's device tests, 9 of 9, on liveupdate 0.4.1's adapter; the
+  lifecycle test, 30 of 30; the demo's example for a watch and a car, whose record lists `layout.island`,
+  `layout.small`, `layout.styles` and `layout.background` and whose notification is the Lock Screen tree's; and a
+  scheduled start 30 s ahead with the process ended, shown 25 s after its time, as with 0.8.0.
+  [Android coverage](android-coverage.md#the-small-region-and-liveupdate-041-090) has them.
+- The release commit differs from what the first of those runs had by liveupdate 0.4.1's adapter, by the label
+  of the demo's new example and by the versions. It was built again for the three phones: the lifecycle test
+  passed on each, 31 of 31 twice on the iPhone 16, 27 of 27 twice on the iPhone XS and 30 of 30 on the S23, where
+  the example gave the same record. The demo's UI tests on the iPhone XS gave the same 10 of 11 with that build.
+- `npm test` (264 tests in six suites) and `cargo test` (47 unit and 7 integration tests), `cargo clippy`,
+  `tools/spec-coverage.sh` (82 requirements, each with a test), the Android library's unit tests and lint. Rust
+  judged the requests that the demo's new example and lifecycle check build, with the liveactivity of the lock
+  (TP-CONTRACT-9). The rules of the setup option (TP-SETUP-8) were changed in place 17 times, and a test failed
+  each time: the key never or always written, or written as text; not kept, or always set, by a later run;
+  `false`, a comment or text after `true` counting as set; the flag or its line of help gone; a widget of the
+  app's own not told; the option lost on its way to the spec; a spec changed by hand kept without a word, or left
+  to do though it has the key or though nobody asked; the demo's spec without the key, and its Info.plist with
+  text.
+- CI with the two simulator suites, started by hand on the head of the pull request before this record was
+  added (run 43702820805, iOS 26.2): the suite on the built demo passed its 11 tests and the one on
+  `tauri ios dev` its 4, each test on its first try. The lifecycle test among them starts a layout with a small
+  region; the run does not show which of the two answers the record gave there. The pull request's own run and
+  the main run of the release commit.
+
+Not checked: a paired Apple Watch and CarPlay, on a device or in a simulator. A start whose exact alarm the person
+takes back while it waits, on a phone: the demo declares no exact alarms, and liveupdate saw the alarm that stays
+on an emulator. A restart of the device and a doze; Android 16 and earlier with this version. The demo's UI tests
+on a phone with iOS 26 or later: on the iPhone 16 the switch for UI automation in the developer settings is off.
+A finger on the glass, on either system.
+
+The record of 0.8.0 follows.
+
 # 0.8.0 validation
 
 0.8.0 moves the plugin to liveactivity 0.6.0 and liveupdate 0.4.0, with which a scheduled start waits on Android

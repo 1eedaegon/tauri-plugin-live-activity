@@ -80,6 +80,7 @@ cargo builds.
 | `NSSupportsLiveActivities` | app | `YES`. Without it a start answers `CONFIGURATION_REQUIRED` |
 | `ActivityKitLayout` | widget extension | The integer `2`. A start checks that an embedded extension carries it and answers `CONFIGURATION_REQUIRED` otherwise |
 | `ActivityKitAppGroup` | widget extension | The App Group for images the app draws; only with `writeImage` |
+| `ActivityKitSmallFamily` | widget extension | The Boolean `true`, to draw a layout's `small` region on a paired Apple Watch (iOS 18) and in CarPlay (iOS 26), and there the compact parts of a layout without one. Without it iOS shows the compact parts itself and a record names `layout.small`. `setup --small-family` writes it |
 | `UIAppFonts` | widget extension | The fonts the extension bundles, for `fontFamily` |
 
 0.2 and 0.3 named the extension's keys `TauriLiveActivityLayout` and `TauriLiveActivityAppGroup`; 0.5 reads neither.

@@ -56,6 +56,7 @@ function passingSteps() {
     { method: 'startLayout', error: { code: 'CONFIGURATION_REQUIRED' } },
     { method: 'pushTokens', result: { activities: [] } },
     ...interactionSteps([]),
+    ...smallSteps([]),
     ...pendingSteps(),
   ];
 }
@@ -69,6 +70,17 @@ function interactionSteps(leftOut) {
     { method: 'startLayout', result: nodesRecord(0, { status: 'Starting', muted: false }, 'active', leftOut) },
     { method: 'updateLayout', result: nodesRecord(1, { status: 'Muted', muted: true }, 'active', leftOut) },
     { method: 'endLayout', result: nodesRecord(1, { status: 'Muted', muted: true }, 'ended', leftOut) },
+  ];
+}
+
+const smallRecord = (state, degradedFeatures) => ({ ...layoutRecord(0, 'Starting', state), id: 'layout-small',
+  activityKey: 'integration-small:test', degradedFeatures });
+
+/** The layout with a region for a watch and a car: a start that leaves `leftOut` out, and an end. */
+function smallSteps(leftOut) {
+  return [
+    { method: 'startLayout', result: smallRecord('active', leftOut) },
+    { method: 'endLayout', result: smallRecord('ended', leftOut) },
   ];
 }
 
@@ -99,6 +111,8 @@ function androidSteps() {
       { method: 'endLayout', result: { ...layoutRecord(0, 'Starting', 'ended'), id: 'layout-push' } },
       // A notification is drawn once: Android names the nodes that follow staleness, and starts nothing later.
       ...interactionSteps(['layout.ifStale']),
+      // A notification has no place for the small region either.
+      ...smallSteps(['nativeLiveActivity', 'layout.small']),
       ...refusedSteps(),
     ]);
 }
@@ -108,7 +122,7 @@ test('runs start/update/end and generation safety checks through the supplied pu
   const harness = scripted(passingSteps());
   const report = await runLifecycleChecks(harness.api, 'test');
   assert.equal(report.status, 'passed', JSON.stringify(report));
-  assert.equal(report.checks.length, 29);
+  assert.equal(report.checks.length, 31);
   assert.equal(report.checks.every(check => check.passed), true);
   assert.equal(harness.consumed(), true);
   assert.deepEqual(harness.calls[2].input.snapshot, snapshot);
@@ -131,8 +145,18 @@ test('runs start/update/end and generation safety checks through the supplied pu
     [['text', false], ['text', true], ['toggle', undefined], ['link', undefined]]);
   assert.equal(nodes[1].snapshot.values.muted, true);
   assert.deepEqual(nodes[2], { id: 'layout-nodes', policy: { kind: 'immediate' } });
+  // A layout with a region for a watch and a car, a row of a symbol and a text, which the record does not name:
+  // the widget extension draws it.
+  const small = harness.calls.slice(26, 28).map(({ input }) => input);
+  assert.deepEqual(small[0].layout.small.children.map(node => node.type), ['symbol', 'text']);
+  assert.equal(small[0].layout.island, undefined);
+  assert.deepEqual(small[1], { id: 'layout-small', policy: { kind: 'immediate' } });
+  assert.deepEqual(report.checks.slice(24, 26).map(check => check.name), [
+    'a layout with a small region starts, and the widget extension draws the region',
+    'the layout with a small region ends',
+  ]);
   // A start ten minutes ahead, the same start for another time, an update, the list and the end.
-  const later = harness.calls.slice(26).map(({ method, input }) => [method, input]);
+  const later = harness.calls.slice(28).map(({ method, input }) => [method, input]);
   assert.ok(later[0][1].scheduled.at > Date.now() + 500_000);
   assert.equal(later[1][1].activityKey, later[0][1].activityKey);
   assert.equal(later[1][1].scheduled.at, later[0][1].scheduled.at + 60_000);
@@ -146,7 +170,7 @@ test('a scheduled start that is refused is one passed check, and a layout that l
   const older = scripted([...passingSteps().slice(0, -5), ...refusedSteps()]);
   const report = await runLifecycleChecks(older.api, 'test');
   assert.equal(report.status, 'passed', JSON.stringify(report));
-  assert.equal(report.checks.length, 25);
+  assert.equal(report.checks.length, 27);
   assert.equal(report.checks.at(-1).name, 'a scheduled start is refused where the system starts nothing later');
   assert.equal(older.consumed(), true);
   // A refusal for another reason is a failure.
@@ -159,6 +183,20 @@ test('a scheduled start that is refused is one passed check, and a layout that l
   assert.equal(failed.status, 'failed');
   assert.match(failed.error, /left out \["layout.toggle"\]/);
   assert.deepEqual(lossy.calls.at(-1).input, { id: 'layout-nodes', policy: { kind: 'immediate' } });
+  // The small region. An iOS whose widget extension does not draw the small family, and one before iOS 18, name
+  // it: the run passes, and the check says so.
+  const named = scripted([...passingSteps().slice(0, 26), ...smallSteps(['layout.small']), ...pendingSteps()]);
+  const told = await runLifecycleChecks(named.api, 'test');
+  assert.equal(told.status, 'passed', JSON.stringify(told));
+  assert.equal(told.checks[24].name, 'a layout with a small region starts, and its record names the region that is not drawn');
+  // What iOS leaves out beside it fails the run, and the activity is ended.
+  const lacking = scripted([...passingSteps().slice(0, 26), { method: 'startLayout', result: smallRecord('active', ['layout.symbol']) },
+    { method: 'endLayout', result: smallRecord('ended', []) }]);
+  const lacked = await runLifecycleChecks(lacking.api, 'test');
+  assert.equal(lacked.status, 'failed');
+  assert.match(lacked.error, /left out \["layout.symbol"\]/);
+  assert.deepEqual(lacking.calls.at(-1).input, { id: 'layout-small', policy: { kind: 'immediate' } });
+  assert.equal(lacking.consumed(), true);
   // A scheduled start that is not pending fails, and the activity it began is ended.
   const eager = scripted([...passingSteps().slice(0, -5), { method: 'startLayout', result: laterRecord('active') },
     { method: 'endLayout', result: laterRecord('ended') }]);
@@ -173,6 +211,11 @@ test('ends a layout on Android with the default policy, which Android takes, and
   const report = await runLifecycleChecks(harness.api, 'test');
   assert.equal(report.status, 'passed', JSON.stringify(report));
   assert.deepEqual(harness.calls[18].input.policy, { kind: 'default' });
+  // Android draws nothing of the small region and names it; a record that does not would fail the run.
+  assert.ok(report.checks.some(check => check.name === 'a layout with a small region starts, and its record names the region that is not drawn'));
+  const silent = scripted([...androidSteps().slice(0, -3), { method: 'startLayout', result: smallRecord('active', ['nativeLiveActivity']) },
+    { method: 'endLayout', result: smallRecord('ended', []) }]);
+  assert.match((await runLifecycleChecks(silent.api, 'test')).error, /left out \["nativeLiveActivity"\]/);
   // A layout update that accepts a stale revision fails the run, and the layout activity is ended.
   const failing = scripted([
     ...passingSteps().slice(0, 17),

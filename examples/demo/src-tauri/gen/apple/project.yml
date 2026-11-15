@@ -127,6 +127,8 @@ targets:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         # start_layout answers CONFIGURATION_REQUIRED without an extension that declares this.
         ActivityKitLayout: 2
+        # The widget draws a layout's small region on a paired Apple Watch and in CarPlay.
+        ActivityKitSmallFamily: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.eedaegon.liveactivitydemo.widget

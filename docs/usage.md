@@ -61,7 +61,8 @@ in the app's build.
     package (the `swift` folder of activitykit's crate), the `LiveActivityWidget` app extension
     (iOS 16.2, the `ActivityKitWidget` and `ActivityKitViews` products, `ActivityKitLayout` = 2 in
     its Info.plist, the bundle identifier `<app identifier>.widget`, the app's version, the bundled
-    fonts and, with `--app-group`, the [App Group](#pictures-the-app-draws)), and in the app target
+    fonts, with `--app-group` the [App Group](#pictures-the-app-draws) and with `--small-family` the
+    key for the [small region](#apple-watch-and-carplay)), and in the app target
     the extension, the `ActivityKitIntent` and `ActivityKitViews` products and the custom views file.
     That file is also the Swift the app target must compile, so that Xcode takes the App Intents
     metadata of the button intent;
@@ -97,6 +98,7 @@ Run it again:
 | `--font <file>` | Bundles a `.ttf`, `.otf` or `.ttc` font in the widget extension and prints its names; repeatable |
 | `--asset <file>` | Puts a `.png`, `.jpg`, `.jpeg`, `.pdf` or `.svg` image in the widget's asset catalog; repeatable |
 | `--app-group[=<id>]` | Gives both targets an App Group for `writeImage`, `group.<app identifier>` unless named; kept on later runs |
+| `--small-family` | Has the widget draw a layout's [`small` region](#apple-watch-and-carplay) on a paired Apple Watch and in CarPlay; kept on later runs |
 
 It exits with 0 when everything is set up, 1 when something is left to do (listed under
 "To do") or it could not start, such as a `--font` file that does not exist, and 2 for an
@@ -183,8 +185,9 @@ targets:
 
 `groups: [app]` gives the extension the signing team of Tauri's `app` setting group. For bundled
 fonts, add `UIAppFonts` with the file names under `properties`, and put the files in
-`LiveActivityWidget/Fonts`. For drawn images, add `ActivityKitAppGroup: "group.com.example.app"`
-under `properties`, and to both targets:
+`LiveActivityWidget/Fonts`. For the [small region](#apple-watch-and-carplay), add
+`ActivityKitSmallFamily: true` under `properties`. For drawn images, add
+`ActivityKitAppGroup: "group.com.example.app"` under `properties`, and to both targets:
 
 ```yaml
     entitlements:
@@ -338,7 +341,7 @@ fn start_input() -> LayoutStartInput {
         activity_key: "mochi:snack".into(),
         schema_version: 2,
         fallback: Fallback::Notification,
-        layout: Layout { lock_screen: status, island: None, background: None, keyline: None, url: None },
+        layout: Layout { lock_screen: status, island: None, background: None, keyline: None, url: None, small: None },
         styles: Some(BTreeMap::from([("status".to_string(), style)])),
         snapshot: delivery(0, "On time", "green"),
         android: None,
@@ -696,6 +699,42 @@ island: {
 },
 ```
 
+### Apple Watch and CarPlay
+
+```ts
+layout: {
+  lockScreen: vstack([bound('title'), bound('status'), progress('done')]),
+  island: { compactLeading: symbol('pawprint.fill'), compactTrailing: bound('eta') },
+  small: hstack([symbol('pawprint.fill'), vstack([bound('title'), bound('eta')])]),
+},
+```
+
+A paired Apple Watch (iOS 18 with watchOS 11) shows an iPhone's Live Activity in its Smart Stack, and CarPlay
+(iOS 26) on the car's display. `small` is what the activity shows there: one tree of at most 12 nodes, without
+buttons, links or toggles, on the layout's `background`; a tap opens the layout's `url`. In Rust it is the member
+`small` of `Layout`, `None` for a layout without the region.
+
+A widget states the families it draws once, for every activity, so the widget extension has to say that it draws
+this one:
+
+```sh
+npx tauri-plugin-live-activity setup --small-family
+```
+
+Setup writes `ActivityKitSmallFamily: true` into the extension's Info.plist in `live-activity.yml`, and later runs
+keep it without the option. With the key, activitykit's widget draws the `small` region on the watch and in the
+car, and for a layout without the region its `compactLeading` and `compactTrailing` parts, or their defaults, in a
+row. Without the key iOS shows the compact parts itself, as it did before 0.9, and the record of a layout with
+`small` names `layout.small` in `degradedFeatures`; so does a record below iOS 18. The key is the Boolean true in
+the Info.plist file: a build setting, which expands to text, does not count. To stop drawing the family, delete
+`live-activity.yml` and run setup again with the options the app still needs.
+
+The templates of `start` have no small region. Android has no place for one: a watch and a car show the
+notification by themselves, nothing of `small` is drawn, and the record names `layout.small`.
+
+No test of this project sees the region on a watch or in a car, and no capture shows it: the Simulator's CarPlay
+display shows no Live Activity, by activitykit's account.
+
 ### Android
 
 A notification cannot draw a layout. Android takes these parts of the lock screen tree, in
@@ -954,8 +993,8 @@ the time, also while the app does not run. `getCapabilities().androidPresentatio
 can. What differs from iOS:
 
 - **How close to the time.** With the permission for exact alarms, at its time: `exactStart` says whether the app
-  has it. Without it Android chooses the moment, within about ten minutes while the device is awake and later
-  while it dozes. The permission is the app's to declare:
+  has it. Without it Android chooses the moment: late by up to three quarters of the wait, ten minutes at most
+  while the device is awake and an hour while it dozes. The permission is the app's to declare:
   [Android integration](android-integration.md#a-scheduled-start) has the manifest, and what a restart of the
   device does to a start that waits.
 - **The alert is the notification's own.** It alerts when it is posted, where the device offers `alert`, with the
@@ -1167,6 +1206,7 @@ gauges and timers. Four ways go further. The first two need no Swift:
 | --- | --- | --- |
 | your fonts, your pictures | `setup --font`, `setup --asset`; a style's `fontFamily`, `image(name)` | no |
 | pictures the app draws while it runs | `setup --app-group`; `writeImage`, `image({ file })` | no |
+| a view of its own on a paired Apple Watch and in CarPlay | `setup --small-family`; a layout's `small` | no |
 | a view of your own | `custom(name)` and a SwiftUI view in `LiveActivityCustomViews.swift` | yes, that view |
 | everything | edit the copied `LiveActivityWidget.swift` | yes, all of it |
 
