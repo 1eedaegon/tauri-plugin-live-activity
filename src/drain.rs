@@ -16,7 +16,7 @@ use std::{
 /// Why the thread wakes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Wake {
-    /// Android stored an event, or the plugin starts: drain.
+    /// Android stored an event, the plugin starts, or the person is back from the setting for exact alarms: drain.
     Stored,
     /// The app called the plugin, which may have changed what is due and when: look at the time again.
     Called,

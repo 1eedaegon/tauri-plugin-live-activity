@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import * as activity from '../../../guest-js/index.js';
 import { describeError, runLifecycleChecks } from './self-test.js';
-import { permissionAction, permissionFeedback } from './ui-state.js';
+import { exactAlarmFeedback, offersExactAlarms, permissionAction, permissionFeedback } from './ui-state.js';
 import { advanceMochiActivity, countdown, selectMochiActivity, snackStage, snackSteps, startMochiActivity, type MochiMode } from './mochi.js';
 import {
   actionMessage, layoutExamples, layoutRecordFor, nextLayoutSnapshot, openedMessage, runningLayoutExamples,
@@ -25,6 +25,8 @@ let supported = false;
 let layoutSupported = false;
 let platform = 'unknown';
 let permissionState: activity.PermissionState = 'unknown';
+/** Whether a scheduled start would begin late for want of the permission for exact alarms (Android). */
+let exactAlarmsOffered = false;
 let busy = false;
 /** How many openings from a notification this page has heard. */
 let openings = 0;
@@ -95,6 +97,7 @@ function renderLayout(): void {
   const degraded = running?.degradedFeatures ?? [];
   element('layout-degraded').hidden = degraded.length === 0;
   text('layout-degraded', `Left out on this device: ${degraded.join(', ')}`);
+  element('exact-alarms-note').hidden = !(exactAlarmsOffered && example.id === 'later');
   show('layout-request', example.start(Date.now()));
   text('cat-mood', running === undefined ? 'Mochi is happy to model for you.' : 'Mochi is on your phone now.');
 }
@@ -146,6 +149,7 @@ async function refresh(): Promise<void> {
   layoutSupported = supported && capabilities.layout === 'supported';
   platform = capabilities.platform;
   permissionState = permissions[platform === 'ios' ? 'liveActivities' : 'notifications'];
+  exactAlarmsOffered = offersExactAlarms(capabilities);
   show('capabilities', capabilities);
   show('permissions', permissions);
   records = supported ? await activity.list() : [];
@@ -292,6 +296,13 @@ const handlers: Readonly<Record<string, () => Promise<void>>> = {
   'layout-start': startLayout, 'layout-update': updateLayout, 'layout-end': endLayout,
   refresh: async () => { await refresh(); message('Mochi’s little corner is up to date.'); },
   permission: async () => { show('permissions', await activity.requestPermissions(permissionAction(platform).kind)); await refresh(); message(permissionFeedback(permissionState)); },
+  // The person allows exact alarms in Android's setting, or does not: the answer comes when they are back.
+  'exact-alarms': async () => {
+    const capabilities = await activity.openExactAlarmSettings();
+    exactAlarmsOffered = offersExactAlarms(capabilities);
+    show('capabilities', capabilities);
+    message(exactAlarmFeedback(!exactAlarmsOffered));
+  },
   'run-self-test': selfTest,
 };
 for (const [id, handler] of Object.entries(handlers)) element(id).addEventListener('click', () => { void perform(handler); });

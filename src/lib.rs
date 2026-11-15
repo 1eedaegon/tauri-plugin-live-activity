@@ -29,6 +29,7 @@ mod desktop_ipc_tests;
 #[cfg(any(target_os = "android", test))]
 mod drain;
 mod events;
+mod exact_alarms;
 #[cfg(any(target_os = "android", test))]
 mod files;
 #[cfg(target_os = "ios")]
@@ -67,6 +68,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R, Option<Config>> {
             commands::get_capabilities,
             commands::check_permissions,
             commands::request_permissions,
+            commands::open_exact_alarm_settings,
             commands::start,
             commands::update,
             commands::end,
@@ -85,7 +87,11 @@ pub fn init<R: Runtime>() -> TauriPlugin<R, Option<Config>> {
             #[cfg(target_os = "ios")]
             let plugin = ios::init(app, _api)?;
             #[cfg(desktop)]
-            let plugin = service::connect(app, liveactivity::UnsupportedBackend)?;
+            let plugin = service::connect(
+                app,
+                liveactivity::UnsupportedBackend,
+                exact_alarms::NoSetting(Error::unsupported),
+            )?;
             app.manage(plugin);
             Ok(())
         })

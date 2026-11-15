@@ -1,4 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- An app declares the permission for exact alarms itself, and only then does Android's setting list it: the
+         test of the command that opens the setting is such an app. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- So that the test may ask whether a screen of the device takes the intent of that setting. -->
+    <queries>
+        <intent>
+            <action android:name="android.settings.REQUEST_SCHEDULE_EXACT_ALARM" />
+            <data android:scheme="package" />
+        </intent>
+    </queries>
     <application android:label="Live Activity native tests">
         <activity android:name="io.github.eedaegon.liveactivity.TestHostActivity" android:exported="true">
             <!-- The scheme of the URLs that the contents of tests/fixtures/android/contents.json open: liveupdate

@@ -148,9 +148,12 @@ test("the Android library's device tests read the fixture, and every content say
   }
   const urls = named((name, held) => (name === 'openUrl' ? [held] : []));
   const schemes = [...new Set(contents.flatMap(urls).map((url) => url.slice(0, url.indexOf(':'))))];
+  // What the test app's activities take, inside `application`: above it the manifest names an intent that the app
+  // asks the system about, which is no scheme of its own.
   const manifest = read('android/src/androidTest/AndroidManifest.xml');
+  const application = manifest.slice(manifest.indexOf('<application'));
   assert.ok(schemes.length > 0);
-  assert.deepEqual(schemes, Array.from(manifest.matchAll(/<data android:scheme="([^"]+)"/g), ([, scheme]) => scheme));
+  assert.deepEqual(schemes, Array.from(application.matchAll(/<data android:scheme="([^"]+)"/g), ([, scheme]) => scheme));
 
   for (const { name, android, why } of cases) {
     assert.ok(['ok', 'INVALID_INPUT'].includes(android), name);

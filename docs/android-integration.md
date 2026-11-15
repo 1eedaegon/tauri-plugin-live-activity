@@ -311,6 +311,12 @@ Two things are the app's to declare, in its own manifest
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
   ```
 
+  Android has no dialog for this permission. `openExactAlarmSettings()` opens the setting for the app, which
+  lists it only with the line above, and resolves when the person is back, with the capabilities as they are
+  then; a start that already waits gets its exact alarm at that moment. Where the permission is there already it
+  opens nothing: all that the person could do in the setting is take it back.
+  [Using the plugin](usage.md#scheduled-and-transient-starts) has the call and its errors.
+
 - **A start that survives a restart of the device.** Android drops alarms when the device restarts and when the
   person force-stops the app. The activity then begins late, when the app next runs. To have the alarms set
   again after a restart, declare the receiver for it:

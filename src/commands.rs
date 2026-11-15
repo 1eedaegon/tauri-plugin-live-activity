@@ -1,6 +1,6 @@
 use crate::{
     ActivityRecord, Capabilities, Error, ImageInput, LayoutActivityRecord, LiveActivityExt,
-    Permissions, PushTokens, Result, openings::WaitingOpenings, parse_request,
+    Permissions, PushTokens, Result, openings::WaitingOpenings, parse_request, service,
 };
 use serde_json::Value;
 use tauri::{AppHandle, Runtime};
@@ -39,6 +39,15 @@ pub(crate) async fn request_permissions<R: Runtime>(
 ) -> Result<Permissions> {
     let kind = serde_json::from_value(kind).map_err(|_| Error::invalid())?;
     live(&app).request_permissions(kind).await
+}
+
+/// Opens the system's setting for exact alarms and answers the capabilities when the person is back.
+#[tauri::command]
+pub(crate) async fn open_exact_alarm_settings<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Capabilities> {
+    let exact_alarms = app.live_activity().exact_alarms.clone();
+    service::open_exact_alarm_settings(live(&app), exact_alarms).await
 }
 
 #[tauri::command]

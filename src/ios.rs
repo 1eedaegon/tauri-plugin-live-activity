@@ -1,7 +1,7 @@
 //! iOS: the default backend of the `liveactivity` crate, on a kit with the settings of the plugin configuration.
 //! The kit is created early, at plugin setup, so that a tap that launched the app finds a subscriber.
 
-use crate::{Config, Error, LiveActivity, Receipts, Result, service};
+use crate::{Config, Error, LiveActivity, Receipts, Result, exact_alarms::NoSetting, service};
 use liveactivity::{activitykit, ios::ActivityKitBackend};
 use tauri::{AppHandle, Runtime, plugin::PluginApi};
 
@@ -23,5 +23,8 @@ pub(crate) fn init<R: Runtime>(
         .push_to_start(push_to_start)
         .build()
         .map_err(|error| Error::new(error.code(), error.message()))?;
-    service::connect(app, ActivityKitBackend::with_kit(kit))
+    // A scheduled start on iOS is the system's own, at its time: there is no alarm to allow.
+    let no_setting =
+        NoSetting(|| Error::unsupported_feature("iOS has no setting for exact alarms."));
+    service::connect(app, ActivityKitBackend::with_kit(kit), no_setting)
 }

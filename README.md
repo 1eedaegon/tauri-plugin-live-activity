@@ -199,7 +199,8 @@ await updateLayout({ id: snack.id, snapshot: { revision: 1, values: { title: 'Mo
 await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 ```
 
-A start may also carry `scheduled: { at, alert }` to begin later (iOS 26 and Android), and `ios: { transient: true }` for a transient
+A start may also carry `scheduled: { at, alert }` to begin later (iOS 26 and Android; on Android it is on the minute once the
+person allows exact alarms, where `openExactAlarmSettings()` takes them), and `ios: { transient: true }` for a transient
 activity (iOS 18). The layout stays as it started; each update sends every value again, with a higher revision. Taps come to
 `onAction`, push tokens and pushed content to `onPushToken`, `onPushToStartToken` and `onUpdated`, and what happens
 to an activity outside the app's calls to `onState`, `onStarted`, `onOpened` (Android: the person opened the app from an

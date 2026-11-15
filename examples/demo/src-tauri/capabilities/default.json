@@ -9,6 +9,7 @@
     "core:default",
     "live-activity:default",
     "live-activity:allow-request-permissions",
+    "live-activity:allow-open-exact-alarm-settings",
     "live-activity:allow-start",
     "live-activity:allow-update",
     "live-activity:allow-end",

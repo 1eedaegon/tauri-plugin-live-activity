@@ -179,6 +179,32 @@ Denies the list_layout command without any pre-configured scope.
 <tr>
 <td>
 
+`live-activity:allow-open-exact-alarm-settings`
+
+</td>
+<td>
+
+Enables the open_exact_alarm_settings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:deny-open-exact-alarm-settings`
+
+</td>
+<td>
+
+Denies the open_exact_alarm_settings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `live-activity:allow-openings`
 
 </td>

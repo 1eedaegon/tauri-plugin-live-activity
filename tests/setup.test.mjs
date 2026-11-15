@@ -215,7 +215,7 @@ test('a dry run writes nothing and reports what it would do', t => {
   const report = formatReport(result);
   assert.match(report, /Dry run: nothing was written\./);
   assert.match(report, /would create +src-tauri\/gen\/apple\/live-activity\.yml/);
-  assert.match(report, /would update +src-tauri\/capabilities\/default\.json \(9 permissions added\)/);
+  assert.match(report, /would update +src-tauri\/capabilities\/default\.json \(10 permissions added\)/);
   assert.match(report, /would run +xcodegen generate --spec src-tauri\/gen\/apple\/project\.yml/);
 });
 
@@ -540,7 +540,12 @@ test('the permissions it adds are permissions of the plugin', () => {
       .matchAll(/^identifier = "(.+)"$/gm)].map(match => `live-activity:${match[1]}`)));
   identifiers.add('live-activity:default');
   for (const permission of PERMISSIONS) assert.ok(identifiers.has(permission), permission);
-  const commands = ['request-permissions', 'start', 'update', 'end', 'start-layout', 'update-layout', 'end-layout', 'write-image'];
+  // What the default set leaves out: the commands that change an activity, and the two that ask the person, with
+  // Android's dialog and in its setting for exact alarms.
+  const commands = [
+    'request-permissions', 'open-exact-alarm-settings', 'start', 'update', 'end', 'start-layout', 'update-layout', 'end-layout',
+    'write-image',
+  ];
   assert.deepEqual(PERMISSIONS, ['live-activity:default', ...commands.map(command => `live-activity:allow-${command}`)]);
 });
 

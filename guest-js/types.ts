@@ -67,7 +67,8 @@ export interface AndroidPresentationSupport {
   readonly scheduledStart: boolean;
   /**
    * Whether a scheduled start begins at its time: the app may set exact alarms. Without it Android chooses the
-   * moment: up to ten minutes late while the device is awake, an hour while it dozes.
+   * moment: up to ten minutes late while the device is awake, an hour while it dozes. `openExactAlarmSettings()`
+   * takes the person to the setting that allows it.
    */
   readonly exactStart: boolean;
 }
@@ -803,7 +804,8 @@ export interface LayoutIosOptions {
  * A start at a later time instead of now: iOS 26, and Android where `getCapabilities().androidPresentation.scheduledStart`
  * is true. Until then the record is `pending`: the activity holds its key, it can be ended, and an update is
  * `CONFLICT`, since it begins with the content of its start. `onState` reports `active` when it begins. On Android
- * it begins at its time with the permission for exact alarms (`exactStart`) and late without, by minutes. It is
+ * it begins at its time with the permission for exact alarms (`exactStart`) and late without, by minutes;
+ * `openExactAlarmSettings()` takes the person to the setting that allows it. It is
  * `UNSUPPORTED_FEATURE`, and nothing is kept, before iOS 26, with the foreground placement on Android, and where
  * `scheduledStart` is false.
  */

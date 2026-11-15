@@ -55,3 +55,18 @@ test('the app turns on the Samsung Now Bar extras and grants the layout commands
   for (const permission of ['core:default', 'live-activity:allow-start-layout', 'live-activity:allow-update-layout',
     'live-activity:allow-end-layout']) assert.ok(permissions.includes(permission), permission);
 });
+
+// TP-ANDROID-18
+test('the demo is an app that can be allowed exact alarms: it declares the permission and grants the command', () => {
+  // Android's setting lists an app only when its own manifest asks for the permission; the plugin's library asks for none.
+  const manifest = read('../src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+  assert.match(manifest, /<uses-permission android:name="android\.permission\.SCHEDULE_EXACT_ALARM" \/>/);
+  assert.doesNotMatch(read('../../../android/src/main/AndroidManifest.xml'), /SCHEDULE_EXACT_ALARM/);
+  // The page's button calls the command, which is not in the plugin's default set.
+  const { permissions } = JSON.parse(read('../src-tauri/capabilities/default.json'));
+  assert.ok(permissions.includes('live-activity:allow-open-exact-alarm-settings'));
+  assert.match(read('../src/index.html'), /<button id="exact-alarms"/);
+  const page = read('../src/main.ts');
+  assert.ok(page.includes("'exact-alarms'"), 'the page has no handler for the button');
+  assert.ok(page.includes('activity.openExactAlarmSettings()'), 'the page does not call the command');
+});

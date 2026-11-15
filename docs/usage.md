@@ -41,9 +41,9 @@ so they always match the version the app builds with. It stops with a message wh
 in the app's build.
 
 - **Permissions.** It adds `live-activity:default` and the `allow-` permissions of
-  `request_permissions`, `start`, `update`, `end`, `start_layout`, `update_layout`,
-  `end_layout` and `write_image` to `src-tauri/capabilities/default.json`, or to the only
-  capability file there.
+  `request_permissions`, `open_exact_alarm_settings`, `start`, `update`, `end`, `start_layout`,
+  `update_layout`, `end_layout` and `write_image` to `src-tauri/capabilities/default.json`, or to
+  the only capability file there.
   `onAction` also needs `core:event:default`, which `core:default` in a new app includes.
 - **Android.** The plugin needs Android 8 (API 26); a new Tauri app starts at 24. It sets
   `bundle.android.minSdkVersion` to 26 in `tauri.conf.json`, which `tauri android init` reads,
@@ -112,7 +112,7 @@ These steps do what `setup` does. Run them from the app's folder.
 Grant the permissions:
 
 ```sh
-for p in default allow-request-permissions allow-start allow-update allow-end allow-start-layout allow-update-layout allow-end-layout allow-write-image; do npx tauri permission add live-activity:$p; done
+for p in default allow-request-permissions allow-open-exact-alarm-settings allow-start allow-update allow-end allow-start-layout allow-update-layout allow-end-layout allow-write-image; do npx tauri permission add live-activity:$p; done
 ```
 
 Raise the Android minimum: set `bundle.android.minSdkVersion` to `26` in
@@ -1003,7 +1003,30 @@ can. What differs from iOS:
   has it. Without it Android chooses the moment: late by up to three quarters of the wait, ten minutes at most
   while the device is awake and an hour while it dozes. The permission is the app's to declare:
   [Android integration](android-integration.md#a-scheduled-start) has the manifest, and what a restart of the
-  device does to a start that waits.
+  device does to a start that waits. From Android 14 the person has to allow it, in a setting and not in a
+  dialog; `openExactAlarmSettings()` takes them there:
+
+  ```ts
+  import { getCapabilities, openExactAlarmSettings } from 'tauri-plugin-live-activity';
+
+  const android = (await getCapabilities()).androidPresentation;
+  if (android?.scheduledStart && !android.exactStart) {
+    // Opens "Alarms & reminders" for the app, and resolves when the person is back.
+    const after = await openExactAlarmSettings();
+    onTheMinute = after.androidPresentation?.exactStart === true;
+  }
+  ```
+
+  Call it after a tap, with a word of why. It resolves at once, and opens nothing, where exact alarms are allowed
+  or need no permission (before Android 12). Where they are not allowed it rejects with `CONFIGURATION_REQUIRED`
+  when the app's manifest does not declare `SCHEDULE_EXACT_ALARM`, with `NOT_FOREGROUND` while the app is not on
+  screen, and with `UNSUPPORTED_FEATURE` on a device without the setting. iOS, which begins a scheduled start
+  itself, answers `UNSUPPORTED_FEATURE`, and desktop `UNSUPPORTED_PLATFORM`. A call that comes while the setting
+  is open resolves with the first. A start that already waits gets its exact
+  alarm when the person is back. Read `getCapabilities()` when the page loads as well: Android may close the page
+  while the person is in the setting, and it stops the app when they take the permission away. In Rust it is
+  `app.live_activity().open_exact_alarm_settings()`, which waits for the person: call it on a thread that may
+  wait, never on the main thread. The command needs the grant `live-activity:allow-open-exact-alarm-settings`.
 - **The alert is the notification's own.** It alerts when it is posted, where the device offers `alert`, with the
   content of the activity: the alert's title and body are iOS's. Elsewhere it begins silently and the record names
   `alert`. A `sound` is named `alert.sound`.

@@ -52,6 +52,14 @@ fn desktop_queries_report_unavailable_and_mutations_fail_explicitly() {
                 .code,
             "UNSUPPORTED_PLATFORM"
         );
+        // Desktop has no setting for exact alarms either.
+        assert_eq!(
+            commands::open_exact_alarm_settings(handle.clone())
+                .await
+                .unwrap_err()
+                .code,
+            "UNSUPPORTED_PLATFORM"
+        );
     });
 }
 
@@ -364,6 +372,150 @@ impl liveactivity::LiveActivityBackend for Reporting {
     }
 }
 
+/// An Android backend that answers its capabilities alone, and counts how often: exact alarms are allowed once the
+/// flag says so.
+struct Alarms {
+    allowed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    asked: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl liveactivity::LiveActivityBackend for Alarms {
+    fn capabilities(&self) -> liveactivity::BackendFuture<'_, crate::Capabilities> {
+        use std::sync::atomic::Ordering;
+        self.asked.fetch_add(1, Ordering::SeqCst);
+        let presentation = crate::PresentationCapabilities {
+            scheduled_start: true,
+            exact_start: self.allowed.load(Ordering::SeqCst),
+            ..Default::default()
+        };
+        let support = FeatureSupport::Supported;
+        let capabilities = crate::Capabilities {
+            platform: "android".into(),
+            backend: Backend::AndroidNotification,
+            start: support,
+            update: support,
+            end: support,
+            progress: support,
+            timer: support,
+            actions: support,
+            state_observation: support,
+            silent_update: support,
+            native_live_activity: FeatureSupport::Unsupported,
+            max_payload_bytes: 4096,
+            layout: support,
+            push: FeatureSupport::Unsupported,
+            android_presentation: Some(presentation),
+        };
+        Box::pin(async move { Ok(capabilities) })
+    }
+    fn permissions(&self) -> liveactivity::BackendFuture<'_, crate::Permissions> {
+        Box::pin(async { unimplemented!("the test asks for no permissions") })
+    }
+    fn start(
+        &self,
+        _: crate::StartInput,
+    ) -> liveactivity::BackendFuture<'_, crate::ActivityRecord> {
+        Box::pin(async { unimplemented!("the test starts nothing") })
+    }
+    fn update(
+        &self,
+        _: crate::UpdateInput,
+    ) -> liveactivity::BackendFuture<'_, crate::ActivityRecord> {
+        Box::pin(async { unimplemented!("the test updates nothing") })
+    }
+    fn end(&self, _: crate::EndInput) -> liveactivity::BackendFuture<'_, crate::ActivityRecord> {
+        Box::pin(async { unimplemented!("the test ends nothing") })
+    }
+    fn list(&self) -> liveactivity::BackendFuture<'_, Vec<crate::ActivityRecord>> {
+        Box::pin(async { unimplemented!("the test lists nothing") })
+    }
+}
+
+/// The side that opens the setting, as a script: the person allows exact alarms there, or the setting cannot be
+/// opened and the side answers why.
+struct Setting {
+    allowed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    refusal: Option<crate::Error>,
+}
+
+/// A wait that is over at its second poll: the person takes a while in the setting.
+struct Away(bool);
+
+impl std::future::Future for Away {
+    type Output = ();
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        context: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<()> {
+        if std::mem::replace(&mut self.0, true) {
+            return std::task::Poll::Ready(());
+        }
+        context.waker().wake_by_ref();
+        std::task::Poll::Pending
+    }
+}
+
+impl crate::exact_alarms::ExactAlarms for Setting {
+    fn open_settings(&self) -> liveactivity::BackendFuture<'_, ()> {
+        Box::pin(async move {
+            if let Some(refusal) = &self.refusal {
+                return Err(refusal.clone());
+            }
+            // Capabilities that were read meanwhile, beside the wait and not after it, would say no exact alarms.
+            Away(false).await;
+            self.allowed
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            Ok(())
+        })
+    }
+}
+
+// TP-ANDROID-18
+#[test]
+fn opening_the_setting_for_exact_alarms_answers_the_capabilities_as_they_are_afterwards() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
+    let app = mock_builder().build(mock_context(noop_assets())).unwrap();
+    let handle = app.handle().clone();
+    let exact =
+        |capabilities: crate::Capabilities| capabilities.android_presentation.unwrap().exact_start;
+
+    // The person allows exact alarms in the setting: what the call answers is read once they are back.
+    let (allowed, asked) = (Arc::default(), Arc::<AtomicUsize>::default());
+    let backend = Alarms {
+        allowed: Arc::clone(&allowed),
+        asked: Arc::clone(&asked),
+    };
+    let setting = Setting {
+        allowed,
+        refusal: None,
+    };
+    let plugin = crate::service::connect(&handle, backend, setting).unwrap();
+    assert!(!exact(plugin.get_capabilities().unwrap()));
+    assert!(exact(plugin.open_exact_alarm_settings().unwrap()));
+    assert_eq!(asked.load(Ordering::SeqCst), 2);
+
+    // A setting that could not be opened: the error of the side that opens it, and no capabilities are asked for.
+    let (allowed, asked) = (Arc::<AtomicBool>::default(), Arc::<AtomicUsize>::default());
+    let refusal = crate::Error::new(
+        "CONFIGURATION_REQUIRED",
+        "The app's manifest does not declare SCHEDULE_EXACT_ALARM.",
+    );
+    let backend = Alarms {
+        allowed: Arc::clone(&allowed),
+        asked: Arc::clone(&asked),
+    };
+    let setting = Setting {
+        allowed: Arc::clone(&allowed),
+        refusal: Some(refusal.clone()),
+    };
+    let plugin = crate::service::connect(&handle, backend, setting).unwrap();
+    assert_eq!(plugin.open_exact_alarm_settings(), Err(refusal));
+    assert_eq!(asked.load(Ordering::SeqCst), 0);
+}
+
 // TP-EVENT-3
 #[test]
 fn an_opening_that_the_backend_reports_waits_in_the_plugin_and_goes_out_as_an_event() {
@@ -374,7 +526,11 @@ fn an_opening_that_the_backend_reports_waits_in_the_plugin_and_goes_out_as_an_ev
     let handle = app.handle().clone();
     // The plugin as its setup connects it, on a backend whose events the test reports.
     let context = std::sync::Arc::default();
-    let plugin = crate::service::connect(&handle, Reporting(std::sync::Arc::clone(&context)));
+    let plugin = crate::service::connect(
+        &handle,
+        Reporting(std::sync::Arc::clone(&context)),
+        crate::exact_alarms::NoSetting(crate::Error::unsupported),
+    );
     assert!(app.manage(plugin.unwrap()));
     let backend = context
         .lock()

@@ -1,11 +1,12 @@
 //! Android: the default backend of the `liveactivity` crate over the plugin's Kotlin side, which carries
 //! liveupdate's Android adapter. The plugin adds what needs an Activity or Tauri: the permissions and their dialog,
-//! the folder of the app's files ([`crate::files`]), and the thread that drains the events ([`crate::drain`]), with
-//! the signal that wakes it.
+//! the setting for exact alarms ([`crate::exact_alarms`]), the folder of the app's files ([`crate::files`]), and the
+//! thread that drains the events ([`crate::drain`]), with the signal that wakes it.
 
 use crate::{
     Config, Error, LiveActivity, PermissionKind, Permissions, Result,
     drain::{self, Wake},
+    exact_alarms::ExactAlarms,
     files::FilesDirectory,
     service,
 };
@@ -57,6 +58,19 @@ fn call<T: DeserializeOwned>(
     crate::bridge::decode(reply)
 }
 
+/// As [`call`], for a command whose answer takes as long as the person does: it holds no thread meanwhile.
+async fn call_waiting<T: DeserializeOwned>(
+    handle: &PluginHandle<impl Runtime>,
+    command: &str,
+    input: impl Serialize + Send,
+) -> Result<T> {
+    let reply = handle
+        .run_mobile_plugin_async(command, input)
+        .await
+        .map_err(|_| Error::native())?;
+    crate::bridge::decode(reply)
+}
+
 type Engine<R> = LiveUpdateBackend<liveupdate::JsonDriver<TauriBridge<R>>>;
 
 /// The default backend, with the permissions of the plugin's Kotlin side, which knows whether a dialog was shown
@@ -84,6 +98,24 @@ impl<R: Runtime> drain::Source for Android<R> {
 
     fn next_check(&self) -> Option<liveupdate::NextCheck> {
         self.engine.next_check().ok()
+    }
+}
+
+impl<R: Runtime> ExactAlarms for Android<R> {
+    fn open_settings(&self) -> BackendFuture<'_, ()> {
+        Box::pin(async move {
+            call_waiting::<serde_json::Value>(
+                &self.handle,
+                "openExactAlarmSettings",
+                serde_json::json!({}),
+            )
+            .await?;
+            // The person may have allowed exact alarms. liveupdate sets the exact alarm of a start that waits at
+            // its next look at the scheduled starts, which a drain is. The send fails only when the draining
+            // thread is gone, and then nothing is left to wake.
+            let _ = self.wake.send(Wake::Stored);
+            Ok(())
+        })
     }
 }
 
@@ -183,7 +215,7 @@ pub(crate) fn init<R: Runtime>(
         wake: signal.clone(),
     });
     drain::spawn(Arc::downgrade(&backend), woken).map_err(|_| Error::native())?;
-    let plugin = service::connect(app, backend.clone())?;
+    let plugin = service::connect(app, backend.clone(), backend.clone())?;
     // The channel is handed over here, on the thread that registers every native plugin. The Kotlin side sends on
     // it from liveupdate's receivers, on the main thread: it only wakes the draining thread.
     let wake = signal.clone();

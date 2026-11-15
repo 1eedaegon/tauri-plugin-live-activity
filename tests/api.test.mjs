@@ -25,6 +25,7 @@ for (const [name, command, args, expectedPayload, result] of [
   ['getCapabilities', 'get_capabilities', [], {}, { platform: 'ios', backend: 'activityKit', start: 'supported' }],
   ['checkPermissions', 'check_permissions', [], {}, { notifications: 'notApplicable', liveActivities: 'granted', promotion: 'notApplicable' }],
   ['requestPermissions', 'request_permissions', ['notifications'], { kind: 'notifications' }, { notifications: 'granted' }],
+  ['openExactAlarmSettings', 'open_exact_alarm_settings', [], {}, { platform: 'android', backend: 'androidNotification', androidPresentation: { scheduledStart: true, exactStart: true } }],
   ['start', 'start', [input], { input }, record],
   ['update', 'update', [{ id: record.id, snapshot: { ...snapshot, revision: 1, progress: 0.5 } }], { input: { id: record.id, snapshot: { ...snapshot, revision: 1, progress: 0.5 } } }, { ...record, snapshot: { ...snapshot, revision: 1, progress: 0.5 } }],
   ['end', 'end', [{ id: record.id, policy: { kind: 'immediate' } }], { input: { id: record.id, policy: { kind: 'immediate' } } }, { ...record, state: 'ended' }],
