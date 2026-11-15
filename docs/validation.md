@@ -29,8 +29,8 @@ After the tag, when the iPhone 16 with iOS 27.2 was connected again, the build o
 the lifecycle test passed, 31 of 31 in 3 of 3 runs, and a scheduled start 30 s ahead began with the app ended.
 The demo's UI tests ran there too, for the first time on a phone with iOS 26 or later: 11 of 11, the scheduled
 start on the Lock Screen among them. A start of them earlier that day had stopped where the phone turns UI
-automation on, as with 0.9.0, and why was not found. [iOS coverage](ios-coverage.md#0100-on-two-iphones) has the
-runs.
+automation on, as it had with 0.9.0; this time the phone was picked up while it ran, by its owner's word.
+[iOS coverage](ios-coverage.md#0100-on-two-iphones) has the runs.
 
 Also after the tag, a Galaxy Note10 with Android 12 (One UI 4.1) ran the same build, on a new install, which
 holds the permission for exact alarms: the command answered two calls at once and opened nothing, the lifecycle

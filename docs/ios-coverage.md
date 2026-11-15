@@ -140,9 +140,10 @@ After the release the same build ran on the iPhone 16 with iOS 27.2:
   templates, the start from Rust, the switch on and off, the link, and the content fresh, stale and fresh again.
 - The first start of that day had stopped where it had with 0.9.0: the phone, unlocked, did not turn UI
   automation on in the minute the runner waits. Eighteen minutes later the same tests ran. The switch for UI
-  automation in the phone's developer settings was on, by its owner's word, and what changed in between was not
-  found. Seen from the Mac: after the start that stopped, `testmanagerd` and `automationmode-writer` ran on the
-  phone and `AutomationModeUI` did not; before the one that ran, all three did, as they do on the iPhone XS.
+  automation in the phone's developer settings was on all along. By its owner's word the phone was picked up
+  while that start ran: a run needs the phone left alone from its start. Whether that was so with 0.9.0 too is
+  not known. Seen from the Mac: after the start that stopped, `testmanagerd` and `automationmode-writer` ran on
+  the phone and `AutomationModeUI` did not; before the one that ran, all three did, as they do on the iPhone XS.
 - A run that begins while the phone is locked waits for a person. The one test left the screen locked, and the
   run of all 11, started a minute after it, waited nine minutes where `xcodebuild` says "Unlock … to Continue",
   until the phone was unlocked.
