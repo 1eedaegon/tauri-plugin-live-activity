@@ -2,6 +2,7 @@ const COMMANDS: &[&str] = &[
     "get_capabilities",
     "check_permissions",
     "request_permissions",
+    "open_exact_alarm_settings",
     "start",
     "update",
     "end",

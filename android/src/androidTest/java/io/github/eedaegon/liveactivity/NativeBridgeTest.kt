@@ -4,12 +4,15 @@ import android.Manifest
 import android.app.Activity
 import android.app.Notification
 import android.app.NotificationManager
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
@@ -25,6 +28,8 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeFalse
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -136,6 +141,100 @@ class NativeBridgeTest {
         val unknown = call("requestPermissions", JSONObject().put("kind", "camera"), plugin::requestPermissions)
         assertFalse(unknown.toString(), unknown.getBoolean("ok"))
         assertEquals("INVALID_INPUT", unknown.getJSONObject("error").getString("code"))
+    }
+
+    // TP-ANDROID-18
+    @Test
+    fun theSettingForExactAlarmsOpensOnceForTheCallsThatWaitAndAnswersThemWhenThePersonIsBack() {
+        val exactStart = { liveUpdate("capabilities").getJSONObject("data").getJSONObject("presentation").getBoolean("exactStart") }
+        // Android has the setting from 12 on. The test app declares the permission, and from Android 14 a new
+        // install does not have it. Where it is held already, at install or from an earlier run on this install,
+        // there is nothing to allow, and the test says that it did not run: taking the permission back would stop
+        // the test's own process.
+        assumeTrue("Android 12 has the first setting for exact alarms", Build.VERSION.SDK_INT >= 31)
+        assumeFalse("exact alarms are allowed already: the test needs a new install on Android 14 or later", exactStart())
+        // The tests stand in for Tauri, which opens the screen and tells the plugin of its end.
+        val opened = mutableListOf<Intent>()
+        val record: (Invoke, Intent) -> Unit = { _, intent -> opened.add(intent) }
+        val answers = mutableListOf<JSONObject>()
+        val ask = { asked: LiveActivityPlugin, args: String ->
+            asked.openExactAlarmSettings(Invoke(1, "openExactAlarmSettings", 1, 2, { _, json -> answers.add(JSONObject(json)) }, args, ObjectMapper()))
+        }
+        val answered = JSONObject().put("ok", true).put("data", JSONObject()).toString()
+        val codes = { answers.map { if (it.getBoolean("ok")) "ok" else it.getJSONObject("error").getString("code") } }
+        val intent = exactAlarmSettingsIntent(context.packageName)
+        assertEquals(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, intent.action)
+        assertEquals("package:${context.packageName}", intent.dataString)
+        assertFalse("no screen of this device takes $intent", context.packageManager.queryIntentActivities(intent, 0).isEmpty())
+
+        // The first call opens the setting; one that comes while it is open waits with it, and opens nothing.
+        plugin.settingOpener = record
+        ask(plugin, "{}")
+        ask(plugin, "{}")
+        assertEquals(listOf(intent.toUri(0)), opened.map { it.toUri(0) })
+        assertEquals(0, answers.size)
+        plugin.backFromExactAlarmSettings()
+        assertEquals(listOf(answered, answered), answers.map { it.toString() })
+        // Nothing waits any more: the app that comes in front again later answers nobody twice.
+        plugin.backFromExactAlarmSettings()
+        assertEquals(2, answers.size)
+
+        // A device without the screen: the call says so, and the next one opens the setting again.
+        plugin.settingOpener = { _, _ -> throw ActivityNotFoundException() }
+        ask(plugin, "{}")
+        assertEquals(listOf("ok", "ok", "UNSUPPORTED_FEATURE"), codes())
+        plugin.settingOpener = record
+        ask(plugin, "{}")
+        assertEquals(2, opened.size)
+        plugin.backFromExactAlarmSettings()
+        assertEquals(listOf("ok", "ok", "UNSUPPORTED_FEATURE", "ok"), codes())
+
+        // With the setting on top the app's activity is no longer on screen. An activity that says so, as Tauri's
+        // does: a call that comes then still waits with the one that opened the setting.
+        val behind = instrumentation.startActivitySync(
+            Intent(context, OpeningsHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        ) as OpeningsHostActivity
+        val covered = LiveActivityPlugin(behind).also { it.settingOpener = record }
+        ask(covered, "{}")
+        assertEquals(3, opened.size)
+        // Another screen over it, in a task of its own: the task of the tests has this activity at its root already,
+        // and Android would only bring that task forward.
+        val cover = instrumentation.startActivitySync(
+            Intent(context, TestHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK),
+        )
+        try {
+            var waited = 0
+            while (behind.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) && waited < 100) {
+                Thread.sleep(100)
+                waited += 1
+            }
+            assertFalse("the activity behind another is still on screen", behind.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+            ask(covered, "{}")
+            assertEquals(3, opened.size)
+            assertEquals(4, answers.size)
+            covered.backFromExactAlarmSettings()
+            assertEquals(listOf("ok", "ok", "UNSUPPORTED_FEATURE", "ok", "ok", "ok"), codes())
+            // No setting is open now, and the app is not on screen: Android would open nothing for it.
+            ask(covered, "{}")
+            assertEquals(3, opened.size)
+            assertEquals("NOT_FOREGROUND", codes().last())
+        } finally {
+            instrumentation.runOnMainSync {
+                cover.finish()
+                behind.finish()
+            }
+        }
+
+        // The person allows it: there is nothing to allow any more, and a call opens nothing and answers at once.
+        shell("appops set ${context.packageName} SCHEDULE_EXACT_ALARM allow")
+        assertTrue(exactStart())
+        ask(plugin, "{}")
+        assertEquals(3, opened.size)
+        assertEquals(answered, answers.last().toString())
+        // The command takes no argument.
+        ask(plugin, JSONObject().put("package", "another.app").toString())
+        assertEquals("INVALID_INPUT", codes().last())
+        assertEquals(3, opened.size)
     }
 
     // TP-ANDROID-10

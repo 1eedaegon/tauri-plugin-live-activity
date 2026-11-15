@@ -36,7 +36,7 @@ test('the plugin has no Kotlin lifecycle, renderer, receivers or validator for l
   assert.deepEqual(files, ['Input.kt', 'LiveActivityPlugin.kt', 'Models.kt', 'Openings.kt', 'PermissionPolicy.kt']);
   const plugin = own('LiveActivityPlugin.kt');
   const commands = [...plugin.matchAll(/@Command\s+(?:override )?fun (\w+)/g)].map(([, name]) => name).sort();
-  assert.deepEqual(commands, ['checkPermissions', 'filesDirectory', 'liveUpdate', 'registerEvents', 'requestPermissions']);
+  assert.deepEqual(commands, ['checkPermissions', 'filesDirectory', 'liveUpdate', 'openExactAlarmSettings', 'registerEvents', 'requestPermissions']);
   assert.match(plugin, /LiveUpdateBridge\.invoke\(activity, args\.getString\("command"\), args\.getString\("payload"\)\)/);
   // The plugin's one component of its own is the provider that watches for the intents which open the app
   // (TP-ANDROID-16). It hands them to liveupdate and does nothing else: it posts nothing and stores nothing.
@@ -48,7 +48,7 @@ test('the plugin has no Kotlin lifecycle, renderer, receivers or validator for l
   assert.doesNotMatch(openings, /Notification|SharedPreferences|BroadcastReceiver|LiveUpdateBridge/);
   // Rust calls no command that the Kotlin side lacks.
   const rust = readFileSync(join(root, 'src/android.rs'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
-  const called = [...rust.matchAll(/\b(?:run_mobile_plugin\(|call(?:::<[^>]+>)?\(\s*&[\w.]+,)\s*"(\w+)"/g)].map(([, name]) => name);
+  const called = [...rust.matchAll(/\b(?:run_mobile_plugin\(|call(?:_waiting)?(?:::<[^>]+>)?\(\s*&[\w.]+,)\s*"(\w+)"/g)].map(([, name]) => name);
   assert.deepEqual([...new Set(called)].sort(), commands);
   // Rust alone names the plugin's files under the app's files: the Kotlin side answers the folder of the app's
   // files and names nothing below it, and Rust hands liveactivity what `src/files.rs` makes of that answer. The
@@ -73,6 +73,23 @@ test("the plugin's permissions read the notification settings through liveupdate
   for (const file of readdirSync(join(root, OWN))) {
     assert.doesNotMatch(own(file), /NotificationManager|CHANNEL_ID|areNotificationsEnabled|canPostPromotedNotifications/, file);
   }
+});
+
+// TP-ANDROID-18
+test("the plugin's Kotlin opens Android's setting for exact alarms, and reads whether they are allowed through liveupdate's adapter alone", () => {
+  const plugin = own('LiveActivityPlugin.kt');
+  // Tauri finds the method that takes an activity's result by its name, and answers nothing when none has it: the
+  // call would wait for ever.
+  const [, callback] = /startActivityForResult\(invoke, intent, "(\w+)"\)/.exec(plugin);
+  assert.match(plugin, new RegExp(`@ActivityCallback\\s+private fun ${callback}\\(invoke: Invoke, result: ActivityResult\\)`));
+  // Android's own setting, for this app.
+  assert.match(plugin, /Intent\(Settings\.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri\.parse\("package:\$packageName"\)\)/);
+  // Whether an exact alarm may be set is what liveupdate's adapter says in its capabilities, as the alarm that it
+  // sets goes by: the plugin asks the alarm manager nowhere.
+  assert.ok(plugin.includes('exactAlarmsAllowed(observed())'));
+  for (const file of readdirSync(join(root, OWN))) assert.doesNotMatch(own(file), /AlarmManager|canScheduleExactAlarms/, file);
+  // The permission is the app's to declare (TP-ANDROID-17): the command reads the app's manifest for it.
+  assert.ok(plugin.includes('PermissionHelper.hasDefinedPermission(activity, Manifest.permission.SCHEDULE_EXACT_ALARM)'));
 });
 
 // TP-ANDROID-17

@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+- `openExactAlarmSettings()` (in Rust `open_exact_alarm_settings`) takes the person to Android's setting for exact
+  alarms, "Alarms & reminders", which a scheduled start needs to begin at its time, and answers when they are
+  back, with the capabilities as they are then: `androidPresentation.exactStart` says whether they allowed it.
+  Android has no dialog for this permission, and from Android 14 it is off until the person allows it. Where exact
+  alarms are allowed already, or need no permission (before Android 12), the call answers at once and opens
+  nothing.
+- A start that already waits gets its exact alarm when the person is back with the permission.
+- The permission stays the app's to declare. Where exact alarms are not allowed and the app's own manifest lacks
+  `SCHEDULE_EXACT_ALARM`, the call is `CONFIGURATION_REQUIRED`; while the app is not on screen it is
+  `NOT_FOREGROUND`; on a device without the setting, and on iOS, which begins a scheduled start itself, it is
+  `UNSUPPORTED_FEATURE`, and on desktop `UNSUPPORTED_PLATFORM`.
+- The demo's Scheduled start example offers the setting, and the demo declares the permission.
+
+When updating:
+
+- The command needs its own grant, `live-activity:allow-open-exact-alarm-settings`. `setup` adds it: run it again,
+  or add the permission to the app's capability.
+- The plugin's Android library depends on `androidx.appcompat:appcompat:1.6.0`, the version that Tauri's own
+  library brings into every app, for the call that tells a plugin that the app is in front again.
+
 ## 0.9.0
 
 Built on liveactivity 0.7.1, activitykit 0.6 and liveupdate 0.4.1: a layout's region for a paired Apple Watch

@@ -4,6 +4,7 @@ use crate::{
     Result, StartInput, UpdateInput,
     actions::{self, Actions},
     events::{self, ACTION_EVENT},
+    exact_alarms::ExactAlarms,
     openings::Openings,
 };
 use liveactivity::{LiveActivityBackend, wait};
@@ -11,10 +12,12 @@ use std::{marker::PhantomData, sync::Arc};
 use tauri::{AppHandle, Emitter, Runtime};
 
 /// The plugin on `backend`: its taps go to the handlers of `on_action` and to JavaScript, its other events to
-/// JavaScript, and its openings wait as well until they are taken.
+/// JavaScript, and its openings wait as well until they are taken. `exact_alarms` is the side of the platform that
+/// opens the setting for exact alarms.
 pub(crate) fn connect<R: Runtime>(
     app: &AppHandle<R>,
     backend: impl LiveActivityBackend,
+    exact_alarms: impl ExactAlarms,
 ) -> Result<LiveActivity<R>> {
     let emitter = app.clone();
     let actions = actions::spawn(move |event| {
@@ -29,8 +32,19 @@ pub(crate) fn connect<R: Runtime>(
         live,
         actions,
         openings,
+        exact_alarms: Arc::new(exact_alarms),
         runtime: PhantomData,
     })
+}
+
+/// Opens the setting for exact alarms through `exact_alarms` and answers the capabilities of `live` as they are
+/// when the person is back. An error of the side that opens the setting is the answer, and nothing more is asked.
+pub(crate) async fn open_exact_alarm_settings(
+    live: liveactivity::LiveActivity,
+    exact_alarms: Arc<dyn ExactAlarms>,
+) -> Result<Capabilities> {
+    exact_alarms.open_settings().await?;
+    live.capabilities().await
 }
 
 /// The plugin's Rust API. Each method blocks its thread until the backend has answered. On iOS the answer comes
@@ -40,6 +54,7 @@ pub struct LiveActivity<R: Runtime> {
     pub(crate) live: liveactivity::LiveActivity,
     actions: Actions,
     pub(crate) openings: Arc<Openings>,
+    pub(crate) exact_alarms: Arc<dyn ExactAlarms>,
     runtime: PhantomData<fn() -> R>,
 }
 
@@ -76,6 +91,29 @@ impl<R: Runtime> LiveActivity<R> {
     }
     pub fn list_layout(&self) -> Result<Vec<LayoutActivityRecord>> {
         wait(self.live.list_layout())
+    }
+
+    /// Opens Android's setting where the person allows the app exact alarms ("Alarms & reminders"), which a
+    /// scheduled start needs to begin at its time, and answers when they are back, with the capabilities as they
+    /// are then: `android_presentation.exact_start` says whether the app may set an exact alarm. Where one may be
+    /// set already, before Android 12 or with the permission, it opens nothing and answers the capabilities at
+    /// once.
+    ///
+    /// Android shows the setting for an app whose own manifest declares `SCHEDULE_EXACT_ALARM`: without the
+    /// declaration the call answers `CONFIGURATION_REQUIRED`. It answers `NOT_FOREGROUND` while the app is not on
+    /// screen, and `UNSUPPORTED_FEATURE` on a device without the setting and on iOS, which begins a scheduled
+    /// start itself. Desktop answers `UNSUPPORTED_PLATFORM`.
+    ///
+    /// The call waits for the person, who may take minutes, so choose its thread with care. On Android's own
+    /// main thread, which Rust is on only inside a callback of the Kotlin side, it never returns: that thread has
+    /// to show the setting. On the thread of Tauri's event loop it holds every event of the app for as long. In a
+    /// handler of [`on_action`](Self::on_action) it holds the taps that follow, which share the handlers' thread.
+    /// A thread of its own, or the command, which a page awaits, has neither trouble.
+    pub fn open_exact_alarm_settings(&self) -> Result<Capabilities> {
+        wait(open_exact_alarm_settings(
+            self.live.clone(),
+            Arc::clone(&self.exact_alarms),
+        ))
     }
 
     /// The push tokens the plugin holds since launch: the newest of each of the last [`TOKENS_KEPT`](crate::TOKENS_KEPT)

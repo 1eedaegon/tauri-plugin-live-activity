@@ -1,4 +1,4 @@
-import type { ActivityRecord, PermissionKind, PermissionState } from '../../../guest-js/index.js';
+import type { ActivityRecord, Capabilities, PermissionKind, PermissionState } from '../../../guest-js/index.js';
 
 export function permissionFeedback(state: PermissionState): string {
   if (state === 'granted') return 'All set for your next little moment.';
@@ -11,6 +11,21 @@ export function permissionAction(platform: string): { readonly kind: PermissionK
   return platform === 'ios'
     ? { kind: 'liveActivities', label: 'Check Live Activity settings' }
     : { kind: 'notifications', label: 'Request notification permission' };
+}
+
+/**
+ * Whether to offer Android's setting for exact alarms: a start can be scheduled, and would begin when Android
+ * chooses instead of at its time.
+ */
+export function offersExactAlarms(capabilities: Pick<Capabilities, 'androidPresentation'>): boolean {
+  const android = capabilities.androidPresentation;
+  return android !== undefined && android.scheduledStart && !android.exactStart;
+}
+
+export function exactAlarmFeedback(allowed: boolean): string {
+  return allowed
+    ? 'Exact alarms are allowed: a scheduled start begins on the minute.'
+    : 'Exact alarms are still off: a scheduled start may begin minutes late.';
 }
 
 export function selectCurrent(

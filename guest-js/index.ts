@@ -25,6 +25,27 @@ export function requestPermissions(kind: PermissionKind): Promise<Permissions> {
   return invoke('plugin:live-activity|request_permissions', { kind });
 }
 
+/**
+ * Open Android's setting where the person allows the app exact alarms ("Alarms & reminders"), which a scheduled
+ * start needs to begin at its time, and resolve when they are back, with the capabilities as they are then:
+ * `androidPresentation.exactStart` says whether they allowed it. Call it when `exactStart` is false and the app
+ * schedules starts; where exact alarms are allowed already, or need no permission (before Android 12), it resolves
+ * at once and opens nothing.
+ *
+ * Android shows the setting only for an app whose own manifest declares `SCHEDULE_EXACT_ALARM`: where exact
+ * alarms are not allowed and the declaration is missing, the call rejects with `CONFIGURATION_REQUIRED`. It
+ * rejects with `NOT_FOREGROUND` while the app is not on screen, with `UNSUPPORTED_FEATURE` on a device without
+ * the setting and on iOS, which starts a scheduled activity itself, and with `UNSUPPORTED_PLATFORM` on desktop.
+ * A call that comes while the setting is open resolves with the first.
+ *
+ * The page may be gone when the person is back: Android may have closed it meanwhile, and it stops the app when
+ * the person takes the permission away. Read `getCapabilities()` when the page loads rather than rely on this
+ * promise alone. The command needs its own grant, `live-activity:allow-open-exact-alarm-settings`.
+ */
+export function openExactAlarmSettings(): Promise<Capabilities> {
+  return invoke('plugin:live-activity|open_exact_alarm_settings', {});
+}
+
 /** Start an activity; repeated identical starts for an active key are idempotent. */
 export function start(input: StartInput): Promise<ActivityRecord> {
   return invoke('plugin:live-activity|start', { input });

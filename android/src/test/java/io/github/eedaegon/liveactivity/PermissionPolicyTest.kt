@@ -82,4 +82,74 @@ class PermissionPolicyTest {
             )
         }
     }
+
+    // TP-ANDROID-18
+    @Test fun theSettingForExactAlarmsOpensOnlyWhereThePersonCanAllowTheApp() {
+        val either = listOf(true, false)
+        // Before Android 12 an exact alarm needs no permission, so there is nothing to allow.
+        for (sdk in listOf(26, 30)) for (allowed in either) for (declared in either) for (onScreen in either) {
+            val setting = exactAlarmSetting(sdk, allowed, declared, onScreen)
+            assertEquals("$sdk $allowed $declared $onScreen", ExactAlarmSetting.NothingToAllow, setting)
+        }
+        for (sdk in listOf(31, 33, 34, 37)) {
+            // An app that may set exact alarms has nothing to allow either, whether the setting lists it or, as
+            // with USE_EXACT_ALARM, does not: all that the person could do there is take the permission back,
+            // which stops the app.
+            for (declared in either) for (onScreen in either) {
+                val setting = exactAlarmSetting(sdk, allowed = true, declared = declared, onScreen = onScreen)
+                assertEquals("$sdk $declared $onScreen", ExactAlarmSetting.NothingToAllow, setting)
+            }
+            // The setting lists the apps whose manifest asks for the permission: one that does not has to declare
+            // it first, wherever the app is.
+            for (onScreen in either) {
+                val setting = exactAlarmSetting(sdk, allowed = false, declared = false, onScreen = onScreen)
+                assertEquals("$sdk $onScreen", ExactAlarmSetting.NotDeclared, setting)
+            }
+            // Android opens another screen only for an app that is on screen.
+            assertEquals("$sdk", ExactAlarmSetting.NotOnScreen, exactAlarmSetting(sdk, allowed = false, declared = true, onScreen = false))
+            assertEquals("$sdk", ExactAlarmSetting.Open, exactAlarmSetting(sdk, allowed = false, declared = true, onScreen = true))
+        }
+    }
+
+    // TP-ANDROID-18
+    @Test fun callsThatComeWhileTheSettingIsOpenWaitWithTheFirstAndAreAnsweredTogether() {
+        val visit = SettingVisit<String>()
+        // No visit is open: a call does not wait, and is the one that opens the setting.
+        assertEquals(false, visit.joinIfOpen("first"))
+        assertEquals(true, visit.join("first"))
+        // One that comes while the setting is open waits with it, whatever else would be said of it, and opens nothing.
+        assertEquals(true, visit.joinIfOpen("second"))
+        assertEquals(false, visit.join("third"))
+        // The person is back: every call that waited is answered, once.
+        assertEquals(listOf("first", "second", "third"), visit.end())
+        assertEquals(emptyList<String>(), visit.end())
+        // The next call finds no visit open, and opens the setting again.
+        assertEquals(false, visit.joinIfOpen("fourth"))
+        assertEquals(true, visit.join("fourth"))
+        assertEquals(listOf("fourth"), visit.end())
+    }
+
+    // TP-ANDROID-18
+    @Test fun callsFromSeveralThreadsOpenTheSettingOnce() {
+        val visit = SettingVisit<Int>()
+        val opened = java.util.concurrent.atomic.AtomicInteger()
+        val threads = (1..16).map { call -> Thread { if (!visit.joinIfOpen(call) && visit.join(call)) opened.incrementAndGet() } }
+        threads.forEach(Thread::start)
+        threads.forEach(Thread::join)
+        assertEquals(1, opened.get())
+        assertEquals((1..16).toList(), visit.end().sorted())
+    }
+
+    // TP-ANDROID-18
+    @Test fun whetherExactAlarmsAreAllowedIsWhatLiveupdatesAdapterObserves() {
+        /** The adapter's `capabilities` with a presentation that says [exactStart], or says nothing of it for null. */
+        fun saying(exactStart: Any?) = observed(true, true)
+            .put("presentation", JSONObject().put("scheduledStart", true).put("exactStart", exactStart))
+        assertEquals(true, exactAlarmsAllowed(saying(true)))
+        assertEquals(false, exactAlarmsAllowed(saying(false)))
+        // A reply without the member is a failure of the native side, never a guess.
+        for (reply in listOf(saying("yes"), saying(null), observed(true, true), observed(true, true).put("presentation", "none"))) {
+            assertEquals("$reply", "NATIVE_ERROR", assertThrows(ActivityFailure::class.java) { exactAlarmsAllowed(reply) }.code)
+        }
+    }
 }

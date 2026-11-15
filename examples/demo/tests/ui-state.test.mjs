@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { keep } from '../../../tests/typescript-requests.mjs';
-import { permissionAction, permissionFeedback, selectCurrent } from '../src/ui-state.ts';
+import { exactAlarmFeedback, offersExactAlarms, permissionAction, permissionFeedback, selectCurrent } from '../src/ui-state.ts';
 import { startMochiActivity, advanceMochiActivity, snackStage, countdown, selectMochiActivity } from '../src/mochi.ts';
 
 test('uses the iOS Live Activity settings check instead of notification permission', () => {
@@ -19,6 +19,18 @@ test('permission feedback distinguishes settings controls from granted access', 
   assert.match(permissionFeedback('denied'), /Settings/);
   assert.match(permissionFeedback('granted'), /All set/);
   assert.match(permissionFeedback('notApplicable'), /No permission/);
+});
+
+test('the setting for exact alarms is offered where a start can be scheduled and would not begin at its time', () => {
+  const android = (scheduledStart, exactStart) => ({ androidPresentation: { scheduledStart, exactStart } });
+  assert.equal(offersExactAlarms(android(true, false)), true);
+  // Allowed already, or no scheduled start at all: nothing to offer.
+  assert.equal(offersExactAlarms(android(true, true)), false);
+  assert.equal(offersExactAlarms(android(false, false)), false);
+  // iOS and desktop say nothing of Android's presentation: iOS begins a scheduled start itself.
+  assert.equal(offersExactAlarms({}), false);
+  assert.match(exactAlarmFeedback(true), /on the minute/);
+  assert.match(exactAlarmFeedback(false), /still off/);
 });
 
 test('preserves the current handle while Android observation is pending', () => {
