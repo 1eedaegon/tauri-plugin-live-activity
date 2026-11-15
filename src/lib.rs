@@ -6,6 +6,10 @@
 //! plugin adds Tauri's commands, events, configuration and Android's permission dialog. Desktop mutations
 //! return `UNSUPPORTED_PLATFORM`.
 
+// TP-BUILD-2: a value that is not there is an error to answer, and no reason to end the app's process. Tests may
+// unwrap: a test that panics has failed.
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 use tauri::{
     Manager, Runtime,
     plugin::{Builder, TauriPlugin},

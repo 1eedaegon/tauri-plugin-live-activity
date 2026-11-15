@@ -564,10 +564,17 @@ before `run`:
 ```rust
 use tauri_plugin_live_activity::{EndPolicy, LayoutEndInput, LiveActivityExt};
 
-let app = tauri::Builder::default()
+let built = tauri::Builder::default()
     .plugin(tauri_plugin_live_activity::init())
-    .build(tauri::generate_context!())
-    .expect("error while building tauri application");
+    .build(tauri::generate_context!());
+let app = match built {
+    Ok(app) => app,
+    Err(error) => {
+        // Nothing can be shown without the app: say why on the log, and end.
+        eprintln!("the app could not be built: {error}");
+        std::process::exit(1);
+    }
+};
 let handle = app.handle().clone();
 app.live_activity().on_action(move |event| {
     if event.action_id == "done" {

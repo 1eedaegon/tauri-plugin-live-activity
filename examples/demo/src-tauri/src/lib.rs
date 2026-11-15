@@ -1,3 +1,6 @@
+// The demo is an app's code, and people copy it: what cannot be done is said on the log, and nothing unwraps.
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 mod actions;
 mod report;
 
@@ -29,14 +32,21 @@ fn self_test_requested() -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let app = tauri::Builder::default()
+    let built = tauri::Builder::default()
         .plugin(tauri_plugin_live_activity::init())
         .invoke_handler(tauri::generate_handler![
             save_self_test_report,
             self_test_requested
         ])
-        .build(tauri::generate_context!())
-        .expect("error while building tauri application");
+        .build(tauri::generate_context!());
+    let app = match built {
+        Ok(app) => app,
+        Err(error) => {
+            // Nothing can be shown without the app: say why on the log, and end.
+            eprintln!("Mochi demo: the app could not be built: {error}");
+            std::process::exit(1);
+        }
+    };
     actions::register(&app);
     actions::start_from_rust_if_asked(&app, std::env::args());
     app.run(|_, _| {});
