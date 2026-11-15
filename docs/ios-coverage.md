@@ -117,9 +117,9 @@ takes its pictures of the demo's card alone. With the demo of 0.8.0 once and wit
 time a build of the release commit, 10 of the 11 passed, in a run of ten minutes each: the bound style, the buttons, the list after a relaunch, the lifecycle
 test, the templates, the tap that launches the app for a slow handler, the start from Rust, the switch, the link
 and the staleness. Touches reached a phone's Lock Screen there, and the pictures show what it drew. The eleventh,
-the scheduled start, cannot pass below iOS 26, where the start is refused. On the iPhone 16 the runner still stops
-where the phone turns UI automation on, with the phone unlocked: the switch for it in the phone's developer
-settings is off. So no UI test has run on a phone with iOS 26 or later.
+the scheduled start, cannot pass below iOS 26, where the start is refused. On the iPhone 16 the runner still
+stopped where the phone turns UI automation on, with the phone unlocked. No UI test had run on a phone with
+iOS 26 or later by then: the first did with [0.10.0](#0100-on-two-iphones).
 
 ## 0.10.0 on two iPhones
 
@@ -133,9 +133,19 @@ After the release the same build ran on the iPhone 16 with iOS 27.2:
 - A scheduled start began. Rust scheduled it 30 s ahead, and the app was ended a few seconds after its launch. No
   process of the app was seen until the time. One that nothing but the system had been asked to launch was there
   38 s after the launch, and the app that was launched afterwards listed the activity as `active`.
-- The demo's UI tests were started again, with the phone unlocked, and stopped where they had with 0.9.0: the
-  phone did not turn UI automation on in the minute the runner waits. So no UI test has run on a phone with
-  iOS 26 or later.
+- The demo's UI tests ran, for the first time on a phone with iOS 26 or later, with the copy that signs its
+  runner: one of them alone, and then all 11, which passed in a run of ten minutes. The eleventh is the scheduled
+  start, which the iPhone XS cannot pass: the Lock Screen showed the activity that the system began at its time
+  with the app ended. The pictures show what the Lock Screen of iOS 27 drew of the bound style, the buttons, the
+  templates, the start from Rust, the switch on and off, the link, and the content fresh, stale and fresh again.
+- The first start of that day had stopped where it had with 0.9.0: the phone, unlocked, did not turn UI
+  automation on in the minute the runner waits. Eighteen minutes later the same tests ran. The switch for UI
+  automation in the phone's developer settings was on, by its owner's word, and what changed in between was not
+  found. Seen from the Mac: after the start that stopped, `testmanagerd` and `automationmode-writer` ran on the
+  phone and `AutomationModeUI` did not; before the one that ran, all three did, as they do on the iPhone XS.
+- A run that begins while the phone is locked waits for a person. The one test left the screen locked, and the
+  run of all 11, started a minute after it, waited nine minutes where `xcodebuild` says "Unlock … to Continue",
+  until the phone was unlocked.
 
 ## Tests added after the first release
 
