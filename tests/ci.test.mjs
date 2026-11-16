@@ -1,11 +1,13 @@
 // The crate's manifest keeps liveactivity to one line; CI's `changes` job starts each job for its paths; the simulator
 // jobs key their caches and records on the files they read and pin their tools; run.sh tests through the scheme.
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { setTimeout as pause } from 'node:timers/promises';
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -70,7 +72,7 @@ function inputs() {
 
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
 
-// TP-CI-1
+// TP-CI-1, TP-CI-5
 test('the changes job starts each job for its paths, and the ios area is what the simulator suites read', () => {
   const workflow = read('.github/workflows/ci.yml');
   assert.deepEqual(Object.keys(areas().found), ['rust', 'js', 'ios', 'android']);
@@ -139,6 +141,55 @@ test('the changes job starts each job for its paths, and the ios area is what th
   // The specification check runs for every change, docs alone included.
   assert.match(workflow, /\n  spec:\n    name: Specification\n    runs-on: ubuntu-latest\n/);
   assert.match(workflow, /run: sh tools\/spec-coverage\.sh/);
+  // So do the tests of CI's own scripts: a change to tests/ios/run.sh or tests/ci/cache.sh alone starts the ios
+  // area, for which the macOS job runs none of the other node tests.
+  assert.ok(job('spec').endsWith('      - run: node --test tests/spec-coverage.test.mjs tests/ci.test.mjs tests/ci-cache.test.mjs tests/ios-run.test.mjs'));
+  assert.deepEqual(started('tests/ios/run.sh'), ['ios']);
+  assert.deepEqual(started('tests/ci/cache.sh'), ['ios']);
+  // The Specification job has dash for its sh. The simulator jobs run run.sh with a Mac's, bash 3.2, and the two
+  // differ in what a run does once nobody reads its log: for the ios area the macOS job runs the tests of run.sh
+  // too, with the workflow's Node whatever changed. For the js area they are among those of `npm test`.
+  assert.ok(contracts.includes("      - if: env.AREA_IOS == 'true' && env.AREA_JS != 'true'\n        run: node --test tests/ios-run.test.mjs\n"), 'run.sh under bash 3.2');
+  assert.ok(contracts.includes("      - if: env.AREA_JS == 'true'\n        run: npm test && npm run typecheck && npm run build:demo\n"), 'npm test');
+  assert.match(read('package.json'), /"test:contracts": "[^"\n]*(?:\\"[^"\n]*)* tests\/ios-run\.test\.mjs /);
+  // Node comes whatever changed, and the cache of npm only on the condition of `npm ci`, which fills it: after a job
+  // that did not find the cache, setup-node saves npm's folder as it is then.
+  assert.match(contracts, /uses: actions\/setup-node@[0-9a-f]{40} # v[\d.]+\n {8}with:\n {10}node-version: \$\{\{ env\.NODE \}\}\n {10}cache: \$\{\{ \(env\.AREA_JS == 'true' \|\| env\.AREA_RUST == 'true'\) && 'npm' \|\| '' \}\}\n/);
+});
+
+// TP-CI-5
+test('the step of a simulator suite is the script itself, which the signal of a cancelled job reaches', async () => {
+  // CI's runner signals the process of the step and no other, and a step is a file that bash runs (`bash -e {0}`).
+  // With `sh tests/ios/run.sh` in that file bash stands between and hands no signal on: after each of two cancelled
+  // jobs, processes of the step still ran a minute and more later. `exec` makes the script the step's process.
+  const steps = ['e2e', 'e2e-dev'].map(name => /\n {8}run: (.*tests\/ios\/run\.sh)\n/.exec(job(name))[1]);
+  assert.deepEqual(steps, ['exec sh tests/ios/run.sh', 'exec sh tests/ios/run.sh']);
+  // The step as the runner runs it, in a folder where a script in the place of run.sh says which signal it got.
+  const temp = mkdtempSync(join(tmpdir(), 'live-activity-step-'));
+  mkdirSync(join(temp, 'tests/ios'), { recursive: true });
+  writeFileSync(join(temp, 'tests/ios/run.sh'), "trap 'echo INT > got; exit 130' INT\necho \"$$\" > started\nwhile [ -e started ]; do /bin/sleep 0.05; done\n");
+  writeFileSync(join(temp, 'step.sh'), `${steps[0]}\n`);
+  const child = spawn('/bin/bash', ['-e', join(temp, 'step.sh')], { cwd: temp, stdio: 'ignore' });
+  const exited = once(child, 'exit');
+  /** What the script wrote into the file of this name, once it has. */
+  const written = async name => {
+    for (let waited = 0; !existsSync(join(temp, name)) || readFileSync(join(temp, name), 'utf8') === ''; waited += 20) {
+      assert.ok(waited < 60_000, `${name}: not in a minute`);
+      await pause(20);
+    }
+    return readFileSync(join(temp, name), 'utf8').trim();
+  };
+  try {
+    assert.equal(Number(await written('started')), child.pid, 'the script is the process of the step');
+    child.kill('SIGINT');
+    assert.equal(await written('got'), 'INT');
+    assert.deepEqual((await exited).slice(0, 2), [130, null]);
+  } finally {
+    child.kill('SIGKILL');
+    await exited;
+    // The script in the place of run.sh ends when its folder goes.
+    rmSync(temp, { recursive: true, force: true });
+  }
 });
 
 // TP-BUILD-1
@@ -292,7 +343,7 @@ test('CI runs the demo of tauri ios dev on the simulator in a job of its own', (
   assert.ok(dev.includes("    env:\n      MODE: dev\n    steps:\n"));
   assert.ok(dev.includes("name: End to end on the simulator\n        if: steps.passed.outputs.found != 'true'\n"));
   assert.doesNotMatch(job('e2e'), /\n\s+MODE: /);
-  assert.ok(dev.includes('run: sh tests/ios/run.sh\n'));
+  assert.ok(dev.includes('run: exec sh tests/ios/run.sh\n'));
   assert.doesNotMatch(dev, /BUILD_KEY/);
 });
 
@@ -317,12 +368,12 @@ test('run.sh tests through the scheme of the project it generates, retries in CI
   assert.match(script, /grep -q -e 'failed to initialize for UI testing' \\\n\s+-e 'Unable to find a device matching the provided destination specifier' "\$work\/xcodebuild-\$attempt\.log"/);
   assert.match(script, /if \[ "\$status" -eq 0 \] && \[ -z "\$\{ONLY:-\}" \]; then printf '%s' "\$retried" >"\$output\/passed"; fi/);
   // The checkout as it was: tracked files of gen/apple restored, only the run's own files replaced in OUTPUT, the
-  // process tree of tauri ios dev stopped, and a signal ends the run after the cleanup.
+  // process tree of tauri ios dev stopped. The cleanup runs at every end of the script; tests/ios-run.test.mjs ends
+  // it with signals (TP-CI-5).
   assert.match(script, /git -C "\$root" ls-files -z -- "\$apple"/);
   assert.doesNotMatch(script, /rm -rf "\$output"/);
   assert.match(script, /kill_tree "\$dev"/);
-  assert.match(script, /trap 'cleanup; exit 130' INT/);
-  assert.match(script, /trap 'cleanup; exit 143' TERM HUP/);
+  assert.match(script, /^trap cleanup EXIT$/m);
 });
 
 // TP-CI-4
@@ -330,11 +381,15 @@ test('run.sh starts the tests once more when they could not start, and only then
   // The loop of the script itself, run by sh with an xcodebuild that answers what this test tells it to. As
   // xcodebuild does, it says what it reports of itself on the error stream, and refuses a result bundle that is
   // there already.
-  const found = /^attempt=1\nwhile :; do\n[\s\S]*?\ndone\n/m.exec(read('tests/ios/run.sh'));
+  const script = read('tests/ios/run.sh');
+  const found = /^attempt=1\nwhile :; do\n[\s\S]*?\ndone\n/m.exec(script);
   assert.ok(found, 'run.sh has the loop that runs the tests');
   const [loop] = found;
+  // The loop says that it starts the tests again as the script says every line of its own.
+  const [report] = /^report\(\) \{\n[\s\S]*?\n\}$/m.exec(script);
   const harness = `set -eu
 work=$1; tests=tests; destination=destination; build=build
+${report}
 xcodebuild() {
   call=$(($(cat "$work/calls") + 1))
   echo "$call" >"$work/calls"

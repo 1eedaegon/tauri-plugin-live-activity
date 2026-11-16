@@ -8,7 +8,8 @@
 #   MODE=dev    the demo that `tauri ios dev` builds, installs, launches and serves; the layout, button and relaunch
 #               tests through the page, and the one where Rust starts the layout
 #   OUTPUT      where the screenshots, the other attachments, the logs and `passed` go (default tests/ios/output);
-#               the run replaces only its own files there
+#               the run replaces only its own files there. The log of `tauri ios dev` is written there from its
+#               start: a run that is stopped from outside, as CI's runner stops a cancelled job, leaves it
 #   BUILD_DIR   where the demo app and the built UI tests go (a temporary folder unless set); CI caches it
 #   BUILD_KEY   names the inputs of the build (CI passes a hash of them, from tests/ci/cache.sh). A complete build
 #               writes it next to its products, and a later run with the same key tests those products without
@@ -25,6 +26,9 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 output=${OUTPUT:-$root/tests/ios/output}
 mode=${MODE:-build}
 case $mode in build | dev) ;; *) echo "MODE is build or dev, not $mode" >&2; exit 2 ;; esac
+# What `tauri ios dev` says, kept where CI's job uploads it whatever ended the step. An earlier run's goes now.
+devlog=$output/tauri-ios-dev.log
+rm -f "$devlog"
 work=$(mktemp -d "${TMPDIR:-/tmp}/live-activity-e2e.XXXXXX")
 build=${BUILD_DIR:-$work/build}
 stamp=$build/build-key
@@ -34,8 +38,10 @@ derived=$HOME/Library/Developer/Xcode/DerivedData
 bundle=io.github.eedaegon.liveactivitydemo
 # The page of a dev build, from Tauri's built-in server for static files.
 page=http://127.0.0.1:1430/
-# How long `tauri ios dev` may take to build, install, launch and serve the demo, in seconds.
+# How long `tauri ios dev` may take to build, install, launch and serve the demo, in seconds, and how often the
+# run says how far it is.
 dev_wait=1800
+dev_progress=60
 case "$(uname -m)" in arm64) arch=arm64 target=aarch64-sim ;; *) arch=x86_64 target=x86_64 ;; esac
 runtime=${RUNTIME:-$(xcrun simctl list runtimes -j | python3 -I -c 'import json,sys; r=[x for x in json.load(sys.stdin)["runtimes"] if x["platform"]=="iOS" and x["isAvailable"]]; print(r[-1]["identifier"])')}
 name="live-activity-e2e-$$"
@@ -44,18 +50,40 @@ dev=
 cleaned=
 
 # Ends `pid` and every process it started, children first: `tauri ios dev` runs cargo, xcodebuild and a log stream.
+# The children come through a pipe, not a command substitution: macOS's sh (bash 3.2) keeps a line that it could not
+# write and hands it to its next command substitution, where its words would pass for processes. The shell at the
+# pipe's end may get that line on its way out and fail on it, which is nothing to the tree.
 kill_tree() {
-  for child in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$child"; done
+  pgrep -P "$1" 2>/dev/null | while read -r child; do kill_tree "$child"; done || true
   kill "$1" 2>/dev/null || true
 }
-# Stops the run, keeping the log of `tauri ios dev`.
+# A line for the step's log, on the stream that the caller gives it. The log has the time of each line: before a
+# part that takes minutes the run says which it begins, and a run that is stopped shows where it was. A shell of its
+# own writes the line: when nobody reads any more, as behind a step that CI's runner has given up or a pipe to a
+# command that has ended, the write ends the shell that tried, and the run has to go on to its cleanup. printf,
+# because a shell's echo reads the backslashes of what it is given.
+report() {
+  (printf '%s\n' "$1") || true
+}
+# Stops the run and says why.
 fail() {
-  if [ -f "$work/dev.log" ]; then mkdir -p "$output" && cp "$work/dev.log" "$output/tauri-ios-dev.log"; fi
-  echo "$1" >&2
+  report "$1" >&2
   exit 1
+}
+# A line for the step's log while `tauri ios dev` builds, after `$1` seconds of waiting: what the Mac has left, and
+# the last line of Tauri's log, which has no times of its own.
+progress() {
+  load=$(sysctl -n vm.loadavg 2>/dev/null | tr -d '{}' | xargs)
+  free=$(memory_pressure -Q 2>/dev/null | sed -n 's/^System-wide memory free percentage: //p')
+  report "tauri ios dev, $1 s: load ${load:-unknown}, memory free ${free:-unknown}: $(tail -n 1 "$devlog" | sed 's/^ *//' | cut -c1-160)"
 }
 cleanup() {
   [ -z "$cleaned" ] || return 0
+  # A second signal does not cut the cleanup short: CI's runner sends TERM some seconds after INT. The shell takes it
+  # and does nothing. It does not ignore it, which every command of the cleanup would inherit: a terminal's Ctrl-C
+  # still ends a command that hangs here, and the cleanup goes on. This comes before the mark: a signal handled
+  # between the two would find the cleanup marked as done and end the run without it.
+  trap : INT TERM HUP
   cleaned=1
   [ -z "$dev" ] || kill_tree "$dev"
   if [ -n "$device" ]; then
@@ -66,14 +94,25 @@ cleanup() {
   rm -rf "$work" "$apple/build"
   find "$derived" -maxdepth 1 \( -name 'live-activity-demo-*' -o -name 'DemoUITests-*' \) -exec rm -rf {} + 2>/dev/null || true
 }
+# A signal from outside ends the run with status `$2` after the cleanup. The signal is named first, for the step's
+# log: CI's runner kills the step ten seconds after its first signal, cleaned up or not. The shell handles a signal
+# when the command it waits for has ended. While `tauri ios dev` builds that is at once, or after the look at the
+# simulator that is under way; during the build of the UI tests, the simulator's boot and the tests it is only
+# after them.
+stopped() {
+  report "tests/ios/run.sh: stopped by SIG$1" >&2
+  cleanup
+  exit "$2"
+}
 trap cleanup EXIT
-trap 'cleanup; exit 130' INT
-trap 'cleanup; exit 143' TERM HUP
+trap 'stopped INT 130' INT
+trap 'stopped TERM 143' TERM
+trap 'stopped HUP 143' HUP
 
 # The tracked files of gen/apple as they are now, put back by the cleanup.
 git -C "$root" ls-files -z -- "$apple" | (cd "$root" && tar -cf "$work/apple.tar" --null -T -)
 device=$(xcrun simctl create "$name" "${DEVICE_TYPE:-iPhone 17 Pro}" "$runtime")
-echo "simulator $device ($runtime), $arch, $mode"
+report "simulator $device ($runtime), $arch, $mode"
 destination="platform=iOS Simulator,id=$device,arch=$arch"
 
 # Whether BUILD_DIR holds the complete products of a build of BUILD_KEY: the UI tests, and in build mode the demo.
@@ -85,9 +124,9 @@ built() {
 
 xcodegen generate --spec "$root/tests/ios/DemoUITests/project.yml" --quiet
 if built; then
-  echo "the products in $build were built for $BUILD_KEY: no build"
+  report "the products in $build were built for $BUILD_KEY: no build"
 else
-  if [ -n "${BUILD_KEY:-}" ]; then echo "no complete products built for $BUILD_KEY: building"; fi
+  if [ -n "${BUILD_KEY:-}" ]; then report "no complete products built for $BUILD_KEY: building"; fi
   rm -rf "$build"
   mkdir -p "$build/demo"
   (cd "$root" && npm run build:demo >/dev/null)
@@ -99,18 +138,21 @@ else
     # Tauri drives xcodebuild: its build phase builds the Rust library and needs the CLI running. After the build
     # Tauri archives an IPA, which needs a signing team; the simulator needs only the build, so the archive may fail.
     find "$derived" -maxdepth 1 -name 'live-activity-demo-*' -exec rm -rf {} + 2>/dev/null || true
+    report "building the demo with tauri ios build"
     (cd "$root/examples/demo" && "$root/node_modules/.bin/tauri" ios build --debug --target "$target" --ci) > "$work/build.log" 2>&1 || true
     grep -E '^\*\* BUILD (SUCCEEDED|FAILED) \*\*' "$work/build.log" || true
     app=$(find "$derived" -maxdepth 6 -path '*live-activity-demo-*/Build/Products/debug-iphonesimulator/live-activity-demo.app' \
       -type d | head -n 1)
-    test -n "$app" || { tail -n 40 "$work/build.log" >&2; echo "the demo did not build for the simulator" >&2; exit 1; }
+    test -n "$app" || { tail -n 40 "$work/build.log" >&2; fail "the demo did not build for the simulator"; }
     cp -R "$app" "$build/demo/"
   fi
+  report "building the UI tests"
   xcodebuild -project "$tests" -scheme DemoUITests -destination "$destination" -derivedDataPath "$build/tests" \
     CODE_SIGNING_ALLOWED=NO build-for-testing -quiet
   if [ -n "${BUILD_KEY:-}" ]; then printf '%s\n' "$BUILD_KEY" >"$stamp"; fi
 fi
 
+report "booting the simulator"
 xcrun simctl boot "$device"
 xcrun simctl bootstatus "$device" -b >/dev/null
 if [ "$mode" = dev ]; then
@@ -156,22 +198,28 @@ SHIM
   # The dev build loads the page from Tauri's built-in server for static files, on this Mac's loopback address. The
   # server lives as long as `tauri ios dev`, which watches the sources: with `--no-watch` it ends once it has launched
   # the app, and the page then fails to load.
+  mkdir -p "$output"
+  report "waiting for tauri ios dev to build, install, launch and serve the demo"
   (cd "$root/examples/demo" && PATH="$work/bin:$PATH" exec "$root/node_modules/.bin/tauri" ios dev "$name" \
     --host 127.0.0.1) \
-    > "$work/dev.log" 2>&1 &
+    > "$devlog" 2>&1 &
   dev=$!
   # Ready once the demo is installed and running and its page is served.
   waited=0
   until xcrun simctl get_app_container "$device" "$bundle" >/dev/null 2>&1 \
     && xcrun simctl spawn "$device" launchctl list 2>/dev/null | grep -q "$bundle" \
     && curl -sf -o /dev/null "$page"; do
-    ! grep -q 'Exporting app' "$work/dev.log" || fail "tauri ios dev exports the app, which only a device needs"
+    ! grep -q 'Exporting app' "$devlog" || fail "tauri ios dev exports the app, which only a device needs"
     kill -0 "$dev" 2>/dev/null || fail "tauri ios dev ended"
     waited=$((waited + 5))
     [ "$waited" -lt "$dev_wait" ] || fail "tauri ios dev did not install, launch and serve the demo in $dev_wait s"
-    sleep 5
+    [ $((waited % dev_progress)) -ne 0 ] || progress "$waited"
+    # The sleep runs beside the shell, which waits for it: so the shell handles a signal at once, and not when the
+    # five seconds are over.
+    sleep 5 &
+    wait $!
   done
-  grep -E '^\*\* BUILD (SUCCEEDED|FAILED) \*\*' "$work/dev.log" | head -n 1 || true
+  grep -E '^\*\* BUILD (SUCCEEDED|FAILED) \*\*' "$devlog" | head -n 1 || true
   only=${ONLY:-DemoTests/test1BoundStyleShowsOnTheLockScreen DemoTests/test2LockScreenButtonReachesRustAndJavaScript \
     DemoTests/test3ListAfterARelaunchFindsTheActivity DemoTests/test7RustStartsALayoutWhoseButtonReachesRust}
 else
@@ -197,7 +245,7 @@ while :; do
   status=$(cat "$work/status")
   if [ "$status" -ne 0 ] && [ "$attempt" -eq 1 ] && grep -q -e 'failed to initialize for UI testing' \
     -e 'Unable to find a device matching the provided destination specifier' "$work/xcodebuild-$attempt.log"; then
-    echo "::warning title=UI test runner::the tests could not start; they run once more"
+    report "::warning title=UI test runner::the tests could not start; they run once more"
     rm -rf -- "${work:?}/result.xcresult"
     attempt=2
     continue
@@ -212,15 +260,15 @@ if [ -n "$retried" ]; then
     >"$work/app.log" 2>&1 || true
 fi
 if [ -n "$retried" ] && [ "$status" -eq 0 ]; then
-  for test in $retried; do echo "::warning title=Retried UI test::$test failed once and passed on a retry"; done
+  for test in $retried; do report "::warning title=Retried UI test::$test failed once and passed on a retry"; done
 fi
 
-# Only the run's own files are replaced in OUTPUT: the screenshots and other attachments, the logs and passed.
+# Only the run's own files are replaced in OUTPUT: the screenshots and other attachments, the logs and passed. The
+# log of `tauri ios dev` is there since Tauri started.
 mkdir -p "$output" "$work/attachments"
-rm -f "$output"/e2e-*.png "$output/passed" "$output/xcodebuild.log" "$output/tauri-ios-dev.log" "$output/app.log"
+rm -f "$output"/e2e-*.png "$output/passed" "$output/xcodebuild.log" "$output/app.log"
 cp "$work/xcodebuild.log" "$output/xcodebuild.log"
 [ ! -f "$work/app.log" ] || cp "$work/app.log" "$output/app.log"
-[ ! -f "$work/dev.log" ] || cp "$work/dev.log" "$output/tauri-ios-dev.log"
 xcrun xcresulttool export attachments --path "$work/result.xcresult" --output-path "$work/attachments" >/dev/null 2>&1 || true
 # The manifest names each attachment; a screenshot keeps the name its test gave it.
 python3 -I - "$work/attachments" "$output" <<'PYTHON' || true
