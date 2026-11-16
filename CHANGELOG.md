@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.1
+
+On Android, a call that Tauri cannot make no longer ends the plugin's thread. Built on liveactivity 0.7.2, with
+activitykit 0.6 and liveupdate 0.4.1 as before.
+
+- A Tauri app's process lives some seconds after its last activity, and longer when the app prevents its exit.
+  Until it has an activity again, Tauri panics on a call to the plugin's Kotlin side. The plugin now catches that
+  panic at the call: a start, an update, an end or a list of the Rust API answers `NATIVE_ERROR`, and the thread
+  that drains lives on. Before, in an app that prevents its exit, a tap on a notification's button in that
+  state ended the thread, and no tap reached `on_action` for the life of the process. A tap that Android stored
+  meanwhile is handed over with the next one once the app has an activity again, or in the next process.
+- liveactivity 0.7.2 takes the lock of its layouts again after a panic under it. With 0.7.1 such a panic left
+  every later call for a layout and every drain an error.
+- A build with `panic = "abort"` ends at that panic, which the plugin cannot catch.
+
+Nothing changes in the JavaScript API, in the permissions or on iOS.
+
 ## 0.10.0
 
 A command that takes the person to Android's setting for exact alarms. The engines are those of 0.9.0:

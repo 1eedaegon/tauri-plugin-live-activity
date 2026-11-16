@@ -54,9 +54,10 @@ pub(crate) fn adapter_failed() -> liveupdate::Error {
 
 /// liveupdate's transport `B` with [`contained`] under it: a call that panics has failed, as one that Tauri
 /// answers with an error. The guard is here, under liveactivity's backend, and not around the backend's calls:
-/// the backend holds the lock of its layouts across this call, and a panic that passed through would leave that
-/// lock poisoned. Every drain and every call for a layout would answer `NATIVE_ERROR` from then on, as long as the
-/// process lived, with an activity or without.
+/// the backend catches no panic, so one that passed through would end the thread that drains, and a call of the
+/// app's own Rust would unwind into the app. With liveactivity 0.7.1 it also left the lock of the backend's
+/// layouts poisoned, and every drain and every call for a layout answered `NATIVE_ERROR` from then on, as long as
+/// the process lived; 0.7.2 takes that lock again.
 pub(crate) struct ContainedBridge<B>(B);
 
 impl<B: liveupdate::Bridge> liveupdate::Bridge for ContainedBridge<B> {
@@ -144,8 +145,8 @@ mod tests {
         assert_eq!(engine.pump_events().unwrap_err().code, "NATIVE_ERROR");
         assert!(engine.next_check().is_err());
         assert_eq!(wait(engine.list_layout()).unwrap_err().code, "NATIVE_ERROR");
-        // An activity again: the backend is as it was. A panic that had passed through it would have left the lock
-        // of its layouts poisoned, and every drain and every call for a layout would fail from then on.
+        // An activity again: the backend is as it was, and nothing panicked on the way. A panic that had passed
+        // through the backend would have reached the caller here, as it would the thread that drains.
         no_activity.store(false, Ordering::SeqCst);
         assert_eq!(engine.pump_events().unwrap(), 0);
         assert!(wait(engine.list_layout()).unwrap().is_empty());
