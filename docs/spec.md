@@ -474,10 +474,14 @@ hold from 0.6.3.
     far" to "3 pets so far": the tap that had waited was handed over with it.
   - In that process the app's new activity showed an empty window: Tauri made no web view for it. Whether an app
     can keep its process and show its page again is Tauri's.
-  Not run: a call of the Rust API in that state (the two panics seen were the thread's), a build with
-  `panic = "abort"`, and a phone. Read and not seen: the wake that an opening of the app sends comes while the
-  new activity is created, before wry knows it, so in a kept process what waited is handed over at the wake
-  after that one; and Tauri keeps the handler of each call that panicked so, some hundred bytes a call.
+  Not run: a call of the Rust API in that state (the two panics seen were the thread's) and a build with
+  `panic = "abort"`. A phone ran the guarded calls after 0.10.1 was released, a Galaxy S23 with Android 17, twice,
+  and showed what the emulator had: the panic twice, the threads still there, the tap that had waited handed over
+  with the next, and an empty window
+  ([Android coverage](android-coverage.md#a-process-without-an-activity-0101)). Read and not seen: the wake that
+  an opening of the app sends comes while the new activity is created, before wry knows it, so in a kept process
+  what waited is handed over at the wake after that one; and Tauri keeps the handler of each call that panicked
+  so, some hundred bytes a call.
 - TP-EVENT-3: the unit tests give the plugin's sink an opening before anything listens, and the node tests a plugin
   that holds openings. That the opening which launched the app reaches a page that subscribes after it has loaded
   was seen on the same phone, in the two cases above.
