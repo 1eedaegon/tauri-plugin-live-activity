@@ -173,6 +173,7 @@ React is an optional peer dependency that only this entry imports.
 | TP-E2E-9 | Content whose stale time has passed turns the Lock Screen with no update and with the app ended: the node for fresh content goes and the node for stale content comes. The app that is launched afterwards lists the activity as stale, and its update makes the content fresh again. | Staleness, stale after 45 s → "Waiting for news of the snack". | — | simulator |
 | TP-E2E-10 | A scheduled start is pending until its time, and the system begins it then with the app ended: the Lock Screen shows it, and the app that is launched afterwards lists it as running. | Scheduled start, 30 s ahead → `pending`; the app ended; → "Dinner is served". | — | simulator, iOS 26 |
 | TP-E2E-11 | A UI test that runs again finds its example stopped. A test that failed has not ended what it started, and the card of such an activity can be one that the Lock Screen shows without its content, with no button to end it with: seen on shared runners, where every retry then found the example running and failed in its turn, as did each later test of that example. So no test asks the Lock Screen what is left. The demo's page lists a running activity at launch and says so when its example or its template opens, and the test ends it there before it starts. The test in which Rust starts the example goes to the page for this only after a test of the run has failed, and needs no page otherwise. | Buttons left running, the app launched again → the page ends it and offers the start. | — | simulator |
+| TP-E2E-12 | The UI test of content with a stale time starts its example twice, in one launch of the app. A simulator's first card can come after that time: on a hosted runner it had its content 64 seconds after its activity began, and the content of the Staleness example is stale after 45, so the test that waited for its fresh line failed at that attempt. The first start is therefore for the card alone and keeps no time: the test waits for the card's title, which the layout draws fresh or stale, answers the system's question about Live Activities, and ends the example on the page. The second start is the one the test is about, and the Lock Screen shows that title once then. The app is not ended between the two, nor launched, which ends the app that runs: the system ends the widget extension's process with the app. | Staleness → its card, with either line; ended; Staleness anew → "Left the kitchen", and the title once. | — | simulator |
 
 ## Build and CI
 
@@ -346,6 +347,42 @@ hold from 0.6.3.
   came without content failed its own test three times, the next test of that example three times and the test where
   Rust starts it three times, nine of ten executions. The page's start ends the demo's other examples first, so a
   leftover stopped only the tests of its own example.
+- TP-E2E-12: no test makes a card late. The node test holds the order of the test's steps, that no helper between the
+  two starts launches or ends the app, the three pulls of 30 seconds that the first start may wait, and the title
+  against the example's layout, where it is under no `ifStale`. What the two starts rest on is read from the log of
+  run 43872411088 (see TP-CI-6), the built-demo suite on a hosted Intel runner. Of the 64 seconds that the first card
+  took there, 35 passed before `chronod` first asked the extension for it; then came the two processes that the
+  watchdog ended, 10.8 and 10.7 seconds into the one operation that a card takes, `getActivities(1)`, and a third that
+  answered in 4.1. A card that a later test of that run started was asked for within a second and a half of its
+  activity's beginning (eleven cards; the scheduled start and the lifecycle test's own activities apart). A process of
+  the extension that was new took 2.8 to 9.4 seconds over the operation (fourteen times), and a process that had drawn
+  an activity took 0.6 to 3.8 seconds over the next request for the same activity (eighteen requests). The one time
+  that a process drew a second activity, the nap template after the delivery template, it took 7.0 and 7.6 seconds,
+  and that log does not say whether for the other template or for the second activity. Each test's first card had a
+  new process: a test launches the app, which ends the app that runs, and in the two tests that end the app right
+  after a start the extension's processes ended with it (`processDidExit`, then `reload: failed during processing`),
+  and the new process took 7.6 and 9.4 seconds. A card whose first drawing came after its content's stale time was
+  drawn stale at once (`Activity payload is stale`); a card that was drawn fresh turned 120 seconds after its activity
+  began, not 45, when `liveactivitiesd` marked the activity stale (`Marking outdated activity as stale`), in that run
+  and in the trial below. So the first start takes the wait of a simulator's first card, and what the second start
+  gains from the process of the first is not in that log. It was tried by hand on a Mac on 2026-11-17 (Intel, Xcode
+  26.3, iOS 26.3), in three runs, each passing at its first attempt. In the first and the third the simulator's
+  `chronod` was stopped for 55 seconds from the first start: that is not the watchdog of the hosted runner, and it
+  gives the test the same card, one with no content until after the stale time. The first card then had its content 62
+  and 59 seconds after its activity began, with the stale line; the test found its title at its second pull, ended the
+  example and started it anew, and the second card had its content within a second of its activity's beginning, from
+  the process that had drawn the first: 0.3 seconds over the operation, where the first card's had taken 2.5. In the
+  second run nothing was stopped, and the two tests that follow in the suite ran after it and passed: the first card
+  had its content after 11 seconds and the second after one. In each run the Lock Screen showed the title once at the
+  second look, and the system's question came twice, under the first card with "Allow" and under the second with
+  "Always Allow". The test of the first run did not answer the second, and passed; it answers each where it comes
+  since, the second after its look at the fresh line. On a hosted runner the test has run once, in the run started by
+  hand for this change (43924874275, 2026-11-16), where both suites passed with no test run again. The first card was
+  not late there: the test found its title 34 seconds after the first start, at its first pull, and the fresh line 10
+  seconds after the second start, 4 after its look began. No system lines were kept, as no test failed, so a hosted
+  runner has yet to show the test a card that is late. The two starts do nothing for a card that never gets its
+  content, as in the dev suite of run 43803341280's first attempt: the test fails there at its first start, and its
+  next attempt begins anew (TP-E2E-11).
 - TP-ANDROID-10, TP-ANDROID-11, TP-ANDROID-13, TP-ANDROID-14, TP-ANDROID-18: `NativeBridgeTest` is an instrumentation test: it runs on an emulator or a phone
   (`connectedDebugAndroidTest`), which CI does not start; CI builds it, and it sees the permissions only with
   notifications allowed. Android's dialog and Tauri's memory of a cancelled one are theirs: the unit tests prove the
@@ -441,10 +478,14 @@ hold from 0.6.3.
     far" to "3 pets so far": the tap that had waited was handed over with it.
   - In that process the app's new activity showed an empty window: Tauri made no web view for it. Whether an app
     can keep its process and show its page again is Tauri's.
-  Not run: a call of the Rust API in that state (the two panics seen were the thread's), a build with
-  `panic = "abort"`, and a phone. Read and not seen: the wake that an opening of the app sends comes while the
-  new activity is created, before wry knows it, so in a kept process what waited is handed over at the wake
-  after that one; and Tauri keeps the handler of each call that panicked so, some hundred bytes a call.
+  Not run: a call of the Rust API in that state (the two panics seen were the thread's) and a build with
+  `panic = "abort"`. A phone ran the guarded calls after 0.10.1 was released, a Galaxy S23 with Android 17, twice,
+  and showed what the emulator had: the panic twice, the threads still there, the tap that had waited handed over
+  with the next, and an empty window
+  ([Android coverage](android-coverage.md#a-process-without-an-activity-0101)). Read and not seen: the wake that
+  an opening of the app sends comes while the new activity is created, before wry knows it, so in a kept process
+  what waited is handed over at the wake after that one; and Tauri keeps the handler of each call that panicked
+  so, some hundred bytes a call.
 - TP-EVENT-3: the unit tests give the plugin's sink an opening before anything listens, and the node tests a plugin
   that holds openings. That the opening which launched the app reaches a page that subscribes after it has loaded
   was seen on the same phone, in the two cases above.
@@ -552,6 +593,7 @@ hold from 0.6.3.
 | TP-E2E-9 | `tests/ios/DemoUITests/UITests/DemoTests.swift::test10ContentPastItsStaleTimeTurnsTheLockScreen` (simulator) |
 | TP-E2E-10 | `tests/ios/DemoUITests/UITests/DemoTests.swift::test11AScheduledStartBeginsAtItsTimeWithTheAppEnded` (simulator) |
 | TP-E2E-11 | `tests/ios/DemoUITests/UITests/DemoTests.swift::test12ARetryFindsItsExampleStopped` (simulator)<br>`tests/ci.test.mjs::every start of an example in the UI tests opens it stopped first, and nothing left is ended through its card` (node) |
+| TP-E2E-12 | `tests/ios/DemoUITests/UITests/DemoTests.swift::test10ContentPastItsStaleTimeTurnsTheLockScreen` (simulator)<br>`tests/ci.test.mjs::the UI test of content with a stale time starts its example for the card alone, then anew in the same launch` (node) |
 | TP-BUILD-1 | `tests/ci.test.mjs::the macOS job checks the iOS code for the device and builds it, with activitykit's Swift, for the simulator` (node)<br>`tests/ios/DemoUITests/UITests/DemoTests.swift::test1BoundStyleShowsOnTheLockScreen` (simulator) |
 | TP-BUILD-2 | `tests/ci.test.mjs::unwrap and expect are denied outside tests, in the crate and the demo, and the documents show neither` (node) |
 | TP-CI-1 | `tests/ci.test.mjs::the changes job starts each job for its paths, and the ios area is what the simulator suites read` (node) |

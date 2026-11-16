@@ -511,3 +511,65 @@ test('every start of an example in the UI tests opens it stopped first, and noth
   assert.match(method(tests, 'func test12ARetryFindsItsExampleStopped()'),
     /app\.terminate\(\)\n\s+XCTAssertTrue\(app\.wait\(for: \.notRunning, timeout: system\)\)\n\s+launch\(\)\n\s+openStopped\("Buttons"\)\n\s+XCTAssertTrue\(webText\("Buttons has ended"\)/);
 });
+
+// TP-E2E-12
+test('the UI test of content with a stale time starts its example for the card alone, then anew in the same launch', () => {
+  const tests = uiTests();
+  const staleness = method(tests, 'func test10ContentPastItsStaleTimeTurnsTheLockScreen()');
+  /** The statements of a part of the method, without its comments. */
+  const code = part => part.replace(/^\s*\/\/.*\n/gm, '');
+  // Two starts, each of an example opened stopped (TP-E2E-11), after one launch of the app.
+  const parts = staleness.split('        tap("Start this example")\n');
+  assert.equal(parts.length, 3, 'two starts');
+  const [before, alone, judged] = parts.map(code);
+  assert.match(before, /\{\n\s+launch\(\)\n\s+openStopped\("Staleness"\)\n$/);
+  // The first start is for the card alone. The test waits for the card's title, which the layout draws fresh or
+  // stale, answers the system's question, which comes under an app's first card, ends the example on the page and
+  // opens it for the second start.
+  assert.match(alone, new RegExp('^\\s+XCTAssertTrue\\(webText\\("is on its way to your phone"\\)\\.waitForExistence\\(timeout: page\\)\\)\\n'
+    + '\\s+let title = springboard\\.staticTexts\\.matching\\(NSPredicate\\(format: "label == %@", "Mochi’s snack tracker"\\)\\)\\n'
+    + '\\s+XCTAssertTrue\\(pullLockScreen\\(until: title\\.firstMatch\\)\\)\\n'
+    + '\\s+allow\\(\\)\\n\\s+leaveLockScreen\\(\\)\\n\\s+endExample\\(\\)\\n\\s+openStopped\\("Staleness"\\)\\n$'));
+  // It keeps no time, so it waits for neither line; and the app is not launched or ended before the second start,
+  // by the test or by a helper that it calls there: the system ends the widget extension's process with the app.
+  const ends = /launch\(|terminate\(/;
+  assert.doesNotMatch(alone, /fresh|stale/);
+  assert.doesNotMatch(alone, ends);
+  for (const helper of ['private func web(_ label: String) -> XCUIElement', 'private func webText(_ prefix: String) -> XCUIElement',
+    'private func tap(_ label: String)', 'private func allow()', 'private func openLayouts(_ example: String)',
+    'private func says(_ running: XCUIElement, or stopped: XCUIElement, within timeout: TimeInterval) -> Bool?',
+    'private func openStopped(_ example: String)', 'private func pullLockScreen()',
+    'private func pullLockScreen(until element: XCUIElement) -> Bool', 'private func leaveLockScreen()',
+    'private func holds(within timeout: TimeInterval, _ condition: () -> Bool) -> Bool', 'private func endExample()']) {
+    assert.doesNotMatch(method(tests, helper), ends, helper);
+  }
+  // What the first start may wait: three pulls of the Lock Screen, each with 30 seconds for the title. The card
+  // that came late on a hosted runner had its content 64 seconds after the start, within the second of them.
+  const [, pulls] = /for attempt in 0\.\.<(\d+) \{/.exec(method(tests, 'private func pullLockScreen(until element: XCUIElement) -> Bool'));
+  const [, each] = /^ {4}private let system: TimeInterval = (\d+)$/m.exec(tests);
+  assert.ok(Number(pulls) >= 3 && Number(each) >= 30, `${pulls} pulls of ${each} s`);
+  assert.match(method(tests, 'private func pullLockScreen(until element: XCUIElement) -> Bool'),
+    /pullLockScreen\(\)\n\s+if element\.waitForExistence\(timeout: system\) \{ return true \}/);
+  // The example has ended, by the page's word, before it is opened for the second start.
+  assert.match(method(tests, 'private func endExample()'),
+    /\{\n\s+tap\("End this example"\)\n\s+XCTAssertTrue\(webText\("has ended"\)\.waitForExistence\(timeout: page\)\)\n/);
+  // The second start is the one the test is about: its fresh line at once, with the title once on the Lock Screen,
+  // and no stale line. Nothing stands between the look that finds the line and the checks.
+  assert.match(judged, new RegExp('^\\s+XCTAssertTrue\\(webText\\("is on its way to your phone"\\)\\.waitForExistence\\(timeout: page\\)\\)\\n'
+    + '\\s+let fresh = springboard\\.staticTexts\\["Left the kitchen"\\]\\n'
+    + '\\s+let stale = springboard\\.staticTexts\\["Waiting for news of the snack"\\]\\n'
+    + '\\s+XCTAssertTrue\\(pullLockScreen\\(until: fresh\\)\\)\\n'
+    + '\\s+XCTAssertEqual\\(title\\.count, 1, "[^"\\n]+"\\)\\n'
+    + '\\s+XCTAssertFalse\\(stale\\.exists, "[^"\\n]+"\\)\\n'));
+  // The title is a node of the example's layout with the value that the test looks for, and under no `ifStale`:
+  // the layout has two, on the two lines, and none on the title or on what holds it.
+  const layouts = read('examples/demo/src/layouts.ts');
+  const [example] = /^const stalenessExample: LayoutExample = \{\n[\s\S]*?\n\};$/m.exec(layouts) ?? [];
+  assert.ok(example, 'the Staleness example');
+  assert.ok(example.includes("bound('title', { style: 'title' })"), 'the title, fresh or stale');
+  assert.ok(example.includes("bound('news', { style: 'status', ifStale: false })"), 'the news, while fresh');
+  assert.ok(example.includes("text('Waiting for news of the snack', { style: 'status', ifStale: true })"), 'the stale line');
+  assert.equal(example.match(/ifStale:/g).length, 2, 'no other node of the layout goes with the stale time');
+  assert.ok(example.includes("values: { title: 'Mochi’s snack tracker', news: news[0] }, staleAt: now + freshFor"), 'the values');
+  assert.match(layouts, /^const news = \['Left the kitchen', /m);
+});
