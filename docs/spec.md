@@ -212,9 +212,9 @@ what the plugin's TypeScript builds (TP-CONTRACT-9). Before it went, every call 
 out as JSON and given to the checks of liveactivity 0.6.0. Of 1852 distinct calls, a request or a start with what
 follows it, 1806 can be compared, and the two agree on verdict and code in each; 42 are text that serde_json does
 not read, a lone surrogate or a tree nested past its limit, and 4 have an envelope that a command of Tauri does not
-have. The schema is run by activitykit's own tests on its main since
-[`e8501e4`](https://github.com/1eedaegon/activitykit-rs/commit/e8501e4) (its AK-CONTRACT-15), which no release
-holds yet.
+have. The schema is run by activitykit's own tests since
+[`e8501e4`](https://github.com/1eedaegon/activitykit-rs/commit/e8501e4) (its AK-CONTRACT-15), which its releases
+hold from 0.6.3.
 
 - TP-CONTRACT-2 (all): The Rust validator gives every layout fixture of activitykit its verdict and code: `valid`, `invalid`, the `updates` against their start, the `ends` against their start, and every refusal is one of its two errors. One fixture gets another verdict on purpose (TP-CONTRACT-8). The weights that the fixtures state are activitykit's, with its own tests. Errors: `INVALID_INPUT`, `PAYLOAD_TOO_LARGE`.
 - TP-CONTRACT-5 (all): Contract v1 (`start`, `update`, `end`) keeps its rules and its eleven fixtures, which are liveactivity's. On Android the liveupdate crate checks a request again in Rust, and Kotlin reads no v1 request. The two versions do not take each other's requests: a v2 start sent to `start` fails. Errors: `INVALID_INPUT`.
