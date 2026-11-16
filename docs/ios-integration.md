@@ -329,7 +329,10 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
   packages, and cargo with the iOS simulator target of this Mac. The archive step after the build needs a signing
   team and may fail; the simulator needs only the build. Under `CI` a failed test runs again, up to three times in
   all, and after a full pass `OUTPUT/passed` lists the tests that passed only on a retry. A test that runs again
-  finds its example stopped: the page ends what the failed attempt left running, before the test starts it.
+  finds its example stopped: the page ends what the failed attempt left running, before the test starts it. One
+  test waits for content that is fresh for 45 seconds, the demo's Staleness example. It starts that example twice
+  in one launch of the app, the first time for its card alone: a simulator's first card has come after those 45
+  seconds, a minute after its start.
 - `MODE=dev tests/ios/run.sh` lets `tauri ios dev` build, install, launch and serve the demo on the simulator, and
   runs the layout, button and relaunch tests through its page, then launches it with `--start-buttons`, where Rust
   starts the Buttons example and a tap on Pet Mochi reaches the Rust handler. Three things about Tauri CLI 2.12.4 have

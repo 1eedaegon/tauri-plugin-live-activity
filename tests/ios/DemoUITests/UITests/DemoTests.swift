@@ -19,7 +19,8 @@ final class DemoTests: XCTestCase {
     private let redraw: TimeInterval = 15
     /// How long the demo's lifecycle test may take: its checks go through Tauri and activitykit.
     private let selfTest: TimeInterval = 120
-    /// How long to look for the system's question about Live Activities, which comes once or not at all.
+    /// How long to look for the system's question about Live Activities: it comes under an app's first card
+    /// ("Allow"), again under its second ("Always Allow"), and was not seen after.
     private let prompt: TimeInterval = 2
     /// How long a tab may take to open before the tab is tapped again.
     private let retry: TimeInterval = 10
@@ -73,7 +74,8 @@ final class DemoTests: XCTestCase {
         button.tap()
     }
 
-    /// The system asks once whether the app may show Live Activities.
+    /// The system asks under an app's first card whether it may show Live Activities, and under its second whether
+    /// it may go on showing them.
     private func allow() {
         for label in ["Always Allow", "Allow"] {
             let control = springboard.buttons[label].firstMatch
@@ -431,21 +433,36 @@ final class DemoTests: XCTestCase {
         endExample()
     }
 
-    // TP-E2E-9
+    // TP-E2E-9, TP-E2E-12
     /// Content whose stale time has passed turns the Lock Screen: the line for fresh content goes and the line for
     /// stale content comes, with no update and with the app ended. The page then lists the activity as stale, and an
-    /// update makes it fresh again.
+    /// update makes it fresh again. The example starts twice in one launch of the app. The first start is for its
+    /// card alone: a simulator's first card has come after the stale time (seen on a shared runner, where the system
+    /// asked the widget extension for it half a minute after the start and twice ended an extension that was slow
+    /// to answer). The second start is the one that is judged. No launch of the app comes between the two: it would
+    /// end the app that runs, and the extension's process with it.
     func test10ContentPastItsStaleTimeTurnsTheLockScreen() {
         launch()
+        openStopped("Staleness")
+        tap("Start this example")
+        XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
+        // This start keeps no time: the card shows its title whether its content is fresh or stale.
+        let title = springboard.staticTexts.matching(NSPredicate(format: "label == %@", "Mochi’s snack tracker"))
+        XCTAssertTrue(pullLockScreen(until: title.firstMatch))
+        allow()
+        leaveLockScreen()
+        endExample()
         openStopped("Staleness")
         tap("Start this example")
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
         let fresh = springboard.staticTexts["Left the kitchen"]
         let stale = springboard.staticTexts["Waiting for news of the snack"]
         XCTAssertTrue(pullLockScreen(until: fresh))
-        allow()
+        XCTAssertEqual(title.count, 1, "the card of the first start is gone")
         XCTAssertFalse(stale.exists, "fresh content draws no node for stale content")
         capture("e2e-10-fresh")
+        // The system asks again under this card whether the app may keep showing Live Activities.
+        allow()
         // The change is the system's and the widget's: the app does not run while the time passes.
         app.terminate()
         XCTAssertTrue(stale.waitForExistence(timeout: staleness), "past the stale time, the node for stale content shows")
