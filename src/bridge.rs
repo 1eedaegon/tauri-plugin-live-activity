@@ -17,8 +17,8 @@ use std::{
 /// as one whose app prevents its exit, that is every call. A panic that unwinds is caught here; one that aborts
 /// (`panic = "abort"`) ends the process whatever the plugin does.
 ///
-/// It belongs right at the call into Tauri, which panics before it has changed anything. A guard further out lets
-/// the panic pass through whatever holds a lock on the way: see [`ContainedBridge`].
+/// It belongs right at the call into Tauri, which panics before anything reaches the Kotlin side. A guard further
+/// out lets the panic pass through whatever holds a lock on the way: see [`ContainedBridge`].
 pub(crate) fn contained<T>(call: impl FnOnce() -> T) -> Option<T> {
     catch_unwind(AssertUnwindSafe(call)).ok()
 }

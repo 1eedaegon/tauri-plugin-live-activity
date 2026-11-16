@@ -231,11 +231,12 @@ A process without an activity is another case. A Tauri app's process ends some s
 does, unless the app prevents that exit (`RunEvent::ExitRequested`). In those seconds, and in a process that the
 app kept, Tauri cannot hand a call to the plugin's Kotlin side: wry needs one of the app's activities for it and
 panics while there is none ("no available activity", wry 0.57.1). The plugin catches that panic: the calls of its
-Rust API that go to the Kotlin side, as every start, update, end and list does, answer `NATIVE_ERROR` then, and
-its thread that drains lives on. A tap that liveupdate stored meanwhile reaches `on_action` with the next one
-once the app has an activity again, or in the next process. A build with `panic = "abort"` ends at that panic,
-which the plugin cannot catch. Whether a process that was kept shows the page again is Tauri's and the app's:
-the demo, made to prevent its exit, showed an empty window when it was opened again.
+Rust API that go to the Kotlin side, as a start, update or end of a valid request and every list do, answer
+`NATIVE_ERROR` then, and its thread that drains lives on. A tap that liveupdate stored meanwhile reaches
+`on_action` with the next one once the app has an activity again, or in the next process. A build with
+`panic = "abort"` ends at that panic, which the plugin cannot catch. Whether a process that was kept shows the
+page again is Tauri's and the app's: the demo, made to prevent its exit, showed an empty window when it was
+opened again.
 
 ## Links
 

@@ -67,14 +67,20 @@ test('the plugin has no Kotlin lifecycle, renderer, receivers or validator for l
 });
 
 // TP-ANDROID-19
-test("every call of the plugin's Rust into Tauri has a guard for Tauri's panic", () => {
-  // Tauri's call to the Kotlin side panics while the app has no activity. `src/android.rs` is compiled for Android
-  // alone, so this holds as text what the unit tests of `src/bridge.rs` cannot reach: its three calls into Tauri.
+test("every run_mobile_plugin call of the plugin's Rust has a guard for Tauri's panic", () => {
+  // Tauri's call to a command of the Kotlin side panics while the app has no activity. `src/android.rs` is compiled
+  // for Android alone, so this holds as text what the unit tests of `src/bridge.rs` cannot reach: the three such
+  // calls, which no other file of the plugin makes. (Registering the Kotlin class goes to Tauri too, at setup,
+  // where the app has its activity.)
+  const calls = /\brun_mobile_plugin(?:_async)?\s*(?:::\s*<[^>]*>)?\s*\(/g;
+  const sources = readdirSync(join(root, 'src')).filter(name => name.endsWith('.rs') && !name.endsWith('_tests.rs'));
+  const called = Object.fromEntries(sources
+    .map(name => [name, [...readFileSync(join(root, 'src', name), 'utf8').replace(/^\s*\/\/.*$/gm, '').matchAll(calls)].length])
+    .filter(([, count]) => count > 0));
+  assert.deepEqual(called, { 'android.rs': 3 });
   const rust = readFileSync(join(root, 'src/android.rs'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
-  assert.equal([...rust.matchAll(/\brun_mobile_plugin(?:_async)?\(/g)].length, 3);
   // The transport of liveupdate's driver is guarded under liveactivity's backend, which holds a lock across the
   // call: the plugin builds that backend through `bridge::engine` and in no other way.
-  assert.match(rust, /impl<R: Runtime> liveupdate::Bridge for TauriBridge<R> \{\s*fn invoke\(&self, command: &str, payload: &str\) -> liveupdate::Result<String> \{\s*let reply = self\s*\.handle\s*\.run_mobile_plugin\(/);
   assert.match(rust, /let engine = crate::bridge::engine\(\s*bridge,/);
   assert.match(rust, /type Engine<R> = crate::bridge::Engine<TauriBridge<R>>;/);
   assert.doesNotMatch(rust, /LiveUpdateBackend|over_bridge|JsonDriver/);
