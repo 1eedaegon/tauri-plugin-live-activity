@@ -5,6 +5,7 @@
 //! at the time liveupdate names for the next state that no call brings (`next_check`). A call of the app may change
 //! that time, so each one has the thread look at it again.
 
+use crate::bridge::contained;
 use liveactivity::liveupdate::NextCheck;
 use std::{
     io,
@@ -109,11 +110,18 @@ fn run<S: Source>(source: &Weak<S>, woken: &mpsc::Receiver<Wake>, now: impl Fn()
         if wake.is_some() {
             tries = 0;
         }
-        if drain && !source.drain() {
+        // A source that panics does not end the thread: such a drain has failed, such a time cannot be read, and the
+        // thread drains when it is told again. Tauri's panic for want of an activity does not come this far, it is
+        // an error under the backend (`bridge::ContainedBridge`); this is for whatever else panics in a source.
+        if drain && !contained(|| source.drain()).unwrap_or(false) {
             #[cfg(debug_assertions)]
             eprintln!("live-activity: liveupdate's events could not be drained");
         }
-        pause = wait(source.next_check(), now(), &mut tries);
+        pause = wait(
+            contained(|| source.next_check()).flatten(),
+            now(),
+            &mut tries,
+        );
     }
 }
 
@@ -126,11 +134,13 @@ mod tests {
     };
 
     /// A source that answers `checks` in turn, then `Never`, and says each drain on `drained`. While `failing`, its
-    /// drains fail.
+    /// drains fail. While `panicking`, a drain panics once it has said itself, and so does the question for the
+    /// next check.
     struct Scripted {
         checks: Mutex<Vec<NextCheck>>,
         drained: mpsc::Sender<()>,
         failing: AtomicBool,
+        panicking: AtomicBool,
     }
 
     impl Scripted {
@@ -141,10 +151,13 @@ mod tests {
 
     impl Source for Scripted {
         fn drain(&self) -> bool {
-            self.drained.send(()).is_ok() && !self.failing.load(Ordering::SeqCst)
+            let said = self.drained.send(()).is_ok();
+            assert!(!self.panicking.load(Ordering::SeqCst), "the source panics");
+            said && !self.failing.load(Ordering::SeqCst)
         }
 
         fn next_check(&self) -> Option<NextCheck> {
+            assert!(!self.panicking.load(Ordering::SeqCst), "the source panics");
             let mut checks = self.checks.lock().unwrap();
             Some(if checks.is_empty() {
                 NextCheck::Never
@@ -160,6 +173,7 @@ mod tests {
             checks: Mutex::new(checks.to_vec()),
             drained,
             failing: AtomicBool::new(false),
+            panicking: AtomicBool::new(false),
         };
         (Arc::new(source), drains)
     }
@@ -242,6 +256,32 @@ mod tests {
         drains.recv_timeout(LONG).unwrap();
         assert!(drains.recv_timeout(SHORTLY).is_err());
         // The thread ends when nothing can wake it any more.
+        drop(wake);
+        thread.join().unwrap();
+    }
+
+    // TP-ANDROID-19
+    #[test]
+    fn a_source_that_panics_does_not_end_the_thread() {
+        let (source, drains) = scripted(&[]);
+        let (wake, woken) = mpsc::channel();
+        let weak = Arc::downgrade(&source);
+        let thread = thread::spawn(move || run(&weak, &woken, now));
+        // The drain has failed and the next time cannot be read, so the thread waits to be told: it does not try
+        // again by itself, as it would after the first of the waits of `SOON`. A call of the app, which only asks
+        // for that time, is no more to it.
+        let unasked = SOON[0] * 2;
+        source.panicking.store(true, Ordering::SeqCst);
+        wake.send(Wake::Stored).unwrap();
+        drains.recv_timeout(LONG).unwrap();
+        assert!(drains.recv_timeout(unasked).is_err());
+        wake.send(Wake::Called).unwrap();
+        assert!(drains.recv_timeout(unasked).is_err());
+        // The source answers again: told, the thread drains as before.
+        source.panicking.store(false, Ordering::SeqCst);
+        wake.send(Wake::Stored).unwrap();
+        drains.recv_timeout(LONG).unwrap();
+        // And it ends as it always did, when nothing can wake it any more: no panic ended it.
         drop(wake);
         thread.join().unwrap();
     }

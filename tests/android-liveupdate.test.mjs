@@ -56,13 +56,34 @@ test('the plugin has no Kotlin lifecycle, renderer, receivers or validator for l
   assert.match(plugin, /put\("path", activity\.applicationContext\.filesDir\.absolutePath\)/);
   for (const file of files) assert.doesNotMatch(own(file), /tauri-live-activity/, file);
   assert.match(rust, /let directory: FilesDirectory = call\(&handle, "filesDirectory",/);
-  assert.match(rust, /\.with_files\(directory\.for_app\(/);
+  assert.match(rust, /crate::bridge::engine\(\s*bridge,\s*directory\.for_app\(/);
+  assert.match(readFileSync(join(root, 'src/bridge.rs'), 'utf8'), /\.with_files\(files\)/);
   // R8 keeps what Tauri and Jackson reach by reflection: the plugin and the argument classes of its commands.
   const kept = [...readFileSync(join(root, 'android/consumer-rules.pro'), 'utf8')
     .matchAll(/^-keep class io\.github\.eedaegon\.liveactivity\.(\w+) \{ \*; \}$/gm)].map(([, name]) => name).sort();
   const reflected = [...files.map(own).join('\n').matchAll(/@(?:TauriPlugin|InvokeArg)(?:\([^\n]*\))?\s+class (\w+)/g)]
     .map(([, name]) => name).sort();
   assert.deepEqual(kept, reflected);
+});
+
+// TP-ANDROID-19
+test("every call of the plugin's Rust into Tauri has a guard for Tauri's panic", () => {
+  // Tauri's call to the Kotlin side panics while the app has no activity. `src/android.rs` is compiled for Android
+  // alone, so this holds as text what the unit tests of `src/bridge.rs` cannot reach: its three calls into Tauri.
+  const rust = readFileSync(join(root, 'src/android.rs'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+  assert.equal([...rust.matchAll(/\brun_mobile_plugin(?:_async)?\(/g)].length, 3);
+  // The transport of liveupdate's driver is guarded under liveactivity's backend, which holds a lock across the
+  // call: the plugin builds that backend through `bridge::engine` and in no other way.
+  assert.match(rust, /impl<R: Runtime> liveupdate::Bridge for TauriBridge<R> \{\s*fn invoke\(&self, command: &str, payload: &str\) -> liveupdate::Result<String> \{\s*let reply = self\s*\.handle\s*\.run_mobile_plugin\(/);
+  assert.match(rust, /let engine = crate::bridge::engine\(\s*bridge,/);
+  assert.match(rust, /type Engine<R> = crate::bridge::Engine<TauriBridge<R>>;/);
+  assert.doesNotMatch(rust, /LiveUpdateBackend|over_bridge|JsonDriver/);
+  const bridge = readFileSync(join(root, 'src/bridge.rs'), 'utf8');
+  assert.match(bridge, /LiveUpdateBackend::over_bridge\(ContainedBridge\(bridge\)\)\.with_files\(files\)/);
+  assert.equal([...bridge.replace(/#\[cfg\(test\)\][\s\S]*$/, '').matchAll(/over_bridge\(/g)].length, 1);
+  // The plugin's own two calls, of its commands and of the one that waits for the person, each in its guard.
+  assert.match(rust, /let reply = contained\(\|\| handle\.run_mobile_plugin\(command, input\)\)\s*\.ok_or_else\(Error::native\)\?/);
+  assert.match(rust, /let reply = Contained::new\(handle\.run_mobile_plugin_async\(command, input\)\)\s*\.await\s*\.ok_or_else\(Error::native\)\?/);
 });
 
 // TP-ANDROID-13

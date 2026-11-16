@@ -5,6 +5,7 @@
 
 use crate::{
     Config, Error, LiveActivity, PermissionKind, Permissions, Result,
+    bridge::{Contained, adapter_failed, contained},
     drain::{self, Wake},
     exact_alarms::ExactAlarms,
     files::FilesDirectory,
@@ -13,7 +14,7 @@ use crate::{
 use liveactivity::{
     ActivityRecord, BackendContext, BackendFuture, Capabilities, EndInput, LayoutActivityRecord,
     LayoutEndInput, LayoutStartInput, LayoutUpdateInput, LiveActivityBackend, PushTokens,
-    StartInput, UpdateInput, android::LiveUpdateBackend, liveupdate,
+    StartInput, UpdateInput, liveupdate,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use std::sync::{Arc, mpsc};
@@ -29,31 +30,28 @@ struct TauriBridge<R: Runtime> {
 }
 
 impl<R: Runtime> liveupdate::Bridge for TauriBridge<R> {
+    // Tauri's call panics while the app has no activity. The backend runs this transport under a guard for that
+    // (`crate::bridge::engine`).
     fn invoke(&self, command: &str, payload: &str) -> liveupdate::Result<String> {
-        let failed = || {
-            liveupdate::Error::new(
-                liveupdate::ErrorCode::NativeError,
-                "The Android live update adapter failed.",
-            )
-        };
         let reply = self
             .handle
             .run_mobile_plugin(
                 "liveUpdate",
                 serde_json::json!({ "command": command, "payload": payload }),
             )
-            .map_err(|_| failed())?;
-        crate::bridge::decode(reply).map_err(|_| failed())
+            .map_err(|_| adapter_failed())?;
+        crate::bridge::decode(reply).map_err(|_| adapter_failed())
     }
 }
 
+/// A call of the plugin's own to the Kotlin side. One that panics in Tauri ([`contained`]) has failed.
 fn call<T: DeserializeOwned>(
     handle: &PluginHandle<impl Runtime>,
     command: &str,
     input: impl Serialize,
 ) -> Result<T> {
-    let reply = handle
-        .run_mobile_plugin(command, input)
+    let reply = contained(|| handle.run_mobile_plugin(command, input))
+        .ok_or_else(Error::native)?
         .map_err(|_| Error::native())?;
     crate::bridge::decode(reply)
 }
@@ -64,14 +62,14 @@ async fn call_waiting<T: DeserializeOwned>(
     command: &str,
     input: impl Serialize + Send,
 ) -> Result<T> {
-    let reply = handle
-        .run_mobile_plugin_async(command, input)
+    let reply = Contained::new(handle.run_mobile_plugin_async(command, input))
         .await
+        .ok_or_else(Error::native)?
         .map_err(|_| Error::native())?;
     crate::bridge::decode(reply)
 }
 
-type Engine<R> = LiveUpdateBackend<liveupdate::JsonDriver<TauriBridge<R>>>;
+type Engine<R> = crate::bridge::Engine<TauriBridge<R>>;
 
 /// The default backend, with the permissions of the plugin's Kotlin side, which knows whether a dialog was shown
 /// and can show one.
@@ -204,8 +202,10 @@ pub(crate) fn init<R: Runtime>(
     let bridge = TauriBridge {
         handle: handle.clone(),
     };
-    let engine = LiveUpdateBackend::over_bridge(bridge)
-        .with_files(directory.for_app(app.package_info().name.clone(), samsung_now_bar));
+    let engine = crate::bridge::engine(
+        bridge,
+        directory.for_app(app.package_info().name.clone(), samsung_now_bar),
+    );
     // The thread that drains the events holds the backend weakly, and the backend what wakes the thread: the
     // thread ends at its first wake or wait after the plugin, which holds the backend, is gone.
     let (signal, woken) = mpsc::channel();

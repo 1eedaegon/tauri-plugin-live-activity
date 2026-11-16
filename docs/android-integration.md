@@ -227,6 +227,16 @@ example because the user opens the app. An action that must work without the app
 such as a recording toggle handled by a foreground service, needs a native target in the
 host app; the plugin does not provide one.
 
+A process without an activity is another case. A Tauri app's process ends some seconds after its last activity
+does, unless the app prevents that exit (`RunEvent::ExitRequested`). In those seconds, and in a process that the
+app kept, Tauri cannot hand a call to the plugin's Kotlin side: wry needs one of the app's activities for it and
+panics while there is none ("no available activity", wry 0.57.1). The plugin catches that panic: the calls of its
+Rust API that go to the Kotlin side, as every start, update, end and list does, answer `NATIVE_ERROR` then, and
+its thread that drains lives on. A tap that liveupdate stored meanwhile reaches `on_action` with the next one
+once the app has an activity again, or in the next process. A build with `panic = "abort"` ends at that panic,
+which the plugin cannot catch. Whether a process that was kept shows the page again is Tauri's and the app's:
+the demo, made to prevent its exit, showed an empty window when it was opened again.
+
 ## Links
 
 A layout's `url` is what a tap on the notification opens, and each `link` node is an action that opens its
