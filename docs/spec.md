@@ -313,27 +313,39 @@ hold from 0.6.3.
   it is launched, and the demo and SpringBoard have ActivityKit's lines of their own. The first of the runs left a
   screenshot after every test: the check read `testRun.hasSucceeded`, which is false of every test in `tearDown`,
   where its run has not ended, and it counts the failures now. What those lines say of a card that comes without its
-  content is not known. The three jobs that showed such a card were before this: one of run 43627116599 on 2026-11-14,
-  and in run 43803341280 on 2026-11-16 the dev suite of its first attempt and the built-demo suite of its second,
-  whose build passed the same test at a third attempt five hours later. They kept the demo's lines alone, which have
-  the request and the system's answer, and the hierarchy that two of them kept has the card at 374 by 219 pt with no
-  text and no button under it, for two different layouts. The build that fails and leaves its app begun was met on
-  that Mac too, where Xcode's build phase found no Rust toolchain: the run went on to build the UI tests and boot the
-  simulator, and failed at the install ("Missing bundle ID") with the build's log gone. How long the two readings take
-  on a hosted runner is not measured; one reading of 36 MB took part of the six minutes between the tests' end and the
-  step's in that second attempt.
+  content was read in the first hosted run that had them, the one started by hand for this change (43872411088,
+  2026-11-16, the built-demo suite). The card of the suite's first activity had no content for 33 seconds after
+  `chronod` opened a renderer session for it. That was 30 seconds after the activity began and 20 seconds after the
+  test had pulled the Lock Screen over the app, and `chronod` launched the widget extension then; the extension's
+  process said its first line ten seconds after it was created, and a second later `chronod` ended it: `Session
+  operation: getActivities(1) error result: … "Watchdog provision violated for getActivities(1)"`, then `reload:
+  failed during processing`. A second launch ended the same way eleven seconds later (`Reload failed; 1 retries
+  remaining`, a `PlatterFetchingError`). The third was up in three seconds and its reload succeeded, 64 seconds after
+  the activity began. That example's content is stale after 45 seconds, so the test that waits for its fresh line had
+  failed, and the screenshot of the failure shows the card with the stale line. The three jobs that showed such a card
+  before kept the demo's lines alone, which have the request and the system's answer: one of run 43627116599 on
+  2026-11-14, and in run 43803341280 on 2026-11-16 the dev suite of its first attempt and the built-demo suite of its
+  second, whose build passed the same test at a third attempt five hours later. The hierarchy that two of them kept
+  has the card at 374 by 219 pt with no text and no button under it, for two different layouts. Whether the watchdog
+  ended their extension too is not known: its line is what to look for. The build that fails and leaves its app begun
+  was met on that Mac too, where Xcode's build phase found no Rust toolchain: the run went on to build the UI tests
+  and boot the simulator, and failed at the install ("Missing bundle ID") with the build's log gone. How long the two
+  readings take on a hosted runner is not measured; one reading of 36 MB took part of the six minutes between the
+  tests' end and the step's in that second attempt.
 - TP-E2E-11: the simulator test leaves the example running and launches the app again, which is what the next
   attempt of a failed test finds; it fails nothing itself. A retry after a failure was run by hand, in the local runs
   of TP-CI-6: the test that failed on the Lock Screen with its example running passed at its second attempt, which
-  ended the example on the page, and the test where Rust starts the example went to the page first and passed. The
-  page can be asked because all its buttons are disabled while it reads its lists for the first time: the tap that
-  opens an example lands on a page that has read them, and the handler of that tap writes one of the two lines that
-  the test waits for (`perform`, `renderButtons` and the chips in `examples/demo/src/main.ts`). A node test holds
-  those lines of the page against the ones that the UI tests read. What a leftover cost before: in the dev suite of
-  run 43803341280's first attempt one Buttons activity whose card came without content failed its own test three
-  times, the next test of that example three times and the test where Rust starts it three times, nine of ten
-  executions. The page's start ends the demo's other examples first, so a leftover stopped only the tests of its own
-  example.
+  ended the example on the page, and the test where Rust starts the example went to the page first and passed. A
+  hosted runner showed the same without a failure made on purpose, in the built-demo suite of run 43872411088: the
+  suite's first test failed at its first attempt, where its card came too late (see TP-CI-6), and passed at its
+  second, and the suite passed with that one retry. The page can be asked because all its buttons are disabled while
+  it reads its lists for the first time: the tap that opens an example lands on a page that has read them, and the
+  handler of that tap writes one of the two lines that the test waits for (`perform`, `renderButtons` and the chips in
+  `examples/demo/src/main.ts`). A node test holds those lines of the page against the ones that the UI tests read.
+  What a leftover cost before: in the dev suite of run 43803341280's first attempt one Buttons activity whose card
+  came without content failed its own test three times, the next test of that example three times and the test where
+  Rust starts it three times, nine of ten executions. The page's start ends the demo's other examples first, so a
+  leftover stopped only the tests of its own example.
 - TP-ANDROID-10, TP-ANDROID-11, TP-ANDROID-13, TP-ANDROID-14, TP-ANDROID-18: `NativeBridgeTest` is an instrumentation test: it runs on an emulator or a phone
   (`connectedDebugAndroidTest`), which CI does not start; CI builds it, and it sees the permissions only with
   notifications allowed. Android's dialog and Tauri's memory of a cancelled one are theirs: the unit tests prove the
