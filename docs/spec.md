@@ -376,7 +376,11 @@ hold from 0.6.3.
   had its content after 11 seconds and the second after one. In each run the Lock Screen showed the title once at the
   second look, and the system's question came twice, under the first card with "Allow" and under the second with
   "Always Allow". The test of the first run did not answer the second, and passed; it answers each where it comes
-  since, the second after its look at the fresh line. The two starts do nothing for a card that never gets its
+  since, the second after its look at the fresh line. On a hosted runner the test has run once, in the run started by
+  hand for this change (43924874275, 2026-11-16), where both suites passed with no test run again. The first card was
+  not late there: the test found its title 34 seconds after the first start, at its first pull, and the fresh line 10
+  seconds after the second start, 4 after its look began. No system lines were kept, as no test failed, so a hosted
+  runner has yet to show the test a card that is late. The two starts do nothing for a card that never gets its
   content, as in the dev suite of run 43803341280's first attempt: the test fails there at its first start, and its
   next attempt begins anew (TP-E2E-11).
 - TP-ANDROID-10, TP-ANDROID-11, TP-ANDROID-13, TP-ANDROID-14, TP-ANDROID-18: `NativeBridgeTest` is an instrumentation test: it runs on an emulator or a phone
