@@ -112,8 +112,23 @@ plugin's Kotlin library is that of 0.10.0.
 - What the correction does was seen on an emulator of Android 16 with liveactivity 0.7.1, by hand: the spec's note
   on TP-ANDROID-19 has it.
 
-Not run on a phone, and to run once it is unlocked: those two tests, and a tap on a notification's button while
-the process has no activity, in a build of the demo that prevents its exit.
+After the release the phone was unlocked, and what had waited for that ran there:
+
+- The library's device tests, from main at `5183e9a`, whose `android` folder is that of 0.10.1: 10 of 10, the
+  two above among them.
+- A tap on a notification's button while the process has no activity, in the release's demo with two changes
+  that were never committed: its `run` prevents the exit, and `android.samsungNowBar` is off, so that the shade
+  has the notification's own buttons for an injected touch. Two runs, the same in both. With an activity, a tap
+  on "Pet Mochi" took the text from "No pets yet" to "Purring. 1 pet so far". The back key finished the
+  activity, which was not started from the launcher; six seconds later the process was there with no activity
+  and with the two threads whose names begin with `live-activity`. A tap then left the text as it was. The log
+  had wry's panic twice, in the thread `live-activity-events` ("no available activity", wry 0.57.1), and the
+  plugin's line "liveupdate's events could not be drained" once; the process and both threads were still there.
+  The app was opened again: five seconds later the text had not changed, and one more tap took it to "Purring.
+  3 pets so far", the tap that had waited with it. After a tap on "All done" the notification was gone. The
+  window of the app that was opened again was empty, as on the emulator.
+- The release's demo as it is, once: its process was gone eight seconds after the back key. A tap in those
+  seconds was not tried.
 
 ## The setting for exact alarms, 0.10.0
 

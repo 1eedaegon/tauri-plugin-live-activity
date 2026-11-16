@@ -26,10 +26,15 @@ before the tag, on a build of the release's pull request:
 The correction itself was seen on an emulator of Android 16, in a build of the demo that prevents its exit, with
 liveactivity 0.7.1: the spec's note on TP-ANDROID-19 has that run.
 
-Not checked: on a phone, a tap while the process has no activity, and the two device tests above: the phone at
-hand has a credential and stayed locked. A call of the Rust API while the process has no activity, and a build
-with `panic = "abort"`. [Android coverage](android-coverage.md#a-process-without-an-activity-0101) says what is
-to run once the phone is unlocked.
+After the tag the Galaxy S23 was unlocked, and what had waited for that ran there. The Android library's device
+tests passed, 10 of 10, the two above among them. A tap while the process has no activity ran twice, in the
+release's demo built to prevent its exit: the tap changed nothing then, wry's panic was in the log twice and the
+plugin's threads lived on, and with an activity again the next tap brought the one that had waited with it, from
+"1 pet so far" to "3 pets so far". [Android coverage](android-coverage.md#a-process-without-an-activity-0101)
+has the runs.
+
+Not checked: a call of the Rust API while the process has no activity, a tap in the seconds before a process
+that the app does not keep ends, and a build with `panic = "abort"`.
 
 The record of 0.10.0 follows.
 
