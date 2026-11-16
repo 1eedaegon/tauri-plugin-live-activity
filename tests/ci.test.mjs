@@ -437,3 +437,77 @@ ${loop}echo "status=$status attempt=$attempt calls=$(cat "$work/calls")"
   assert.deepEqual(run(failed, passed), { status: 65, attempt: 1, calls: 1, warned: false });
   assert.deepEqual(run(passed), { status: 0, attempt: 1, calls: 1, warned: false });
 });
+
+const uiTests = () => read('tests/ios/DemoUITests/UITests/DemoTests.swift');
+/** A method of DemoTests as it is written, from its declaration to its closing brace. */
+const method = (tests, declaration) => {
+  const escaped = declaration.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const [found] = new RegExp(`^ {4}${escaped} \\{\\n[\\s\\S]*?\\n {4}\\}$`, 'm').exec(tests) ?? [];
+  assert.ok(found, `DemoTests has ${declaration}`);
+  return found;
+};
+
+// TP-CI-6
+test("a UI test that failed leaves a screenshot of the screen, under a name that run.sh takes for the run's own", () => {
+  const tests = uiTests();
+  const tearDown = method(tests, 'override func tearDown()');
+  // After a failure and not after a pass: nothing is captured before the check, which goes by the failures counted
+  // so far. In tearDown the test's run has not ended, and `hasSucceeded` is false of every test.
+  const [before, after] = tearDown.split('guard let run = testRun, run.totalFailureCount > 0 else { return }\n');
+  assert.ok(after !== undefined, tearDown);
+  assert.doesNotMatch(before, /capture\(|screenshot/);
+  assert.doesNotMatch(tearDown, /run\.hasSucceeded/);
+  // With the test and the time in the name: a test that runs again can fail again.
+  assert.match(after, /^\s+capture\("e2e-failed-\\\(test\)-\\\(Self\.clock\.string\(from: Date\(\)\)\)"\)$/m);
+  assert.match(tests, /clock\.dateFormat = "HHmmss"/);
+  // A screenshot is kept whatever became of its test, and run.sh exports each under the name its test gave it and
+  // takes those of an earlier run away by their first letters.
+  assert.match(tests, /shot\.name = name\n\s+shot\.lifetime = \.keepAlways/);
+  assert.match(read('tests/ios/run.sh'), /^rm -f "\$output"\/e2e-\*\.png /m);
+});
+
+// TP-E2E-11
+test('every start of an example in the UI tests opens it stopped first, and nothing left is ended through its card', () => {
+  const tests = uiTests();
+  // What stands before each tap that starts an example of the Layouts tab or a template: the helper that ends on the
+  // page what an earlier attempt left. Between the two only the time that the scheduled start is measured from.
+  const before = label => [...tests.matchAll(new RegExp(`^ +(.+)\\n(?: +let asked = Date\\(\\)\\n)? +tap\\("${label}"\\)$`, 'gm'))].map(([, line]) => line);
+  const layouts = before('Start this example');
+  assert.ok(layouts.length >= 9, layouts.join('\n'));
+  for (const line of layouts) assert.match(line, /^openStopped\("[^"]+"\)$/);
+  assert.deepEqual(before('Start snack delivery'), ['openStoppedTemplate("Snack delivery", endedBy: "Finish delivery")']);
+  assert.deepEqual(before('Start a little nap'), ['openStoppedTemplate("Nap timer", endedBy: "Wake up, sleepyhead")']);
+  // The helper waits for what the page says of the example when it opens, gives the tap again to a page that said
+  // nothing, fails when it still says nothing, and ends there what runs. Both lines are read at one look.
+  const opening = method(tests, 'private func openStopped(_ example: String)');
+  assert.match(opening, /webText\("\\\(example\) is already on your phone"\)/);
+  assert.match(opening, /webText\("\\\(example\): start it to see it on your phone"\)/);
+  assert.match(opening, /var runs = says\(left, or: stopped, within: retry\)\n\s+for _ in 0\.\.<2 where runs == nil \{\n\s+tap\(example\)\n\s+runs = says\(left, or: stopped, within: retry\)\n\s+\}/);
+  assert.match(opening, /guard let runs else \{ return XCTFail\("the page does not say whether \\\(example\) runs"\) \}\n\s+if runs \{\s*endExample\(\)\s*\}/);
+  assert.doesNotMatch(opening, /springboard/);
+  assert.match(method(tests, 'private func says(_ running: XCUIElement, or stopped: XCUIElement, within timeout: TimeInterval) -> Bool?'),
+    /answer = running\.exists \? true : stopped\.exists \? false : nil\n\s+return answer != nil/);
+  // The page says these two lines when an example opens.
+  const page = read('examples/demo/src/main.ts');
+  assert.match(page, /`\$\{[\w.]+\}: start it to see it on your phone\.` : `\$\{[\w.]+\} is already on your phone\.`/);
+  // A template's tab says the same of its activity in its own two lines, which its helper reads; what the page
+  // says when the activity has ended is the line the helper waits for.
+  const template = method(tests, 'private func openStoppedTemplate(_ tab: String, endedBy end: String)');
+  for (const line of ['webText("Welcome back")', 'webText("A fresh little moment")', 'webText("finished")']) assert.ok(template.includes(line), line);
+  assert.match(template, /for _ in 0\.\.<3 where runs == nil \{\n\s+tap\(tab\)\n\s+runs = says\(left, or: stopped, within: retry\)\n\s+\}/);
+  assert.doesNotMatch(template, /springboard/);
+  assert.match(page, /'A fresh little moment, whenever you’re ready\.' : 'Welcome back\. Pick up where you left off\.'/);
+  assert.match(page, /'Delivery finished\. [^']*' : 'Nap finished\. [^']*'/);
+  // No test ends a leftover through the button of its card, which a card without content does not have. The test
+  // where Rust starts the example goes to the page for it before that start, and only after a test of the run has
+  // failed: tearDown marks the failure.
+  assert.doesNotMatch(tests, /springboard\.buttons\["All done"\]\.firstMatch\n\s+if /);
+  assert.match(method(tests, 'private func endLeftoverButtons()'),
+    /^\s+guard Self\.failed else \{ return \}\n\s+launch\(\)\n\s+openStopped\("Buttons"\)\n\s+app\.terminate\(\)$/m);
+  assert.match(method(tests, 'func test7RustStartsALayoutWhoseButtonReachesRust()'),
+    /\{\n\s+endLeftoverButtons\(\)\n[\s\S]*?app\.launchArguments = \["--start-buttons"\]\n\s+app\.launch\(\)/);
+  assert.match(method(tests, 'override func tearDown()'), /run\.totalFailureCount > 0 else \{ return \}\n\s+Self\.failed = true\n/);
+  // The simulator test of the cleanup ends the app before it launches it again: the page then lists what runs.
+  assert.match(method(tests, 'func test12ARetryFindsItsExampleStopped()'),
+    /app\.terminate\(\)\n\s+XCTAssertTrue\(app\.wait\(for: \.notRunning, timeout: system\)\)\n\s+launch\(\)\n\s+openStopped\("Buttons"\)\n\s+XCTAssertTrue\(webText\("Buttons has ended"\)/);
+});

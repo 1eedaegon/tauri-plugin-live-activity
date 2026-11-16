@@ -14,6 +14,8 @@ import { fileURLToPath } from 'node:url';
 const script = fileURLToPath(new URL('./ios/run.sh', import.meta.url));
 const DEVICE = '0A1B2C3D-0000-4000-8000-000000000001';
 const PROJECT = 'examples/demo/src-tauri/gen/apple/project.pbxproj';
+// The test that fails in a run whose stand-in for xcodebuild is told so.
+const FAILED = 'test2LockScreenButtonReachesRustAndJavaScript';
 
 // `gate <point>` in a stand-in: at a point that the test named, the stand-in waits until the test lets it go, and no
 // longer than its folder is there.
@@ -33,7 +35,11 @@ const standIns = {
     + `  'simctl create') gate create; echo ${DEVICE} ;;\n`
     + "  'simctl boot') gate boot ;;\n"
     + "  'simctl get_app_container') [ -n \"${DEMO_RUNS:-}\" ] && grep -q Compiling \"$OUTPUT/tauri-ios-dev.log\" ;;\n"
-    + "  'simctl spawn') echo '501 0 UIKitApplication:io.github.eedaegon.liveactivitydemo[0f3a][rb-legacy]' ;;\n"
+    + "  'simctl spawn') case \" $* \" in\n"
+    + "    *' log show '*) [ -z \"${LOG_FAILS:-}\" ] || { echo 'log: the archive could not be read' >&2; exit 1; }\n"
+    + "      echo \"the simulator's log: $*\" ;;\n"
+    + "    *) echo '501 0 UIKitApplication:io.github.eedaegon.liveactivitydemo[0f3a][rb-legacy]' ;;\n"
+    + '  esac ;;\n'
     + "  'simctl shutdown') gate shutdown ;;\n"
     + "  'simctl delete') echo 'simulator deleted' >&2 ;;\n"
     + 'esac\n',
@@ -42,11 +48,15 @@ const standIns = {
   // XcodeGen rewrites the project next to the spec it is given, which the checkout tracks under gen/apple.
   xcodegen: 'echo rewritten > "$(dirname "$3")/project.pbxproj"\n',
   // The build of the UI tests, which says nothing and can wait for the test, and their run, which says that they
-  // passed; unless the test has xcodebuild fail.
+  // passed; unless the test has xcodebuild fail. With TEST_FAILS a test of the run fails: for good, or `once`, as
+  // one that passes when CI runs it again. Such a run of the tests takes over a second, and records when it ended.
   xcodebuild: gate + '[ -z "${XCODEBUILD_FAILS:-}" ] || exit 65\n'
     + 'case " $* " in\n'
     + '  *" build-for-testing "*) gate ui-tests ;;\n'
-    + '  *" test-without-building "*) echo "** TEST EXECUTE SUCCEEDED **" ;;\n'
+    + '  *" test-without-building "*)\n'
+    + `    [ -z "\${TEST_FAILS:-}" ] || echo "Test Case '-[DemoUITests.DemoTests ${FAILED}]' failed (1.000 seconds)."\n`
+    + '    [ -z "${TEST_FAILS:-}" ] || { /bin/sleep 1.1; echo "tests ended $(date +%s)" >> "$STAND_IN_CALLS"; }\n'
+    + '    case "${TEST_FAILS:-}" in "" | once) echo "** TEST EXECUTE SUCCEEDED **" ;; *) echo "** TEST EXECUTE FAILED **"; exit 65 ;; esac ;;\n'
     + 'esac\n',
   npm: 'exit 0\n',
   // The loop's five seconds, shortened: a minute of waiting passes in about a second. The call is recorded, and so
@@ -60,9 +70,14 @@ const standIns = {
 // `tauri ios dev`: says what it does on both streams, with one more line when the test has one, then builds for as
 // long as the test lets it: until it is stopped, until the test lets it end, or not at all. One that builds until it
 // is stopped has a process of its own meanwhile, as Tauri has cargo. `tauri ios build` can wait for the test, then
-// ends and has built no app.
+// ends and has built no app; or, when the test says so, it fails as a build whose Rust did not compile does, and
+// leaves in Xcode's folder the app that the build had begun, with no program in it; or it builds the app, program
+// and all.
 const tauri = gate + 'echo "$$" > "$TAURI_PID"\n'
   + 'echo "tauri $*"\n'
+  + 'begun="$HOME/Library/Developer/Xcode/DerivedData/live-activity-demo-standin/Build/Products/debug-iphonesimulator/live-activity-demo.app"\n'
+  + '[ "${2:-}" != build ] || [ -z "${DEMO_BUILD_FAILS:-}" ] || { mkdir -p "$begun/PlugIns"; echo "error: could not compile the demo"; echo "** BUILD FAILED **"; exit 1; }\n'
+  + '[ "${2:-}" != build ] || [ -z "${DEMO_BUILDS:-}" ] || { mkdir -p "$begun"; echo program > "$begun/live-activity-demo"; echo "** BUILD SUCCEEDED **"; exit 0; }\n'
   + '[ "${2:-}" != build ] || { gate demo; exit 0; }\n'
   + 'ends=; case " ${STAND_IN_WAITS:-} " in *" tauri-ends "*) ends=1 ;; esac\n'
   + '[ -n "${TAURI_ENDS:-}$ends" ] || { /bin/sleep 600 & echo "$!" > "$TAURI_PID.child"; }\n'
@@ -426,6 +441,103 @@ test('a run that ends by itself has the log of tauri ios dev among its own files
     assert.equal(readFileSync(join(run.output, 'passed'), 'utf8'), '');
     assert.equal(readFileSync(join(run.output, 'xcodebuild.log'), 'utf8'), '** TEST EXECUTE SUCCEEDED **\n');
     await cleanedUp(run, run.tree(), 'after the tests');
+  });
+});
+
+// TP-CI-6
+test('a demo whose build failed ends the run there, with the end of what the build said, though it left an app begun', async () => {
+  await withRun({ env: { MODE: 'build', DEMO_BUILD_FAILS: '1' }, building: false }, async run => {
+    assert.deepEqual(await run.ended(), { code: 1, signal: null });
+    // What Tauri said last, then the run's own line: a hosted runner keeps no other copy of the build's log.
+    assert.match(run.written.out, /building the demo with tauri ios build\n\*\* BUILD FAILED \*\*\n$/);
+    assert.match(run.written.err, /error: could not compile the demo\n\*\* BUILD FAILED \*\*\nthe demo did not build for the simulator\n/);
+    // No UI tests built for it and no simulator booted: the app that the build had begun has no program to install.
+    assert.doesNotMatch(run.written.out, /building the UI tests|booting the simulator/);
+    assert.ok(!run.calls().some(call => call.startsWith('simctl boot ')), run.calls().join('\n'));
+    assert.ok(run.calls().includes(`simctl delete ${DEVICE}`));
+    assert.deepEqual(run.work(), []);
+  });
+});
+
+// TP-CI-6
+test('a demo that built, with its program in the app, is installed and its tests run', async () => {
+  await withRun({ env: { MODE: 'build', DEMO_BUILDS: '1' }, building: false }, async run => {
+    assert.deepEqual(await run.ended(), { code: 0, signal: null }, run.written.err);
+    assert.match(run.written.out, /building the demo with tauri ios build\n\*\* BUILD SUCCEEDED \*\*\nbuilding the UI tests\nbooting the simulator\n/);
+    // The app that the run installs is its own copy of the one that the build left.
+    const installed = run.calls().find(call => call.startsWith(`simctl install ${DEVICE} `));
+    assert.match(installed ?? '', /\/build\/demo\/live-activity-demo\.app$/);
+    assert.deepEqual(readdirSync(run.output).sort(), ['passed', 'xcodebuild.log']);
+    await cleanedUp(run, run.tree(), 'after the tests of a demo that built');
+  });
+});
+
+// What the run asks of the simulator's log, as the stand-in for xcrun records each call: since when, and which lines.
+const DEMO_LINES = 'process == "live-activity-demo"';
+const ACTIVITY_LINES = 'process == "LiveActivityWidget" OR process == "chronod" OR process == "liveactivitiesd"'
+  + ' OR subsystem BEGINSWITH "com.apple.activitykit"';
+const asked = run => run.calls().filter(call => call.includes(' log show '))
+  .map(call => new RegExp(`^simctl spawn ${DEVICE} log show --start @(\\d+) --style compact --predicate (.+)$`).exec(call)?.slice(1));
+
+// TP-CI-6
+test('a run with a failed test leaves what the demo and the system logged of its Live Activities since the tests began', async () => {
+  const before = Math.floor(Date.now() / 1000);
+  await withRun({ env: { DEMO_RUNS: '1', TEST_FAILS: '1' }, building: false }, async run => {
+    assert.deepEqual(await run.ended(), { code: 65, signal: null }, run.written.err);
+    // Two readings of the simulator's log, of the demo's process and of what draws and keeps its Live Activities, both
+    // from the moment the tests began: a suite takes longer than any fixed number of minutes would cover.
+    const readings = asked(run);
+    assert.deepEqual(readings.map(reading => reading?.[1]), [DEMO_LINES, ACTIVITY_LINES], run.calls().join('\n'));
+    const [[began], [again]] = readings;
+    assert.equal(again, began);
+    const [, ended] = /^tests ended (\d+)$/m.exec(run.calls().join('\n')) ?? [];
+    assert.ok(Number(began) < Number(ended), `the log is read from ${began}, and the tests ended at ${ended}`);
+    assert.ok(before <= Number(began) && Number(began) <= Math.floor(Date.now() / 1000), `the tests began at ${began}`);
+    // Read before the simulator goes, and each in a file of OUTPUT, where CI's job uploads them.
+    const calls = run.calls();
+    assert.ok(calls.findLastIndex(call => call.includes(' log show ')) < calls.indexOf(`simctl delete ${DEVICE}`));
+    assert.deepEqual(readdirSync(run.output).sort(), ['activities.log', 'app.log', 'tauri-ios-dev.log', 'xcodebuild.log']);
+    assert.equal(readFileSync(join(run.output, 'app.log'), 'utf8'), `the simulator's log: ${calls.find(call => call.endsWith(DEMO_LINES))}\n`);
+    assert.equal(readFileSync(join(run.output, 'activities.log'), 'utf8'), `the simulator's log: ${calls.find(call => call.endsWith(ACTIVITY_LINES))}\n`);
+    await cleanedUp(run, run.tree(), 'after a test that failed');
+  });
+  // The extension's process has the name that the demo's project gives its widget target.
+  const project = readFileSync(fileURLToPath(new URL('../examples/demo/src-tauri/gen/apple/project.yml', import.meta.url)), 'utf8');
+  assert.match(project, /^\s+PRODUCT_BUNDLE_IDENTIFIER: io\.github\.eedaegon\.liveactivitydemo\.widget$/m);
+  assert.match(project, /^\s+PRODUCT_NAME: LiveActivityWidget$/m);
+});
+
+// TP-CI-6
+test("the logs of a failure are kept when the test passed on a retry, and are the run's own files in OUTPUT", async () => {
+  // A test that failed once and passed when it ran again: the run passes, and what was logged is kept all the same.
+  await withRun({ env: { DEMO_RUNS: '1', TEST_FAILS: 'once' }, building: false }, async run => {
+    assert.deepEqual(await run.ended(), { code: 0, signal: null }, run.written.err);
+    assert.deepEqual(asked(run).map(reading => reading?.[1]), [DEMO_LINES, ACTIVITY_LINES]);
+    assert.deepEqual(readdirSync(run.output).sort(), ['activities.log', 'app.log', 'passed', 'tauri-ios-dev.log', 'xcodebuild.log']);
+    assert.equal(readFileSync(join(run.output, 'passed'), 'utf8'), `DemoTests/${FAILED}`);
+    assert.ok(run.written.out.includes(`::warning title=Retried UI test::DemoTests/${FAILED} failed once and passed on a retry\n`), run.written.out);
+  });
+  // A run in which no test failed reads no log, and takes away those that an earlier run left.
+  const earlier = temp => {
+    mkdirSync(join(temp, 'output'));
+    for (const name of ['app.log', 'activities.log', 'notes.txt']) writeFileSync(join(temp, 'output', name), 'an earlier run\n');
+  };
+  await withRun({ env: { DEMO_RUNS: '1' }, building: false, prepare: earlier }, async run => {
+    assert.deepEqual(await run.ended(), { code: 0, signal: null }, run.written.err);
+    assert.deepEqual(asked(run), []);
+    assert.deepEqual(readdirSync(run.output).sort(), ['notes.txt', 'passed', 'tauri-ios-dev.log', 'xcodebuild.log']);
+  });
+});
+
+// TP-CI-6
+test('a log that cannot be read changes nothing of how the run ends, and its file says what the tool said', async () => {
+  await withRun({ env: { DEMO_RUNS: '1', TEST_FAILS: '1', LOG_FAILS: '1' }, building: false }, async run => {
+    assert.deepEqual(await run.ended(), { code: 65, signal: null }, run.written.err);
+    assert.deepEqual(asked(run).map(reading => reading?.[1]), [DEMO_LINES, ACTIVITY_LINES]);
+    assert.deepEqual(readdirSync(run.output).sort(), ['activities.log', 'app.log', 'tauri-ios-dev.log', 'xcodebuild.log']);
+    for (const name of ['app.log', 'activities.log']) assert.equal(readFileSync(join(run.output, name), 'utf8'), 'log: the archive could not be read\n', name);
+    assert.match(readFileSync(join(run.output, 'xcodebuild.log'), 'utf8'), /\*\* TEST EXECUTE FAILED \*\*\n$/);
+    await cleanedUp(run, run.tree(), 'after a log that could not be read');
   });
 });
 
