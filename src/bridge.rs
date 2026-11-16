@@ -53,11 +53,13 @@ pub(crate) fn adapter_failed() -> liveupdate::Error {
 }
 
 /// liveupdate's transport `B` with [`contained`] under it: a call that panics has failed, as one that Tauri
-/// answers with an error. The guard is here, under liveactivity's backend, and not around the backend's calls:
-/// the backend catches no panic, so one that passed through would end the thread that drains, and a call of the
-/// app's own Rust would unwind into the app. With liveactivity 0.7.1 it also left the lock of the backend's
-/// layouts poisoned, and every drain and every call for a layout answered `NATIVE_ERROR` from then on, as long as
-/// the process lived; 0.7.2 takes that lock again.
+/// answers with an error. The guard is here, under liveactivity's backend, and not around the backend's calls, so
+/// that every caller of the backend has it: the backend catches no panic, so one that passed through would reach
+/// whoever called the backend, and a call of the app's own Rust would unwind into the app. The thread that drains
+/// would take such a panic as a drain that failed or as a time that cannot be read (`drain::run`). With
+/// liveactivity 0.7.1 it also left the lock of the backend's layouts poisoned, and every drain and every call for
+/// a layout answered `NATIVE_ERROR` from then on, as long as the process lived; 0.7.2 takes that lock again after
+/// such a panic.
 pub(crate) struct ContainedBridge<B>(B);
 
 impl<B: liveupdate::Bridge> liveupdate::Bridge for ContainedBridge<B> {
