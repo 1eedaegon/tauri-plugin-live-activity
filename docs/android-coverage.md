@@ -96,6 +96,25 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## A process without an activity, 0.10.1
+
+0.10.1 has the correction of TP-ANDROID-19 and liveactivity 0.7.2. On Android it changes Rust alone: the
+plugin's Kotlin library is that of 0.10.0.
+
+- A Galaxy S23 with Android 17 (API 37, One UI) ran a build of the release's pull request with its lock screen
+  showing, which a credential holds. The demo's lifecycle test passed, 30 of 30 in 3 of 3 runs: the app was
+  launched behind the lock screen.
+- The library's device tests on that phone, locked: 8 of 10. `anIntentThatAndroidHandsOutAgainIsNotCountedAgain`
+  failed with "Android did not create the activity again", and
+  `theSettingForExactAlarmsOpensOnceForTheCallsThatWaitAndAnswersThemWhenThePersonIsBack` with
+  "expected:<3> but was:<2>". Both bring an activity to the front. With the phone unlocked all ten had passed
+  for 0.10.0.
+- What the correction does was seen on an emulator of Android 16 with liveactivity 0.7.1, by hand: the spec's note
+  on TP-ANDROID-19 has it.
+
+Not run on a phone, and to run once it is unlocked: those two tests, and a tap on a notification's button while
+the process has no activity, in a build of the demo that prevents its exit.
+
 ## The setting for exact alarms, 0.10.0
 
 0.10.0 has a command that takes the person to Android's setting for exact alarms, and its demo declares

@@ -148,6 +148,12 @@ After the release the same build ran on the iPhone 16 with iOS 27.2:
   run of all 11, started a minute after it, waited nine minutes where `xcodebuild` says "Unlock … to Continue",
   until the phone was unlocked.
 
+## 0.10.1 on two iPhones
+
+0.10.1 changes nothing on iOS. A build of the release's pull request passed the lifecycle test on the iPhone XS
+with iOS 18.7 in 2 of 2 runs, 27 checks each, and on the iPhone 16 with iOS 27.2 in 2 of 2 runs, 31 checks each.
+The UI tests did not run on a phone for this release.
+
 ## Tests added after the first release
 
 - Exact encoded Unicode title/status equality: NFC and NFD strings must conflict at the same revision, matching JS/Rust/Android contracts. Swift's default canonical string equivalence incorrectly accepted the changed text. A failing core test and the actual published alpha.1 consumer reproduced it; the local fix compares UTF-8 bytes.

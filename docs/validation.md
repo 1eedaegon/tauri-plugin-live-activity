@@ -1,3 +1,38 @@
+# 0.10.1 validation
+
+0.10.1 is a patch release. It brings the correction of TP-ANDROID-19, which main had since its pull request
+(#44), and moves the plugin to liveactivity 0.7.2. A call to the plugin's Kotlin side that panics inside Tauri,
+as each does while the process has no activity, answers `NATIVE_ERROR` and ends no thread. liveactivity 0.7.2
+takes the lock of its layouts again after a panic under it; with 0.7.1 such a panic left every later call for a
+layout and every drain an error. Nothing changes in the JavaScript API, in the permissions or on iOS. Checked
+before the tag, on a build of the release's pull request:
+
+- A Galaxy S23 with Android 17 (One UI), which showed its lock screen all the while: the demo's lifecycle test
+  passed, 30 of 30 in 3 of 3 runs. The Android library's device tests passed 8 of 10 there. The two that failed
+  bring an activity to the front, which a locked phone does not: `anIntentThatAndroidHandsOutAgainIsNotCountedAgain`
+  ("Android did not create the activity again") and
+  `theSettingForExactAlarmsOpensOnceForTheCallsThatWaitAndAnswersThemWhenThePersonIsBack`. The library's Kotlin is
+  that of 0.10.0, whose ten tests passed on this phone while it was unlocked.
+- An iPhone XS with iOS 18.7: the lifecycle test passed, 27 of 27, twice. An iPhone 16 with iOS 27.2: 31 of 31,
+  twice.
+- `npm test` (285 tests in six suites) and `cargo test` (52 unit and 7 integration tests), `cargo clippy`,
+  `tools/spec-coverage.sh` (86 requirements, each with a test).
+- liveactivity 0.7.2 has the test of its lock in its own repository: a transport whose call panics under each of
+  the five calls for a layout, after which the same call and every other are answered.
+- CI: the pull request's run, and the two simulator suites, started by hand on its head before this record was
+  added (run 43792276862, iOS 26.2): the suite on the built demo passed its 11 tests and the one on
+  `tauri ios dev` its 4, each test on its first try. The main run of the release commit.
+
+The correction itself was seen on an emulator of Android 16, in a build of the demo that prevents its exit, with
+liveactivity 0.7.1: the spec's note on TP-ANDROID-19 has that run.
+
+Not checked: on a phone, a tap while the process has no activity, and the two device tests above: the phone at
+hand has a credential and stayed locked. A call of the Rust API while the process has no activity, and a build
+with `panic = "abort"`. [Android coverage](android-coverage.md#a-process-without-an-activity-0101) says what is
+to run once the phone is unlocked.
+
+The record of 0.10.0 follows.
+
 # 0.10.0 validation
 
 0.10.0 adds a command, `openExactAlarmSettings()`, which takes the person to Android's setting for exact alarms
