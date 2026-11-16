@@ -79,8 +79,9 @@ test("every run_mobile_plugin call of the plugin's Rust has a guard for Tauri's 
     .filter(([, count]) => count > 0));
   assert.deepEqual(called, { 'android.rs': 3 });
   const rust = readFileSync(join(root, 'src/android.rs'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
-  // The transport of liveupdate's driver is guarded under liveactivity's backend, which holds a lock across the
-  // call: the plugin builds that backend through `bridge::engine` and in no other way.
+  // The transport of liveupdate's driver is guarded under liveactivity's backend, which catches no panic: the
+  // plugin builds that backend through `bridge::engine` and in no other way, so every caller of the backend has
+  // the guard.
   assert.match(rust, /let engine = crate::bridge::engine\(\s*bridge,/);
   assert.match(rust, /type Engine<R> = crate::bridge::Engine<TauriBridge<R>>;/);
   assert.doesNotMatch(rust, /LiveUpdateBackend|over_bridge|JsonDriver/);
