@@ -1,7 +1,8 @@
 import XCTest
 
 /// The demo app on the Lock Screen, through Tauri, the plugin and activitykit. The methods run in the order of their
-/// names. Each test ends what it started, so that no activity covers the next test's card on the Lock Screen.
+/// names. Each test ends what it started, so that no activity covers the next test's card on the Lock Screen. A test
+/// that failed has not: the next start of that example ends on the page what is left (`openStopped`).
 final class DemoTests: XCTestCase {
     private let app = XCUIApplication(bundleIdentifier: "io.github.eedaegon.liveactivitydemo")
     private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
@@ -30,8 +31,28 @@ final class DemoTests: XCTestCase {
     private let startsIn: TimeInterval = 30
     private let beginning: TimeInterval = 120
 
+    /// Whether a test of this run has failed. A test stops at its first failure, before it ends what it started.
+    private static var failed = false
+    /// The time of day in the name of a failure's screenshot: a test that runs again can fail again.
+    private static let clock: DateFormatter = {
+        let clock = DateFormatter()
+        clock.locale = Locale(identifier: "en_US_POSIX")
+        clock.dateFormat = "HHmmss"
+        return clock
+    }()
+
     override func setUp() {
         continueAfterFailure = false
+    }
+
+    /// After a failure, the screen as it is: a card that the Lock Screen shows without its content has nothing in the
+    /// accessibility tree, which is all that a failed look says otherwise.
+    override func tearDown() {
+        // The count of failures so far: `hasSucceeded` is false of every test here, where its run has not ended.
+        guard let run = testRun, run.totalFailureCount > 0 else { return }
+        Self.failed = true
+        let test = name.split(separator: " ").last.map { String($0.dropLast()) } ?? name
+        capture("e2e-failed-\(test)-\(Self.clock.string(from: Date()))")
     }
 
     /// A button of the page; one with `aria-pressed`, like the mode and example chips, is a switch to WebKit.
@@ -85,19 +106,62 @@ final class DemoTests: XCTestCase {
         tap(example)
     }
 
-    /// Ends a Buttons activity that an earlier attempt left, so a retry finds the example stopped. Its All done button
-    /// reaches Rust, which ends it; a Rust start would otherwise return that activity, and the page a running example.
-    private func endLeftoverButtons() {
-        app.terminate()
-        XCUIDevice.shared.press(.home)
-        let top = springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01))
-        top.press(forDuration: 0.1, thenDragTo: springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.8)))
-        let done = springboard.buttons["All done"].firstMatch
-        if done.waitForExistence(timeout: prompt) {
-            done.tap()
-            XCTAssertTrue(done.waitForNonExistence(timeout: reaction))
+    /// Which of two lines the page shows within `timeout`, read at one look: true for `running`, false for `stopped`,
+    /// nil while it shows neither.
+    private func says(_ running: XCUIElement, or stopped: XCUIElement, within timeout: TimeInterval) -> Bool? {
+        var answer: Bool?
+        _ = holds(within: timeout) {
+            answer = running.exists ? true : stopped.exists ? false : nil
+            return answer != nil
         }
-        XCUIDevice.shared.press(.home)
+        return answer
+    }
+
+    /// Opens the example for a start: one that an earlier attempt of a test left running is ended first. The page
+    /// lists a running activity at launch and says so when its example opens, and it offers then to end it and not to
+    /// start it. The Lock Screen is not asked: the card of such an activity can be one that the system shows without
+    /// its content (seen on shared runners), which has no button to end it with.
+    private func openStopped(_ example: String) {
+        openLayouts(example)
+        let left = webText("\(example) is already on your phone")
+        let stopped = webText("\(example): start it to see it on your phone")
+        // The page answers the tap that opens an example with one of the two lines. A tap that it did not take, as
+        // while it is busy, is given again.
+        var runs = says(left, or: stopped, within: retry)
+        for _ in 0..<2 where runs == nil {
+            tap(example)
+            runs = says(left, or: stopped, within: retry)
+        }
+        guard let runs else { return XCTFail("the page does not say whether \(example) runs") }
+        if runs { endExample() }
+    }
+
+    /// Opens a tab of the page's two templates for a start, as `openStopped` an example: the page says there whether
+    /// the template's activity runs, and offers `end` for one that an earlier attempt left.
+    private func openStoppedTemplate(_ tab: String, endedBy end: String) {
+        let left = webText("Welcome back")
+        let stopped = webText("A fresh little moment")
+        // A page that has just loaded can take a tap before its script listens: tap the tab until the page answers.
+        var runs: Bool?
+        for _ in 0..<3 where runs == nil {
+            tap(tab)
+            runs = says(left, or: stopped, within: retry)
+        }
+        guard let runs else { return XCTFail("the page does not say whether \(tab) runs") }
+        if runs {
+            tap(end)
+            XCTAssertTrue(webText("finished").waitForExistence(timeout: page))
+        }
+    }
+
+    /// Ends a Buttons activity that an earlier attempt left, before Rust starts the example: Rust's start would return
+    /// that activity, with the card it has. Only after a test of this run has failed, which is when one can be left:
+    /// the page ends it, and a run without a failure needs no page for the test where Rust starts.
+    private func endLeftoverButtons() {
+        guard Self.failed else { return }
+        launch()
+        openStopped("Buttons")
+        app.terminate()
     }
 
     /// Pulls the Lock Screen over the app, from a fixed point at the top of the screen.
@@ -169,7 +233,7 @@ final class DemoTests: XCTestCase {
     // TP-E2E-1, TP-E2E-6, TP-BUILD-1, TP-IOS-1, TP-IOS-3
     func test1BoundStyleShowsOnTheLockScreen() {
         launch()
-        openLayouts("Changing styles")
+        openStopped("Changing styles")
         tap("Start this example")
         allow()
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
@@ -186,9 +250,8 @@ final class DemoTests: XCTestCase {
 
     // TP-E2E-2, TP-E2E-6, TP-ACTION-1
     func test2LockScreenButtonReachesRustAndJavaScript() {
-        endLeftoverButtons()
         launch()
-        openLayouts("Buttons")
+        openStopped("Buttons")
         tap("Start this example")
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
         let pet = springboard.buttons["Pet Mochi"].firstMatch
@@ -212,9 +275,8 @@ final class DemoTests: XCTestCase {
 
     // TP-E2E-3, TP-E2E-6, TP-IOS-6
     func test3ListAfterARelaunchFindsTheActivity() {
-        endLeftoverButtons()
         launch()
-        openLayouts("Buttons")
+        openStopped("Buttons")
         tap("Start this example")
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
         // Rust's handler sends revision 1 for the pet.
@@ -248,7 +310,7 @@ final class DemoTests: XCTestCase {
     // TP-V1-1
     func test5TemplatesShowOnTheLockScreenAsLayouts() {
         launch()
-        tap("Snack delivery")
+        openStoppedTemplate("Snack delivery", endedBy: "Finish delivery")
         tap("Start snack delivery")
         XCTAssertTrue(pullLockScreen(until: springboard.staticTexts["Mochi’s snack delivery"]))
         allow()
@@ -256,7 +318,7 @@ final class DemoTests: XCTestCase {
         capture("e2e-5-v1-progress")
         leaveLockScreen()
         tap("Finish delivery")
-        tap("Nap timer")
+        openStoppedTemplate("Nap timer", endedBy: "Wake up, sleepyhead")
         tap("Start a little nap")
         XCTAssertTrue(pullLockScreen(until: springboard.staticTexts["Mochi’s nap"]))
         capture("e2e-5-v1-timer")
@@ -267,9 +329,8 @@ final class DemoTests: XCTestCase {
 
     // TP-E2E-5, TP-ACTION-3
     func test6TapLaunchesTheAppForASlowRustHandler() {
-        endLeftoverButtons()
         launch()
-        openLayouts("Buttons")
+        openStopped("Buttons")
         tap("Start this example")
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
         app.terminate()
@@ -319,7 +380,7 @@ final class DemoTests: XCTestCase {
     /// update moves the switch, and the page hears the tap with that state.
     func test8ASwitchReportsTheStateThePersonAskedFor() {
         launch()
-        openLayouts("Switch")
+        openStopped("Switch")
         tap("Start this example")
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
         let purr = onLockScreen("Purr alerts")
@@ -353,7 +414,7 @@ final class DemoTests: XCTestCase {
     /// A link on the Lock Screen opens the app, which was not in front.
     func test9ALinkOnTheLockScreenOpensTheApp() {
         launch()
-        openLayouts("Link")
+        openStopped("Link")
         tap("Start this example")
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
         XCUIDevice.shared.press(.home)
@@ -376,7 +437,7 @@ final class DemoTests: XCTestCase {
     /// update makes it fresh again.
     func test10ContentPastItsStaleTimeTurnsTheLockScreen() {
         launch()
-        openLayouts("Staleness")
+        openStopped("Staleness")
         tap("Start this example")
         XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
         let fresh = springboard.staticTexts["Left the kitchen"]
@@ -408,7 +469,7 @@ final class DemoTests: XCTestCase {
     /// is launched afterwards lists it as running.
     func test11AScheduledStartBeginsAtItsTimeWithTheAppEnded() {
         launch()
-        openLayouts("Scheduled start")
+        openStopped("Scheduled start")
         let asked = Date()
         tap("Start this example")
         XCTAssertTrue(webText("is waiting for its time").waitForExistence(timeout: page))
@@ -428,5 +489,24 @@ final class DemoTests: XCTestCase {
         openLayouts("Scheduled start")
         XCTAssertTrue(webText("ON YOUR PHONE NOW").waitForExistence(timeout: page))
         endExample()
+    }
+
+    // TP-E2E-11
+    /// A test that runs again finds its example stopped. An attempt that failed has ended nothing; the next attempt
+    /// launches the app anew, whose page lists the activity, and ends it there before it starts, with no look at the
+    /// Lock Screen.
+    func test12ARetryFindsItsExampleStopped() {
+        launch()
+        openStopped("Buttons")
+        tap("Start this example")
+        XCTAssertTrue(webText("is on its way to your phone").waitForExistence(timeout: page))
+        // Here the attempt fails, as far as the next one can tell: the example runs, and the app is launched anew.
+        app.terminate()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: system))
+        launch()
+        openStopped("Buttons")
+        XCTAssertTrue(webText("Buttons has ended").waitForExistence(timeout: page), "what the attempt left is ended")
+        XCTAssertTrue(web("Start this example").waitForExistence(timeout: page), "and the example can start anew")
+        XCTAssertFalse(web("End this example").exists)
     }
 }

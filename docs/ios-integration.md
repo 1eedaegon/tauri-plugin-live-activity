@@ -320,13 +320,16 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
   JavaScript, `listLayout` after a relaunch, the demo's lifecycle test, the two templates on the Lock Screen, and a
   tap that launches the app for a slow Rust handler. The tests run through the `DemoUITests` scheme of the project
   that XcodeGen generates on every run; with an `.xctestrun` file alone, xcodebuild found no simulator on a CI
-  runner. It copies the screenshots, the other attachments, `xcodebuild.log` and, when a test failed, the demo's log
-  (`app.log`) to `tests/ios/output` (or `$OUTPUT`,
+  runner. It copies the screenshots, the other attachments and `xcodebuild.log` to `tests/ios/output` (or `$OUTPUT`,
   where it replaces only its own files), then deletes the simulator and the build, and puts back the tracked files of
-  the demo's `gen/apple`, which XcodeGen rewrites. It needs Xcode, XcodeGen, Node with the repository's npm
+  the demo's `gen/apple`, which XcodeGen rewrites. When a test failed, the output also has what the simulator logged
+  since the tests began, the demo's lines (`app.log`) and the lines about its Live Activities, of the widget
+  extension, `chronod`, `liveactivitiesd` and ActivityKit (`activities.log`), and a screenshot of the screen at each
+  failure (`e2e-failed-<test>-<time>.png`). It needs Xcode, XcodeGen, Node with the repository's npm
   packages, and cargo with the iOS simulator target of this Mac. The archive step after the build needs a signing
   team and may fail; the simulator needs only the build. Under `CI` a failed test runs again, up to three times in
-  all, and after a full pass `OUTPUT/passed` lists the tests that passed only on a retry.
+  all, and after a full pass `OUTPUT/passed` lists the tests that passed only on a retry. A test that runs again
+  finds its example stopped: the page ends what the failed attempt left running, before the test starts it.
 - `MODE=dev tests/ios/run.sh` lets `tauri ios dev` build, install, launch and serve the demo on the simulator, and
   runs the layout, button and relaunch tests through its page, then launches it with `--start-buttons`, where Rust
   starts the Buttons example and a tap on Pet Mochi reaches the Rust handler. Three things about Tauri CLI 2.12.4 have

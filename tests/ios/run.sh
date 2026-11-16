@@ -9,7 +9,10 @@
 #               tests through the page, and the one where Rust starts the layout
 #   OUTPUT      where the screenshots, the other attachments, the logs and `passed` go (default tests/ios/output);
 #               the run replaces only its own files there. The log of `tauri ios dev` is written there from its
-#               start: a run that is stopped from outside, as CI's runner stops a cancelled job, leaves it
+#               start: a run that is stopped from outside, as CI's runner stops a cancelled job, leaves it. A run
+#               in which a test failed leaves what the simulator logged since the tests began: `app.log`, the
+#               demo's lines, and `activities.log`, the lines about its Live Activities; and each failure leaves a
+#               screenshot, `e2e-failed-<test>-<time>.png`
 #   BUILD_DIR   where the demo app and the built UI tests go (a temporary folder unless set); CI caches it
 #   BUILD_KEY   names the inputs of the build (CI passes a hash of them, from tests/ci/cache.sh). A complete build
 #               writes it next to its products, and a later run with the same key tests those products without
@@ -36,6 +39,10 @@ apple=$root/examples/demo/src-tauri/gen/apple
 tests=$root/tests/ios/DemoUITests/DemoUITests.xcodeproj
 derived=$HOME/Library/Developer/Xcode/DerivedData
 bundle=io.github.eedaegon.liveactivitydemo
+# The lines of the simulator's log that tell what became of a Live Activity: those of the demo's widget extension,
+# which draws it (the product name of the widget target in the demo's project.yml), of the system's two daemons for
+# widgets and Live Activities, and of ActivityKit in any process.
+activities='process == "LiveActivityWidget" OR process == "chronod" OR process == "liveactivitiesd" OR subsystem BEGINSWITH "com.apple.activitykit"'
 # The page of a dev build, from Tauri's built-in server for static files.
 page=http://127.0.0.1:1430/
 # How long `tauri ios dev` may take to build, install, launch and serve the demo, in seconds, and how often the
@@ -143,7 +150,9 @@ else
     grep -E '^\*\* BUILD (SUCCEEDED|FAILED) \*\*' "$work/build.log" || true
     app=$(find "$derived" -maxdepth 6 -path '*live-activity-demo-*/Build/Products/debug-iphonesimulator/live-activity-demo.app' \
       -type d | head -n 1)
-    test -n "$app" || { tail -n 40 "$work/build.log" >&2; fail "the demo did not build for the simulator"; }
+    # A build that failed can leave the app that it had begun, with no program in it: nothing to install.
+    [ -n "$app" ] && [ -f "$app/live-activity-demo" ] \
+      || { tail -n 40 "$work/build.log" >&2; fail "the demo did not build for the simulator"; }
     cp -R "$app" "$build/demo/"
   fi
   report "building the UI tests"
@@ -231,6 +240,8 @@ set --
 for test in $only; do set -- "$@" "-only-testing:DemoUITests/$test"; done
 # A shared runner's simulator sometimes loses a tap or its accessibility server.
 if [ -n "${CI:-}" ]; then set -- "$@" -retry-tests-on-failure -test-iterations 3; fi
+# When the tests begin: a run in which a test fails reads the simulator's log from here on.
+began=$(date +%s)
 # The status goes through a file: the group runs in a subshell of the pipe, where `set -e` would end it at a failing
 # xcodebuild before the status is written. On a shared runner the tests sometimes cannot start: the test runner does
 # not come up ("failed to initialize for UI testing", waiting for the accessibility server), or xcodebuild does not
@@ -254,10 +265,15 @@ while :; do
 done
 cat "$work"/xcodebuild-*.log >"$work/xcodebuild.log"
 retried=$(sed -n "s/^Test Case '-\[DemoUITests\.\([^ ]*\) \([^]]*\)\]' failed.*/\1\/\2/p" "$work/xcodebuild.log" | sort -u)
-# What the demo logged while a test failed, read before the simulator goes.
+# What the simulator logged since the tests began, when a test failed, read before the simulator goes: the demo's own
+# lines, and the lines about its Live Activities. A card that the Lock Screen shows without its content has no reason
+# in the demo's lines: the system made the activity, and what drew it or did not is another process.
+logged() {
+  xcrun simctl spawn "$device" log show --start "@$began" --style compact --predicate "$1"
+}
 if [ -n "$retried" ]; then
-  xcrun simctl spawn "$device" log show --last 30m --style compact --predicate 'process == "live-activity-demo"' \
-    >"$work/app.log" 2>&1 || true
+  logged 'process == "live-activity-demo"' >"$work/app.log" 2>&1 || true
+  logged "$activities" >"$work/activities.log" 2>&1 || true
 fi
 if [ -n "$retried" ] && [ "$status" -eq 0 ]; then
   for test in $retried; do report "::warning title=Retried UI test::$test failed once and passed on a retry"; done
@@ -266,9 +282,9 @@ fi
 # Only the run's own files are replaced in OUTPUT: the screenshots and other attachments, the logs and passed. The
 # log of `tauri ios dev` is there since Tauri started.
 mkdir -p "$output" "$work/attachments"
-rm -f "$output"/e2e-*.png "$output/passed" "$output/xcodebuild.log" "$output/app.log"
+rm -f "$output"/e2e-*.png "$output/passed" "$output/xcodebuild.log" "$output/app.log" "$output/activities.log"
 cp "$work/xcodebuild.log" "$output/xcodebuild.log"
-[ ! -f "$work/app.log" ] || cp "$work/app.log" "$output/app.log"
+for kept in app.log activities.log; do [ ! -f "$work/$kept" ] || cp "$work/$kept" "$output/$kept"; done
 xcrun xcresulttool export attachments --path "$work/result.xcresult" --output-path "$work/attachments" >/dev/null 2>&1 || true
 # The manifest names each attachment; a screenshot keeps the name its test gave it.
 python3 -I - "$work/attachments" "$output" <<'PYTHON' || true
