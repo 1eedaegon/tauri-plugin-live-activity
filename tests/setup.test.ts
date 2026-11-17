@@ -3,24 +3,54 @@
 // @tauri-apps/cli 2.12.4. Fake `cargo` and `xcodegen` executables stand in for the real tools.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import type { SpawnSyncReturns } from 'node:child_process';
 import {
   chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { test } from 'node:test';
+import type { TestContext } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { main } from '../cli/main.mjs';
 import { setTrueKey } from '../cli/plist.mjs';
 import { formatReport } from '../cli/report.mjs';
 import { PERMISSIONS, SetupError, findCrates, setup } from '../cli/setup.mjs';
+import type { Crate, SetupOptions, SetupResult } from '../cli/setup.mjs';
+import type { StepReport, StepStatus } from '../cli/steps.mjs';
 import { fontNames } from '../cli/widget-files.mjs';
 import { addInclude, appGroupOf, drawsSmallFamily, readProject } from '../cli/xcodegen.mjs';
+import { list, member, present, record, text } from './support.ts';
+import type { JsonObject } from './support.ts';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
+
+/** What the tests read of the repository's own package.json. */
+interface PackageManifest {
+  readonly name: string;
+  readonly version: string;
+  /** The file of each command, by the command's name. */
+  readonly bin: JsonObject;
+  /** What the package ships. */
+  readonly files: readonly string[];
+  /** Absent as long as the package depends on nothing. */
+  readonly dependencies: JsonObject | undefined;
+}
+
+/** The repository's package.json. The test fails when a member that the tests read is not what they take it for. */
+function readManifest(): PackageManifest {
+  const manifest = record(JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')), 'package.json');
+  return {
+    name: text(manifest.name, 'name'),
+    version: text(manifest.version, 'version'),
+    bin: record(manifest.bin, 'bin'),
+    files: list(manifest.files, 'files').map(entry => text(entry, 'an entry of files')),
+    dependencies: manifest.dependencies === undefined ? undefined : record(manifest.dependencies, 'dependencies'),
+  };
+}
+
 // The crate the fixtures stand in for has the package's own version unless a test says otherwise.
-const packageVersion = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')).version;
-const laterPatch = n => packageVersion.replace(/\d+$/, patch => String(Number(patch) + n));
+const packageVersion = readManifest().version;
 const fixtures = join(repo, 'tests', 'fixtures', 'setup');
 const nodeDir = dirname(process.execPath);
 
@@ -44,7 +74,7 @@ fs.mkdirSync(path.join(dir, name + '.xcodeproj'), { recursive: true });
 fs.writeFileSync(path.join(dir, name + '.xcodeproj', 'project.pbxproj'), '// ' + name + '_iOS ' + widget + '\\n');
 `;
 
-function executable(path, text) {
+function executable(path: string, text: string): void {
   writeFileSync(path, text);
   chmodSync(path, 0o755);
 }
@@ -53,8 +83,36 @@ function executable(path, text) {
 const AK_WIDGET = 'import ActivityKitWidget\nimport SwiftUI\nimport WidgetKit\n\n@main\nstruct Widgets: WidgetBundle {\n    var body: some Widget { ActivityKitLayoutWidget() }\n}\n';
 const customViewsStub = readFileSync(join(repo, 'cli/templates/LiveActivityCustomViews.swift'), 'utf8');
 
+/** The environment that setup runs in: the fake tools first on PATH, and the files that they read and write. */
+interface ToolEnv extends NodeJS.ProcessEnv {
+  readonly PATH: string;
+  readonly CARGO: string;
+  readonly FAKE_METADATA: string;
+  readonly FAKE_XCODEGEN_LOG: string;
+}
+
+/** A temporary app and what stands around it: the fake tools, their environment and the crates of the fake registry. */
+interface AppContext {
+  /** The temporary folder that holds all of it. */
+  readonly base: string;
+  readonly app: string;
+  readonly bin: string;
+  readonly env: ToolEnv;
+  readonly srcTauri: string;
+  /** The folders of the plugin's crate and of the activitykit crate that cargo metadata names: `usePlugin` sets both. */
+  plugin: string;
+  activitykit: string;
+}
+
+/** What a test asks of its app: the fixture to copy, the version of the plugin's crate, and whether XcodeGen is there. */
+interface AppOptions {
+  readonly fixture?: 'fresh-app' | 'app-0.3';
+  readonly pluginVersion?: string;
+  readonly xcodegen?: boolean;
+}
+
 /** A temporary app from a fixture, the plugin and activitykit crates in a fake registry, and fake tools. */
-function makeApp(t, { fixture = 'fresh-app', pluginVersion = packageVersion, xcodegen = true } = {}) {
+function makeApp(t: TestContext, { fixture = 'fresh-app', pluginVersion = packageVersion, xcodegen = true }: AppOptions = {}): AppContext {
   const base = mkdtempSync(join(tmpdir(), 'la-setup-'));
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const app = join(base, 'app');
@@ -63,19 +121,20 @@ function makeApp(t, { fixture = 'fresh-app', pluginVersion = packageVersion, xco
   mkdirSync(bin);
   executable(join(bin, 'cargo'), FAKE_CARGO);
   if (xcodegen) executable(join(bin, 'xcodegen'), FAKE_XCODEGEN);
-  const env = {
+  const env: ToolEnv = {
     PATH: `${bin}:${nodeDir}`,
     CARGO: join(bin, 'cargo'),
     FAKE_METADATA: join(base, 'metadata.json'),
     FAKE_XCODEGEN_LOG: join(base, 'xcodegen.log'),
   };
-  const context = { base, app, bin, env, srcTauri: join(app, 'src-tauri') };
+  // The two crates have no folder yet: `usePlugin` names them.
+  const context: AppContext = { base, app, bin, env, srcTauri: join(app, 'src-tauri'), plugin: '', activitykit: '' };
   usePlugin(context, pluginVersion);
   return context;
 }
 
 /** Points cargo metadata at a plugin crate of `version` that depends on an activitykit crate of `kitVersion`. */
-function usePlugin(context, version, kitVersion = '0.1.0', { kit = true } = {}) {
+function usePlugin(context: AppContext, version: string, kitVersion = '0.1.0', { kit = true }: { readonly kit?: boolean } = {}): string {
   const plugin = join(context.base, 'registry', `tauri-plugin-live-activity-${version}`);
   mkdirSync(plugin, { recursive: true });
   writeFileSync(join(plugin, 'Cargo.toml'), `[package]\nname = "tauri-plugin-live-activity"\nversion = "${version}"\n`);
@@ -84,7 +143,7 @@ function usePlugin(context, version, kitVersion = '0.1.0', { kit = true } = {}) 
     ['Cargo.toml', `[package]\nname = "activitykit"\nversion = "${kitVersion}"\n`],
     ['swift/Package.swift', '// swift-tools-version:5.9\n'],
     ['templates/ios/Widget.swift', AK_WIDGET],
-  ]) {
+  ] as const) {
     mkdirSync(dirname(join(activitykit, file)), { recursive: true });
     writeFileSync(join(activitykit, file), text);
   }
@@ -103,9 +162,9 @@ function usePlugin(context, version, kitVersion = '0.1.0', { kit = true } = {}) 
 }
 
 /** Every file under a folder with its bytes, to compare two states of an app. */
-function snapshot(dir) {
-  const files = {};
-  const walk = current => {
+function snapshot(dir: string): Readonly<Record<string, string>> {
+  const files: Record<string, string> = {};
+  const walk = (current: string): void => {
     for (const name of readdirSync(current)) {
       const path = join(current, name);
       if (statSync(path).isDirectory()) walk(path);
@@ -116,11 +175,14 @@ function snapshot(dir) {
   return files;
 }
 
-const read = (context, path) => readFileSync(join(context.srcTauri, path), 'utf8');
-const statuses = result => Object.fromEntries(result.steps.map(step => [step.path, step.status]));
-const xcodegenRuns = context => (existsSync(context.env.FAKE_XCODEGEN_LOG)
+/** What `run` reads of a context: the app's folder, and the environment, which a test may replace with its own. */
+type RunContext = Pick<AppContext, 'app'> & { readonly env: NodeJS.ProcessEnv };
+
+const read = (context: AppContext, path: string): string => readFileSync(join(context.srcTauri, path), 'utf8');
+const statuses = (result: SetupResult): Readonly<Record<string, StepStatus>> => Object.fromEntries(result.steps.map(step => [step.path, step.status]));
+const xcodegenRuns = (context: AppContext): readonly string[] => (existsSync(context.env.FAKE_XCODEGEN_LOG)
   ? readFileSync(context.env.FAKE_XCODEGEN_LOG, 'utf8').trim().split('\n') : []);
-const run = (context, options = {}) => setup({ cwd: context.app, env: context.env, platform: 'darwin', ...options });
+const run = (context: RunContext, options: SetupOptions = {}): SetupResult => setup({ cwd: context.app, env: context.env, platform: 'darwin', ...options });
 
 // TP-SETUP-1, TP-SETUP-2
 test('setup finds the real activitykit crate with cargo metadata and links the products its Swift package declares', t => {
@@ -135,13 +197,14 @@ test('setup finds the real activitykit crate with cargo metadata and links the p
   const env = { ...process.env, FAKE_XCODEGEN_LOG: context.env.FAKE_XCODEGEN_LOG, CARGO: cargo, PATH: `${context.bin}:${process.env.PATH}` };
   const { plugin, activitykit } = findCrates({ srcTauri: context.srcTauri }, env);
   assert.equal(plugin.dir, repo.replace(/\/$/, ''));
-  const locked = /name = "activitykit"\nversion = "([^"]+)"/.exec(readFileSync(join(repo, 'Cargo.lock'), 'utf8'))[1];
+  const locked = present(/name = "activitykit"\nversion = "([^"]+)"/.exec(readFileSync(join(repo, 'Cargo.lock'), 'utf8'))?.[1], 'activitykit in Cargo.lock');
   assert.equal(activitykit.version, locked);
   const declared = [...readFileSync(join(activitykit.dir, 'swift/Package.swift'), 'utf8').matchAll(/\.library\(name: "(\w+)"/g)]
     .map(match => match[1]);
   for (const product of ['ActivityKitWidget', 'ActivityKitViews', 'ActivityKitIntent']) assert.ok(declared.includes(product), product);
   const result = run({ ...context, env });
-  assert.equal(result.steps.some(step => step.status === 'failed'), false);
+  // Nothing is left for the user to do: `todo` is the status of a step that setup could not take.
+  assert.deepEqual(result.steps.filter(step => step.status === 'todo'), []);
   // The widget is the crate's template, and the spec links products that the crate's Swift package declares.
   assert.equal(read(context, 'gen/apple/LiveActivityWidget/LiveActivityWidget.swift'),
     readFileSync(join(activitykit.dir, 'templates/ios/Widget.swift'), 'utf8'));
@@ -159,9 +222,9 @@ test('sets up a fresh Tauri 2 app: capabilities, Android minimum, widget files, 
 
   const result = run(context);
 
-  assert.deepEqual(JSON.parse(read(context, 'capabilities/default.json')).permissions, ['core:default', ...PERMISSIONS]);
-  const config = JSON.parse(read(context, 'tauri.conf.json'));
-  assert.deepEqual(config.bundle.android, { debugApplicationIdSuffix: '.debug', minSdkVersion: 26 });
+  assert.deepEqual(member(JSON.parse(read(context, 'capabilities/default.json')), 'permissions'), ['core:default', ...PERMISSIONS]);
+  const config: unknown = JSON.parse(read(context, 'tauri.conf.json'));
+  assert.deepEqual(member(config, 'bundle', 'android'), { debugApplicationIdSuffix: '.debug', minSdkVersion: 26 });
   assert.equal(read(context, 'tauri.conf.json'), `${JSON.stringify(config, null, 2)}\n`);
   assert.match(read(context, 'gen/android/app/build.gradle.kts'), /^ {8}minSdk = 26$/m);
   assert.equal(setTrueKey(read(context, 'Info.ios.plist'), 'NSSupportsLiveActivities').status, 'present');
@@ -229,7 +292,7 @@ test('keeps a widget file that differs from the template, and says how to take t
   const result = run(context);
 
   assert.equal(readFileSync(widget, 'utf8'), '// my widget\n');
-  const kept = result.steps.find(step => step.status === 'kept');
+  const kept = present(result.steps.find(step => step.status === 'kept'));
   assert.equal(kept.path, 'src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift');
   assert.match(kept.detail, /differs from activitykit's template.*delete it and run setup again/);
   rmSync(widget);
@@ -268,7 +331,7 @@ test('leaves an Xcode project with its own widget extension alone', t => {
   assert.equal(read(context, 'gen/apple/project.yml'), demoSpec);
   assert.equal(existsSync(join(context.srcTauri, 'gen/apple/live-activity.yml')), false);
   assert.equal(existsSync(join(context.srcTauri, 'gen/apple/LiveActivityWidget')), false);
-  const skipped = result.steps.find(step => step.path === 'src-tauri/gen/apple/project.yml');
+  const skipped = present(result.steps.find(step => step.path === 'src-tauri/gen/apple/project.yml'));
   assert.equal(skipped.status, 'skipped');
   assert.match(skipped.detail, /LiveActivityWidget/);
   assert.equal(statuses(result)['src-tauri/Info.ios.plist'], 'created');
@@ -277,7 +340,7 @@ test('leaves an Xcode project with its own widget extension alone', t => {
 
   const art = artwork(context);
   const flags = run(context, { fonts: [art('Mono.otf')], appGroup: true, smallFamily: true });
-  assert.match(flags.steps.find(step => step.status === 'todo').detail, /^--font, --app-group, --small-family not applied: that widget is yours/);
+  assert.match(present(flags.steps.find(step => step.status === 'todo')).detail, /^--font, --app-group, --small-family not applied: that widget is yours/);
   assert.equal(existsSync(join(context.srcTauri, 'gen/apple/LiveActivityWidget')), false);
 });
 
@@ -288,7 +351,7 @@ test('says what it could not do when project.yml has no app target it knows', t 
 
   const result = run(context);
 
-  const todo = result.steps.find(step => step.status === 'todo');
+  const todo = present(result.steps.find(step => step.status === 'todo'));
   assert.equal(todo.path, 'src-tauri/gen/apple/project.yml');
   assert.match(todo.detail, /no target named app_iOS/);
   assert.equal(existsSync(join(context.srcTauri, 'gen/apple/live-activity.yml')), false);
@@ -302,8 +365,8 @@ test('without gen/apple it skips iOS and says when to run again', t => {
   const onMac = run(context);
   const onLinux = run(context, { platform: 'linux' });
 
-  assert.match(onMac.steps.find(step => step.path === 'iOS').detail, /tauri ios init/);
-  assert.match(onLinux.steps.find(step => step.path === 'iOS').detail, /needs a Mac/);
+  assert.match(present(onMac.steps.find(step => step.path === 'iOS')).detail, /tauri ios init/);
+  assert.match(present(onLinux.steps.find(step => step.path === 'iOS')).detail, /needs a Mac/);
   assert.equal(existsSync(join(context.srcTauri, 'Info.ios.plist')), false);
   assert.equal(statuses(onMac)['src-tauri/capabilities/default.json'], 'updated');
 });
@@ -332,8 +395,8 @@ test('runs from src-tauri too, and finds the plugin already registered', t => {
 test('keeps settings that are already right, and an Android minimum above 26', t => {
   const context = makeApp(t);
   const configPath = join(context.srcTauri, 'tauri.conf.json');
-  const config = JSON.parse(readFileSync(configPath, 'utf8'));
-  writeFileSync(configPath, `${JSON.stringify({ ...config, bundle: { ...config.bundle, android: { minSdkVersion: 28 } } }, null, '\t')}\n`);
+  const config = record(JSON.parse(readFileSync(configPath, 'utf8')));
+  writeFileSync(configPath, `${JSON.stringify({ ...config, bundle: { ...record(config.bundle), android: { minSdkVersion: 28 } } }, null, '\t')}\n`);
   const gradle = join(context.srcTauri, 'gen/android/app/build.gradle.kts');
   writeFileSync(gradle, readFileSync(gradle, 'utf8').replace('minSdk = 24', 'minSdk = 28'));
   writeFileSync(join(context.srcTauri, 'Info.ios.plist'), '<?xml version="1.0"?>\n<plist version="1.0">\n<dict>\n  <key>NSSupportsLiveActivities</key>\n  <true/>\n</dict>\n</plist>\n');
@@ -350,7 +413,7 @@ test('Info.ios.plist: adds the key next to others, keeps false, leaves a binary 
   const context = makeApp(t);
   const path = join(context.srcTauri, 'Info.ios.plist');
   const plist = '<?xml version="1.0"?>\n<plist version="1.0">\n<dict>\n    <key>ITSAppUsesNonExemptEncryption</key>\n    <false/>\n</dict>\n</plist>\n';
-  const cases = [
+  const cases: readonly (readonly [text: string, status: StepStatus, written?: string])[] = [
     [plist, 'updated', plist.replace('</dict>', '    <key>NSSupportsLiveActivities</key>\n    <true/>\n</dict>')],
     [plist.replace('ITSAppUsesNonExemptEncryption', 'NSSupportsLiveActivities'), 'kept'],
     ['bplist00\u0000', 'todo'],
@@ -365,11 +428,11 @@ test('Info.ios.plist: adds the key next to others, keeps false, leaves a binary 
 test('the extension takes the app version from package.json or Cargo.toml when tauri.conf.json has none', t => {
   const context = makeApp(t);
   const configPath = join(context.srcTauri, 'tauri.conf.json');
-  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  const config = record(JSON.parse(readFileSync(configPath, 'utf8')));
   writeFileSync(join(context.app, 'package.json'), '{ "version": "2.3.4-beta.1" }\n');
-  const spec = () => read(context, 'gen/apple/live-activity.yml');
+  const spec = (): string => read(context, 'gen/apple/live-activity.yml');
 
-  writeFileSync(configPath, JSON.stringify({ ...config, version: '../package.json', bundle: { ...config.bundle, iOS: { bundleVersion: '7' } } }));
+  writeFileSync(configPath, JSON.stringify({ ...config, version: '../package.json', bundle: { ...record(config.bundle), iOS: { bundleVersion: '7' } } }));
   run(context, { iosOnly: true });
   assert.match(spec(), /CFBundleShortVersionString: "2\.3\.4"\n {8}CFBundleVersion: "7"\n/);
 
@@ -390,7 +453,7 @@ test('an include list it cannot edit is left to the user, and XcodeGen waits for
 
   const result = run(context);
 
-  assert.match(result.steps.find(step => step.status === 'todo').detail, /add live-activity\.yml to its include list/);
+  assert.match(present(result.steps.find(step => step.status === 'todo')).detail, /add live-activity\.yml to its include list/);
   assert.equal(statuses(result)['Xcode project'], 'skipped');
   assert.equal(xcodegenRuns(context).length, 0);
 });
@@ -401,7 +464,7 @@ test('a file it cannot write becomes a step to do', t => {
 
   const result = run(context);
 
-  const todo = result.steps.find(step => step.path === 'src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift');
+  const todo = present(result.steps.find(step => step.path === 'src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift'));
   assert.equal(todo.status, 'todo');
   assert.match(todo.detail, /could not write it/);
 });
@@ -409,7 +472,7 @@ test('a file it cannot write becomes a step to do', t => {
 test('a tab-indented tauri.conf.json keeps its tabs', t => {
   const context = makeApp(t);
   const configPath = join(context.srcTauri, 'tauri.conf.json');
-  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  const config: unknown = JSON.parse(readFileSync(configPath, 'utf8'));
   writeFileSync(configPath, JSON.stringify(config, null, '\t'));
 
   run(context);
@@ -424,7 +487,7 @@ test('without XcodeGen it leaves the command to run', t => {
 
   const result = run(context);
 
-  const todo = result.steps.find(step => step.status === 'todo');
+  const todo = present(result.steps.find(step => step.status === 'todo'));
   assert.equal(todo.path, 'Xcode project');
   assert.match(todo.detail, /XcodeGen is not on PATH.*xcodegen generate --spec src-tauri\/gen\/apple\/project\.yml/);
   assert.match(formatReport(result), /To do:\n {2}Xcode project: XcodeGen is not on PATH/);
@@ -435,7 +498,7 @@ test('reports a failed XcodeGen run as a step to do', t => {
 
   const result = run(context, { env: { ...context.env, FAKE_XCODEGEN_FAIL: '1' } });
 
-  const todo = result.steps.find(step => step.status === 'todo');
+  const todo = present(result.steps.find(step => step.status === 'todo'));
   assert.match(todo.detail, /xcodegen failed: Spec validation error/);
 });
 
@@ -465,7 +528,7 @@ test('picks the only capability file, and lists the permissions when it cannot c
   writeFileSync(join(capabilities, 'other.json'), '{ "identifier": "other", "permissions": [] }\n');
   writeFileSync(join(capabilities, 'broken.json'), '{');
   const result = run(context);
-  const todo = result.steps.find(step => step.path === 'src-tauri/capabilities');
+  const todo = present(result.steps.find(step => step.path === 'src-tauri/capabilities'));
   assert.equal(todo.status, 'todo');
   assert.ok(todo.detail.includes(PERMISSIONS.join(', ')));
 });
@@ -474,7 +537,7 @@ test('says what is wrong with a capability file it cannot read', t => {
   const context = makeApp(t);
   writeFileSync(join(context.srcTauri, 'capabilities/default.json'), '{ "permissions": ');
 
-  const todo = run(context).steps.find(step => step.status === 'todo');
+  const todo = present(run(context).steps.find(step => step.status === 'todo'));
 
   assert.equal(todo.path, 'src-tauri/capabilities/default.json');
   assert.match(todo.detail, /not valid JSON/);
@@ -485,8 +548,8 @@ test('notes a different minor version of the npm package and the crate', t => {
 
   const result = run(context);
 
-  const note = result.notes.find(item => item.kind === 'version');
-  const { version } = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'));
+  const note = present(result.notes.find(item => item.kind === 'version'));
+  const { version } = readManifest();
   assert.ok(note.text.includes(`npm package ${version} and the crate 9.9.0`), note.text);
   assert.match(formatReport(result), /use the same minor version/);
 });
@@ -512,14 +575,15 @@ test('fails with a clear message outside a Tauri app, without the crate or witho
 // manifest. Output in another form is not taken for it; the resolve graph only says which activitykit the plugin uses.
 test('cargo metadata in another form stops setup, and one without a resolve graph finds activitykit by name', t => {
   const context = makeApp(t);
-  const metadata = JSON.parse(readFileSync(context.env.FAKE_METADATA, 'utf8'));
-  const print = value => writeFileSync(context.env.FAKE_METADATA, JSON.stringify(value));
+  const metadata = record(JSON.parse(readFileSync(context.env.FAKE_METADATA, 'utf8')));
+  const listed = list(metadata.packages).map(item => record(item));
+  const print = (value: unknown): void => writeFileSync(context.env.FAKE_METADATA, JSON.stringify(value));
 
   for (const packages of [
     {},
-    [...metadata.packages, 'tauri-plugin-live-activity'],
-    metadata.packages.map(({ manifest_path: _, ...rest }) => rest),
-    metadata.packages.map(item => ({ ...item, version: 1 })),
+    [...listed, 'tauri-plugin-live-activity'],
+    listed.map(({ manifest_path: _, ...rest }) => rest),
+    listed.map(item => ({ ...item, version: 1 })),
   ]) {
     print({ ...metadata, packages });
     assert.throws(() => run(context, { dryRun: true }), { name: 'SetupError', message: /not its JSON/ }, JSON.stringify(packages));
@@ -527,14 +591,14 @@ test('cargo metadata in another form stops setup, and one without a resolve grap
 
   // Two packages of the name: the graph says which the plugin builds with, and without a graph it is the first.
   const other = { name: 'activitykit', version: '9.0.0', id: 'activitykit 9', manifest_path: join(context.base, 'registry', 'activitykit-9.0.0', 'Cargo.toml') };
-  const kit = () => findCrates({ srcTauri: context.srcTauri }, context.env).activitykit;
-  print({ packages: [...metadata.packages, other], resolve: { nodes: [{ id: 'plugin', deps: [{ name: 'activitykit', pkg: 'activitykit 9' }] }] } });
+  const kit = (): Crate => findCrates({ srcTauri: context.srcTauri }, context.env).activitykit;
+  print({ packages: [...listed, other], resolve: { nodes: [{ id: 'plugin', deps: [{ name: 'activitykit', pkg: 'activitykit 9' }] }] } });
   assert.deepEqual(kit(), { version: '9.0.0', dir: dirname(other.manifest_path) });
-  print({ packages: [...metadata.packages, other] });
+  print({ packages: [...listed, other] });
   assert.deepEqual(kit(), { version: '0.1.0', dir: context.activitykit });
   const graphs = [null, { nodes: {} }, { nodes: [{ id: 'plugin', deps: {} }] }, { nodes: [null, { id: 'plugin', deps: [null, { name: 'activitykit', pkg: 7 }] }] }];
   for (const resolve of graphs) {
-    print({ packages: [...metadata.packages, other], resolve });
+    print({ packages: [...listed, other], resolve });
     assert.deepEqual(kit(), { version: '0.1.0', dir: context.activitykit }, JSON.stringify(resolve));
   }
 });
@@ -546,7 +610,7 @@ test('a list where the app\'s JSON should hold an object is not taken for one', 
   const capability = join(context.srcTauri, 'capabilities', 'default.json');
   const before = readFileSync(capability, 'utf8');
   writeFileSync(capability, '[]\n');
-  const todo = run(context, { dryRun: true }).steps.find(step => step.path === 'src-tauri/capabilities/default.json');
+  const todo = present(run(context, { dryRun: true }).steps.find(step => step.path === 'src-tauri/capabilities/default.json'));
   assert.equal(todo.status, 'todo');
   assert.match(todo.detail, /not valid JSON with a permissions list/);
   writeFileSync(capability, before);
@@ -561,10 +625,10 @@ test('a list where the app\'s JSON should hold an object is not taken for one', 
 test('an app without a bundle identifier stops setup before anything is written', t => {
   const context = makeApp(t);
   const configPath = join(context.srcTauri, 'tauri.conf.json');
-  const { identifier: _, ...config } = JSON.parse(readFileSync(configPath, 'utf8'));
+  const { identifier: _, ...config } = record(JSON.parse(readFileSync(configPath, 'utf8')));
   writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
-  const spec = step => step.path === 'src-tauri/gen/apple/live-activity.yml';
-  assert.equal(run(context, { dryRun: true }).steps.find(spec).status, 'created');
+  const spec = (step: StepReport): boolean => step.path === 'src-tauri/gen/apple/live-activity.yml';
+  assert.equal(present(run(context, { dryRun: true }).steps.find(spec)).status, 'created');
 
   const projectPath = join(context.srcTauri, 'gen/apple/project.yml');
   writeFileSync(projectPath, read(context, 'gen/apple/project.yml').replace(/^\s*PRODUCT_BUNDLE_IDENTIFIER:.*\n/m, ''));
@@ -578,13 +642,14 @@ test('an app without a bundle identifier stops setup before anything is written'
 // says so when its template is not among them.
 test('the command runs from the files the package ships, and says when its template is missing', t => {
   const context = makeApp(t);
-  const manifest = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'));
+  const manifest = readManifest();
   const installed = join(context.base, 'node_modules', manifest.name);
   mkdirSync(join(installed, 'cli'), { recursive: true });
   cpSync(join(repo, 'package.json'), join(installed, 'package.json'));
   for (const name of readdirSync(join(repo, 'cli')).filter(name => name.endsWith('.mjs'))) cpSync(join(repo, 'cli', name), join(installed, 'cli', name));
   cpSync(join(repo, 'cli/templates'), join(installed, 'cli/templates'), { recursive: true });
-  const exec = (...args) => spawnSync(process.execPath, [join(installed, manifest.bin[manifest.name]), ...args], { cwd: context.app, env: context.env, encoding: 'utf8' });
+  const exec = (...args: readonly string[]): SpawnSyncReturns<string> => spawnSync(process.execPath,
+    [join(installed, text(manifest.bin[manifest.name], 'the command in bin')), ...args], { cwd: context.app, env: context.env, encoding: 'utf8' });
 
   const dry = exec('setup', '--dry-run');
   assert.equal(dry.status, 0, dry.stderr);
@@ -600,7 +665,7 @@ test('the command runs from the files the package ships, and says when its templ
 test('the CLI prints a summary, takes --dry-run and --ios-only, and rejects unknown arguments', t => {
   const context = makeApp(t);
   const cli = join(repo, 'cli', 'bin.mjs');
-  const exec = (...args) => spawnSync(process.execPath, [cli, ...args], { cwd: context.app, env: context.env, encoding: 'utf8' });
+  const exec = (...args: readonly string[]): SpawnSyncReturns<string> => spawnSync(process.execPath, [cli, ...args], { cwd: context.app, env: context.env, encoding: 'utf8' });
 
   const dry = exec('setup', '--dry-run');
   assert.equal(dry.status, 0, dry.stderr);
@@ -641,7 +706,7 @@ test('the permissions it adds are permissions of the plugin', () => {
 // The command is TypeScript. Node runs no .ts file of a package in node_modules, so `npm run build` compiles each
 // module beside its source, to the path the package always had; docs/usage.md names cli/templates.
 test('the npm package ships the command, compiled to the paths it always had', () => {
-  const manifest = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.bin, { 'tauri-plugin-live-activity': 'cli/bin.mjs' });
   assert.deepEqual(manifest.files.filter(entry => entry.startsWith('cli')), ['cli/*.mjs', 'cli/templates']);
   const modules = ['bin', 'ios', 'main', 'migration', 'plist', 'report', 'setup', 'steps', 'widget-files', 'xcodegen'];
@@ -699,9 +764,12 @@ test('XcodeGen spec: reads names and groups, and adds to an include list of eith
   assert.deepEqual(addInclude('name: a', 'live-activity.yml'), { status: 'added', text: 'name: a\n\ninclude:\n  - live-activity.yml\n' });
 });
 
+/** A record of a font's name table: the platform it is for, the ID of the name, and the name, as text or as its bytes. */
+type NameRecord<Name> = readonly [platform: number, nameId: number, name: Name];
+
 // A TrueType font with only a name table: `records` are [platform, nameId, text].
-function font(records) {
-  const encoded = records.map(([platform, id, text]) => [platform, id, platform === 3 ? Buffer.from(text, 'utf16le').swap16() : Buffer.from(text, 'latin1')]);
+function font(records: readonly NameRecord<string>[]): Buffer {
+  const encoded = records.map(([platform, id, text]): NameRecord<Buffer> => [platform, id, platform === 3 ? Buffer.from(text, 'utf16le').swap16() : Buffer.from(text, 'latin1')]);
   const strings = Buffer.concat(encoded.map(([, , bytes]) => bytes));
   const table = Buffer.alloc(6 + encoded.length * 12);
   table.writeUInt16BE(encoded.length, 2);
@@ -722,7 +790,7 @@ function font(records) {
 }
 
 /** Files outside the app, as an app keeps its fonts and pictures. */
-function artwork(context) {
+function artwork(context: AppContext): (name: string) => string {
   const folder = join(context.base, 'art');
   mkdirSync(folder);
   const files = {
@@ -734,7 +802,7 @@ function artwork(context) {
   return name => join(folder, name);
 }
 
-const widgetPath = (context, path) => join(context.srcTauri, 'gen/apple/LiveActivityWidget', path);
+const widgetPath = (context: AppContext, path: string): string => join(context.srcTauri, 'gen/apple/LiveActivityWidget', path);
 
 test('--font bundles fonts in the widget, lists them in UIAppFonts and names their fontFamily', t => {
   const context = makeApp(t);
@@ -743,7 +811,7 @@ test('--font bundles fonts in the widget, lists them in UIAppFonts and names the
   const first = run(context, { fonts: [art('Pacifico-Regular.ttf')] });
 
   assert.deepEqual(readFileSync(widgetPath(context, 'Fonts/Pacifico-Regular.ttf')), readFileSync(art('Pacifico-Regular.ttf')));
-  const copied = first.steps.find(step => step.path.endsWith('Fonts/Pacifico-Regular.ttf'));
+  const copied = present(first.steps.find(step => step.path.endsWith('Fonts/Pacifico-Regular.ttf')));
   assert.equal(copied.status, 'created');
   assert.equal(copied.detail, 'fontFamily: "Pacifico-Regular" or "Pacifico"');
   assert.match(read(context, 'gen/apple/live-activity.yml'), /\n {8}UIAppFonts:\n {10}- "Pacifico-Regular\.ttf"\n/);
@@ -752,7 +820,7 @@ test('--font bundles fonts in the widget, lists them in UIAppFonts and names the
   const runs = xcodegenRuns(context).length;
   // A later font joins the first; a font without a readable name table is copied all the same.
   const second = run(context, { fonts: [art('Mono.otf')] });
-  assert.equal(second.steps.find(step => step.path.endsWith('Fonts/Mono.otf')).detail, '');
+  assert.equal(present(second.steps.find(step => step.path.endsWith('Fonts/Mono.otf'))).detail, '');
   assert.match(read(context, 'gen/apple/live-activity.yml'), /UIAppFonts:\n {10}- "Mono\.otf"\n {10}- "Pacifico-Regular\.ttf"\n/);
   assert.equal(xcodegenRuns(context).length, runs + 1);
   writeFileSync(art('Mono.otf'), 'OTTO changed');
@@ -767,13 +835,13 @@ test('--asset puts images in the widget asset catalog, one image set per name an
 
   run(context, { assets: [art('mochi@2x.png'), art('mochi@3x.png'), art('badge.png'), art('paw.svg')] });
 
-  const catalog = path => JSON.parse(readFileSync(widgetPath(context, `Assets.xcassets/${path}`), 'utf8'));
+  const catalog = (path: string): unknown => JSON.parse(readFileSync(widgetPath(context, `Assets.xcassets/${path}`), 'utf8'));
   assert.deepEqual(catalog('Contents.json'), { info: { author: 'xcode', version: 1 } });
-  assert.deepEqual(catalog('mochi.imageset/Contents.json').images, [
+  assert.deepEqual(member(catalog('mochi.imageset/Contents.json'), 'images'), [
     { filename: 'mochi@2x.png', idiom: 'universal', scale: '2x' }, { filename: 'mochi@3x.png', idiom: 'universal', scale: '3x' },
   ]);
-  assert.deepEqual(catalog('badge.imageset/Contents.json').images, [{ filename: 'badge.png', idiom: 'universal' }]);
-  assert.deepEqual(catalog('paw.imageset/Contents.json').images, [
+  assert.deepEqual(member(catalog('badge.imageset/Contents.json'), 'images'), [{ filename: 'badge.png', idiom: 'universal' }]);
+  assert.deepEqual(member(catalog('paw.imageset/Contents.json'), 'images'), [
     { filename: 'paw.svg', idiom: 'universal', properties: { 'preserves-vector-representation': true } },
   ]);
   assert.match(readFileSync(widgetPath(context, 'Assets.xcassets/badge.imageset/Contents.json'), 'utf8'), /^ {6}"filename" : "badge\.png",$/m);
@@ -785,20 +853,20 @@ test('--asset puts images in the widget asset catalog, one image set per name an
   writeFileSync(art('badge@3x.png'), 'three');
   const again = run(context, { assets: [art('badge.png'), art('badge@3x.png')] });
   assert.equal(statuses(again)['src-tauri/gen/apple/LiveActivityWidget/Assets.xcassets/badge.imageset/Contents.json'], 'updated');
-  assert.deepEqual(JSON.parse(readFileSync(contents, 'utf8')).images, [
+  assert.deepEqual(member(JSON.parse(readFileSync(contents, 'utf8')), 'images'), [
     { filename: 'badge.png', idiom: 'universal', appearances: [] }, { filename: 'badge@3x.png', idiom: 'universal', scale: '3x' },
   ]);
   writeFileSync(contents, '{ "images": 1 }');
   const odd = run(context, { assets: [art('badge.png')] });
-  assert.match(odd.steps.find(step => step.status === 'todo').detail, /not an image set's Contents\.json/);
+  assert.match(present(odd.steps.find(step => step.status === 'todo')).detail, /not an image set's Contents\.json/);
   assert.equal(statuses(odd)['Xcode project'], 'unchanged');
 });
 
 // TP-SETUP-7
 test('--app-group gives the app and the widget an App Group in the spec, and later runs keep it', t => {
   const context = makeApp(t);
-  const spec = () => read(context, 'gen/apple/live-activity.yml');
-  const group = name => `      properties:\n        com.apple.security.application-groups: ["${name}"]\n`;
+  const spec = (): string => read(context, 'gen/apple/live-activity.yml');
+  const group = (name: string): string => `      properties:\n        com.apple.security.application-groups: ["${name}"]\n`;
 
   const first = run(context, { appGroup: true });
 
@@ -891,8 +959,8 @@ test('keeps old files that were changed by hand, as steps to do, and a dry run o
   const result = run(context);
 
   const todo = Object.fromEntries(result.steps.filter(step => step.status === 'todo').map(step => [step.path, step.detail]));
-  assert.match(todo['src-tauri/gen/apple/LiveActivityWidget/LiveActivityActionIntent.swift'], /changed by hand; activitykit's Swift package replaces it/);
-  assert.match(todo['src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift'], /imports the Swift modules of tauri-plugin-live-activity 0\.3/);
+  assert.match(present(todo['src-tauri/gen/apple/LiveActivityWidget/LiveActivityActionIntent.swift']), /changed by hand; activitykit's Swift package replaces it/);
+  assert.match(present(todo['src-tauri/gen/apple/LiveActivityWidget/LiveActivityWidget.swift']), /imports the Swift modules of tauri-plugin-live-activity 0\.3/);
   assert.match(readFileSync(intent, 'utf8'), /\/\/ mine\n$/);
   assert.match(readFileSync(widget, 'utf8'), /\/\/ mine\n$/);
   assert.equal(existsSync(widgetPath(context, 'LiveActivityCustomRegistry.swift')), false);
@@ -909,7 +977,7 @@ test('keeps the old copies that a spec changed by hand still names, as steps to 
   const todo = Object.fromEntries(result.steps.filter(step => step.status === 'todo').map(step => [step.path, step.detail]));
   for (const name of ['LiveActivityActionIntent.swift', 'LiveActivityCustomRegistry.swift']) {
     assert.equal(existsSync(widgetPath(context, name)), true, name);
-    assert.match(todo[`src-tauri/gen/apple/LiveActivityWidget/${name}`], /live-activity\.yml, which you changed, still names it/);
+    assert.match(present(todo[`src-tauri/gen/apple/LiveActivityWidget/${name}`]), /live-activity\.yml, which you changed, still names it/);
   }
 });
 
@@ -929,7 +997,7 @@ test('checks the fonts and images it is given before it writes anything', t => {
     [{ assets: [art('café.png')] }, /rename it to ASCII/],
     [{ assets: [art('.hidden@2x.png')] }, /rename it to ASCII/],
     [{ assets: [art('paw@2x.svg')] }, /has one scale; drop the @2x/],
-  ]) {
+  ] satisfies readonly (readonly [SetupOptions, RegExp])[]) {
     assert.throws(() => run(context, options), { name: 'SetupError', message }, message.source);
   }
   writeFileSync(art('a b.png'), 'x');
@@ -944,7 +1012,7 @@ test('checks the fonts and images it is given before it writes anything', t => {
 // TP-SETUP-8
 test('--small-family makes the widget draw the small region, and later runs keep it', t => {
   const context = makeApp(t);
-  const spec = () => read(context, 'gen/apple/live-activity.yml');
+  const spec = (): string => read(context, 'gen/apple/live-activity.yml');
   const path = 'src-tauri/gen/apple/live-activity.yml';
 
   // Without the option the key is absent: the system shows the compact parts on a watch and in a car.
@@ -984,7 +1052,7 @@ test('--small-family on a spec that was changed by hand is left to do, unless th
   // Without the option the spec is kept, and nothing is left to do.
   assert.equal(statuses(run(context))[path], 'kept');
   const asked = run(context, { smallFamily: true });
-  const left = asked.steps.find(step => step.path === path);
+  const left = present(asked.steps.find(step => step.path === path));
   assert.equal(left.status, 'todo');
   assert.match(left.detail, /changed by hand, so --small-family was not applied: add `ActivityKitSmallFamily: true`/);
   assert.equal(read(context, 'gen/apple/live-activity.yml'), byHand);
@@ -998,7 +1066,7 @@ test('the CLI takes --font, --asset and --app-group, with a value after the opti
   const context = makeApp(t);
   const art = artwork(context);
   const cli = join(repo, 'cli', 'bin.mjs');
-  const exec = (...args) => spawnSync(process.execPath, [cli, ...args], { cwd: context.app, env: context.env, encoding: 'utf8' });
+  const exec = (...args: readonly string[]): SpawnSyncReturns<string> => spawnSync(process.execPath, [cli, ...args], { cwd: context.app, env: context.env, encoding: 'utf8' });
 
   const done = exec('setup', '--font', art('Pacifico-Regular.ttf'), `--asset=${art('badge.png')}`, '--app-group=group.com.example.art');
   assert.equal(done.status, 0, done.stderr);

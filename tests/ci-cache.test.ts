@@ -7,17 +7,18 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { present } from './support.ts';
 
 const script = fileURLToPath(new URL('./ci/cache.sh', import.meta.url));
-const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8' });
+const git = (cwd: string, ...args: readonly string[]): string => execFileSync('git', args, { cwd, encoding: 'utf8' });
 
-function write(root, path, text) {
+function write(root: string, path: string, text: string): void {
   mkdirSync(dirname(join(root, path)), { recursive: true });
   writeFileSync(join(root, path), text);
 }
 
 /** A repository with cache.sh, a tracked input, a doc and a file of the demo. */
-function repository() {
+function repository(): string {
   const root = mkdtempSync(join(tmpdir(), 'live-activity-cache-'));
   mkdirSync(join(root, 'tests/ci'), { recursive: true });
   copyFileSync(script, join(root, 'tests/ci/cache.sh'));
@@ -35,8 +36,11 @@ const runner = {
   NODE: '24', RUNNER_OS: 'macOS', RUNNER_ARCH: 'X64', ImageOS: 'macos15', ImageVersion: '20261101.1',
 };
 
+/** What cache.sh wrote to GITHUB_OUTPUT: the value of each name. */
+type Outputs = Readonly<Record<string, string | undefined>>;
+
 /** Runs cache.sh with `args` and returns what it wrote to GITHUB_OUTPUT. A variable of `env` set to undefined is unset. */
-function run(root, temp, args, env = {}) {
+function run(root: string, temp: string, args: readonly string[], env: NodeJS.ProcessEnv = {}): Outputs {
   const output = join(temp, 'github-output');
   writeFileSync(output, '');
   const all = { PATH: process.env.PATH, HOME: process.env.HOME, CI: 'true', ...runner, ...env, RUNNER_TEMP: temp,
@@ -45,10 +49,13 @@ function run(root, temp, args, env = {}) {
     env: Object.fromEntries(Object.entries(all).filter(([, value]) => value !== undefined)),
     stdio: ['ignore', 'ignore', 'ignore'],
   });
-  return Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map(line => line.split('=')));
+  return Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map(line => {
+    const [name, value] = line.split('=');
+    return [present(name), value];
+  }));
 }
 
-function within(task) {
+function within(task: (root: string, temp: string) => void): void {
   const root = repository();
   const temp = mkdtempSync(join(tmpdir(), 'live-activity-cache-run-'));
   try {
@@ -63,13 +70,13 @@ function within(task) {
 test('a record is named after the tracked inputs, Xcode, the image, the tools and the runtime; the products after what builds them', () => {
   within((root, temp) => {
     // Each suite in its own mode, as each CI job runs it.
-    const keys = env => ({ ...run(root, temp, ['keys', 'simulator'], env), dev: run(root, temp, ['keys', 'dev'], { MODE: 'dev', ...env }).dev });
+    const keys = (env?: NodeJS.ProcessEnv): Outputs => ({ ...run(root, temp, ['keys', 'simulator'], env), dev: run(root, temp, ['keys', 'dev'], { MODE: 'dev', ...env }).dev });
     const first = keys();
     assert.deepEqual(keys(), first);
-    assert.match(first.simulator, /^passed-simulator-[0-9a-f]{40}$/);
-    assert.match(first.dev, /^passed-dev-[0-9a-f]{40}$/);
-    assert.notEqual(first.simulator.slice(-40), first.dev.slice(-40));
-    assert.match(first.products, /^ios-build-v1-macOS-X64-xcode26\.3-17C529-[0-9a-f]{40}$/);
+    assert.match(present(first.simulator), /^passed-simulator-[0-9a-f]{40}$/);
+    assert.match(present(first.dev), /^passed-dev-[0-9a-f]{40}$/);
+    assert.notEqual(present(first.simulator).slice(-40), present(first.dev).slice(-40));
+    assert.match(present(first.products), /^ios-build-v1-macOS-X64-xcode26\.3-17C529-[0-9a-f]{40}$/);
     assert.equal(first.runtime, runner.RUNTIME);
     // Nothing that the suites do not read: a doc, an untracked file.
     write(root, 'docs/usage.md', 'changed\n');
@@ -100,8 +107,8 @@ test('a record is named after the tracked inputs, Xcode, the image, the tools an
 // TP-CI-3
 test('a record names the workflow and what selects the suite, so a narrower run never stands for a full one', () => {
   within((root, temp) => {
-    const simulator = env => run(root, temp, ['keys', 'simulator'], env);
-    const dev = env => run(root, temp, ['keys', 'dev'], { MODE: 'dev', ...env });
+    const simulator = (env?: NodeJS.ProcessEnv): Outputs => run(root, temp, ['keys', 'simulator'], env);
+    const dev = (env?: NodeJS.ProcessEnv): Outputs => run(root, temp, ['keys', 'dev'], { MODE: 'dev', ...env });
     const full = simulator();
     const fullDev = dev();
     // The workflow file: new records, the same products.
@@ -160,8 +167,19 @@ else process.exit(1);
 process.stdout.write(filter ? execFileSync('jq', ['-r', filter], { input: body }) : body);
 `;
 
+/** An artifact as GitHub's API lists it, with what cache.sh reads of it. */
+interface Artifact {
+  readonly id: number;
+  readonly expired: boolean;
+  readonly created_at: string;
+  readonly workflow_run: { readonly id: number; readonly repository_id: number; readonly head_repository_id: number };
+}
+
+/** The workflow file of each run, by the run's number. */
+type Workflows = Readonly<Record<string, string>>;
+
 /** Canned replies: the artifacts, the workflow of each run, and a record in each artifact's zip. */
-function api(dir, artifacts, runs) {
+function api(dir: string, artifacts: readonly Artifact[], runs: Workflows): void {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'artifacts.json'), JSON.stringify({ artifacts }));
   writeFileSync(join(dir, 'runs.json'), JSON.stringify(Object.fromEntries(Object.entries(runs).map(([run, path]) => [run, { path }]))));
@@ -171,7 +189,14 @@ function api(dir, artifacts, runs) {
   }
 }
 
-const artifact = (id, run, { fork = false, expired = false, day = id } = {}) => ({
+/** What sets an artifact apart: the run of a fork, a record that expired, another day than that of its number. */
+interface ArtifactOptions {
+  readonly fork?: boolean;
+  readonly expired?: boolean;
+  readonly day?: number;
+}
+
+const artifact = (id: number, run: number, { fork = false, expired = false, day = id }: ArtifactOptions = {}): Artifact => ({
   id, expired, created_at: `2026-11-0${day}T00:00:00Z`,
   workflow_run: { id: run, repository_id: 7, head_repository_id: fork ? 9 : 7 },
 });
@@ -182,7 +207,7 @@ test("a pass counts only from this repository's ci.yml, never from a fork or ano
     const bin = join(temp, 'bin');
     mkdirSync(bin);
     writeFileSync(join(bin, 'gh'), FAKE_GH, { mode: 0o755 });
-    const passed = (artifacts, runs) => {
+    const passed = (artifacts: readonly Artifact[], runs: Workflows): Outputs => {
       const dir = mkdtempSync(join(temp, 'api-'));
       api(dir, artifacts, runs);
       return run(root, temp, ['passed', 'passed-simulator-x'], { PATH: `${bin}:${process.env.PATH}`, FAKE_GH: dir });

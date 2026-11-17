@@ -3,13 +3,16 @@
 // a cancelled job, when nobody reads what it says any more, and when it ends by itself.
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import type { ChildProcessByStdio } from 'node:child_process';
 import { once } from 'node:events';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import type { Readable } from 'node:stream';
 import { test } from 'node:test';
 import { setTimeout as pause } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { member, present } from './support.ts';
 
 const script = fileURLToPath(new URL('./ios/run.sh', import.meta.url));
 const DEVICE = '0A1B2C3D-0000-4000-8000-000000000001';
@@ -87,14 +90,14 @@ const tauri = gate + 'echo "$$" > "$TAURI_PID"\n'
   + '[ -z "$ends" ] || { gate tauri-ends; exit 3; }\n'
   + 'exec /bin/sleep 600\n';
 
-function executable(path, body) {
+function executable(path: string, body: string): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `#!/bin/sh\n${body}`);
   chmodSync(path, 0o755);
 }
 
 /** A folder with a checkout that has run.sh and one tracked file under gen/apple, and with the stand-ins. */
-function folder() {
+function folder(): string {
   const temp = mkdtempSync(join(tmpdir(), 'live-activity-ios-run-'));
   const root = join(temp, 'checkout');
   for (const path of ['tests/ios/DemoUITests', dirname(PROJECT)]) mkdirSync(join(root, path), { recursive: true });
@@ -110,7 +113,7 @@ function folder() {
 }
 
 /** Whether the process still runs. One that has ended and waits for its parent to take note of it does not. */
-const alive = pid => {
+const alive = (pid: number): boolean => {
   try {
     process.kill(pid, 0);
   } catch {
@@ -120,11 +123,11 @@ const alive = pid => {
 };
 
 /** Ends a process that the test did not start itself, or with a negative number a group, when it is still there. */
-const kill = target => {
+const kill = (target: number): void => {
   try {
     process.kill(target, 'SIGKILL');
   } catch (error) {
-    if (error.code !== 'ESRCH') throw error;
+    if (member(error, 'code') !== 'ESRCH') throw error;
   }
 };
 
@@ -132,27 +135,58 @@ const kill = target => {
  * Removes the folder of a run that the test has ended. A stand-in that was under way when the run was killed still
  * records its call, and one that does so while the folder goes leaves a file in it: then the folder goes once more.
  */
-function remove(temp) {
+function remove(temp: string): void {
   for (let attempt = 1; ; attempt += 1) {
     try {
       rmSync(temp, { recursive: true, force: true });
       return;
     } catch (error) {
-      if (error.code !== 'ENOTEMPTY' || attempt === 10) throw error;
+      if (member(error, 'code') !== 'ENOTEMPTY' || attempt === 10) throw error;
     }
   }
 }
 
 // How long a test waits for what the run does by itself: enough for a Mac that builds something else meanwhile.
 const LIMIT = 120_000;
-const limit = what => pause(LIMIT, null, { ref: false }).then(() => assert.fail(`${what}: not in two minutes`));
+const limit = (what: string): Promise<never> => pause(LIMIT, null, { ref: false }).then(() => assert.fail(`${what}: not in two minutes`));
 
-async function until(condition, what) {
+async function until(condition: () => boolean, what: string): Promise<void> {
   for (let waited = 0; waited < LIMIT; waited += 20) {
     if (condition()) return;
     await pause(20);
   }
   assert.fail(`${what}: not in two minutes`);
+}
+
+/** How a process ended: with an exit status, or by a signal. */
+interface Ended {
+  readonly code: number | null;
+  readonly signal: NodeJS.Signals | null;
+}
+
+/** What `withRun` takes: `env` holds variables for the run, over those that it sets; the rest is as it describes. */
+interface RunOptions {
+  readonly env?: NodeJS.ProcessEnv;
+  readonly building?: boolean;
+  readonly prepare?: (temp: string) => void;
+  readonly waits?: readonly string[];
+  readonly terminal?: boolean;
+}
+
+/** A run of run.sh that `withRun` started: its process, what it wrote, its folders, and what a test asks of it. */
+interface Run {
+  readonly child: ChildProcessByStdio<null, Readable, Readable>;
+  readonly written: { out: string; err: string };
+  readonly root: string;
+  readonly output: string;
+  readonly ended: () => Promise<Ended>;
+  /** What the `exit` event of the process carried: `once` of node:events gives it no types. */
+  readonly exited: () => Promise<{ readonly code: unknown; readonly signal: unknown }>;
+  readonly logged: () => string;
+  readonly calls: () => readonly string[];
+  readonly tree: () => readonly number[];
+  readonly work: () => readonly string[];
+  readonly release: (point: string) => void;
 }
 
 /**
@@ -163,7 +197,9 @@ async function until(condition, what) {
  * folder and the demo's DerivedData. The shell is the system's, which CI's step runs the script with: bash 3.2 on a
  * Mac, where a newer bash earlier on PATH would hide what that one does, and dash on Linux.
  */
-async function withRun({ env = {}, building = true, prepare = () => {}, waits = [], terminal = false }, task) {
+async function withRun(
+  { env = {}, building = true, prepare = () => {}, waits = [], terminal = false }: RunOptions, task: (run: Run) => Promise<void>,
+): Promise<void> {
   const temp = folder();
   const root = join(temp, 'checkout');
   prepare(temp);
@@ -175,12 +211,12 @@ async function withRun({ env = {}, building = true, prepare = () => {}, waits = 
     detached: terminal,
   });
   const written = { out: '', err: '' };
-  child.stdout.on('data', chunk => { written.out += chunk; });
-  child.stderr.on('data', chunk => { written.err += chunk; });
-  const exited = once(child, 'exit');
-  const closed = new Promise(resolve => { child.on('close', (code, signal) => resolve({ code, signal })); });
+  child.stdout.on('data', (chunk: Buffer | string) => { written.out += chunk; });
+  child.stderr.on('data', (chunk: Buffer | string) => { written.err += chunk; });
+  const exited: Promise<readonly unknown[]> = once(child, 'exit');
+  const closed = new Promise<Ended>(resolve => { child.on('close', (code, signal) => resolve({ code, signal })); });
   const log = join(temp, 'output/tauri-ios-dev.log');
-  const run = {
+  const run: Run = {
     child, written, root, output: join(temp, 'output'),
     // How the run ended, once all it wrote is read. One that does not end fails its test, which then ends it.
     ended: () => Promise.race([closed, limit('the end of the run')]),
@@ -197,7 +233,7 @@ async function withRun({ env = {}, building = true, prepare = () => {}, waits = 
     if (building) await until(() => run.logged().includes('Compiling live-activity-demo'), 'the log of tauri ios dev in OUTPUT');
     await task(run);
   } finally {
-    if (terminal) kill(-child.pid);
+    if (terminal) kill(-present(child.pid));
     child.kill('SIGKILL');
     await exited;
     for (const pid of run.tree()) kill(pid);
@@ -209,7 +245,7 @@ async function withRun({ env = {}, building = true, prepare = () => {}, waits = 
  * The run's cleanup, whole: the processes of Tauri that `tree` names stopped, the simulator deleted, the tracked file
  * as it was, the work folder gone.
  */
-async function cleanedUp(run, tree, what) {
+async function cleanedUp(run: Run, tree: readonly number[], what: string): Promise<void> {
   await until(() => !tree.some(alive), `${what}: the end of tauri ios dev and of what it started`);
   assert.ok(run.calls().includes(`simctl delete ${DEVICE}`), what);
   assert.equal(readFileSync(join(run.root, PROJECT), 'utf8'), 'tracked\n', what);
@@ -246,8 +282,8 @@ test('the log of tauri ios dev is in OUTPUT while it builds, with a line of prog
 
 // TP-CI-5
 test('the run says which part it begins before each part that takes minutes', async () => {
-  const simulator = mode => `simulator ${DEVICE} \\(stand-in\\.runtime\\), (arm64|x86_64), ${mode}\n`;
-  const says = (run, pattern, what) => until(() => pattern.test(run.written.out), what);
+  const simulator = (mode: string): string => `simulator ${DEVICE} \\(stand-in\\.runtime\\), (arm64|x86_64), ${mode}\n`;
+  const says = (run: Run, pattern: RegExp, what: string): Promise<void> => until(() => pattern.test(run.written.out), what);
   // The step's log has the time of each line: a run that is stopped shows where it was, and since when. Each part
   // waits here until the test has read the line that names it, which a line that came after its part would not let
   // it do.
@@ -288,7 +324,7 @@ test('a line of progress leaves the backslashes of the log as they are', async (
 
 // TP-CI-5
 test('a run that a signal stops names the signal, cleans up as a run that ends does, and leaves the log', async () => {
-  for (const [signal, status] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 143]]) {
+  for (const [signal, status] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 143]] as const) {
     await withRun({}, async run => {
       const tree = run.tree();
       assert.equal(tree.length, 2, signal);
@@ -344,9 +380,9 @@ test('a cleanup that waits for a command that hangs goes on when the terminal in
   // a simulator that does not shut down; the second ends that wait, and the cleanup goes on.
   await withRun({ waits: ['shutdown'], terminal: true }, async run => {
     const tree = run.tree();
-    process.kill(-run.child.pid, 'SIGINT');
+    process.kill(-present(run.child.pid), 'SIGINT');
     await until(() => run.calls().includes(`simctl shutdown ${DEVICE}`), 'the cleanup at the simulator');
-    process.kill(-run.child.pid, 'SIGINT');
+    process.kill(-present(run.child.pid), 'SIGINT');
     assert.deepEqual(await run.ended(), { code: 130, signal: null });
     await cleanedUp(run, tree, 'after the second Ctrl-C');
   });
@@ -354,14 +390,14 @@ test('a cleanup that waits for a command that hangs goes on when the terminal in
 
 // TP-CI-5
 test('a run that is stopped when nobody reads what it says still cleans up', async () => {
-  for (const stream of ['stderr', 'stdout']) {
+  for (const stream of ['stderr', 'stdout'] as const) {
     await withRun({}, async run => {
       const tree = run.tree();
       // The reader is gone, as behind a step that CI's runner has given up, and the run goes on: its lines of
       // progress have nowhere to go, and neither has the name of the signal.
       run.child[stream].destroy();
       await once(run.child[stream], 'close');
-      const lines = () => run.calls().filter(call => call === 'sysctl').length;
+      const lines = (): number => run.calls().filter(call => call === 'sysctl').length;
       const before = lines();
       await until(() => lines() >= before + 2, `${stream}: two more lines of progress`);
       run.child.kill('SIGTERM');
@@ -415,7 +451,7 @@ test('a run that stops by itself when nobody reads why still cleans up', async (
 
 // TP-CI-5
 test('the log in OUTPUT belongs to the run: one that ends before Tauri starts leaves none of an earlier run', async () => {
-  const earlier = temp => {
+  const earlier = (temp: string): void => {
     mkdirSync(join(temp, 'output'));
     writeFileSync(join(temp, 'output/tauri-ios-dev.log'), 'an earlier run\n');
     writeFileSync(join(temp, 'output/e2e-earlier.png'), 'a screenshot');
@@ -429,7 +465,7 @@ test('the log in OUTPUT belongs to the run: one that ends before Tauri starts le
 
 // TP-CI-5
 test('a run that ends by itself has the log of tauri ios dev among its own files in OUTPUT', async () => {
-  const earlier = temp => {
+  const earlier = (temp: string): void => {
     mkdirSync(join(temp, 'output'));
     for (const name of ['tauri-ios-dev.log', 'e2e-earlier.png', 'passed', 'notes.txt']) writeFileSync(join(temp, 'output', name), 'an earlier run\n');
   };
@@ -476,7 +512,7 @@ test('a demo that built, with its program in the app, is installed and its tests
 const DEMO_LINES = 'process == "live-activity-demo"';
 const ACTIVITY_LINES = 'process == "LiveActivityWidget" OR process == "chronod" OR process == "liveactivitiesd"'
   + ' OR subsystem BEGINSWITH "com.apple.activitykit"';
-const asked = run => run.calls().filter(call => call.includes(' log show '))
+const asked = (run: Run): readonly (readonly string[] | undefined)[] => run.calls().filter(call => call.includes(' log show '))
   .map(call => new RegExp(`^simctl spawn ${DEVICE} log show --start @(\\d+) --style compact --predicate (.+)$`).exec(call)?.slice(1));
 
 // TP-CI-6
@@ -488,7 +524,7 @@ test('a run with a failed test leaves what the demo and the system logged of its
     // from the moment the tests began: a suite takes longer than any fixed number of minutes would cover.
     const readings = asked(run);
     assert.deepEqual(readings.map(reading => reading?.[1]), [DEMO_LINES, ACTIVITY_LINES], run.calls().join('\n'));
-    const [[began], [again]] = readings;
+    const [[began], [again]] = [present(readings[0]), present(readings[1])] as const;
     assert.equal(again, began);
     const [, ended] = /^tests ended (\d+)$/m.exec(run.calls().join('\n')) ?? [];
     assert.ok(Number(began) < Number(ended), `the log is read from ${began}, and the tests ended at ${ended}`);
@@ -518,7 +554,7 @@ test("the logs of a failure are kept when the test passed on a retry, and are th
     assert.ok(run.written.out.includes(`::warning title=Retried UI test::DemoTests/${FAILED} failed once and passed on a retry\n`), run.written.out);
   });
   // A run in which no test failed reads no log, and takes away those that an earlier run left.
-  const earlier = temp => {
+  const earlier = (temp: string): void => {
     mkdirSync(join(temp, 'output'));
     for (const name of ['app.log', 'activities.log', 'notes.txt']) writeFileSync(join(temp, 'output', name), 'an earlier run\n');
   };
@@ -547,13 +583,13 @@ test('ending a process tree takes no word of a line that the shell could not wri
   // a shell that it starts, which writes it on its way out. kill_tree as run.sh has it, with such a line kept whose
   // first word is the shell itself: the tree it ends is the one it was given, and the script goes on. The line is
   // kept while the closed pipe is ignored. Then the pipe is as in run.sh again, where a write to it ends the writer.
-  const [killTree] = /^kill_tree\(\) \{\n[\s\S]*?\n\}$/m.exec(readFileSync(script, 'utf8'));
+  const killTree = present(/^kill_tree\(\) \{\n[\s\S]*?\n\}$/m.exec(readFileSync(script, 'utf8'))?.[0]);
   const temp = mkdtempSync(join(tmpdir(), 'live-activity-kill-tree-'));
   const lines = ['set -eu', killTree, "trap '' PIPE", '/bin/sleep 600 &', 'target=$!', 'echo "$target" > "$1/target"', 'read -r go',
     'echo "$$ is no child of $target" || true', 'trap - PIPE', 'kill_tree "$target"', 'echo ended > "$1/ended"'];
   const child = spawn('/bin/sh', ['-c', `${lines.join('\n')}\n`, 'sh', temp], { stdio: ['pipe', 'pipe', 'ignore'] });
-  const exited = once(child, 'exit');
-  const target = () => Number(readFileSync(join(temp, 'target'), 'utf8'));
+  const exited: Promise<readonly unknown[]> = once(child, 'exit');
+  const target = (): number => Number(readFileSync(join(temp, 'target'), 'utf8'));
   try {
     await until(() => existsSync(join(temp, 'target')) && target() > 0, 'the process to end');
     child.stdout.destroy();

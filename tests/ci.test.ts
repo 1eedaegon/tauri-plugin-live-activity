@@ -5,11 +5,12 @@ import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as pause } from 'node:timers/promises';
+import { list, member, present, record, text } from './support.ts';
 
-const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const read = (path: string): string => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 // TP-RUST-5
 test('liveactivity is one line of Cargo.toml, brings both engines, and the crate builds no Swift of its own', () => {
@@ -17,7 +18,7 @@ test('liveactivity is one line of Cargo.toml, brings both engines, and the crate
   // The engines come through liveactivity alone, so the plugin and the interface always build on the same versions.
   const lines = manifest.split('\n').filter(line => /^\s*(liveactivity|activitykit|liveupdate)\s*=/.test(line));
   assert.equal(lines.length, 1, lines.join('\n'));
-  assert.match(lines[0], /^liveactivity = /);
+  assert.match(present(lines[0]), /^liveactivity = /);
   assert.doesNotMatch(manifest, /\[dependencies\.(liveactivity|activitykit|liveupdate)\]/);
   assert.doesNotMatch(read('build.rs'), /ios_path/);
   assert.doesNotMatch(manifest, /"\/ios\/|"\/templates\//);
@@ -41,36 +42,42 @@ test('unwrap and expect are denied outside tests, in the crate and the demo, and
   ]) assert.ok(workflow.includes(run), run);
   // The Rust that a document tells an app to write.
   for (const file of ['README.md', 'README.ko.md', 'docs/usage.md', 'docs/android-integration.md', 'docs/ios-integration.md']) {
-    const blocks = Array.from(read(file).matchAll(/```rust\n([\s\S]*?)```/g), ([, code]) => code);
+    const blocks = Array.from(read(file).matchAll(/```rust\n([\s\S]*?)```/g), ([, code]) => present(code));
     for (const code of blocks) assert.doesNotMatch(code, /\.(unwrap|expect)\(/, file);
   }
 });
 
 const root = new URL('..', import.meta.url);
 
+/** What the changes job goes by: the pattern of each area by its name, and the pattern of what concerns every job. */
+interface Areas {
+  readonly found: Readonly<Record<string, RegExp>>;
+  readonly every: RegExp;
+}
+
 /** The `area` patterns of the changes job, by area, and the pattern of what concerns every job. */
-function areas() {
+function areas(): Areas {
   const workflow = read('.github/workflows/ci.yml');
-  const found = {};
-  for (const [, name, pattern] of workflow.matchAll(/^\s+area (\w+) '([^']+)'$/gm)) found[name] = new RegExp(pattern.replaceAll('\\\\', '\\'));
-  const every = /grep -qE '([^']+)' <<< "\$files"; then all/.exec(workflow)[1];
+  const found: Record<string, RegExp> = {};
+  for (const [, name, pattern] of workflow.matchAll(/^\s+area (\w+) '([^']+)'$/gm)) found[present(name)] = new RegExp(present(pattern).replaceAll('\\\\', '\\'));
+  const every = present(/grep -qE '([^']+)' <<< "\$files"; then all/.exec(workflow)?.[1]);
   return { found, every: new RegExp(every) };
 }
 
 /** The areas a change of `path` starts. */
-function started(path) {
+function started(path: string): readonly string[] {
   const { found, every } = areas();
   if (every.test(path)) return Object.keys(found);
   return Object.entries(found).filter(([, pattern]) => pattern.test(path)).map(([name]) => name);
 }
 
 /** The paths whose tracked files tests/ci/cache.sh hashes for the simulator suites. */
-function inputs() {
-  const list = /^inputs="([^"]+)"$/ms.exec(read('tests/ci/cache.sh'))[1];
+function inputs(): readonly string[] {
+  const list = present(/^inputs="([^"]+)"$/ms.exec(read('tests/ci/cache.sh'))?.[1]);
   return list.split(/\s+/).filter(Boolean);
 }
 
-const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
+const git = (...args: readonly string[]): readonly string[] => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
 
 // TP-CI-1, TP-CI-5
 test('the changes job starts each job for its paths, and the ios area is what the simulator suites read', () => {
@@ -80,7 +87,7 @@ test('the changes job starts each job for its paths, and the ios area is what th
     rust: ['src/lib.rs', 'src/service.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml',
       'tests/contract.rs', 'examples/demo/src-tauri/src/lib.rs', 'guest-js/types.ts',
       'android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt'],
-    js: ['guest-js/index.ts', 'cli/setup.mts', 'cli/tsconfig.json', 'tools/activitykit.ts', 'tests/api.test.ts',
+    js: ['guest-js/index.ts', 'cli/setup.mts', 'cli/tsconfig.json', 'tools/activitykit.ts', 'tests/api.test.ts', 'tests/tsconfig.json',
       'tests/release/release-guard.test.ts', 'tests/jsx/elements.tsx', 'tests/declarations/members.ts',
       'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/src/main.ts',
       'src/android.rs', 'src/files.rs', 'src/lib.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml',
@@ -113,20 +120,20 @@ test('the changes job starts each job for its paths, and the ios area is what th
     'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo', 'tests/ios', 'tests/ci']);
   const read_by_the_suites = new Set(git('ls-files', '--', ...inputs()));
   const { found } = areas();
-  for (const path of git('ls-files')) assert.equal(found.ios.test(path), read_by_the_suites.has(path), path);
+  for (const path of git('ls-files')) assert.equal(present(found.ios).test(path), read_by_the_suites.has(path), path);
   // The node tests read the Rust and the Kotlin as text: the commands of both sides, the names of the plugin's
   // files, the copy of liveupdate's adapter against the crate that Cargo.lock names, the permissions that setup
   // grants. So every file that starts the Rust or the Android job starts them too.
   for (const path of git('ls-files')) {
-    if (found.rust.test(path) || found.android.test(path)) assert.ok(found.js.test(path), `${path} → js`);
+    if (present(found.rust).test(path) || present(found.android).test(path)) assert.ok(present(found.js).test(path), `${path} → js`);
   }
   // And the Rust tests read the TypeScript types and the Kotlin, where the error codes of the three languages are
   // one list: what they read starts the Rust jobs.
-  const readByRust = [...read('src/types_tests.rs').matchAll(/\b(?:source|raised)\(\s*"([^"]+)"/g)].map(([, path]) => path);
+  const readByRust = [...read('src/types_tests.rs').matchAll(/\b(?:source|raised)\(\s*"([^"]+)"/g)].map(([, path]) => present(path));
   assert.deepEqual(readByRust, ['guest-js/types.ts', 'android/src/main']);
   const kotlin = git('ls-files', '--', ...readByRust);
   assert.ok(kotlin.length > 5, String(kotlin.length));
-  for (const path of kotlin) assert.ok(found.rust.test(path), `${path} → rust`);
+  for (const path of kotlin) assert.ok(present(found.rust).test(path), `${path} → rust`);
   assert.match(workflow, /if: needs\.changes\.outputs\.rust == 'true' \|\| needs\.changes\.outputs\.js == 'true' \|\| needs\.changes\.outputs\.ios == 'true'\n\s+runs-on: macos-/);
   // The simulator jobs run only in a run started by hand with `simulator` on: a push or a pull request never starts them.
   const byHand = "if: github.event_name == 'workflow_dispatch' && inputs.simulator && needs.changes.outputs.ios == 'true'";
@@ -162,7 +169,7 @@ test('the step of a simulator suite is the script itself, which the signal of a 
   // CI's runner signals the process of the step and no other, and a step is a file that bash runs (`bash -e {0}`).
   // With `sh tests/ios/run.sh` in that file bash stands between and hands no signal on: after each of two cancelled
   // jobs, processes of the step still ran a minute and more later. `exec` makes the script the step's process.
-  const steps = ['e2e', 'e2e-dev'].map(name => /\n {8}run: (.*tests\/ios\/run\.sh)\n/.exec(job(name))[1]);
+  const steps = ['e2e', 'e2e-dev'].map(name => present(/\n {8}run: (.*tests\/ios\/run\.sh)\n/.exec(job(name))?.[1]));
   assert.deepEqual(steps, ['exec sh tests/ios/run.sh', 'exec sh tests/ios/run.sh']);
   // The step as the runner runs it, in a folder where a script in the place of run.sh says which signal it got.
   const temp = mkdtempSync(join(tmpdir(), 'live-activity-step-'));
@@ -170,9 +177,9 @@ test('the step of a simulator suite is the script itself, which the signal of a 
   writeFileSync(join(temp, 'tests/ios/run.sh'), "trap 'echo INT > got; exit 130' INT\necho \"$$\" > started\nwhile [ -e started ]; do /bin/sleep 0.05; done\n");
   writeFileSync(join(temp, 'step.sh'), `${steps[0]}\n`);
   const child = spawn('/bin/bash', ['-e', join(temp, 'step.sh')], { cwd: temp, stdio: 'ignore' });
-  const exited = once(child, 'exit');
+  const exited: Promise<readonly unknown[]> = once(child, 'exit');
   /** What the script wrote into the file of this name, once it has. */
-  const written = async name => {
+  const written = async (name: string): Promise<string> => {
     for (let waited = 0; !existsSync(join(temp, name)) || readFileSync(join(temp, name), 'utf8') === ''; waited += 20) {
       assert.ok(waited < 60_000, `${name}: not in a minute`);
       await pause(20);
@@ -201,7 +208,7 @@ test("the macOS job checks the iOS code for the device and builds it, with activ
 });
 
 /** The steps of one job, as text. */
-function job(name) {
+function job(name: string): string {
   const workflow = read('.github/workflows/ci.yml');
   const start = workflow.indexOf(`\n  ${name}:\n`);
   assert.notEqual(start, -1, name);
@@ -213,7 +220,7 @@ function job(name) {
 // TP-CI-3
 test('CI caches the Rust builds and the built demo, pins its tools, and skips a suite that passed for the same inputs', () => {
   const workflow = read('.github/workflows/ci.yml');
-  const env = /^env:\n((?:  .*\n)+)/m.exec(workflow)[1];
+  const env = present(/^env:\n((?:  .*\n)+)/m.exec(workflow)?.[1]);
   assert.match(env, /^  TOOLCHAIN: 1\.\d+\.\d+$/m);
   assert.match(env, /^  XCODEGEN: 2\.44\.1$/m);
   assert.match(env, /^  XCODEGEN_SHA256: a2e905fb68446e9bb4008cdfe2e13e3f176d0cbcca828b71770f8e53fca91b73$/m);
@@ -235,7 +242,7 @@ test('CI caches the Rust builds and the built demo, pins its tools, and skips a 
   assert.match(job('android'), /\|\| exit 1\n\s+echo "::warning title=Gradle download::/);
   assert.match(read('tests/android/gradle/wrapper/gradle-wrapper.properties'), /^networkTimeout=60000$/m);
   const upload = 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7';
-  for (const [name, suite, output] of [['e2e', 'simulator', 'ios-simulator'], ['e2e-dev', 'dev', 'ios-dev']]) {
+  for (const [name, suite, output] of [['e2e', 'simulator', 'ios-simulator'], ['e2e-dev', 'dev', 'ios-dev']] as const) {
     const steps = job(name);
     assert.ok(steps.includes(install), name);
     assert.ok(steps.includes('permissions:\n      contents: read\n      actions: read\n'), name);
@@ -248,7 +255,7 @@ test('CI caches the Rust builds and the built demo, pins its tools, and skips a 
     // A pass is recorded only on success, and only a full pass (OUTPUT/passed) leaves a record to upload.
     assert.ok(steps.includes(`id: record\n        if: steps.passed.outputs.found != 'true'\n        run: sh tests/ci/cache.sh record ${suite} "$RUNNER_TEMP/${output}/passed"\n`), name);
     assert.ok(steps.includes(`${upload}\n        if: steps.record.outputs.recorded == 'true'\n        with:\n          name: \${{ steps.keys.outputs.${suite} }}\n          path: \${{ runner.temp }}/passed-${suite}/\n          retention-days: 90\n          if-no-files-found: error`), name);
-    for (const [, condition] of steps.matchAll(/\n        if: ([^\n]*)\n        run: sh tests\/ci\/cache\.sh record/g)) assert.doesNotMatch(condition, /always|failure|cancelled/, name);
+    for (const [, condition] of steps.matchAll(/\n        if: ([^\n]*)\n        run: sh tests\/ci\/cache\.sh record/g)) assert.doesNotMatch(present(condition), /always|failure|cancelled/, name);
   }
   // The built demo and UI tests, under their inputs, saved once a build is complete; run.sh tests them without
   // building when their key matches.
@@ -290,10 +297,10 @@ test('the simulator suites start from one Rust cache, which a workflow of its ow
   assert.doesNotMatch(workflow, /rust-cache\.yml|rust_cache/);
   // Its tools are CI's: the pinned versions come out of CI's env block by the command of the workflow itself, and
   // each action is one that CI uses, at the same commit.
-  const env = /^env:\n((?:  .*\n)+)/m.exec(workflow)[1];
-  const pinned = Object.fromEntries([...env.matchAll(/^  (\w+): '?([^'\n]+)'?$/gm)].map(([, name, value]) => [name, value]));
+  const env = present(/^env:\n((?:  .*\n)+)/m.exec(workflow)?.[1]);
+  const pinned = Object.fromEntries([...env.matchAll(/^  (\w+): '?([^'\n]+)'?$/gm)].map(([, name, value]) => [present(name), value]));
   assert.deepEqual(Object.keys(pinned), ['TOOLCHAIN', 'XCODEGEN', 'XCODEGEN_SHA256', 'NODE']);
-  const [, pins] = /name: The tools that CI pins\n        run: \|\n          ([^\n]+) >> "\$GITHUB_ENV"\n/.exec(fill);
+  const pins = present(/name: The tools that CI pins\n        run: \|\n          ([^\n]+) >> "\$GITHUB_ENV"\n/.exec(fill)?.[1]);
   const exported = execFileSync('sh', ['-c', pins], { cwd: root, encoding: 'utf8' }).trim().split('\n');
   assert.deepEqual(exported, Object.entries(pinned).map(([name, value]) => `${name}=${value}`));
   assert.ok(pins.endsWith(` | grep -E '^(${Object.keys(pinned).join('|')})='`), pins);
@@ -301,13 +308,13 @@ test('the simulator suites start from one Rust cache, which a workflow of its ow
   // suites and the workflow that fills their cache compute one key, and so do the runs of the macOS job, whatever
   // changed. And a variable that a step asks for is one that its job or the workflow defines.
   const keyed = /^(CARGO|CC|CFLAGS|CXX|CMAKE|RUST)/;
-  const defined = text => [...text.matchAll(/^ {4}env:\n((?: {6}\w+: .*\n)+)/gm)]
-    .flatMap(([, block]) => [...block.matchAll(/^ {6}(\w+): /gm)].map(([, name]) => name));
+  const defined = (text: string): readonly string[] => [...text.matchAll(/^ {4}env:\n((?: {6}\w+: .*\n)+)/gm)]
+    .flatMap(([, block]) => [...present(block).matchAll(/^ {6}(\w+): /gm)].map(([, name]) => present(name)));
   for (const name of [...defined(workflow), ...defined(fill)]) assert.doesNotMatch(name, keyed, name);
   assert.deepEqual(defined(job('contracts')), ['AREA_RUST', 'AREA_JS', 'AREA_IOS']);
   for (const name of ['contracts', 'e2e', 'e2e-dev', 'android', 'desktop']) {
     const known = new Set([...Object.keys(pinned), ...defined(job(name))]);
-    for (const [, asked] of job(name).matchAll(/\benv\.(\w+)/g)) assert.ok(known.has(asked), `${name}: env.${asked}`);
+    for (const [, asked] of job(name).matchAll(/\benv\.(\w+)/g)) assert.ok(known.has(present(asked)), `${name}: env.${asked}`);
   }
   const actions = [...fill.matchAll(/uses: (\S+@[0-9a-f]{40} # v[\d.]+)\n/g)].map(([, action]) => action);
   assert.equal(actions.length, 3);
@@ -386,7 +393,7 @@ test('run.sh starts the tests once more when they could not start, and only then
   assert.ok(found, 'run.sh has the loop that runs the tests');
   const [loop] = found;
   // The loop says that it starts the tests again as the script says every line of its own.
-  const [report] = /^report\(\) \{\n[\s\S]*?\n\}$/m.exec(script);
+  const report = present(/^report\(\) \{\n[\s\S]*?\n\}$/m.exec(script)?.[0]);
   const harness = `set -eu
 work=$1; tests=tests; destination=destination; build=build
 ${report}
@@ -401,8 +408,17 @@ xcodebuild() {
 set --
 ${loop}echo "status=$status attempt=$attempt calls=$(cat "$work/calls")"
 `;
+  /** What xcodebuild answers to one call: what it says, and its exit status. */
+  type Answer = readonly [text: string, status: number];
+  /** What the loop came to: its exit status, its last attempt, the calls of xcodebuild, and whether it warned. */
+  interface Outcome {
+    readonly status: number;
+    readonly attempt: number;
+    readonly calls: number;
+    readonly warned: boolean;
+  }
   /** What the loop does when xcodebuild gives these answers one after another, each a text and an exit status. */
-  const run = (...answers) => {
+  const run = (...answers: readonly Answer[]): Outcome => {
     const work = mkdtempSync(join(tmpdir(), 'live-activity-run-'));
     try {
       writeFileSync(join(work, 'calls'), '0\n');
@@ -412,17 +428,19 @@ ${loop}echo "status=$status attempt=$attempt calls=$(cat "$work/calls")"
       });
       // A loop that starts the tests again without end is stopped here, and fails.
       const output = execFileSync('sh', ['-c', harness, 'sh', work], { encoding: 'utf8', timeout: 10_000 });
-      const [, status, attempt, calls] = /status=(\d+) attempt=(\d+) calls=(\d+)\n$/.exec(output);
+      const match = /status=(\d+) attempt=(\d+) calls=(\d+)\n$/.exec(output);
+      assert.ok(match, output);
+      const [, status, attempt, calls] = match;
       const warned = output.includes('::warning title=UI test runner::the tests could not start; they run once more');
       return { status: Number(status), attempt: Number(attempt), calls: Number(calls), warned };
     } finally {
       rmSync(work, { recursive: true, force: true });
     }
   };
-  const passed = ['** TEST EXECUTE SUCCEEDED **', 0];
-  const failed = ["Test Case '-[DemoUITests.DemoTests test1BoundStyleShowsOnTheLockScreen]' failed (12.3 seconds).", 65];
-  const noDevice = ['xcodebuild: error: Unable to find a device matching the provided destination specifier:', 70];
-  const noRunner = ['DemoUITests-Runner (1) encountered an error (The test runner failed to initialize for UI testing. '
+  const passed: Answer = ['** TEST EXECUTE SUCCEEDED **', 0];
+  const failed: Answer = ["Test Case '-[DemoUITests.DemoTests test1BoundStyleShowsOnTheLockScreen]' failed (12.3 seconds).", 65];
+  const noDevice: Answer = ['xcodebuild: error: Unable to find a device matching the provided destination specifier:', 70];
+  const noRunner: Answer = ['DemoUITests-Runner (1) encountered an error (The test runner failed to initialize for UI testing. '
     + '(Underlying Error: Timed out waiting for AX loaded notification))', 65];
   for (const first of [noDevice, noRunner]) {
     // The tests could not start, so none ran: they start once more, and the second answer is the run's.
@@ -438,9 +456,9 @@ ${loop}echo "status=$status attempt=$attempt calls=$(cat "$work/calls")"
   assert.deepEqual(run(passed), { status: 0, attempt: 1, calls: 1, warned: false });
 });
 
-const uiTests = () => read('tests/ios/DemoUITests/UITests/DemoTests.swift');
+const uiTests = (): string => read('tests/ios/DemoUITests/UITests/DemoTests.swift');
 /** A method of DemoTests as it is written, from its declaration to its closing brace. */
-const method = (tests, declaration) => {
+const method = (tests: string, declaration: string): string => {
   const escaped = declaration.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const [found] = new RegExp(`^ {4}${escaped} \\{\\n[\\s\\S]*?\\n {4}\\}$`, 'm').exec(tests) ?? [];
   assert.ok(found, `DemoTests has ${declaration}`);
@@ -455,7 +473,7 @@ test("a UI test that failed leaves a screenshot of the screen, under a name that
   // so far. In tearDown the test's run has not ended, and `hasSucceeded` is false of every test.
   const [before, after] = tearDown.split('guard let run = testRun, run.totalFailureCount > 0 else { return }\n');
   assert.ok(after !== undefined, tearDown);
-  assert.doesNotMatch(before, /capture\(|screenshot/);
+  assert.doesNotMatch(present(before), /capture\(|screenshot/);
   assert.doesNotMatch(tearDown, /run\.hasSucceeded/);
   // With the test and the time in the name: a test that runs again can fail again.
   assert.match(after, /^\s+capture\("e2e-failed-\\\(test\)-\\\(Self\.clock\.string\(from: Date\(\)\)\)"\)$/m);
@@ -471,7 +489,7 @@ test('every start of an example in the UI tests opens it stopped first, and noth
   const tests = uiTests();
   // What stands before each tap that starts an example of the Layouts tab or a template: the helper that ends on the
   // page what an earlier attempt left. Between the two only the time that the scheduled start is measured from.
-  const before = label => [...tests.matchAll(new RegExp(`^ +(.+)\\n(?: +let asked = Date\\(\\)\\n)? +tap\\("${label}"\\)$`, 'gm'))].map(([, line]) => line);
+  const before = (label: string): readonly string[] => [...tests.matchAll(new RegExp(`^ +(.+)\\n(?: +let asked = Date\\(\\)\\n)? +tap\\("${label}"\\)$`, 'gm'))].map(([, line]) => present(line));
   const layouts = before('Start this example');
   assert.ok(layouts.length >= 9, layouts.join('\n'));
   for (const line of layouts) assert.match(line, /^openStopped\("[^"]+"\)$/);
@@ -517,24 +535,24 @@ test('the UI test of content with a stale time starts its example for the card a
   const tests = uiTests();
   const staleness = method(tests, 'func test10ContentPastItsStaleTimeTurnsTheLockScreen()');
   /** The statements of a part of the method, without its comments. */
-  const code = part => part.replace(/^\s*\/\/.*\n/gm, '');
+  const code = (part: string): string => part.replace(/^\s*\/\/.*\n/gm, '');
   // Two starts, each of an example opened stopped (TP-E2E-11), after one launch of the app.
   const parts = staleness.split('        tap("Start this example")\n');
   assert.equal(parts.length, 3, 'two starts');
   const [before, alone, judged] = parts.map(code);
-  assert.match(before, /\{\n\s+launch\(\)\n\s+openStopped\("Staleness"\)\n$/);
+  assert.match(present(before), /\{\n\s+launch\(\)\n\s+openStopped\("Staleness"\)\n$/);
   // The first start is for the card alone. The test waits for the card's title, which the layout draws fresh or
   // stale, answers the system's question, which comes under an app's first card, ends the example on the page and
   // opens it for the second start.
-  assert.match(alone, new RegExp('^\\s+XCTAssertTrue\\(webText\\("is on its way to your phone"\\)\\.waitForExistence\\(timeout: page\\)\\)\\n'
+  assert.match(present(alone), new RegExp('^\\s+XCTAssertTrue\\(webText\\("is on its way to your phone"\\)\\.waitForExistence\\(timeout: page\\)\\)\\n'
     + '\\s+let title = springboard\\.staticTexts\\.matching\\(NSPredicate\\(format: "label == %@", "Mochi’s snack tracker"\\)\\)\\n'
     + '\\s+XCTAssertTrue\\(pullLockScreen\\(until: title\\.firstMatch\\)\\)\\n'
     + '\\s+allow\\(\\)\\n\\s+leaveLockScreen\\(\\)\\n\\s+endExample\\(\\)\\n\\s+openStopped\\("Staleness"\\)\\n$'));
   // It keeps no time, so it waits for neither line; and the app is not launched or ended before the second start,
   // by the test or by a helper that it calls there: the system ends the widget extension's process with the app.
   const ends = /launch\(|terminate\(/;
-  assert.doesNotMatch(alone, /fresh|stale/);
-  assert.doesNotMatch(alone, ends);
+  assert.doesNotMatch(present(alone), /fresh|stale/);
+  assert.doesNotMatch(present(alone), ends);
   for (const helper of ['private func web(_ label: String) -> XCUIElement', 'private func webText(_ prefix: String) -> XCUIElement',
     'private func tap(_ label: String)', 'private func allow()', 'private func openLayouts(_ example: String)',
     'private func says(_ running: XCUIElement, or stopped: XCUIElement, within timeout: TimeInterval) -> Bool?',
@@ -545,8 +563,8 @@ test('the UI test of content with a stale time starts its example for the card a
   }
   // What the first start may wait: three pulls of the Lock Screen, each with 30 seconds for the title. The card
   // that came late on a hosted runner had its content 64 seconds after the start, within the second of them.
-  const [, pulls] = /for attempt in 0\.\.<(\d+) \{/.exec(method(tests, 'private func pullLockScreen(until element: XCUIElement) -> Bool'));
-  const [, each] = /^ {4}private let system: TimeInterval = (\d+)$/m.exec(tests);
+  const pulls = present(/for attempt in 0\.\.<(\d+) \{/.exec(method(tests, 'private func pullLockScreen(until element: XCUIElement) -> Bool'))?.[1]);
+  const each = present(/^ {4}private let system: TimeInterval = (\d+)$/m.exec(tests)?.[1]);
   assert.ok(Number(pulls) >= 3 && Number(each) >= 30, `${pulls} pulls of ${each} s`);
   assert.match(method(tests, 'private func pullLockScreen(until element: XCUIElement) -> Bool'),
     /pullLockScreen\(\)\n\s+if element\.waitForExistence\(timeout: system\) \{ return true \}/);
@@ -555,7 +573,7 @@ test('the UI test of content with a stale time starts its example for the card a
     /\{\n\s+tap\("End this example"\)\n\s+XCTAssertTrue\(webText\("has ended"\)\.waitForExistence\(timeout: page\)\)\n/);
   // The second start is the one the test is about: its fresh line at once, with the title once on the Lock Screen,
   // and no stale line. Nothing stands between the look that finds the line and the checks.
-  assert.match(judged, new RegExp('^\\s+XCTAssertTrue\\(webText\\("is on its way to your phone"\\)\\.waitForExistence\\(timeout: page\\)\\)\\n'
+  assert.match(present(judged), new RegExp('^\\s+XCTAssertTrue\\(webText\\("is on its way to your phone"\\)\\.waitForExistence\\(timeout: page\\)\\)\\n'
     + '\\s+let fresh = springboard\\.staticTexts\\["Left the kitchen"\\]\\n'
     + '\\s+let stale = springboard\\.staticTexts\\["Waiting for news of the snack"\\]\\n'
     + '\\s+XCTAssertTrue\\(pullLockScreen\\(until: fresh\\)\\)\\n'
@@ -569,7 +587,60 @@ test('the UI test of content with a stale time starts its example for the card a
   assert.ok(example.includes("bound('title', { style: 'title' })"), 'the title, fresh or stale');
   assert.ok(example.includes("bound('news', { style: 'status', ifStale: false })"), 'the news, while fresh');
   assert.ok(example.includes("text('Waiting for news of the snack', { style: 'status', ifStale: true })"), 'the stale line');
-  assert.equal(example.match(/ifStale:/g).length, 2, 'no other node of the layout goes with the stale time');
+  assert.equal(example.match(/ifStale:/g)?.length, 2, 'no other node of the layout goes with the stale time');
   assert.ok(example.includes("values: { title: 'Mochi’s snack tracker', news: news[0] }, staleAt: now + freshFor"), 'the values');
   assert.match(layouts, /^const news = \['Left the kitchen', /m);
+});
+
+/**
+ * True when `path` is one of the files that `pattern` names in the `include` list of a compiler's settings: a `*`
+ * stands for a part of one name, and a double star with its slash for any folders. The test below refuses a pattern
+ * of another form, and an `exclude` list, which this does not follow.
+ */
+function included(pattern: string, path: string): boolean {
+  const literal = (part: string): string => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+  const source = pattern.split('**/').map(folders => folders.split('*').map(literal).join('[^/]*')).join('(?:.*/)?');
+  return new RegExp(`^${source}$`).test(path);
+}
+
+// TP-CI-7
+test('no JavaScript is tracked, and the type check covers every TypeScript file but the fixtures that a test compiles', () => {
+  assert.deepEqual(git('ls-files', '*.js', '*.mjs', '*.cjs', '*.jsx'), []);
+
+  const scripts = record(member(JSON.parse(read('package.json')), 'scripts'), 'the scripts of package.json');
+  const typecheck = text(scripts.typecheck, 'the typecheck script');
+  // The package is built first: the tests take their types from what it ships.
+  assert.match(typecheck, /^npm run build && /);
+  const commands = `${text(scripts.build, 'the build script')} && ${typecheck}`.split(' && ');
+  // The settings under tests/jsx are fixtures: tests/jsx.test.ts compiles them, one of them to see it refused.
+  const projects = git('ls-files', '*tsconfig*.json').filter(path => !path.startsWith('tests/jsx/'));
+  assert.ok(projects.length >= 6, projects.join(' '));
+  const patterns = projects.flatMap(project => {
+    // A project is named by its settings file, or by the folder of a tsconfig.json.
+    const names = [project, ...(project.endsWith('/tsconfig.json') ? [dirname(project)] : [])];
+    assert.ok(names.some(name => commands.includes(`tsc -p ${name}`)), `${project} is in neither the build nor the type check`);
+    // A change of the settings alone is checked too: it starts the job that runs the type check.
+    assert.ok(started(project).includes('js'), `${project} → js`);
+    const settings = record(JSON.parse(read(project)), project);
+    assert.deepEqual([settings.exclude, settings.files], [undefined, undefined], `${project} lists its files with include alone`);
+    return list(settings.include, `the include list of ${project}`).map(pattern => {
+      assert.match(text(pattern, 'a pattern'), /^(?:[\w-]+\/)*(?:\*\*\/)?[\w.*-]+\.m?ts$/, `${project}: a pattern of a form that this test follows`);
+      return join(dirname(project), text(pattern, 'a pattern'));
+    });
+  });
+
+  // What a test compiles: the pages of tests/jsx, each named by one of the two settings there, and the declarations
+  // that compare a type with a fixture, one of which imports the other.
+  const jsx = ['tests/jsx/tsconfig.json', 'tests/jsx/refused.tsconfig.json'].flatMap(settings => {
+    assert.ok(read('tests/jsx.test.ts').includes(`['-p', join(fixtures, '${settings.replace('tests/jsx/', '')}')]`), `${settings} is compiled by tests/jsx.test.ts`);
+    return list(member(JSON.parse(read(settings)), 'files'), `the files of ${settings}`).map(file => `tests/jsx/${text(file, 'a file')}`);
+  });
+  assert.match(read('tests/android-contents.test.ts'), /compile\(join\(root, 'tests\/declarations\/members\.check\.ts'\)\)/);
+  assert.match(read('tests/declarations/members.check.ts'), /^import type \{[^}]+\} from '\.\/members\.js';$/m);
+  const compiled = new Set([...jsx, 'tests/declarations/members.check.ts', 'tests/declarations/members.ts']);
+
+  for (const path of git('ls-files', '*.ts', '*.mts', '*.tsx')) {
+    assert.ok(compiled.has(path) || patterns.some(pattern => included(pattern, path)), `${path} is in no project that npm run typecheck checks`);
+    assert.ok(started(path).includes('js'), `${path} → js`);
+  }
 });

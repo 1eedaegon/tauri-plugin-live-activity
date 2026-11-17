@@ -1,5 +1,6 @@
 // What the tests share for values whose type the compiler cannot know: JSON that a test reads, which is `unknown`
-// until the test checks it, and the one way to hand a function a value that the compiler would refuse.
+// until the test checks it, and the one way to hand a function a value that the compiler would refuse. It imports
+// Node's own modules only: CI and the release workflow run tests in a checkout with no packages installed.
 import assert from 'node:assert/strict';
 
 /** A JSON object whose members are not checked yet. */
@@ -33,6 +34,12 @@ export function text(value: unknown, what = 'the value'): string {
   return value;
 }
 
+/** `value` as a number. The test fails when it is none. */
+export function number(value: unknown, what = 'the value'): number {
+  assert.ok(typeof value === 'number', `${what} is not a number`);
+  return value;
+}
+
 /** `value` when there is one. The test fails when it is undefined: an index or a match that the test counts on. */
 export function present<T>(value: T | undefined, what = 'the value'): T {
   assert.ok(value !== undefined, `${what} is missing`);
@@ -40,8 +47,10 @@ export function present<T>(value: T | undefined, what = 'the value'): T {
 }
 
 /**
- * A value as the type that a function takes, unchecked: for a test of what happens at run time when a caller passes
- * something that the compiler would refuse, as a caller in JavaScript can. It is the only cast in the tests.
+ * A value as the type that is asked for, unchecked. It is the only cast in the tests, for what the compiler cannot be
+ * asked: the JSON of a fixture or a value that is wrong on purpose, which a typed function is given as a caller in
+ * JavaScript can give it; a fake that answers every call of an interface; and a module without types that is loaded
+ * at run time.
  */
 export function unchecked<T>(value: unknown): T {
   return value as T;

@@ -14,8 +14,17 @@ const A1 = ['TP', 'A', '1'].join('-');
 const A2 = ['TP', 'A', '2'].join('-');
 const B9 = ['TP', 'B', '9'].join('-');
 
+/** Texts by name: the cells of the test table by requirement, or the files of a tree by path. */
+type Texts = Readonly<Record<string, string>>;
+
+/** How a run of the tool ended, and all that it said. */
+interface Checked {
+  readonly status: number | null;
+  readonly output: string;
+}
+
 /** Runs the tool on a tree of `files` with a spec that defines A1 and A2 and lists `rows` as its tests. */
-function check(rows, files) {
+function check(rows: Texts, files: Texts): Checked {
   const root = mkdtempSync(join(tmpdir(), 'live-activity-spec-'));
   try {
     const spec = ['# Spec', '', '| ID | Behavior | Input | Errors | Platform |', '| --- | --- | --- | --- | --- |',
@@ -45,7 +54,7 @@ const node = [
   '',
 ].join('\n');
 const two = `\`tests/a.test.ts::${A2}: two works\` (node)`;
-const fails = (output, text) => assert.ok(output.includes(`FAIL ${text}`), output);
+const fails = (output: string, text: string): void => assert.ok(output.includes(`FAIL ${text}`), output);
 
 // TP-CI-2
 test('a test counts when it names the requirement right above it or in its title', () => {

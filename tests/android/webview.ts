@@ -1,6 +1,8 @@
 // Drives only the local, debug-enabled Tauri demo through its UI action handlers.
 // First forward the demo's webview_devtools_remote_<pid> socket to localhost:9222.
-const actions = {
+import { list, member, record, text } from '../support.ts';
+
+const actions: Readonly<Record<string, string>> = {
   inspect: `JSON.stringify({message: document.querySelector('#message').textContent, permissions: document.querySelector('#permissions').textContent, records: document.querySelector('#records').textContent, report: document.querySelector('#self-test-report').textContent, reportPath: document.querySelector('#report-path').textContent})`,
   start: `document.querySelector('#start').click(); 'start clicked'`,
   permission: `document.querySelector('#permission').click(); 'permission clicked'`,
@@ -14,22 +16,23 @@ const actions = {
 };
 const expression = actions[process.argv[2] ?? 'inspect'];
 if (expression === undefined) throw new Error('Unknown demo UI action');
-const targets = await (await fetch('http://127.0.0.1:9222/json')).json();
-const target = targets.find(item => item.type === 'page' && URL.canParse(item.url) && new URL(item.url).origin === 'http://tauri.localhost');
+const targets = list(await (await fetch('http://127.0.0.1:9222/json')).json(), "the WebView's targets").map(item => record(item, 'a target of the WebView'));
+const target = targets.find(item => item.type === 'page' && URL.canParse(text(item.url)) && new URL(text(item.url)).origin === 'http://tauri.localhost');
 if (!target) throw new Error('The local Tauri demo WebView was not found');
-const socket = new WebSocket(target.webSocketDebuggerUrl);
+const socket = new WebSocket(text(target.webSocketDebuggerUrl, "the address of the WebView's socket"));
 await new Promise((resolve, reject) => {
   socket.addEventListener('open', resolve, { once: true });
   socket.addEventListener('error', reject, { once: true });
 });
 const response = await new Promise((resolve, reject) => {
   const timeout = setTimeout(() => reject(new Error('Demo UI evaluation timed out')), 10000);
-  socket.addEventListener('message', event => {
-    const data = JSON.parse(event.data);
-    if (data.id === 1) { clearTimeout(timeout); resolve(data); }
+  socket.addEventListener('message', (event: MessageEvent<string>) => {
+    const data: unknown = JSON.parse(event.data);
+    if (member(data, 'id') === 1) { clearTimeout(timeout); resolve(data); }
   });
   socket.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } }));
 });
 socket.close();
-if (response.error || response.result.exceptionDetails) throw new Error('Demo UI evaluation failed');
-console.log(response.result.result.value);
+// A reply has an error or a result: one with neither is no reply of the debugger, and reading it fails.
+if (member(response, 'error') || record(member(response, 'result'), "the debugger's result").exceptionDetails) throw new Error('Demo UI evaluation failed');
+console.log(record(member(response, 'result', 'result'), 'what the evaluation gave').value);

@@ -4,8 +4,137 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright');
-const { default: AxeBuilder } = await import(process.env.AXE_MODULE ?? '@axe-core/playwright');
+import type {
+  ActivityRecord, Capabilities, ErrorCode, LayoutActivityRecord, LayoutStartInput, LiveActivityError, PermissionKind,
+  PermissionState, Permissions, StartInput, UpdateInput,
+} from '../../../guest-js/index.js';
+import { list, member, record as jsonObject, unchecked } from '../../../tests/support.ts';
+
+/** The size of a page, in CSS pixels. */
+interface Viewport {
+  readonly width: number;
+  readonly height: number;
+}
+
+/** What the script uses of Playwright's module: a Chromium to launch. */
+interface PlaywrightModule {
+  readonly chromium: { launch(): Promise<Browser> };
+}
+
+/** What the script uses of Playwright's browser: a page of a size, in a context of its own. */
+interface Browser {
+  newContext(options: { viewport: Viewport; reducedMotion: 'reduce' }): Promise<{ newPage(): Promise<Page> }>;
+  close(): Promise<void>;
+}
+
+/**
+ * What the script uses of Playwright's page. A function that the page is given runs in the page, where nothing of
+ * this module is: none of its helpers, and nothing that it imports.
+ */
+interface Page {
+  on(event: 'pageerror', listener: (error: Error) => void): unknown;
+  addInitScript<Argument>(script: (argument: Argument) => void, argument: Argument): Promise<void>;
+  goto(url: string): Promise<unknown>;
+  waitForFunction(pageFunction: () => boolean): Promise<unknown>;
+  evaluate<Result>(pageFunction: () => Result): Promise<Result>;
+  screenshot(options: { path: string; fullPage: boolean }): Promise<unknown>;
+  viewportSize(): Viewport | null;
+  setViewportSize(viewportSize: Viewport): Promise<void>;
+  locator(selector: string): Locator;
+  readonly keyboard: { press(key: string): Promise<void> };
+  close(): Promise<void>;
+}
+
+/** What the script uses of Playwright's locator: the element that a selector finds, asked or acted on in the page. */
+interface Locator {
+  isVisible(): Promise<boolean>;
+  isEnabled(): Promise<boolean>;
+  isDisabled(): Promise<boolean>;
+  getAttribute(name: string): Promise<string | null>;
+  innerText(): Promise<string>;
+  count(): Promise<number>;
+  boundingBox(): Promise<{ x: number; y: number; width: number; height: number } | null>;
+  evaluate<Result>(pageFunction: (element: HTMLElement | SVGElement) => Result): Promise<Result>;
+  focus(): Promise<void>;
+  click(): Promise<void>;
+  selectOption(value: string): Promise<unknown>;
+}
+
+/** What the script uses of @axe-core/playwright's module: the rules of some tags, run on a page. */
+interface AxeModule {
+  readonly default: new (options: { page: Page }) => AxeBuilder;
+}
+
+/** What the script uses of axe's builder, and of what its run finds: each rule that the page breaks, and where. */
+interface AxeBuilder {
+  withTags(tags: string[]): AxeBuilder;
+  analyze(): Promise<{ violations: { id: string; impact?: unknown; nodes: { target: unknown }[] }[] }>;
+}
+
+/** How the backend of a preview answers: what the adapter is given when a page opens. */
+interface QaConfig {
+  readonly platform?: string;
+  readonly permission?: PermissionState;
+  /** How long every IPC call takes, in milliseconds. */
+  readonly delay?: number;
+  readonly unsupported?: boolean;
+  /** Whether the first list after a start fails. The adapter turns it off then. */
+  failListAfterStart?: boolean;
+  /** Whether a start answers a record whose state is unknown. */
+  readonly pending?: boolean;
+  /** The message that a start is refused with. */
+  readonly error?: string;
+}
+
+/** A record of the adapter's backend, of a template or of a layout: the members that both kinds of record have. */
+type QaRecord = Pick<ActivityRecord | LayoutActivityRecord, keyof (ActivityRecord | LayoutActivityRecord)>;
+
+/**
+ * A request as the adapter reads it. It tells a start from an update and an end by the name of the command, which the
+ * compiler cannot follow: so a request is here a start that also has the handle that an update and an end have.
+ */
+type QaRequest = (StartInput | LayoutStartInput) & Pick<UpdateInput, 'id'>;
+
+/**
+ * The arguments of an IPC call as the adapter and the script read them, each where its command has it: the request of
+ * a start, an update or an end, and the kind of the permission that is asked for.
+ */
+interface QaArguments {
+  readonly input: QaRequest;
+  readonly kind: PermissionKind;
+}
+
+/** An IPC call that the page made. */
+interface QaCall {
+  readonly command: string;
+  readonly args: QaArguments;
+}
+
+/** What the adapter keeps in the page for the script: how it was opened, the records of its backend, its calls. */
+interface QaState {
+  readonly config: QaConfig;
+  readonly records: readonly QaRecord[];
+  readonly calls: QaCall[];
+}
+
+/**
+ * The window of the page, as the functions that run in the page see it: with Tauri's IPC, which the adapter stands in
+ * for, and with what the adapter keeps.
+ */
+declare const window: Window & {
+  __MOCHI_QA__: QaState;
+  __TAURI_INTERNALS__: { invoke: (command: string, args: QaArguments) => Promise<unknown> };
+};
+
+/** A picture that the script took of a page, for its report. */
+interface Render {
+  readonly viewport: string;
+  readonly artifact: string;
+  readonly observation: string;
+}
+
+const { chromium } = unchecked<PlaywrightModule>(await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright'));
+const { default: AxeBuilder } = unchecked<AxeModule>(await import(process.env.AXE_MODULE ?? '@axe-core/playwright'));
 const demo = fileURLToPath(new URL('../', import.meta.url));
 const evidence = `${demo}design`;
 const server = createServer(async (request, response) => {
@@ -16,20 +145,20 @@ const server = createServer(async (request, response) => {
     response.end(await readFile(`${demo}dist/${name}`));
   } catch { response.writeHead(404).end(); }
 });
-await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const url = `http://127.0.0.1:${server.address().port}`;
+await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+const url = `http://127.0.0.1:${jsonObject(server.address(), 'the address of the server').port}`;
 const browser = await chromium.launch();
-const failures = [];
-const checks = [];
-const renders = [];
-const check = async (name, operation) => { await operation(); checks.push(name); };
+const failures: string[] = [];
+const checks: string[] = [];
+const renders: Render[] = [];
+const check = async (name: string, operation: () => Promise<void>): Promise<void> => { await operation(); checks.push(name); };
 
-function adapter(config) {
-  let records = [];
+function adapter(config: QaConfig): void {
+  let records: QaRecord[] = [];
   let serial = 0;
   let permission = config.permission ?? 'granted';
   const platform = config.platform ?? 'ios';
-  const fail = (code, message) => { throw { code, message }; };
+  const fail = (code: ErrorCode, message: string): never => { throw { code, message } satisfies LiveActivityError; };
   window.__MOCHI_QA__ = { config, get records() { return records; }, calls: [] };
   window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
     window.__MOCHI_QA__.calls.push({ command, args });
@@ -38,8 +167,8 @@ function adapter(config) {
     const layout = name.endsWith('_layout');
     const operation = name.replace(/_layout$/, '');
     if (config.delay) await new Promise(resolve => setTimeout(resolve, config.delay));
-    const permissions = () => ({ notifications: platform === 'android' ? permission : 'notApplicable', liveActivities: platform === 'ios' ? permission : 'notApplicable', promotion: 'notApplicable' });
-    if (operation === 'get_capabilities') return { platform, backend: platform === 'ios' ? 'activityKit' : 'androidNotification', start: config.unsupported ? 'unsupported' : 'supported', progress: 'supported', timer: 'supported' };
+    const permissions = (): Partial<Permissions> => ({ notifications: platform === 'android' ? permission : 'notApplicable', liveActivities: platform === 'ios' ? permission : 'notApplicable', promotion: 'notApplicable' });
+    if (operation === 'get_capabilities') return { platform, backend: platform === 'ios' ? 'activityKit' : 'androidNotification', start: config.unsupported ? 'unsupported' : 'supported', progress: 'supported', timer: 'supported' } satisfies Partial<Capabilities>;
     if (operation === 'check_permissions') return permissions();
     if (operation === 'request_permissions') { permission = 'granted'; return permissions(); }
     if (operation === 'list') {
@@ -52,7 +181,7 @@ function adapter(config) {
       const input = args.input;
       const previous = records.find(record => record.activityKey === input.activityKey && record.state !== 'ended');
       if (previous) return structuredClone(previous);
-      const record = { ...input, id: `qa-${++serial}`, backend: platform === 'ios' ? 'activityKit' : 'androidNotification', state: config.pending ? 'unknown' : 'active', visibility: 'unknown', promotionRequested: false, promotionState: 'notApplicable', degradedFeatures: [] };
+      const record: QaRecord = { ...input, id: `qa-${++serial}`, backend: platform === 'ios' ? 'activityKit' : 'androidNotification', state: config.pending ? 'unknown' : 'active', visibility: 'unknown', promotionRequested: false, promotionState: 'notApplicable', degradedFeatures: [] };
       records = [...records, record];
       return structuredClone(record);
     }
@@ -65,7 +194,7 @@ function adapter(config) {
         if (snapshot.revision === previous.snapshot.revision && JSON.stringify(snapshot) !== JSON.stringify(previous.snapshot)) return fail('CONFLICT', 'Conflicting revision.');
       }
       const final = operation === 'end' && args.input.snapshot ? { snapshot: args.input.snapshot } : {};
-      const record = operation === 'end' ? { ...previous, ...final, state: 'ended' } : { ...previous, snapshot: args.input.snapshot };
+      const record: QaRecord = operation === 'end' ? { ...previous, ...final, state: 'ended' } : { ...previous, snapshot: args.input.snapshot };
       records = records.map(item => item.id === record.id ? record : item);
       return structuredClone(record);
     }
@@ -74,7 +203,7 @@ function adapter(config) {
   } };
 }
 
-async function open(config = {}, viewport = { width: 390, height: 844 }, query = '') {
+async function open(config: QaConfig = {}, viewport: Viewport = { width: 390, height: 844 }, query = ''): Promise<Page> {
   const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
   const page = await context.newPage();
   page.on('pageerror', error => failures.push(error.message));
@@ -82,14 +211,15 @@ async function open(config = {}, viewport = { width: 390, height: 844 }, query =
   await page.goto(url + query);
   return page;
 }
-async function ready(page) { await page.waitForFunction(() => document.querySelector('#activity').getAttribute('aria-busy') === 'false'); }
-async function capture(page, name, observation) {
+async function ready(page: Page): Promise<void> { await page.waitForFunction(() => document.querySelector('#activity')?.getAttribute('aria-busy') === 'false'); }
+async function capture(page: Page, name: string, observation: string): Promise<void> {
   await page.screenshot({ path: `${evidence}/${name}.png`, fullPage: true });
   const viewport = page.viewportSize();
+  assert.ok(viewport, 'the page has no viewport');
   renders.push({ viewport: `${viewport.width}x${viewport.height}`, artifact: `${name}.png`, observation });
 }
-async function noOverflow(page) { assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true); }
-async function accessible(page) {
+async function noOverflow(page: Page): Promise<void> { assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true); }
+async function accessible(page: Page): Promise<void> {
   const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   assert.deepEqual(result.violations.map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.map(node => node.target) })), []);
 }
@@ -111,7 +241,7 @@ try {
     assert.equal(await page.locator('#mode-nap').getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('#nap-clock').innerText(), '05:00');
     const action = await page.locator('#start').boundingBox();
-    assert.ok(action.y + action.height <= 844, 'Nap start action must fit the first mobile viewport');
+    assert.ok(action !== null && action.y + action.height <= 844, 'Nap start action must fit the first mobile viewport');
   });
   await check('Nap start, snooze, scenario switching and finish preserve correct handles', async () => {
     await page.locator('#nap-duration').selectOption('1');
@@ -120,7 +250,7 @@ try {
     const before = await page.evaluate(() => window.__MOCHI_QA__.records[0]);
     await page.locator('#update').click(); await ready(page);
     const after = await page.evaluate(() => window.__MOCHI_QA__.records[0]);
-    assert.equal(after.snapshot.timer.endsAt - before.snapshot.timer.endsAt, 60_000);
+    assert.equal(Number(member(after, 'snapshot', 'timer', 'endsAt')) - Number(member(before, 'snapshot', 'timer', 'endsAt')), 60_000);
     await capture(page, 'mobile-nap', 'Nap state changes the cat eyes and timer; a foreground countdown does not send periodic native updates. Browser adapter only.');
     await page.locator('#mode-snack').click();
     assert.equal(await page.locator('#start').isVisible(), true);
@@ -148,8 +278,8 @@ try {
     assert.equal(await page.locator('#self-test-report').getAttribute('data-status'), 'idle');
     await page.locator('summary').click();
     await page.locator('#run-self-test').click(); await ready(page);
-    const report = JSON.parse(await page.locator('#self-test-report').innerText());
-    assert.equal(report.status, 'passed'); assert.equal(report.checks.length, 19);
+    const report: unknown = JSON.parse(await page.locator('#self-test-report').innerText());
+    assert.equal(member(report, 'status'), 'passed'); assert.equal(list(member(report, 'checks'), 'the checks').length, 19);
     assert.match(await page.locator('#report-path').innerText(), /Saved report/);
   });
   await check('Narrow 320px layout has no horizontal overflow', async () => {
@@ -183,7 +313,7 @@ try {
     await capture(permission, 'mobile-permission', 'Denied Android permission explains the Settings action and requires an explicit user gesture.');
     await permission.locator('#permission').click(); await ready(permission);
     assert.equal(await permission.locator('#permission-panel').isVisible(), false);
-    assert.equal(await permission.evaluate(() => window.__MOCHI_QA__.calls.find(call => call.command.endsWith('request_permissions')).args.kind), 'notifications');
+    assert.equal(await permission.evaluate(() => window.__MOCHI_QA__.calls.find(call => call.command.endsWith('request_permissions'))?.args.kind), 'notifications');
   }); await permission.close();
   const uncertain = await open({ platform: 'android', permission: 'unknown' }); await ready(uncertain);
   await check('Unknown permission after cancellation stays explicitly retryable', async () => {
@@ -196,7 +326,7 @@ try {
   await check('iOS permission action checks Live Activities settings', async () => {
     assert.match(await iosPermission.locator('#permission').innerText(), /Live Activity settings/);
     await iosPermission.locator('#permission').click(); await ready(iosPermission);
-    assert.equal(await iosPermission.evaluate(() => window.__MOCHI_QA__.calls.find(call => call.command.endsWith('request_permissions')).args.kind), 'liveActivities');
+    assert.equal(await iosPermission.evaluate(() => window.__MOCHI_QA__.calls.find(call => call.command.endsWith('request_permissions'))?.args.kind), 'liveActivities');
   }); await iosPermission.close();
   const pending = await open({ pending: true }); await ready(pending);
   await check('Pending native observation keeps ownership and does not claim visibility', async () => {

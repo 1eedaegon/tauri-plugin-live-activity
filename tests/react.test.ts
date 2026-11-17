@@ -1,70 +1,125 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { act, createElement, StrictMode } from 'react';
+import type { ReactElement } from 'react';
 import TestRenderer from 'react-test-renderer';
+import type { ReactTestRenderer } from 'react-test-renderer';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { emit } from '@tauri-apps/api/event';
+import type { Layout, LayoutActivityRecord, LayoutStartInput, PushTokens } from '../dist-js/index.js';
 import { useLiveActivity } from '../dist-js/react/index.js';
+import type { LiveActivityState, LiveActivityStatus, UseLiveActivityOptions } from '../dist-js/react/index.js';
 import { Session } from '../dist-js/react/session.js';
+import type { SessionCommands } from '../dist-js/react/session.js';
+import { member, present, record as jsonObject } from './support.ts';
 import { keep } from './typescript-requests.ts';
 
+/** A command of the plugin that the hook sent, with its request as the IPC got it: a read has none. */
+interface Call {
+  readonly name: string;
+  readonly input: unknown;
+}
+
+/** An answer of the fake plugin that waits: the command it is for, and how the test settles it. */
+interface Waiting {
+  readonly name: string;
+  readonly resolve: () => void;
+  readonly reject: (error: unknown) => void;
+}
+
+/** What the fake plugin is to do: the commands that wait or reject, the tokens it holds, the revision of a start. */
+interface FakePluginOptions {
+  readonly hold?: readonly string[];
+  readonly refusing?: Readonly<Record<string, unknown>>;
+  readonly tokens?: PushTokens;
+  readonly startAt?: number;
+}
+
+/** A test's fake plugin: the calls that reached it, their requests by command, and how to settle one that waits. */
+interface FakePlugin {
+  readonly calls: readonly Call[];
+  readonly named: (name: string) => readonly unknown[];
+  readonly release: (name: string) => Promise<void>;
+  readonly refuse: (name: string, error: unknown) => Promise<void>;
+}
+
+/** A start that a session sent and that waits: its request, and how the test settles it. */
+interface WaitingStart {
+  readonly input: LayoutStartInput;
+  readonly resolve: (record: LayoutActivityRecord) => void;
+  readonly reject: (error: unknown) => void;
+}
+
+/** The props of the component that calls the hook: the hook's options. */
+interface ProbeProps {
+  readonly options: UseLiveActivityOptions;
+}
+
+/** A mounted component that calls the hook: the states it saw, the last one, and how to change or remove it. */
+interface View {
+  readonly seen: readonly LiveActivityState[];
+  readonly state: LiveActivityState;
+  readonly rerender: (next: UseLiveActivityOptions) => Promise<void>;
+  readonly unmount: () => Promise<void>;
+}
+
 // The event mock draws its listener ids from window.crypto.
-globalThis.window = { crypto: globalThis.crypto };
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-const mounted = [];
+Reflect.set(globalThis, 'window', { crypto: globalThis.crypto });
+Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
+const mounted: View[] = [];
 afterEach(async () => {
   for (const view of mounted.splice(0)) await view.unmount();
   clearMocks();
 });
 
 const PREFIX = 'plugin:live-activity|';
-const layout = { lockScreen: { type: 'text', bind: 'status' } };
+const layout: Layout = { lockScreen: { type: 'text', bind: 'status' } };
 const values = { status: 'Preparing', done: 0.1 };
 
 /**
  * The plugin's commands, answered as the plugin would. `hold` names the commands whose answers wait until the test
  * settles them with `release(name)` or `refuse(name, error)`; `refusing` names those that reject at once.
  */
-function plugin({ hold = [], refusing = {}, tokens = { activities: [] }, startAt } = {}) {
-  const calls = [];
-  const waiting = [];
+function plugin({ hold = [], refusing = {}, tokens = { activities: [] }, startAt }: FakePluginOptions = {}): FakePlugin {
+  const calls: Call[] = [];
+  const waiting: Waiting[] = [];
   let started = 0;
-  const answer = (name, input) => {
+  const answer = (name: string, input: unknown): object => {
     if (name === 'push_tokens') return tokens;
     if (name === 'start_layout') {
       started += 1;
       // A repeated keyed start after a relaunch answers the running activity at its own revision.
-      const snapshot = startAt === undefined ? input.snapshot : { ...input.snapshot, revision: startAt };
+      const snapshot = startAt === undefined ? member(input, 'snapshot') : { ...jsonObject(member(input, 'snapshot')), revision: startAt };
       return {
-        id: `activity-${started}`, activityKey: input.activityKey, schemaVersion: 2, snapshot,
+        id: `activity-${started}`, activityKey: member(input, 'activityKey'), schemaVersion: 2, snapshot,
         backend: 'activityKit', state: 'active', visibility: 'unknown', degradedFeatures: [],
         promotionRequested: false, promotionState: 'notApplicable',
       };
     }
     const last = calls.findLast(({ name: called }) => called === 'start_layout');
-    const record = { ...answer.records.get(input.id), id: input.id, activityKey: last?.input.activityKey };
-    if (name === 'update_layout') return { ...record, snapshot: input.snapshot };
+    const record = { ...answer.records.get(member(input, 'id')), id: member(input, 'id'), activityKey: member(last?.input, 'activityKey') };
+    if (name === 'update_layout') return { ...record, snapshot: member(input, 'snapshot') };
     return { ...record, state: 'ended' };
   };
-  answer.records = new Map();
-  mockIPC((command, payload) => {
+  answer.records = new Map<unknown, object>();
+  mockIPC((command, payload: unknown) => {
     if (!command.startsWith(PREFIX)) return undefined;
     const name = command.slice(PREFIX.length);
-    const { input } = payload;
+    const input = member(payload, 'input');
     calls.push({ name, input });
     if (refusing[name]) return Promise.reject(refusing[name]);
-    const settle = () => {
+    const settle = (): object => {
       const result = answer(name, input);
-      answer.records.set(result.id, result);
+      answer.records.set(member(result, 'id'), result);
       return result;
     };
     if (!hold.includes(name)) return settle();
     return new Promise((resolve, reject) => waiting.push({ name, resolve: () => resolve(settle()), reject }));
   }, { shouldMockEvents: true });
-  const take = (name) => {
+  const take = (name: string): Waiting => {
     const index = waiting.findIndex((entry) => entry.name === name);
     assert.notEqual(index, -1, `no ${name} is waiting`);
-    return waiting.splice(index, 1)[0];
+    return present(waiting.splice(index, 1)[0]);
   };
   return {
     calls,
@@ -75,21 +130,21 @@ function plugin({ hold = [], refusing = {}, tokens = { activities: [] }, startAt
 }
 
 /** Renders a component that calls the hook with `options`; returns what it saw and how to change or remove it. */
-async function mount(options, { strict = false } = {}) {
-  const seen = [];
-  const Probe = ({ options: given }) => {
+async function mount(options: UseLiveActivityOptions, { strict = false }: { readonly strict?: boolean } = {}): Promise<View> {
+  const seen: LiveActivityState[] = [];
+  const Probe = ({ options: given }: ProbeProps): null => {
     seen.push(useLiveActivity(given));
     return null;
   };
-  const tree = (given) => (strict ? createElement(StrictMode, null, createElement(Probe, { options: given })) : createElement(Probe, { options: given }));
-  let renderer;
+  const tree = (given: UseLiveActivityOptions): ReactElement => (strict ? createElement(StrictMode, null, createElement(Probe, { options: given })) : createElement(Probe, { options: given }));
+  let renderer: ReactTestRenderer;
   await act(async () => {
     renderer = TestRenderer.create(tree(options));
   });
   let gone = false;
-  const view = {
+  const view: View = {
     seen,
-    get state() { return seen.at(-1); },
+    get state() { return present(seen.at(-1)); },
     rerender: (next) => act(async () => renderer.update(tree(next))),
     unmount: async () => {
       if (gone) return;
@@ -101,7 +156,7 @@ async function mount(options, { strict = false } = {}) {
   return view;
 }
 
-const options = (more = {}) => ({ activityKey: 'delivery:42', layout, values, ...more });
+const options = (more: Partial<UseLiveActivityOptions> = {}): UseLiveActivityOptions => ({ activityKey: 'delivery:42', layout, values, ...more });
 
 // TP-REACT-1
 test('mounting starts the activity at revision 0 and reports it active', async () => {
@@ -113,11 +168,12 @@ test('mounting starts the activity at revision 0 and reports it active', async (
     snapshot: { revision: 0, values }, android: { visibility: 'public' }, ios: { transient: true },
   }]);
   assert.equal(view.state.status, 'starting');
-  assert.equal(view.state.record, undefined);
+  // `<unknown>` keeps the assertion from narrowing the record, which the state has once the start is released.
+  assert.equal<unknown>(view.state.record, undefined);
 
   await native.release('start_layout');
   assert.equal(view.state.status, 'active');
-  assert.equal(view.state.record.id, 'activity-1');
+  assert.equal(present(view.state.record).id, 'activity-1');
   assert.equal(view.state.error, undefined);
   assert.deepEqual(view.seen[0], { status: 'idle', record: undefined, error: undefined, pushToken: undefined });
 
@@ -141,7 +197,7 @@ test('changed values go out as one update at the next revision and equal values 
     { id: 'activity-1', snapshot: { revision: 2, values: { status: 'On the way', done: 0.5 } } },
   ]);
   assert.equal(view.state.status, 'active');
-  assert.deepEqual(view.state.record.snapshot, { revision: 2, values: { status: 'On the way', done: 0.5 } });
+  assert.deepEqual(present(view.state.record).snapshot, { revision: 2, values: { status: 'On the way', done: 0.5 } });
 });
 
 // TP-REACT-2
@@ -153,14 +209,14 @@ test('values changed in place or with a key added or removed go out as an update
   await view.rerender(options({ values: shown }));
   await view.rerender(options({ values: { status: 'b', done: 0.1, extra: true } }));
   await view.rerender(options({ values: { status: 'b' } }));
-  assert.deepEqual(native.named('update_layout').map(({ snapshot }) => snapshot), [
+  assert.deepEqual(native.named('update_layout').map((input) => member(input, 'snapshot')), [
     { revision: 1, values: { status: 'b', done: 0.1 } },
     { revision: 2, values: { status: 'b', done: 0.1, extra: true } },
     { revision: 3, values: { status: 'b' } },
   ]);
   // What went out is a copy: changing the caller's object later does not change it.
   shown.status = 'c';
-  assert.equal(native.named('start_layout')[0].snapshot.values.status, 'a');
+  assert.equal(member(native.named('start_layout')[0], 'snapshot', 'values', 'status'), 'a');
 });
 
 // TP-REACT-2
@@ -178,7 +234,7 @@ test('values that change during a request go out once it answers, the newest onl
     { id: 'activity-1', snapshot: { revision: 2, values: { status: 'd', done: 0.4 } } },
   ]);
   await native.release('update_layout');
-  assert.deepEqual(view.state.record.snapshot.values, { status: 'd', done: 0.4 });
+  assert.deepEqual(present(view.state.record).snapshot.values, { status: 'd', done: 0.4 });
 
   // Values that a start still in flight did not carry go out once it answers.
   const late = plugin({ hold: ['start_layout'] });
@@ -239,14 +295,17 @@ test('enabled false during an update ends the activity once the update answers',
 
 // TP-REACT-3
 test('a release ends the activity unless a mount follows within the microtask', async () => {
-  const sent = [];
-  const record = { id: 'a1', activityKey: 'k', snapshot: { revision: 0, values: {} }, state: 'active' };
-  const commands = {
+  const sent: string[] = [];
+  const record: LayoutActivityRecord = {
+    id: 'a1', activityKey: 'k', schemaVersion: 2, snapshot: { revision: 0, values: {} }, backend: 'activityKit', state: 'active',
+    visibility: 'unknown', degradedFeatures: [], promotionRequested: false, promotionState: 'notApplicable',
+  };
+  const commands: SessionCommands = {
     startLayout: async (input) => { sent.push('start'); return { ...record, snapshot: input.snapshot }; },
     updateLayout: async () => { sent.push('update'); return record; },
     endLayout: async () => { sent.push('end'); return { ...record, state: 'ended' }; },
   };
-  const states = [];
+  const states: LiveActivityStatus[] = [];
   const session = new Session(commands, (state) => states.push(state.status));
   session.keep();
   session.sync({ activityKey: 'k', layout, values: {} });
@@ -270,14 +329,14 @@ test('enabled false ends the activity and true starts it again', async () => {
   await view.rerender(options({ enabled: false }));
   assert.deepEqual(native.named('end_layout'), [{ id: 'activity-1', policy: { kind: 'immediate' } }]);
   assert.equal(view.state.status, 'ended');
-  assert.equal(view.state.record.state, 'ended');
+  assert.equal(present(view.state.record).state, 'ended');
 
   await view.rerender(options({ enabled: false, values: { status: 'x', done: 1 } }));
   assert.deepEqual(native.named('update_layout'), []);
   await view.rerender(options({ values: { status: 'again', done: 0 } }));
-  assert.deepEqual(native.named('start_layout').at(-1).snapshot, { revision: 0, values: { status: 'again', done: 0 } });
+  assert.deepEqual(member(native.named('start_layout').at(-1), 'snapshot'), { revision: 0, values: { status: 'again', done: 0 } });
   assert.equal(view.state.status, 'active');
-  assert.equal(view.state.record.id, 'activity-2');
+  assert.equal(present(view.state.record).id, 'activity-2');
 
   const idle = plugin();
   const never = await mount(options({ enabled: false }));
@@ -288,7 +347,7 @@ test('enabled false ends the activity and true starts it again', async () => {
 // TP-CONTRACT-9
 test('what the hook sends, a start with every option, an update and an end, is kept for Rust to judge', async (t) => {
   const native = plugin();
-  const every = {
+  const every: Partial<UseLiveActivityOptions> = {
     styles: { card: { padding: 16 } }, fallback: 'none', android: { visibility: 'public' }, ios: { transient: true }, push: 'token',
     endPolicy: { kind: 'after', at: 1_900_000_000_000 },
   };
@@ -298,6 +357,7 @@ test('what the hook sends, a start with every option, an update and an end, is k
   // A read sends no request.
   const [start, ...following] = native.calls.filter(({ input }) => input !== undefined)
     .map(({ name, input }) => ({ name: `the hook's ${name}`, command: name, input }));
+  assert.ok(start, 'the hook sent no request');
   assert.deepEqual([start, ...following].map(({ command }) => command), ['start_layout', 'update_layout', 'end_layout']);
   // Rust judges the update and the end against the start, as the native layer does.
   keep(t, 'react', [start, ...following.map((request) => ({ ...request, after: start.name }))]);
@@ -359,8 +419,8 @@ test('a start refused after enabled turned off starts again when it turns on', a
 
 // TP-REACT-4
 test('a session whose start is refused after enabled turned off starts again when it turns on', async () => {
-  const starts = [];
-  const commands = {
+  const starts: WaitingStart[] = [];
+  const commands: SessionCommands = {
     startLayout: (input) => new Promise((resolve, reject) => starts.push({ input, resolve, reject })),
     updateLayout: async () => assert.fail('no update'),
     endLayout: async () => assert.fail('no end'),
@@ -369,12 +429,12 @@ test('a session whose start is refused after enabled turned off starts again whe
   const wanted = { activityKey: 'k', layout, values: {} };
   session.sync(wanted);
   session.sync({ ...wanted, enabled: false });
-  starts[0].reject({ code: 'NOT_FOREGROUND', message: 'in the background' });
+  present(starts[0]).reject({ code: 'NOT_FOREGROUND', message: 'in the background' });
   await new Promise((resolve) => setTimeout(resolve, 0));
   session.sync(wanted);
   assert.equal(starts.length, 2);
   // A refusal of the key still wanted blocks it until enabled turns off.
-  starts[1].reject({ code: 'NOT_FOREGROUND', message: 'in the background' });
+  present(starts[1]).reject({ code: 'NOT_FOREGROUND', message: 'in the background' });
   await new Promise((resolve) => setTimeout(resolve, 0));
   session.sync(wanted);
   assert.equal(starts.length, 2);
@@ -387,10 +447,10 @@ test('a key change during a start ends the activity of the old key and starts th
   await view.rerender(options({ activityKey: 'delivery:43' }));
   assert.equal(native.named('start_layout').length, 1);
   await native.release('start_layout');
-  assert.deepEqual(native.calls.map(({ name, input }) => `${name} ${input.activityKey ?? input.id}`),
+  assert.deepEqual(native.calls.map(({ name, input }) => `${name} ${member(input, 'activityKey') ?? member(input, 'id')}`),
     ['start_layout delivery:42', 'end_layout activity-1', 'start_layout delivery:43']);
   await native.release('start_layout');
-  assert.equal(view.state.record.activityKey, 'delivery:43');
+  assert.equal(present(view.state.record).activityKey, 'delivery:43');
   assert.equal(view.state.status, 'active');
 });
 
@@ -402,14 +462,14 @@ test('another activity key starts again', async () => {
   const fresh = plugin();
   await view.rerender(options({ activityKey: 'delivery:43' }));
   assert.equal(native.named('start_layout').length, 1);
-  assert.deepEqual(fresh.named('start_layout').map(({ activityKey }) => activityKey), ['delivery:43']);
+  assert.deepEqual(fresh.named('start_layout').map((input) => member(input, 'activityKey')), ['delivery:43']);
   assert.equal(view.state.status, 'active');
 
   // A running activity ends before the activity of the new key starts.
   await view.rerender(options({ activityKey: 'delivery:44' }));
   assert.deepEqual(fresh.calls.map(({ name }) => name), ['start_layout', 'end_layout', 'start_layout']);
   assert.deepEqual(fresh.named('end_layout'), [{ id: 'activity-1', policy: { kind: 'immediate' } }]);
-  assert.equal(view.state.record.activityKey, 'delivery:44');
+  assert.equal(present(view.state.record).activityKey, 'delivery:44');
 });
 
 // TP-REACT-4
@@ -419,7 +479,7 @@ test('a refused end is failed and not tried again', async () => {
   await view.rerender(options({ enabled: false }));
   assert.equal(view.state.status, 'failed');
   assert.deepEqual(view.state.error, { code: 'NOT_FOUND', message: 'gone' });
-  assert.equal(view.state.record.id, 'activity-1');
+  assert.equal(present(view.state.record).id, 'activity-1');
   await view.rerender(options({ enabled: false, values: { status: 'x', done: 1 } }));
   await view.unmount();
   assert.equal(native.named('end_layout').length, 1);
@@ -429,7 +489,7 @@ test('a refused end is failed and not tried again', async () => {
 test('onAction gets the taps of this activity only, until unmount', async (t) => {
   t.mock.method(console, 'warn', () => {});
   plugin();
-  const taps = [];
+  const taps: string[] = [];
   const view = await mount(options({ onAction: (event) => taps.push(event.actionId) }));
   await act(async () => {
     await emit('live-activity://action', { actionId: 'pet', activityId: 'activity-1' });
@@ -452,7 +512,7 @@ test('the state carries the push token and takes pushed content of its activity'
   // A token that comes before the start has answered is the activity's once it has.
   await act(async () => emit('live-activity://push-token', { activityId: 'activity-1', token: 'early' }));
   await native.release('start_layout');
-  assert.equal(native.named('start_layout')[0].push, 'token');
+  assert.equal(member(native.named('start_layout')[0], 'push'), 'token');
   assert.equal(view.state.pushToken, 'early');
   await act(async () => {
     await emit('live-activity://push-token', { activityId: 'activity-9', token: 'other' });
@@ -490,17 +550,17 @@ test('a token the plugin already holds reaches the state', async (t) => {
 // TP-PUSH-7
 test('the hook listens for pushes only when the activity asks for one, and reports a refused subscription', async (t) => {
   t.mock.method(console, 'warn', () => {});
-  const listened = [];
+  const listened: unknown[] = [];
   let refuse = false;
-  mockIPC((command, payload) => {
+  mockIPC((command, payload: unknown) => {
     if (command === 'plugin:event|listen') {
-      listened.push(payload.event);
-      if (refuse && payload.event !== 'live-activity://action') return Promise.reject({ code: 'NATIVE_ERROR', message: 'event.listen not allowed' });
+      listened.push(member(payload, 'event'));
+      if (refuse && member(payload, 'event') !== 'live-activity://action') return Promise.reject({ code: 'NATIVE_ERROR', message: 'event.listen not allowed' });
       return listened.length;
     }
     if (command === 'plugin:event|unlisten') return null;
     if (command === 'plugin:live-activity|start_layout') {
-      return { id: 'activity-1', activityKey: payload.input.activityKey, schemaVersion: 2, snapshot: payload.input.snapshot,
+      return { id: 'activity-1', activityKey: member(payload, 'input', 'activityKey'), schemaVersion: 2, snapshot: member(payload, 'input', 'snapshot'),
         backend: 'activityKit', state: 'active', visibility: 'unknown', degradedFeatures: [], promotionRequested: false, promotionState: 'notApplicable' };
     }
     if (command === 'plugin:live-activity|push_tokens') return { activities: [] };
@@ -525,9 +585,9 @@ test('the hook listens for pushes only when the activity asks for one, and repor
 test('a repeated keyed start continues above the revision the activity is at', async () => {
   const native = plugin({ startAt: 5 });
   const view = await mount(options());
-  assert.equal(view.state.record.snapshot.revision, 5);
+  assert.equal(present(view.state.record).snapshot.revision, 5);
   await view.rerender(options({ values: { status: 'Rated', done: 1 } }));
-  assert.deepEqual(native.named('update_layout').map((input) => input.snapshot.revision), [6]);
+  assert.deepEqual(native.named('update_layout').map((input) => member(input, 'snapshot', 'revision')), [6]);
 });
 
 // TP-PUSH-7
@@ -542,14 +602,14 @@ test('an update answered after a push continues above the pushed revision', asyn
   await native.release('update_layout');
   assert.equal(view.state.status, 'active');
   await view.rerender(options({ push: 'token', values: { status: 'Tipped', done: 1 } }));
-  assert.deepEqual(native.named('update_layout').map((input) => input.snapshot.revision), [1, 8]);
+  assert.deepEqual(native.named('update_layout').map((input) => member(input, 'snapshot', 'revision')), [1, 8]);
 });
 
 // TP-REACT-5
 test('no tap is passed on while no activity of this hook runs', async (t) => {
   t.mock.method(console, 'warn', () => {});
   const native = plugin({ hold: ['start_layout', 'end_layout'] });
-  const taps = [];
+  const taps: string[] = [];
   const view = await mount(options({ onAction: (event) => taps.push(event.actionId) }));
   // Starting: no id yet, and a tap without an activity id is not this activity's.
   await act(async () => {
@@ -566,7 +626,7 @@ test('no tap is passed on while no activity of this hook runs', async (t) => {
   await view.unmount();
   await act(async () => emit('live-activity://action', { actionId: 'after unmount', activityId: 'activity-2' }));
   assert.deepEqual(taps, []);
-  assert.deepEqual(native.named('end_layout').map(({ id }) => id), ['activity-1', 'activity-2']);
+  assert.deepEqual(native.named('end_layout').map((input) => member(input, 'id')), ['activity-1', 'activity-2']);
 });
 
 // TP-REACT-6

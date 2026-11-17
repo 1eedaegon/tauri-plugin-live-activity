@@ -31,7 +31,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p cli && node -e \"require('node:fs').chmodSync('cli/bin.mjs', 0o755)\"",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p cli --noEmit && tsc -p tools && tsc -p examples/demo/tsconfig.json",
+    "typecheck": "npm run build && tsc -p tools && tsc -p tests && tsc -p examples/demo/tsconfig.json && tsc -p examples/demo/tsconfig.node.json",
     "test": "npm run build && npm run test:contracts && npm run test:api && npm run test:jsx && npm run test:react && npm run test:demo && npm run test:setup",
     "test:contracts": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=tools/activitykit.ts\" \"--test-coverage-include=tools/sync-liveupdate.ts\" \"--test-coverage-include=tools/cargo.ts\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/contract-files.test.ts tests/typescript-requests.test.ts tests/android-liveupdate.test.ts tests/android-contents.test.ts tests/ci.test.ts tests/ci-cache.test.ts tests/ios-run.test.ts tests/spec-coverage.test.ts",
     "test:api": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=dist-js/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/api.test.ts tests/api-reload.test.ts",
@@ -56,6 +56,7 @@
     "@tauri-apps/api": "2.12.4",
     "@types/node": "22.20.5",
     "@types/react": "19.3.0",
+    "@types/react-test-renderer": "19.3.1",
     "esbuild": "0.28.2",
     "react": "19.3.1",
     "react-test-renderer": "19.3.1",

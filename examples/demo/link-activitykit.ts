@@ -9,8 +9,8 @@ const link = fileURLToPath(new URL('src-tauri/gen/apple/activitykit', import.met
 const manifest = fileURLToPath(new URL('src-tauri/Cargo.toml', import.meta.url));
 
 /** Points the link at activitykit's folder; returns that folder. */
-export function linkActivitykit(dir = activitykitDir({ manifest })) {
-  let current;
+export function linkActivitykit(dir = activitykitDir({ manifest })): string {
+  let current: string | undefined;
   try {
     current = lstatSync(link).isSymbolicLink() ? readlinkSync(link) : undefined;
   } catch {

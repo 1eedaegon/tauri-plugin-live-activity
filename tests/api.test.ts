@@ -1,25 +1,76 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import type { SpawnSyncReturns } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
+import type { InvokeArgs } from '@tauri-apps/api/core';
 import { mockIPC, clearMocks } from '@tauri-apps/api/mocks';
 import { emit } from '@tauri-apps/api/event';
+import type { UnlistenFn } from '@tauri-apps/api/event';
 import { LAYOUT_FIXTURES, contract } from '../tools/activitykit.ts';
 import * as activity from '../dist-js/index.js';
+import type {
+  ActionEvent, ActivityRecord, ErrorCode, Layout, LayoutActivityRecord, LayoutBound, LayoutEndInput, LayoutNode, LayoutPush,
+  LayoutStartInput, LayoutUpdateInput, OpenedEvent, Permissions, ProgressSnapshot, PushToStartTokenEvent, PushTokenEvent, StartInput,
+  StartedEvent, StateEvent, UpdateInput, UpdatedEvent,
+} from '../dist-js/index.js';
+import { isRecord, list, member, number, present, record as jsonObject, text, unchecked } from './support.ts';
+import type { JsonObject } from './support.ts';
 
 // activitykit's fixtures, from the crate that the plugin builds with.
 const fixtures = contract(LAYOUT_FIXTURES);
 
-globalThis.window = {};
+/** What every fixture of the file has: its name. */
+interface NamedFixture {
+  readonly name: string;
+}
+
+/** The fixtures of the list `key` in the file: of each its name, and the members that `read` takes from its JSON object. */
+const fixturesOf = <Members>(key: string, read: (fixture: JsonObject) => Members): readonly (Members & NamedFixture)[] =>
+  list(member(fixtures, key), key).map(fixture => {
+    const object = jsonObject(fixture, `a fixture of ${key}`);
+    return { ...read(object), name: text(object.name, 'the name of a fixture') };
+  });
+// What the tests read of the fixtures: every list of the file, and of each fixture the members that the tests take.
+// The input of a valid request is an object; that of an invalid one may be anything, and it has the code of its rejection.
+const layoutFixtures = {
+  valid: fixturesOf('valid', ({ command, input }) => ({ command: text(command, 'the command of a fixture'), input: jsonObject(input, 'the input of a valid fixture') })),
+  invalid: fixturesOf('invalid', ({ command, input, code }) => ({ command: text(command, 'the command of a fixture'), input, code })),
+  updates: fixturesOf('updates', ({ start, update, code }) => ({ start, update, code })),
+  ends: fixturesOf('ends', ({ start, end, code }) => ({ start, end, code })),
+};
+
+Reflect.set(globalThis, 'window', {});
 afterEach(() => clearMocks());
 
-const snapshot = Object.freeze({ revision: 0, title: 'Delivery', status: 'Preparing', progress: 0.1 });
-const input = Object.freeze({ activityKey: 'delivery:42', schemaVersion: 1, template: 'progress', fallback: 'notification', snapshot });
-const record = Object.freeze({ id: 'opaque-native-handle', activityKey: input.activityKey, schemaVersion: 1, template: 'progress', snapshot, backend: 'activityKit', state: 'active', visibility: 'unknown', degradedFeatures: [], promotionRequested: false, promotionState: 'notApplicable' });
+/** A call of a native command, as the mock of Tauri's IPC got it. */
+interface NativeCall {
+  readonly nativeCommand: string;
+  readonly payload: InvokeArgs | undefined;
+}
+
+/** The functions of the API, which a table of tests calls by name: every export but the builders of `layout`. */
+type Commands = Omit<typeof activity, 'layout'>;
+/** The arguments that each of them takes. */
+type CommandArgs = { readonly [Name in keyof Commands]: Parameters<Commands[Name]> };
+/**
+ * A row of such a table: the name of a command, the arguments that this command takes, and what the table says of
+ * the call before and after them.
+ */
+type CommandRow<Before extends readonly unknown[], After extends readonly unknown[]> =
+  { readonly [Name in keyof Commands]: readonly [Name, ...Before, CommandArgs[Name], ...After] }[keyof Commands];
+/** The API with each command as a function of those arguments, which is how the compiler lets a row call one by name. */
+const commandsByName: { readonly [Name in keyof Commands]: (...args: CommandArgs[Name]) => Promise<unknown> } = activity;
+/** Calls the command `name` of the API with `args`, as `activity[name](...args)`. */
+const call = <Name extends keyof Commands>(name: Name, args: CommandArgs[Name]): Promise<unknown> => commandsByName[name](...args);
+
+const snapshot: ProgressSnapshot = Object.freeze({ revision: 0, title: 'Delivery', status: 'Preparing', progress: 0.1 });
+const input: StartInput = Object.freeze({ activityKey: 'delivery:42', schemaVersion: 1, template: 'progress', fallback: 'notification', snapshot });
+const record: ActivityRecord = Object.freeze({ id: 'opaque-native-handle', activityKey: input.activityKey, schemaVersion: 1, template: 'progress', snapshot, backend: 'activityKit', state: 'active', visibility: 'unknown', degradedFeatures: [], promotionRequested: false, promotionState: 'notApplicable' });
 
 for (const [name, command, args, expectedPayload, result] of [
   ['getCapabilities', 'get_capabilities', [], {}, { platform: 'ios', backend: 'activityKit', start: 'supported' }],
@@ -31,14 +82,14 @@ for (const [name, command, args, expectedPayload, result] of [
   ['end', 'end', [{ id: record.id, policy: { kind: 'immediate' } }], { input: { id: record.id, policy: { kind: 'immediate' } } }, { ...record, state: 'ended' }],
   ['list', 'list', [], {}, [record]],
   ['pushTokens', 'push_tokens', [], {}, { activities: [] }],
-]) {
+] satisfies readonly CommandRow<[command: string], [expectedPayload: InvokeArgs, result: unknown]>[]) {
   test(`${name} invokes the namespaced command with its public arguments`, async () => {
-    const calls = [];
-    mockIPC((nativeCommand, payload) => {
+    const calls: NativeCall[] = [];
+    mockIPC((nativeCommand, payload?: InvokeArgs) => {
       calls.push({ nativeCommand, payload });
       return result;
     });
-    assert.deepEqual(await activity[name](...args), result);
+    assert.deepEqual(await call(name, args), result);
     assert.deepEqual(calls, [{ nativeCommand: `plugin:live-activity|${command}`, payload: expectedPayload }]);
   });
 }
@@ -48,7 +99,7 @@ test('keeps the complete timer snapshot and caller-owned input unchanged', async
   const timerSnapshot = Object.freeze({ revision: 2, title: 'Timer', status: 'Running', timer, staleAt: timer.endsAt });
   const request = Object.freeze({ ...input, template: 'timer', snapshot: timerSnapshot });
   const serialized = JSON.stringify(request);
-  mockIPC((_command, payload) => {
+  mockIPC((_command, payload?: InvokeArgs) => {
     assert.deepEqual(payload, { input: request });
     return { ...record, template: 'timer', snapshot: timerSnapshot };
   });
@@ -57,7 +108,7 @@ test('keeps the complete timer snapshot and caller-owned input unchanged', async
   assert.equal(JSON.stringify(request), serialized);
 });
 
-for (const code of ['PERMISSION_DENIED', 'UNSUPPORTED_PLATFORM', 'STALE_REVISION', 'CONFLICT', 'NOT_FOUND']) {
+for (const code of ['PERMISSION_DENIED', 'UNSUPPORTED_PLATFORM', 'STALE_REVISION', 'CONFLICT', 'NOT_FOUND'] satisfies readonly ErrorCode[]) {
   test(`preserves the native ${code} error instead of reporting success`, async () => {
     const expected = { code, message: 'Operation could not be completed.' };
     mockIPC(() => Promise.reject(expected));
@@ -70,8 +121,8 @@ for (const code of ['PERMISSION_DENIED', 'UNSUPPORTED_PLATFORM', 'STALE_REVISION
 
 // TP-JS-2
 test('writeImage sends the name and the bytes of a Uint8Array or an ArrayBuffer', async () => {
-  const calls = [];
-  mockIPC((nativeCommand, payload) => {
+  const calls: NativeCall[] = [];
+  mockIPC((nativeCommand, payload?: InvokeArgs) => {
     calls.push({ nativeCommand, payload });
     return null;
   });
@@ -100,13 +151,13 @@ test('preserves unknown visibility and unknown promotion without inventing deliv
 // Contract v2: layout activities.
 window.crypto = globalThis.crypto; // the event mock draws its listener ids from it
 const { layout } = activity;
-const deepFreeze = value => {
+const deepFreeze = <Value>(value: Value): Value => {
   if (typeof value === 'object' && value !== null) Object.values(Object.freeze(value)).forEach(deepFreeze);
   return value;
 };
 
 const values = { title: 'Focus', progress: 0.25, paused: false };
-const layoutInput = deepFreeze({
+const layoutInput: LayoutStartInput = deepFreeze({
   activityKey: 'focus:1', schemaVersion: 2, fallback: 'notification',
   layout: { lockScreen: { type: 'vstack', spacing: 6, children: [
     { type: 'text', bind: 'title', style: 'title' },
@@ -116,24 +167,24 @@ const layoutInput = deepFreeze({
   styles: { title: { font: 'headline', lineLimit: 1 } },
   snapshot: { revision: 0, values, staleAt: 1_790_000_900_000 },
 });
-const layoutRecord = deepFreeze({ id: 'opaque-layout-handle', activityKey: layoutInput.activityKey, schemaVersion: 2, snapshot: layoutInput.snapshot, backend: 'activityKit', state: 'active', visibility: 'unknown', degradedFeatures: [], promotionRequested: false, promotionState: 'notApplicable' });
-const layoutUpdate = deepFreeze({ id: layoutRecord.id, snapshot: { revision: 1, values: { ...values, progress: 0.5 } } });
-const layoutEnd = deepFreeze({ id: layoutRecord.id, policy: { kind: 'immediate' } });
+const layoutRecord: LayoutActivityRecord = deepFreeze({ id: 'opaque-layout-handle', activityKey: layoutInput.activityKey, schemaVersion: 2, snapshot: layoutInput.snapshot, backend: 'activityKit', state: 'active', visibility: 'unknown', degradedFeatures: [], promotionRequested: false, promotionState: 'notApplicable' });
+const layoutUpdate: LayoutUpdateInput = deepFreeze({ id: layoutRecord.id, snapshot: { revision: 1, values: { ...values, progress: 0.5 } } });
+const layoutEnd: LayoutEndInput = deepFreeze({ id: layoutRecord.id, policy: { kind: 'immediate' } });
 
 for (const [name, command, args, result] of [
   ['startLayout', 'start_layout', [layoutInput], layoutRecord],
   ['updateLayout', 'update_layout', [layoutUpdate], { ...layoutRecord, snapshot: layoutUpdate.snapshot }],
   ['endLayout', 'end_layout', [layoutEnd], { ...layoutRecord, state: 'ended' }],
   ['listLayout', 'list_layout', [], [layoutRecord]],
-]) {
+] satisfies readonly CommandRow<[command: string], [result: unknown]>[]) {
   test(`${name} invokes the namespaced command with its public arguments`, async () => {
     const expectedPayload = args.length === 0 ? {} : { input: structuredClone(args[0]) };
-    const calls = [];
-    mockIPC((nativeCommand, payload) => {
+    const calls: NativeCall[] = [];
+    mockIPC((nativeCommand, payload?: InvokeArgs) => {
       calls.push({ nativeCommand, payload });
       return result;
     });
-    assert.deepEqual(await activity[name](...args), result);
+    assert.deepEqual(await call(name, args), result);
     assert.deepEqual(calls, [{ nativeCommand: `plugin:live-activity|${command}`, payload: expectedPayload }]);
   });
 }
@@ -141,7 +192,7 @@ for (const [name, command, args, result] of [
 // TP-JS-1
 test('keeps the caller-owned layout request, its tree and its values unchanged', async () => {
   const serialized = JSON.stringify(layoutInput);
-  mockIPC((_command, payload) => {
+  mockIPC((_command, payload?: InvokeArgs) => {
     assert.deepEqual(payload, { input: layoutInput });
     return layoutRecord;
   });
@@ -156,11 +207,11 @@ for (const [name, args, code] of [
   ['updateLayout', [layoutUpdate], 'INVALID_INPUT'],
   ['endLayout', [layoutEnd], 'NOT_FOUND'],
   ['listLayout', [], 'UNSUPPORTED_PLATFORM'],
-]) {
+] satisfies readonly CommandRow<[], [code: ErrorCode]>[]) {
   test(`${name} preserves the native ${code} error instead of reporting success`, async () => {
     const expected = { code, message: 'Operation could not be completed.' };
     mockIPC(() => Promise.reject(expected));
-    await assert.rejects(activity[name](...args), error => {
+    await assert.rejects(call(name, args), error => {
       assert.deepEqual(error, expected);
       return true;
     });
@@ -172,8 +223,8 @@ test('onAction hands each action payload, and nothing else, to its handler until
   // The event mock keeps an unsubscribed listener id and warns when it finds no callback for it.
   t.mock.method(console, 'warn', () => {});
   mockIPC(() => {}, { shouldMockEvents: true });
-  const first = [];
-  const second = [];
+  const first: ActionEvent[][] = [];
+  const second: ActionEvent[][] = [];
   const unlisten = await activity.onAction((...received) => first.push(received));
   await activity.onAction((...received) => second.push(received));
   const pause = { actionId: 'focus.pause', activityId: layoutRecord.id, activityKey: layoutInput.activityKey };
@@ -192,9 +243,9 @@ test('onAction hands each action payload, and nothing else, to its handler until
 
 // TP-PUSH-1
 test('startLayout passes push through unchanged', async () => {
-  for (const push of ['token', { channel: 'dGVzdA==' }]) {
-    const calls = [];
-    mockIPC((nativeCommand, payload) => {
+  for (const push of ['token', { channel: 'dGVzdA==' }] satisfies readonly LayoutPush[]) {
+    const calls: NativeCall[] = [];
+    mockIPC((nativeCommand, payload?: InvokeArgs) => {
       calls.push({ nativeCommand, payload });
       return layoutRecord;
     });
@@ -209,9 +260,9 @@ test('startLayout passes push through unchanged', async () => {
 test('onPushToken, onPushToStartToken and onUpdated listen to their events', async t => {
   t.mock.method(console, 'warn', () => {});
   mockIPC(command => (command === 'plugin:live-activity|push_tokens' ? { activities: [] } : undefined), { shouldMockEvents: true });
-  const tokens = [];
-  const starts = [];
-  const updates = [];
+  const tokens: PushTokenEvent[] = [];
+  const starts: PushToStartTokenEvent[] = [];
+  const updates: UpdatedEvent[] = [];
   const unlisten = await activity.onPushToken(event => tokens.push(event));
   await activity.onPushToStartToken(event => starts.push(event));
   await activity.onUpdated(event => updates.push(event));
@@ -233,9 +284,9 @@ test('onPushToken, onPushToStartToken and onUpdated listen to their events', asy
 test('onStarted, onState and onPermissions listen to their events', async t => {
   t.mock.method(console, 'warn', () => {});
   mockIPC(() => undefined, { shouldMockEvents: true });
-  const started = [];
-  const states = [];
-  const permissions = [];
+  const started: StartedEvent[] = [];
+  const states: StateEvent[] = [];
+  const permissions: Permissions[] = [];
   const unlisten = await activity.onStarted(event => started.push(event));
   await activity.onState(event => states.push(event));
   await activity.onPermissions(event => permissions.push(event));
@@ -258,24 +309,65 @@ test('onStarted, onState and onPermissions listen to their events', async t => {
  * its numbers go on from test to test, as the page's own do. */
 let openingsKept = 0;
 
+/** The plugin's side of the openings in a test: what waits and what it was asked, what a test sets, and how it keeps an opening. */
+interface PluginOpenings {
+  readonly waiting: OpenedEvent[];
+  readonly asked: number[];
+  fails: boolean;
+  forgetful: boolean;
+  held: Promise<void> | undefined;
+  release: (() => void) | undefined;
+  unanswered: number;
+  mostUnanswered: number;
+  readonly kept: number;
+  readonly keep: (opening: OpenedEvent) => void;
+  readonly opened: (opening: OpenedEvent) => Promise<void>;
+  readonly hold: () => void;
+}
+
+/** How many openings a question to the plugin says the page has taken. The test fails when the question names no number. */
+const openingsTaken = (payload: InvokeArgs | undefined): number => number(member(payload, 'taken'), 'how many openings the page has taken');
+
 /**
  * The plugin's side of the openings, as `src/openings.rs` keeps them: `opened` keeps one and says so with the event;
  * the command lets go of the openings up to the number it is told and answers those that wait, with the number of
  * the newest. `waiting` is what waits when the test begins, and what an earlier test left is gone. `asked` lists
  * what each call said was taken. While `held` is set, an answer waits for `release`.
  */
-function openingsOfThePlugin(waiting = []) {
-  const plugin = { waiting: [...waiting], asked: [], fails: false, forgetful: false, held: undefined, release: undefined,
-    unanswered: 0, mostUnanswered: 0 };
+function openingsOfThePlugin(waiting: readonly OpenedEvent[] = []): PluginOpenings {
+  const plugin: PluginOpenings = {
+    waiting: [...waiting], asked: [], fails: false, forgetful: false, held: undefined, release: undefined,
+    unanswered: 0, mostUnanswered: 0,
+    get kept() {
+      return openingsKept;
+    },
+    keep: opening => {
+      plugin.waiting.push(opening);
+      openingsKept += 1;
+    },
+    opened: async opening => {
+      plugin.keep(opening);
+      await emit('live-activity://opened', opening);
+      await settled();
+    },
+    /** Holds the answers back from now on, until `plugin.release()`. */
+    hold: () => {
+      plugin.held = new Promise(resolve => {
+        plugin.release = () => {
+          plugin.held = undefined;
+          resolve();
+        };
+      });
+    },
+  };
   openingsKept += waiting.length;
-  Object.defineProperty(plugin, 'kept', { get: () => openingsKept });
-  mockIPC(async (command, payload) => {
+  mockIPC(async (command, payload?: InvokeArgs) => {
     if (command !== 'plugin:live-activity|openings') return undefined;
-    plugin.asked.push(payload.taken);
+    plugin.asked.push(openingsTaken(payload));
     if (plugin.fails) throw { code: 'NATIVE_ERROR', message: 'Operation could not be completed.' };
     // A forgetful plugin lets nothing go, which the real one never does: it answers what the page has handed over.
     const before = plugin.kept - plugin.waiting.length;
-    if (!plugin.forgetful) plugin.waiting.splice(0, Math.max(0, Math.min(plugin.waiting.length, payload.taken - before)));
+    if (!plugin.forgetful) plugin.waiting.splice(0, Math.max(0, Math.min(plugin.waiting.length, openingsTaken(payload) - before)));
     const answer = { openings: [...plugin.waiting], through: plugin.kept };
     plugin.unanswered += 1;
     plugin.mostUnanswered = Math.max(plugin.mostUnanswered, plugin.unanswered);
@@ -286,24 +378,6 @@ function openingsOfThePlugin(waiting = []) {
       plugin.unanswered -= 1;
     }
   }, { shouldMockEvents: true });
-  plugin.keep = opening => {
-    plugin.waiting.push(opening);
-    openingsKept += 1;
-  };
-  plugin.opened = async opening => {
-    plugin.keep(opening);
-    await emit('live-activity://opened', opening);
-    await settled();
-  };
-  /** Holds the answers back from now on, until `plugin.release()`. */
-  plugin.hold = () => {
-    plugin.held = new Promise(resolve => {
-      plugin.release = () => {
-        plugin.held = undefined;
-        resolve();
-      };
-    });
-  };
   return plugin;
 }
 
@@ -311,7 +385,7 @@ function openingsOfThePlugin(waiting = []) {
  * Lets the questions that a subscription or an event started run to their end: fifty turns of the event loop, each
  * of which runs every promise that is ready, however slow the machine. A question and its answer take a few.
  */
-async function settled() {
+async function settled(): Promise<void> {
   for (let turn = 0; turn < 50; turn += 1) await new Promise(resolve => setImmediate(resolve));
 }
 
@@ -319,7 +393,7 @@ async function settled() {
 test('onOpened hands each opening from a notification to its handler until it is unsubscribed', async t => {
   t.mock.method(console, 'warn', () => {});
   const plugin = openingsOfThePlugin();
-  const openings = [];
+  const openings: OpenedEvent[] = [];
   const unlisten = await activity.onOpened(event => openings.push(event));
   const byTheNotification = { activityId: layoutRecord.id, activityKey: layoutInput.activityKey };
   const byALink = { ...byTheNotification, actionId: 'link:1' };
@@ -346,7 +420,7 @@ test('onOpened hands over the openings that waited for the page, then each as it
   const second = { activityId: 'la-1', activityKey: 'job:1' };
   // The opening that launched the app was reported before the page loaded: nothing heard its event.
   const plugin = openingsOfThePlugin([launch, second]);
-  const openings = [];
+  const openings: OpenedEvent[] = [];
   const unlisten = await activity.onOpened(event => openings.push(event));
   assert.deepEqual(openings, [launch, second]);
   // One question brought them and a second one told the plugin that they were handed over.
@@ -384,7 +458,7 @@ test('onOpened hands over the openings that waited for the page, then each as it
 test('an opening that comes while the plugin is being asked is handed over once, after the ones before it', async t => {
   t.mock.method(console, 'warn', () => {});
   const plugin = openingsOfThePlugin([{ activityId: 'la-1' }]);
-  const openings = [];
+  const openings: string[] = [];
   plugin.hold();
   const subscribing = activity.onOpened(event => openings.push(event.activityId));
   await settled();
@@ -394,7 +468,7 @@ test('an opening that comes while the plugin is being asked is handed over once,
   plugin.keep({ activityId: 'la-3' });
   await emit('live-activity://opened', { activityId: 'la-3' });
   assert.deepEqual(openings, []);
-  plugin.release();
+  present(plugin.release)();
   const unlisten = await subscribing;
   await settled();
   assert.deepEqual(openings, ['la-1', 'la-2', 'la-3']);
@@ -410,7 +484,7 @@ test('an opening that comes while the plugin is being asked is handed over once,
 test('an opening that no handler got stays with the plugin, for the next handler', async t => {
   t.mock.method(console, 'warn', () => {});
   const plugin = openingsOfThePlugin([{ activityId: 'la-1' }]);
-  const heard = [];
+  const heard: string[] = [];
   const leave = await activity.onOpened(event => heard.push(event.activityId));
   assert.deepEqual(heard, ['la-1']);
 
@@ -423,14 +497,14 @@ test('an opening that no handler got stays with the plugin, for the next handler
   await settled();
   const asked = plugin.asked.length;
   await leave();
-  plugin.release();
+  present(plugin.release)();
   await settled();
   assert.deepEqual(heard, ['la-1']);
   assert.deepEqual(plugin.waiting, [{ activityId: 'la-2' }]);
   // With nobody to hand to and nothing to let go, the question that waited is not asked.
   assert.equal(plugin.asked.length, asked);
   // The next handler of the page gets it, and then the plugin lets it go.
-  const later = [];
+  const later: string[] = [];
   const leaveLater = await activity.onOpened(event => {
     later.push(event.activityId);
     // From la-3 on, the page cannot tell the plugin what it has handed over, as when it is torn down right then.
@@ -453,7 +527,7 @@ test('an opening that no handler got stays with the plugin, for the next handler
 test('a page hears an opening once, also when its word that it handed it over did not reach the plugin', async t => {
   t.mock.method(console, 'warn', () => {});
   const plugin = openingsOfThePlugin();
-  const heard = [];
+  const heard: string[] = [];
   const leave = await activity.onOpened(event => {
     heard.push(event.activityId);
     plugin.fails = true;
@@ -485,7 +559,7 @@ test('a page hears an opening once, also when its word that it handed it over di
 test('a subscription stands once the plugin has answered, also when the page cannot say what it handed over', async t => {
   t.mock.method(console, 'warn', () => {});
   const plugin = openingsOfThePlugin([{ activityId: 'la-1' }]);
-  const heard = [];
+  const heard: string[] = [];
   // The first question is answered and la-1 handed over; the second, which would let it go, fails.
   const leave = await activity.onOpened(event => {
     heard.push(event.activityId);
@@ -506,8 +580,8 @@ test('a subscription stands once the plugin has answered, also when the page can
 test('a handler that another handler unsubscribes is handed nothing more, not even the opening at hand', async t => {
   t.mock.method(console, 'warn', () => {});
   const plugin = openingsOfThePlugin();
-  const heard = [];
-  let leaveSecond;
+  const heard: string[] = [];
+  let leaveSecond: UnlistenFn;
   const leaveFirst = await activity.onOpened(event => {
     heard.push(`first ${event.activityId}`);
     leaveSecond();
@@ -516,7 +590,7 @@ test('a handler that another handler unsubscribes is handed nothing more, not ev
   await plugin.opened({ activityId: 'la-1' });
   assert.deepEqual(heard, ['first la-1']);
   // A handler that leaves in its own callback, as the last one, ends the subscription: the next opening waits.
-  const once = [];
+  const once: string[] = [];
   const leaveOnce = await activity.onOpened(event => {
     once.push(event.activityId);
     leaveOnce();
@@ -534,8 +608,8 @@ test('a handler that another handler unsubscribes is handed nothing more, not ev
 test('the handlers of a page share the openings, and the last to leave ends the subscription', async t => {
   t.mock.method(console, 'warn', () => {});
   const plugin = openingsOfThePlugin([{ activityId: 'la-1' }]);
-  const first = [];
-  const second = [];
+  const first: OpenedEvent[] = [];
+  const second: OpenedEvent[] = [];
   const leaveFirst = await activity.onOpened(event => first.push(event));
   // What waited went to the handler there was; one that subscribes later gets what is handed over from then on.
   const leaveSecond = await activity.onOpened(event => second.push(event));
@@ -560,7 +634,7 @@ test('the handlers of a page share the openings, and the last to leave ends the 
   const idle = plugin.asked.length;
   await plugin.opened({ activityId: 'la-5' });
   assert.equal(plugin.asked.length, idle);
-  const third = [];
+  const third: OpenedEvent[] = [];
   const leaveThird = await activity.onOpened(event => third.push(event));
   assert.deepEqual(third, [{ activityId: 'la-5' }]);
   // The subscription of the handlers that left is gone, not only idle: with it still there, an opening would be
@@ -575,10 +649,10 @@ test('the handlers of a page share the openings, and the last to leave ends the 
 // TP-EVENT-3
 test('a handler that throws keeps no opening from the other handlers or from itself later', async t => {
   t.mock.method(console, 'warn', () => {});
-  const reported = [];
-  t.mock.method(console, 'error', error => reported.push(error.message));
+  const reported: unknown[] = [];
+  t.mock.method(console, 'error', (error: unknown) => reported.push(member(error, 'message')));
   const plugin = openingsOfThePlugin([{ activityId: 'la-1' }, { activityId: 'la-2' }]);
-  const heard = [];
+  const heard: string[] = [];
   const leaveFaulty = await activity.onOpened(event => {
     heard.push(`faulty ${event.activityId}`);
     if (event.activityId === 'la-1') throw new Error('the handler failed');
@@ -599,14 +673,14 @@ test('onOpened gives up its subscription when the plugin cannot be asked for the
   t.mock.method(console, 'warn', () => {});
   const plugin = openingsOfThePlugin([{ activityId: 'la-1' }]);
   plugin.fails = true;
-  const openings = [];
+  const openings: OpenedEvent[] = [];
   await assert.rejects(activity.onOpened(event => openings.push(event)), { code: 'NATIVE_ERROR' });
   // Nothing is subscribed: an event starts no question, and the opening still waits.
   const asked = plugin.asked.length;
   await emit('live-activity://opened', { activityId: 'la-1' });
   await settled();
   assert.equal(plugin.asked.length, asked);
-  assert.deepEqual(openings, []);
+  assert.deepEqual<OpenedEvent[]>(openings, []);
   plugin.fails = false;
   const leave = await activity.onOpened(event => openings.push(event));
   assert.deepEqual(openings, [{ activityId: 'la-1' }]);
@@ -622,8 +696,8 @@ test('onPushToken and onPushToStartToken deliver the tokens the plugin holds fir
     activities: [{ activityId: 'la-1', activityKey: 'job:1', token: '01' }, { activityId: 'la-2', token: '02' }],
   };
   mockIPC(command => (command === 'plugin:live-activity|push_tokens' ? held : undefined), { shouldMockEvents: true });
-  const tokens = [];
-  const starts = [];
+  const tokens: string[] = [];
+  const starts: string[] = [];
   await activity.onPushToken(event => tokens.push(`${event.activityId}:${event.token}`));
   await activity.onPushToStartToken(event => starts.push(event.token));
   assert.deepEqual(tokens, ['la-1:01', 'la-2:02']);
@@ -641,11 +715,11 @@ test('onPushToken and onPushToStartToken deliver the tokens the plugin holds fir
 test('a token that comes while the plugin is asked outranks the one it held', async t => {
   t.mock.method(console, 'warn', () => {});
   const held = { activities: [{ activityId: 'la-1', token: 'old' }, { activityId: 'la-2', token: '02' }] };
-  let answer;
+  let answer: (() => void) | undefined;
   mockIPC(command => (command === 'plugin:live-activity|push_tokens'
     ? new Promise(resolve => { answer = () => resolve(held); })
     : undefined), { shouldMockEvents: true });
-  const tokens = [];
+  const tokens: string[] = [];
   const subscribing = activity.onPushToken(event => tokens.push(`${event.activityId}:${event.token}`));
   // The listener is up before the plugin is asked; an event now is newer than what the plugin holds.
   while (answer === undefined) await new Promise(resolve => setTimeout(resolve, 1));
@@ -660,7 +734,7 @@ test('onPushToken gives its subscription up when the plugin cannot be asked for 
   t.mock.method(console, 'warn', () => {});
   const refused = { code: 'NATIVE_ERROR', message: 'push_tokens not allowed' };
   mockIPC(command => (command === 'plugin:live-activity|push_tokens' ? Promise.reject(refused) : undefined), { shouldMockEvents: true });
-  const tokens = [];
+  const tokens: (PushTokenEvent | PushToStartTokenEvent)[] = [];
   await assert.rejects(activity.onPushToken(event => tokens.push(event)), error => {
     assert.deepEqual(error, refused);
     return true;
@@ -678,6 +752,9 @@ test('onAction reports a refused subscription instead of pretending to listen', 
     return true;
   });
 });
+
+/** A case of the builders: its name, a call that builds a node, and the plain node that the call is to give. */
+type BuiltNode = readonly [name: string, build: () => LayoutNode, expected: LayoutNode];
 
 for (const [name, build, expected] of [
   ['vstack', () => layout.vstack([layout.text('a')]), { type: 'vstack', children: [{ type: 'text', value: 'a' }] }],
@@ -736,7 +813,7 @@ for (const [name, build, expected] of [
     { type: 'progress', bind: 'done', accessibility: { label: 'Delivery', value: { bind: 'percent' }, hint: 'Opens the app' } }],
   ['symbol hidden from assistive technologies', () => layout.symbol('sparkles', { accessibility: { hidden: true } }),
     { type: 'symbol', name: 'sparkles', accessibility: { hidden: true } }],
-]) {
+] satisfies readonly BuiltNode[]) {
   test(`layout builds a plain ${name} node with exactly the members it was given`, () => {
     assert.deepEqual(build(), expected);
   });
@@ -754,7 +831,7 @@ test('every layout builder takes the members any node may carry', () => {
   const common = deepFreeze({
     style: 'card', unless: 'hidden', ifStale: false, accessibility: { label: 'Mochi', value: layout.bind('mood') }, transition: 'moveTop',
     privacy: 'sensitive',
-  });
+  } as const);
   const child = layout.text('a');
   const built = {
     vstack: layout.vstack([child], common), hstack: layout.hstack([child], common), zstack: layout.zstack([child], common),
@@ -765,12 +842,12 @@ test('every layout builder takes the members any node may carry', () => {
     custom: layout.custom('ring', common),
   };
   assert.deepEqual(Object.keys(built).sort(), Object.keys(layout).filter(name => name !== 'bind').sort());
-  for (const [name, node] of Object.entries(built)) {
+  for (const [name, node] of Object.entries<JsonObject>(built)) {
     assert.deepEqual(Object.fromEntries(Object.keys(common).map(member => [member, node[member]])), common, name);
   }
   // A member that is undefined is left out, as any option.
-  assert.deepEqual(layout.link('app://a', child, { ifStale: undefined, accessibility: undefined }), { type: 'link', url: 'app://a', child });
-  assert.deepEqual(layout.toggle('mute', 'muted', child, { transition: undefined }), { type: 'toggle', actionId: 'mute', bind: 'muted', child });
+  assert.deepEqual(layout.link('app://a', child, unchecked<Parameters<typeof layout.link>[2]>({ ifStale: undefined, accessibility: undefined })), { type: 'link', url: 'app://a', child });
+  assert.deepEqual(layout.toggle('mute', 'muted', child, unchecked<Parameters<typeof layout.toggle>[3]>({ transition: undefined })), { type: 'toggle', actionId: 'mute', bind: 'muted', child });
 });
 
 // TP-JS-6
@@ -778,36 +855,40 @@ test('layout builders omit options that were not given or are undefined', () => 
   assert.deepEqual(Object.keys(layout.vstack([])), ['type', 'children']);
   assert.deepEqual(layout.spacer({}), { type: 'spacer' });
   assert.deepEqual(layout.spacer(undefined), { type: 'spacer' });
-  assert.deepEqual(layout.text('a', { style: undefined, if: 'shown' }), { type: 'text', value: 'a', if: 'shown' });
-  assert.deepEqual(layout.gauge('level', { min: 0, max: undefined }), { type: 'gauge', bind: 'level', min: 0 });
+  assert.deepEqual(layout.text('a', unchecked<Parameters<typeof layout.text>[1]>({ style: undefined, if: 'shown' })), { type: 'text', value: 'a', if: 'shown' });
+  assert.deepEqual(layout.gauge('level', unchecked<Parameters<typeof layout.gauge>[1]>({ min: 0, max: undefined })), { type: 'gauge', bind: 'level', min: 0 });
 });
 
 test('layout builders do not validate and leave their arguments unchanged', () => {
-  const child = deepFreeze({ type: 'text', value: 'Pause' });
+  const child: LayoutNode = deepFreeze({ type: 'text', value: 'Pause' });
   const children = deepFreeze([child, { type: 'unknown' }]);
   const options = deepFreeze({ spacing: 999, style: 'card' });
-  const box = deepFreeze([0, 4096]);
+  const box = deepFreeze([0, 4096] as const);
   const serialized = JSON.stringify({ child, children, options, box });
 
-  for (const type of ['vstack', 'hstack', 'zstack']) {
-    const node = layout[type](children, options);
+  for (const type of ['vstack', 'hstack', 'zstack'] as const) {
+    const node = layout[type](unchecked<readonly LayoutNode[]>(children), options);
     assert.deepEqual(node, { type, children: [{ type: 'text', value: 'Pause' }, { type: 'unknown' }], spacing: 999, style: 'card' });
     assert.notEqual(node, options);
   }
   assert.deepEqual(layout.path('not a path', box, deepFreeze({ stroke: -1 })), { type: 'path', d: 'not a path', box: [0, 4096], stroke: -1 });
   assert.deepEqual(layout.button('', child, options), { type: 'button', actionId: '', child: { type: 'text', value: 'Pause' }, spacing: 999, style: 'card' });
-  assert.deepEqual(layout.text('a', deepFreeze({ bind: 'both' })), { type: 'text', value: 'a', bind: 'both' });
+  assert.deepEqual(layout.text('a', unchecked<Parameters<typeof layout.text>[1]>(deepFreeze({ bind: 'both' }))), { type: 'text', value: 'a', bind: 'both' });
   assert.equal(JSON.stringify({ child, children, options, box }), serialized);
 });
 
 // The shared layout fixtures, as far as this layer goes: it sends every request as written, leaves
-// the verdict to the plugin, and its builders can write every valid layout.
-const send = {
-  start: activity.start, update: activity.update,
-  start_layout: activity.startLayout, update_layout: activity.updateLayout, end_layout: activity.endLayout,
+// the verdict to the plugin, and its builders can write every valid layout. A fixture's request is JSON, valid or
+// invalid on purpose: each command takes it unchecked, as the request that it takes.
+const send: Readonly<Record<string, (request: unknown) => Promise<unknown>>> = {
+  start: request => activity.start(unchecked<StartInput>(request)),
+  update: request => activity.update(unchecked<UpdateInput>(request)),
+  start_layout: request => activity.startLayout(unchecked<LayoutStartInput>(request)),
+  update_layout: request => activity.updateLayout(unchecked<LayoutUpdateInput>(request)),
+  end_layout: request => activity.endLayout(unchecked<LayoutEndInput>(request)),
 };
-const starts = fixtures.valid.filter(({ command }) => command === 'start_layout');
-const each = async (cases, check) => {
+const starts = layoutFixtures.valid.filter(({ command }) => command === 'start_layout');
+const each = async <Fixture extends NamedFixture>(cases: readonly Fixture[], check: (fixture: Fixture) => void | Promise<void>): Promise<void> => {
   for (const fixture of cases) {
     try {
       await check(fixture);
@@ -819,34 +900,34 @@ const each = async (cases, check) => {
 
 // TP-JS-1
 test('sends every valid layout fixture to its command unchanged', async () => {
-  const commands = new Set(fixtures.valid.map(({ command }) => command));
+  const commands = new Set(layoutFixtures.valid.map(({ command }) => command));
   for (const command of ['start_layout', 'update_layout', 'end_layout']) assert.ok(commands.has(command), `no valid fixture for ${command}`);
-  await each(fixtures.valid, async ({ command, input }) => {
+  await each(layoutFixtures.valid, async ({ command, input }) => {
     const request = deepFreeze(structuredClone(input));
     const reply = { ...layoutRecord, state: command === 'end_layout' ? 'ended' : 'active' };
-    const calls = [];
-    mockIPC((nativeCommand, payload) => {
+    const calls: NativeCall[] = [];
+    mockIPC((nativeCommand, payload?: InvokeArgs) => {
       calls.push({ nativeCommand, payload });
       return reply;
     });
-    assert.deepEqual(await send[command](request), reply);
+    assert.deepEqual(await present(send[command], `a way to send ${command}`)(request), reply);
     assert.deepEqual(calls, [{ nativeCommand: `plugin:live-activity|${command}`, payload: { input } }]);
   });
 });
 
 test('sends every invalid layout fixture unchanged and reports the code of its rejection', async () => {
   // Left to the validators: fixtures whose command this API cannot send with an input.
-  const sendable = fixtures.invalid.filter(({ command }) => Object.hasOwn(send, command));
+  const sendable = layoutFixtures.invalid.filter(({ command }) => Object.hasOwn(send, command));
   assert.notEqual(sendable.length, 0);
   await each(sendable, async ({ command, input, code }) => {
     const request = deepFreeze(structuredClone(input));
     const expected = { code, message: 'Operation could not be completed.' };
-    const calls = [];
-    mockIPC((nativeCommand, payload) => {
+    const calls: NativeCall[] = [];
+    mockIPC((nativeCommand, payload?: InvokeArgs) => {
       calls.push({ nativeCommand, payload });
       return Promise.reject(expected);
     });
-    await assert.rejects(send[command](request), error => {
+    await assert.rejects(present(send[command], `a way to send ${command}`)(request), error => {
       assert.deepEqual(error, expected);
       return true;
     });
@@ -854,80 +935,92 @@ test('sends every invalid layout fixture unchanged and reports the code of its r
   });
 });
 
+/** A builder as the rebuilder calls it: with the members of a fixture's node, which are JSON. */
+type FixtureBuilder = (...given: readonly unknown[]) => unknown;
+/** Writes a node of a fixture again. */
+type Rebuild = (node: unknown) => unknown;
+/** Writes the binding of a value key. */
+type Bind = (key: string) => unknown;
+
 // Writes a fixture node again through the builders: its members become the builder's arguments, and a bound
 // member of its accessibility is written again with `bind`.
-const rebuilder = builders => {
-  const common = ({ accessibility, ...members }) => ({
-    ...members, ...(accessibility && { accessibility: mapValues(accessibility, member => rebind(member, builders.bind)) }),
+const rebuilder = (builders: Readonly<Record<string, FixtureBuilder>>): Rebuild => {
+  const common = ({ accessibility, ...members }: JsonObject): JsonObject => ({
+    ...members, ...(isRecord(accessibility) && { accessibility: mapValues(accessibility, member => rebind(member, present(builders.bind))) }),
   });
-  const rebuild = ({ type, ...members }) => table[type === 'text' && 'bind' in members ? 'bound' : type](common(members));
-  const table = {
-    vstack: ({ children, ...options }) => builders.vstack(children.map(rebuild), options),
-    hstack: ({ children, ...options }) => builders.hstack(children.map(rebuild), options),
-    zstack: ({ children, ...options }) => builders.zstack(children.map(rebuild), options),
-    spacer: options => builders.spacer(options),
-    divider: options => builders.divider(options),
-    text: ({ value, ...options }) => builders.text(value, options),
-    bound: ({ bind, ...options }) => builders.bound(bind, options),
-    symbol: ({ name, ...options }) => builders.symbol(name, options),
-    image: ({ source, ...options }) => builders.image('asset' in source ? source.asset : { file: source.file }, options),
-    custom: ({ name, props, ...options }) => builders.custom(name, {
-      ...options, ...(props && { props: mapValues(props, prop => rebind(prop, builders.bind)) }),
+  const rebuild: Rebuild = node => {
+    const { type, ...members } = jsonObject(node, 'a node');
+    return present(table[type === 'text' && 'bind' in members ? 'bound' : text(type, 'the type of a node')])(common(members));
+  };
+  const table: Readonly<Record<string, (members: JsonObject) => unknown>> = {
+    vstack: ({ children, ...options }) => present(builders.vstack)(list(children).map(rebuild), options),
+    hstack: ({ children, ...options }) => present(builders.hstack)(list(children).map(rebuild), options),
+    zstack: ({ children, ...options }) => present(builders.zstack)(list(children).map(rebuild), options),
+    spacer: options => present(builders.spacer)(options),
+    divider: options => present(builders.divider)(options),
+    text: ({ value, ...options }) => present(builders.text)(value, options),
+    bound: ({ bind, ...options }) => present(builders.bound)(bind, options),
+    symbol: ({ name, ...options }) => present(builders.symbol)(name, options),
+    image: ({ source, ...options }) => present(builders.image)('asset' in jsonObject(source) ? member(source, 'asset') : { file: member(source, 'file') }, options),
+    custom: ({ name, props, ...options }) => present(builders.custom)(name, {
+      ...options, ...(isRecord(props) && { props: mapValues(props, prop => rebind(prop, present(builders.bind))) }),
     }),
-    path: ({ d, box, ...options }) => builders.path(d, box, options),
-    progress: ({ bind, ...options }) => builders.progress(bind, options),
-    gauge: ({ bind, ...options }) => builders.gauge(bind, options),
-    timerText: ({ start, end, ...options }) => builders.timerText(start, end, options),
-    button: ({ actionId, child, ...options }) => builders.button(actionId, rebuild(child), options),
-    link: ({ url, child, ...options }) => builders.link(rebind(url, builders.bind), rebuild(child), options),
-    toggle: ({ actionId, bind, child, ...options }) => builders.toggle(actionId, bind, rebuild(child), options),
+    path: ({ d, box, ...options }) => present(builders.path)(d, box, options),
+    progress: ({ bind, ...options }) => present(builders.progress)(bind, options),
+    gauge: ({ bind, ...options }) => present(builders.gauge)(bind, options),
+    timerText: ({ start, end, ...options }) => present(builders.timerText)(start, end, options),
+    button: ({ actionId, child, ...options }) => present(builders.button)(actionId, rebuild(child), options),
+    link: ({ url, child, ...options }) => present(builders.link)(rebind(url, present(builders.bind)), rebuild(child), options),
+    toggle: ({ actionId, bind, child, ...options }) => present(builders.toggle)(actionId, bind, rebuild(child), options),
   };
   return rebuild;
 };
-const mapValues = (object, map) => Object.fromEntries(Object.entries(object).map(([key, value]) => [key, map(value, key)]));
+const mapValues = <Value, Mapped>(object: Readonly<Record<string, Value>>, map: (value: Value, key: string) => Mapped): Record<string, Mapped> =>
+  Object.fromEntries(Object.entries(object).map(([key, value]) => [key, map(value, key)]));
 // A bound member is written again with `bind`, a literal as it is.
-const rebind = (member, bind) => (typeof member === 'object' && 'bind' in member ? bind(member.bind) : member);
+const rebind = (member: unknown, bind: Bind): unknown => (isRecord(member) && 'bind' in member ? bind(text(member.bind, 'the key of a binding')) : member);
 // The options of the island are no nodes: they are written as they are.
 const ISLAND_OPTIONS = ['priority', 'belowIfTooWide', 'margins'];
-const rebuildParts = (parts, rebuild) => mapValues(parts, (part, key) => {
+const rebuildParts = (parts: JsonObject, rebuild: Rebuild): JsonObject => mapValues(parts, (part, key) => {
   if (ISLAND_OPTIONS.includes(key)) return part;
-  return key === 'expanded' ? rebuildParts(part, rebuild) : rebuild(part);
+  return key === 'expanded' ? rebuildParts(jsonObject(part, 'the expanded part of an island'), rebuild) : rebuild(part);
 });
 // The two tints and the url are literals or bound.
-const rebuildLayout = ({ lockScreen, island, ...bindable }, rebuild, bind) => ({
+const rebuildLayout = ({ lockScreen, island, ...bindable }: JsonObject, rebuild: Rebuild, bind: Bind): JsonObject => ({
   lockScreen: rebuild(lockScreen),
-  ...(island && { island: rebuildParts(island, rebuild) }),
+  ...(isRecord(island) && { island: rebuildParts(island, rebuild) }),
   ...mapValues(bindable, member => rebind(member, bind)),
 });
-const rebuildStyles = (styles, bind) => mapValues(styles, style => mapValues(style, member => rebind(member, bind)));
+const rebuildStyles = (styles: JsonObject, bind: Bind): JsonObject => mapValues(styles, style => mapValues(jsonObject(style, 'a style'), member => rebind(member, bind)));
 
 test('layout builders reproduce every node of every valid fixture layout', async () => {
-  const used = new Set();
-  const rebuild = rebuilder(mapValues(layout, (build, name) => (...given) => {
+  const used = new Set<string>();
+  // A builder is typed, and what it is given here is the JSON of a fixture's node: it takes that unchecked.
+  const rebuild = rebuilder(mapValues(layout, (build, name) => (...given: readonly unknown[]) => {
     used.add(name);
-    return build(...given);
+    return unchecked<FixtureBuilder>(build)(...given);
   }));
-  const bind = key => {
+  const bind = (key: string): LayoutBound => {
     used.add('bind');
     return layout.bind(key);
   };
   await each(starts, ({ input }) => {
-    assert.deepEqual(rebuildLayout(input.layout, rebuild, bind), input.layout);
-    if (input.styles) assert.deepEqual(rebuildStyles(input.styles, bind), input.styles);
+    assert.deepEqual(rebuildLayout(jsonObject(input.layout, 'the layout of a start'), rebuild, bind), input.layout);
+    if (input.styles) assert.deepEqual(rebuildStyles(jsonObject(input.styles, 'the styles of a start'), bind), input.styles);
   });
   assert.deepEqual([...used].sort(), Object.keys(layout).sort());
 });
 
 test('sends the start and the update of every update fixture unchanged', async () => {
-  assert.notEqual(fixtures.updates.length, 0);
-  await each(fixtures.updates, async ({ start, update }) => {
-    const calls = [];
-    mockIPC((nativeCommand, payload) => {
+  assert.notEqual(layoutFixtures.updates.length, 0);
+  await each(layoutFixtures.updates, async ({ start, update }) => {
+    const calls: NativeCall[] = [];
+    mockIPC((nativeCommand, payload?: InvokeArgs) => {
       calls.push({ nativeCommand, payload });
       return layoutRecord;
     });
-    await activity.startLayout(deepFreeze(structuredClone(start)));
-    await activity.updateLayout(deepFreeze(structuredClone(update)));
+    await activity.startLayout(unchecked<LayoutStartInput>(deepFreeze(structuredClone(start))));
+    await activity.updateLayout(unchecked<LayoutUpdateInput>(deepFreeze(structuredClone(update))));
     assert.deepEqual(calls, [
       { nativeCommand: 'plugin:live-activity|start_layout', payload: { input: start } },
       { nativeCommand: 'plugin:live-activity|update_layout', payload: { input: update } },
@@ -943,8 +1036,11 @@ test('layout.bind writes the styles of the fixture that accepts every bindable s
       size: bind('size'), weight: bind('weight'), color: bind('tone'), background: bind('fill'), cornerRadius: bind('radius'),
       opacity: bind('alpha'), tint: bind('accent'),
     },
-  }, named.input.styles);
+  }, present(named, 'the fixture of that name').input.styles);
 });
+
+/** A layout of the fixtures: the name of its fixture, and the layout as the builders write it. */
+type WrittenLayout = readonly [name: string, build: (builders: typeof layout) => Layout];
 
 for (const [name, build] of [
   ['starts a session layout with styles, an island, conditions and a button', ({ vstack, hstack, symbol, bound, spacer, timerText, progress, button, text }) => ({
@@ -1032,7 +1128,7 @@ for (const [name, build] of [
       margins: { expanded: 8, compactLeading: [0, 4, 0, 4], compactTrailing: 64, minimal: 0 },
     },
   })],
-]) {
+] satisfies readonly WrittenLayout[]) {
   test(`layout builders write the layout of the fixture that ${name}`, () => {
     const built = build(layout);
     const named = starts.find(candidate => candidate.name === name);
@@ -1048,8 +1144,8 @@ test('endLayout sends the final content of an end unchanged', async () => {
     id: 'opaque-native-handle', policy: Object.freeze({ kind: 'after', at: 1_790_000_000_000 }),
     snapshot: Object.freeze({ revision: 3, values: Object.freeze({ status: 'Delivered' }), timestamp: 1_790_000_000_000 }),
   });
-  const calls = [];
-  mockIPC((nativeCommand, payload) => {
+  const calls: NativeCall[] = [];
+  mockIPC((nativeCommand, payload?: InvokeArgs) => {
     calls.push({ nativeCommand, payload });
     return { id: end.id, state: 'ended' };
   });
@@ -1099,7 +1195,7 @@ test('the declarations follow the contract of 0.6', async () => {
 const root = fileURLToPath(new URL('..', import.meta.url));
 const written = mkdtempSync(join(tmpdir(), 'layout-declarations-'));
 after(() => rmSync(written, { recursive: true, force: true }));
-const compileModule = (name, source) => {
+const compileModule = (name: string, source: string): SpawnSyncReturns<string> => {
   const file = join(written, `${name}.mts`);
   writeFileSync(file, `import type * as plugin from ${JSON.stringify(join(root, 'dist-js/index.js'))};\n${source}`);
   return spawnSync(join(root, 'node_modules/.bin/tsc'), [
@@ -1110,18 +1206,18 @@ const compileModule = (name, source) => {
 
 // TP-JS-5
 test('the declarations take every valid layout fixture and the members beside the schema, and refuse what the contract refuses of the new ones', () => {
-  const inputs = (command) => fixtures.valid.filter(fixture => fixture.command === command).map(({ input }) => input);
-  const accepted = (given) => given.filter(({ code }) => code === undefined);
-  const typed = (name, type, values) => `export const ${name}: readonly plugin.${type}[] = ${JSON.stringify(values, null, 1)};\n`;
+  const inputs = (command: string): JsonObject[] => layoutFixtures.valid.filter(fixture => fixture.command === command).map(({ input }) => input);
+  const accepted = <Fixture extends { readonly code: unknown }>(given: readonly Fixture[]): Fixture[] => given.filter(({ code }) => code === undefined);
+  const typed = (name: string, type: string, values: readonly unknown[]): string => `export const ${name}: readonly plugin.${type}[] = ${JSON.stringify(values, null, 1)};\n`;
   const alert = { title: 'Your ride', body: 'It starts now', sound: 'chime.aiff' };
   const taken = compileModule('taken', [
     typed('starts', 'LayoutStartInput', [
-      ...inputs('start_layout'), ...fixtures.updates.map(({ start }) => start), ...fixtures.ends.map(({ start }) => start),
+      ...inputs('start_layout'), ...layoutFixtures.updates.map(({ start }) => start), ...layoutFixtures.ends.map(({ start }) => start),
       // What the liveactivity crate takes with a start beside activitykit's schema.
       { ...layoutInput, ios: { transient: true }, scheduled: { at: 1_900_000_000_000, alert }, push: 'token' },
     ]),
-    typed('updates', 'LayoutUpdateInput', [...inputs('update_layout'), ...accepted(fixtures.updates).map(({ update }) => update), { ...layoutUpdate, alert }]),
-    typed('ends', 'LayoutEndInput', [...inputs('end_layout'), ...accepted(fixtures.ends).map(({ end }) => end)]),
+    typed('updates', 'LayoutUpdateInput', [...inputs('update_layout'), ...accepted(layoutFixtures.updates).map(({ update }) => update), { ...layoutUpdate, alert }]),
+    typed('ends', 'LayoutEndInput', [...inputs('end_layout'), ...accepted(layoutFixtures.ends).map(({ end }) => end)]),
     // A region for a paired Apple Watch and CarPlay: one node, as the Lock Screen's.
     typed('layouts', 'Layout', [{ lockScreen: { type: 'text', value: 'a' }, small: { type: 'hstack', children: [{ type: 'text', value: 'a' }] } }]),
   ].join(''));

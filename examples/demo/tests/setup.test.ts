@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { list, member } from '../../../tests/support.ts';
 import { activitykitDir } from '../../../tools/activitykit.ts';
 
-const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
+const read = (path: string): string => readFileSync(new URL(path, import.meta.url), 'utf8');
 const project = read('../src-tauri/gen/apple/project.yml');
 
 /** The YAML of one target in the XcodeGen spec, up to the next target. */
-function target(name) {
+function target(name: string): string {
   const start = project.indexOf(`\n  ${name}:\n`);
   assert.notEqual(start, -1, name);
   const rest = project.slice(start + 1);
@@ -21,7 +22,7 @@ function target(name) {
 test("the demo widget is activitykit's widget template, and the project names activitykit's package", () => {
   const dir = activitykitDir({ manifest: new URL('../src-tauri/Cargo.toml', import.meta.url).pathname });
   const template = readFileSync(join(dir, 'templates/ios/Widget.swift'), 'utf8');
-  const body = text => text.slice(text.indexOf('@main'));
+  const body = (text: string): string => text.slice(text.indexOf('@main'));
   assert.equal(body(read('../widget/MochiWidgets.swift')), body(template));
   assert.match(project, /\npackages:\n(?:\s*#.*\n)?\s+ActivityKit:\n\s+path: activitykit\/swift\n/);
   assert.match(read('../src-tauri/gen/apple/.gitignore'), /^\/activitykit$/m);
@@ -49,9 +50,9 @@ test('the widget extension draws the small family, as a Boolean in its Info.plis
 });
 
 test('the app turns on the Samsung Now Bar extras and grants the layout commands', () => {
-  const config = JSON.parse(read('../src-tauri/tauri.conf.json'));
-  assert.deepEqual(config.plugins['live-activity'], { android: { samsungNowBar: true } });
-  const { permissions } = JSON.parse(read('../src-tauri/capabilities/default.json'));
+  const config: unknown = JSON.parse(read('../src-tauri/tauri.conf.json'));
+  assert.deepEqual(member(config, 'plugins', 'live-activity'), { android: { samsungNowBar: true } });
+  const permissions = list(member(JSON.parse(read('../src-tauri/capabilities/default.json')), 'permissions'), 'the permissions');
   for (const permission of ['core:default', 'live-activity:allow-start-layout', 'live-activity:allow-update-layout',
     'live-activity:allow-end-layout']) assert.ok(permissions.includes(permission), permission);
 });
@@ -63,7 +64,7 @@ test('the demo is an app that can be allowed exact alarms: it declares the permi
   assert.match(manifest, /<uses-permission android:name="android\.permission\.SCHEDULE_EXACT_ALARM" \/>/);
   assert.doesNotMatch(read('../../../android/src/main/AndroidManifest.xml'), /SCHEDULE_EXACT_ALARM/);
   // The page's button calls the command, which is not in the plugin's default set.
-  const { permissions } = JSON.parse(read('../src-tauri/capabilities/default.json'));
+  const permissions = list(member(JSON.parse(read('../src-tauri/capabilities/default.json')), 'permissions'), 'the permissions');
   assert.ok(permissions.includes('live-activity:allow-open-exact-alarm-settings'));
   assert.match(read('../src/index.html'), /<button id="exact-alarms"/);
   const page = read('../src/main.ts');
