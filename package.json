@@ -24,14 +24,14 @@
     "./package.json": "./package.json"
   },
   "bin": { "tauri-plugin-live-activity": "cli/bin.mjs" },
-  "files": ["dist-js", "cli", "README.md", "README.ko.md", "LICENSE", "LICENSE-APACHE", "LICENSE-MIT"],
+  "files": ["dist-js", "cli/*.mjs", "cli/templates", "README.md", "README.ko.md", "LICENSE", "LICENSE-APACHE", "LICENSE-MIT"],
   "publishConfig": { "access": "public", "tag": "next" },
   "engines": {
     "node": ">=22.12.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p examples/demo/tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsc -p cli && node -e \"require('node:fs').chmodSync('cli/bin.mjs', 0o755)\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p cli --noEmit && tsc -p examples/demo/tsconfig.json",
     "test": "npm run build && npm run test:contracts && npm run test:api && npm run test:jsx && npm run test:react && npm run test:demo && npm run test:setup",
     "test:contracts": "node --test --experimental-test-coverage \"--test-coverage-include=tools/activitykit.mjs\" \"--test-coverage-include=tools/sync-liveupdate.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/contract-files.test.mjs tests/typescript-requests.test.mjs tests/android-liveupdate.test.mjs tests/android-contents.test.mjs tests/ci.test.mjs tests/ci-cache.test.mjs tests/ios-run.test.mjs tests/spec-coverage.test.mjs",
     "test:api": "node --test --experimental-test-coverage \"--test-coverage-include=dist-js/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/api.test.mjs tests/api-reload.test.mjs",
@@ -54,6 +54,7 @@
   "devDependencies": {
     "@tauri-apps/cli": "2.12.4",
     "@tauri-apps/api": "2.12.4",
+    "@types/node": "22.20.5",
     "@types/react": "19.3.0",
     "esbuild": "0.28.2",
     "react": "19.3.1",
