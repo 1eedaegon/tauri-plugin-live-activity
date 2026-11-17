@@ -38,7 +38,7 @@ Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과 Dynamic Island에, A
 `UNSUPPORTED_PLATFORM`을 돌려줍니다. 플러그인은 [liveactivity](https://github.com/1eedaegon/liveactivity-rs)
 크레이트의 어댑터이고, 이 크레이트가 iOS는 [activitykit](https://github.com/1eedaegon/activitykit-rs), Android는
 [liveupdate](https://github.com/1eedaegon/liveupdate-rs) 위에서 돌립니다. 그래서 플러그인 자체의 Swift 코드가 없고
-Kotlin은 권한 명령과 liveupdate의 Android 어댑터 호출만 맡습니다. 1.0 전까지는 마이너 버전이 바뀔 때 API도 바뀔 수 있습니다.
+Kotlin은 권한 명령과 liveupdate의 Android 어댑터 호출만 맡습니다.
 
 ## 설치
 
