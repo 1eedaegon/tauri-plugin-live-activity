@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   validateReleaseMetadata,
   requireSuccessfulCiRun,
@@ -8,7 +13,7 @@ import {
   requireFrozenArtifacts,
   compareVersions,
   nextTagNeedsUpdate,
-} from '../../tools/release-guard.mjs';
+} from '../../tools/release-guard.ts';
 
 const name = 'tauri-plugin-live-activity';
 const version = '0.1.0-alpha.3';
@@ -274,4 +279,57 @@ test('frozen release rejects missing, malformed or different Cargo archive ident
     assert.throws(() => requireFrozenArtifacts({ release: { ...rebuiltRelease(), cargo: { ...cargoExpected, checksum } }, frozen: frozenArtifacts(), npmTarSha256: 'd'.repeat(64) }), /frozen/i);
     assert.throws(() => requireFrozenArtifacts({ release: rebuiltRelease(), frozen: { ...frozenArtifacts(), cargo: { name, sha256: checksum } }, npmTarSha256: 'd'.repeat(64) }), /frozen/i);
   }
+});
+
+// The controller is TypeScript that Node runs as it is, in a checkout with no packages installed. It reads the
+// network and the registries, which no test does: these are the answers it gives before it reaches for either.
+test('the release controller runs as TypeScript and says what it lacks', t => {
+  const controller = fileURLToPath(new URL('../../tools/release.ts', import.meta.url));
+  const directory = mkdtempSync(join(tmpdir(), 'la-release-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const run = (args, env = {}) => spawnSync(process.execPath, ['--experimental-strip-types', controller, ...args], {
+    encoding: 'utf8', env: { PATH: process.env.PATH, ...env },
+  });
+  const said = (args, message, env) => {
+    const result = run(args, env);
+    assert.equal(result.status, 1, args.join(' '));
+    assert.match(result.stderr, message, args.join(' '));
+  };
+  const modes = /Expected prepare, archive, inspect, verify, verify-default, inspect-next or verify-next/;
+  said([], modes);
+  said(['publish'], modes);
+  said(['inspect', 'pypi'], /Unknown registry/);
+  said(['verify'], /Unknown registry/);
+  said(['prepare'], /Expected the folder of the source after the mode/);
+  said(['archive'], /Expected the folder of the source after the mode/);
+  said(['archive', '.'], /RELEASE_DIR is not set/);
+  said(['inspect', 'npm'], /RELEASE_DIR is not set/);
+  said(['inspect-next'], /RELEASE_DIR is not set/);
+  said(['prepare', '.'], /Release tag must be an exact vSEMVER tag/);
+
+  // A record or a pack list that lacks a member stops the step that reads it, before it writes or asks a registry.
+  const env = { RELEASE_DIR: directory, GITHUB_OUTPUT: join(directory, 'output') };
+  const record = { version, distTag: 'next', tag: `v${version}`, sourceCommit: headSha };
+  const write = (file, value) => writeFileSync(join(directory, file), JSON.stringify(value));
+  write('release.json', record);
+  for (const packs of [null, {}, [], [null], [{ name, version, filename: 'a.tgz', shasum: 'a'.repeat(40) }]]) {
+    write('npm-pack.json', packs);
+    said(['archive', directory], /npm-pack\.json has no (name|integrity)/, env);
+    assert.deepEqual(JSON.parse(readFileSync(join(directory, 'release.json'), 'utf8')), record);
+  }
+  write('release.json', []);
+  said(['archive', directory], /release\.json is not a release record/, env);
+  for (const [stored, message] of [
+    [{ ...record, version: 7 }, /release\.json has no version/],
+    [{ ...record, distTag: 'beta' }, /release\.json has no distTag of latest or next/],
+    [{ ...record, distTag: undefined }, /release\.json has no distTag of latest or next/],
+    [{ ...record, sourceCommit: undefined }, /release\.json has no sourceCommit/],
+    [record, /release\.json has no npm\.filename/],
+  ]) {
+    write('release.json', stored);
+    said(['inspect', 'npm'], message, env);
+  }
+  write('release.json', { ...record, version: undefined });
+  said(['inspect-next'], /release\.json has no version/, env);
+  assert.equal(existsSync(env.GITHUB_OUTPUT), false);
 });

@@ -459,7 +459,7 @@ answers.
 ```sh
 npm ci
 npm test && npm run typecheck && npm run build:demo
-node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.mjs \
+node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.ts \
   --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 \
   tests/release/release-guard.test.mjs
 cargo fmt --all -- --check

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { activitykitDir } from '../../../tools/activitykit.mjs';
+import { activitykitDir } from '../../../tools/activitykit.ts';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const project = read('../src-tauri/gen/apple/project.yml');

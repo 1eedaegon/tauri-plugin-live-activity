@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { mockIPC, clearMocks } from '@tauri-apps/api/mocks';
 import { emit } from '@tauri-apps/api/event';
-import { LAYOUT_FIXTURES, contract } from '../tools/activitykit.mjs';
+import { LAYOUT_FIXTURES, contract } from '../tools/activitykit.ts';
 import * as activity from '../dist-js/index.js';
 
 // activitykit's fixtures, from the crate that the plugin builds with.

@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { LAYOUT_FIXTURES, activitykitDir, contract, contractPath } from '../tools/activitykit.mjs';
+import { LAYOUT_FIXTURES, activitykitDir, contract, contractPath } from '../tools/activitykit.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = path => readFileSync(join(root, path), 'utf8');

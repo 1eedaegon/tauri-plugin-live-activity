@@ -1,10 +1,12 @@
 // The plugin's Android library is liveupdate's adapter plus the plugin's permissions and event channel.
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { adapt, copiedFiles, differing, liveupdateDir, missingManifestEntries } from '../tools/sync-liveupdate.mjs';
+import { crateDir } from '../tools/cargo.ts';
+import { adapt, copiedFiles, differing, liveupdateDir, missingManifestEntries } from '../tools/sync-liveupdate.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -25,6 +27,25 @@ test("the Android library carries liveupdate's Kotlin, resources and manifest en
   assert.doesNotMatch(renderer, /[^.]R\.drawable\./);
   assert.equal(adapt('a R.drawable.x b'), 'a io.github.eedaegon.liveactivity.R.drawable.x b');
   assert.throws(() => liveupdateDir({ cargo: join(dir, 'no-such-cargo') }), /cargo metadata failed/);
+  assert.throws(() => crateDir('no-such-crate'), /^Error: no-such-crate is not a dependency of this crate$/);
+});
+
+// TP-ANDROID-11
+test("a permission or a receiver of liveupdate's manifest that the plugin's lacks is named, a receiver by its class", t => {
+  const later = mkdtempSync(join(tmpdir(), 'la-liveupdate-'));
+  t.after(() => rmSync(later, { recursive: true, force: true }));
+  const manifest = 'android/src/main/AndroidManifest.xml';
+  const theirs = readFileSync(join(liveupdateDir(), manifest), 'utf8');
+  const more = '    <uses-permission android:name="android.permission.NEW_IN_LIVEUPDATE" />\n'
+    + '    <receiver android:name=".NewReceiver" android:exported="false" />\n'
+    + '    <receiver android:name="com.example.Named" android:exported="false" />\n';
+  mkdirSync(dirname(join(later, manifest)), { recursive: true });
+  writeFileSync(join(later, manifest), theirs.replace('</manifest>', `${more}</manifest>`));
+  assert.deepEqual(missingManifestEntries(later), [
+    'permission android.permission.NEW_IN_LIVEUPDATE',
+    'receiver io.github.eedaegon.liveupdate.NewReceiver',
+    'receiver com.example.Named',
+  ]);
 });
 
 const OWN = 'android/src/main/java/io/github/eedaegon/liveactivity';
