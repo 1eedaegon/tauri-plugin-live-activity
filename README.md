@@ -38,7 +38,7 @@ which follows a cat named Mochi. iOS 16.2+ and Android 8+; on desktop the activi
 `UNSUPPORTED_PLATFORM`. The plugin is an adapter of the [liveactivity](https://github.com/1eedaegon/liveactivity-rs)
 crate, which runs iOS on [activitykit](https://github.com/1eedaegon/activitykit-rs) and Android on
 [liveupdate](https://github.com/1eedaegon/liveupdate-rs): the plugin has no Swift of its own, and its Kotlin answers
-the permission commands and carries liveupdate's Android adapter. Before 1.0, a minor version may change the API.
+the permission commands and carries liveupdate's Android adapter.
 
 ## Install
 
