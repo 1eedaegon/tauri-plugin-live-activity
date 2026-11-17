@@ -11,7 +11,7 @@ import {
 } from '../dist-js/jsx/index.js';
 import { jsx, jsxs } from '../dist-js/jsx/jsx-runtime.js';
 import { jsxDEV } from '../dist-js/jsx/jsx-dev-runtime.js';
-import { keep } from './typescript-requests.mjs';
+import { keep } from './typescript-requests.ts';
 import { layoutExamples } from '../examples/demo/src/layouts.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');

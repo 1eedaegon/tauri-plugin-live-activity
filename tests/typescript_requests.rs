@@ -1,6 +1,6 @@
 //! The requests that the plugin's TypeScript builds, judged by the checks that the plugin's commands run. The plugin
 //! has no validator in JavaScript: the node tests that build requests keep them, as the JSON that crosses the IPC, in
-//! the files of tests/fixtures/typescript (tests/typescript-requests.mjs), and a request that changes fails its test
+//! the files of tests/fixtures/typescript (tests/typescript-requests.ts), and a request that changes fails its test
 //! there until its file is written again. Every request of every file is judged here.
 
 use serde::{Deserialize, de::DeserializeOwned};

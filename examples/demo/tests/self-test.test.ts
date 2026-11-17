@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { keep } from '../../../tests/typescript-requests.mjs';
+import { keep } from '../../../tests/typescript-requests.ts';
 import { runLifecycleChecks } from '../src/self-test.ts';
 
 const snapshot = { revision: 0, title: 'Integration test', status: 'Starting', progress: 0.1 };

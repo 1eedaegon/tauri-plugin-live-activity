@@ -80,25 +80,25 @@ test('the changes job starts each job for its paths, and the ios area is what th
     rust: ['src/lib.rs', 'src/service.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml',
       'tests/contract.rs', 'examples/demo/src-tauri/src/lib.rs', 'guest-js/types.ts',
       'android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt'],
-    js: ['guest-js/index.ts', 'cli/setup.mts', 'cli/tsconfig.json', 'tools/activitykit.ts', 'tests/api.test.mjs',
-      'tests/release/release-guard.test.mjs', 'tests/jsx/elements.tsx', 'tests/declarations/members.ts',
+    js: ['guest-js/index.ts', 'cli/setup.mts', 'cli/tsconfig.json', 'tools/activitykit.ts', 'tests/api.test.ts',
+      'tests/release/release-guard.test.ts', 'tests/jsx/elements.tsx', 'tests/declarations/members.ts',
       'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/src/main.ts',
       'src/android.rs', 'src/files.rs', 'src/lib.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml',
       'tests/android_contents.rs', 'android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt',
       'android/consumer-rules.pro', 'android/build.gradle.kts', 'tests/android/settings.gradle.kts',
       'contracts/request.schema.json'],
     ios: ['src/ios.rs', 'build.rs', 'Cargo.toml', 'Cargo.lock', 'permissions/default.toml', 'guest-js/types.ts', 'cli/ios.mts',
-      'cli/tsconfig.json', 'tools/activitykit.ts', 'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/link-activitykit.mjs',
+      'cli/tsconfig.json', 'tools/activitykit.ts', 'package.json', 'package-lock.json', 'tsconfig.json', 'examples/demo/link-activitykit.ts',
       'tests/ios/run.sh', 'tests/ci/cache.sh'],
     android: ['android/src/main/java/io/github/eedaegon/liveactivity/LiveActivityPlugin.kt', 'tests/android/settings.gradle.kts',
       'Cargo.toml', 'Cargo.lock', 'src/android.rs', 'src/bridge.rs', 'src/lib.rs', 'build.rs'],
   };
   const not = {
-    rust: ['cli/setup.mts', 'guest-js/index.ts', 'tests/api.test.mjs', 'tests/ios/run.sh', 'docs/spec.md',
+    rust: ['cli/setup.mts', 'guest-js/index.ts', 'tests/api.test.ts', 'tests/ios/run.sh', 'docs/spec.md',
       'android/build.gradle.kts', 'android/src/androidTest/AndroidManifest.xml'],
     js: ['tests/ios/run.sh', 'tests/ci/cache.sh', 'docs/spec.md', 'README.md'],
-    ios: ['tests/api.test.mjs', 'tests/contract.rs', 'tests/ci.test.mjs', 'android/build.gradle.kts', 'docs/spec.md', 'README.md'],
-    android: ['guest-js/index.ts', 'tests/ios/run.sh', 'tests/api.test.mjs'],
+    ios: ['tests/api.test.ts', 'tests/contract.rs', 'tests/ci.test.ts', 'android/build.gradle.kts', 'docs/spec.md', 'README.md'],
+    android: ['guest-js/index.ts', 'tests/ios/run.sh', 'tests/api.test.ts'],
   };
   for (const [area, paths] of Object.entries(starts)) for (const path of paths) assert.ok(started(path).includes(area), `${path} → ${area}`);
   for (const [area, paths] of Object.entries(not)) for (const path of paths) assert.ok(!started(path).includes(area), `${path} ↛ ${area}`);
@@ -143,15 +143,15 @@ test('the changes job starts each job for its paths, and the ios area is what th
   assert.match(workflow, /run: sh tools\/spec-coverage\.sh/);
   // So do the tests of CI's own scripts: a change to tests/ios/run.sh or tests/ci/cache.sh alone starts the ios
   // area, for which the macOS job runs none of the other node tests.
-  assert.ok(job('spec').endsWith('      - run: node --test tests/spec-coverage.test.mjs tests/ci.test.mjs tests/ci-cache.test.mjs tests/ios-run.test.mjs'));
+  assert.ok(job('spec').endsWith('      - run: node --test tests/spec-coverage.test.ts tests/ci.test.ts tests/ci-cache.test.ts tests/ios-run.test.ts'));
   assert.deepEqual(started('tests/ios/run.sh'), ['ios']);
   assert.deepEqual(started('tests/ci/cache.sh'), ['ios']);
   // The Specification job has dash for its sh. The simulator jobs run run.sh with a Mac's, bash 3.2, and the two
   // differ in what a run does once nobody reads its log: for the ios area the macOS job runs the tests of run.sh
   // too, with the workflow's Node whatever changed. For the js area they are among those of `npm test`.
-  assert.ok(contracts.includes("      - if: env.AREA_IOS == 'true' && env.AREA_JS != 'true'\n        run: node --test tests/ios-run.test.mjs\n"), 'run.sh under bash 3.2');
+  assert.ok(contracts.includes("      - if: env.AREA_IOS == 'true' && env.AREA_JS != 'true'\n        run: node --test tests/ios-run.test.ts\n"), 'run.sh under bash 3.2');
   assert.ok(contracts.includes("      - if: env.AREA_JS == 'true'\n        run: npm test && npm run typecheck && npm run build:demo\n"), 'npm test');
-  assert.match(read('package.json'), /"test:contracts": "[^"\n]*(?:\\"[^"\n]*)* tests\/ios-run\.test\.mjs /);
+  assert.match(read('package.json'), /"test:contracts": "[^"\n]*(?:\\"[^"\n]*)* tests\/ios-run\.test\.ts /);
   // Node comes whatever changed, and the cache of npm only on the condition of `npm ci`, which fills it: after a job
   // that did not find the cache, setup-node saves npm's folder as it is then.
   assert.match(contracts, /uses: actions\/setup-node@[0-9a-f]{40} # v[\d.]+\n {8}with:\n {10}node-version: \$\{\{ env\.NODE \}\}\n {10}cache: \$\{\{ \(env\.AREA_JS == 'true' \|\| env\.AREA_RUST == 'true'\) && 'npm' \|\| '' \}\}\n/);
@@ -368,7 +368,7 @@ test('run.sh tests through the scheme of the project it generates, retries in CI
   assert.match(script, /grep -q -e 'failed to initialize for UI testing' \\\n\s+-e 'Unable to find a device matching the provided destination specifier' "\$work\/xcodebuild-\$attempt\.log"/);
   assert.match(script, /if \[ "\$status" -eq 0 \] && \[ -z "\$\{ONLY:-\}" \]; then printf '%s' "\$retried" >"\$output\/passed"; fi/);
   // The checkout as it was: tracked files of gen/apple restored, only the run's own files replaced in OUTPUT, the
-  // process tree of tauri ios dev stopped. The cleanup runs at every end of the script; tests/ios-run.test.mjs ends
+  // process tree of tauri ios dev stopped. The cleanup runs at every end of the script; tests/ios-run.test.ts ends
   // it with signals (TP-CI-5).
   assert.match(script, /git -C "\$root" ls-files -z -- "\$apple"/);
   assert.doesNotMatch(script, /rm -rf "\$output"/);

@@ -440,7 +440,7 @@ test('an opening that no handler got stays with the plugin, for the next handler
   assert.deepEqual(plugin.waiting, []);
 
   // What was handed over but not let go stays with the plugin: the page that loads next hears it once more
-  // (tests/api-reload.test.mjs), and this page does not.
+  // (tests/api-reload.test.ts), and this page does not.
   await plugin.opened({ activityId: 'la-3' });
   assert.deepEqual(later, ['la-2', 'la-3']);
   assert.deepEqual(plugin.waiting, [{ activityId: 'la-3' }]);

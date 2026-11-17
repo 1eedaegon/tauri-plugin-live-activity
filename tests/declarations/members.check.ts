@@ -1,5 +1,5 @@
 /**
- * What the types of members.ts give for a small type. tests/android-contents.test.mjs compiles this file: a result
+ * What the types of members.ts give for a small type. tests/android-contents.test.ts compiles this file: a result
  * that is not the one written here is a compile error.
  */
 import type { Called, Members, Optional, Same } from './members.js';

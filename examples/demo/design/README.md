@@ -21,7 +21,7 @@ node "$qa_dir/node_modules/playwright/cli.js" install chromium
 npm run build:demo
 PLAYWRIGHT_MODULE="$qa_dir/node_modules/playwright/index.mjs" \
 AXE_MODULE="$qa_dir/node_modules/@axe-core/playwright/dist/index.mjs" \
-  node examples/demo/tests/browser-qa.mjs
+  node examples/demo/tests/browser-qa.ts
 ```
 
 The runner serves only the four built frontend files on loopback, exercises the

@@ -1,8 +1,8 @@
 import { build, context } from 'esbuild';
 import { fileURLToPath } from 'node:url';
-import { linkActivitykit } from './link-activitykit.mjs';
+import { linkActivitykit } from './link-activitykit.ts';
 
-// `node build.mjs` writes the page to dist once. `node build.mjs --watch` stays, and writes it again after each change
+// `node build.ts` writes the page to dist once. `node build.ts --watch` stays, and writes it again after each change
 // of a file the page is made of: the demo's sources and the plugin's guest-js, which the demo imports as source.
 // Tauri's dev commands start it so (tauri.conf.json), and their dev server reloads the page when dist changes.
 const watching = process.argv.includes('--watch');

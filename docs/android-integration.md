@@ -476,7 +476,7 @@ test: the full Tauri demo exercises JavaScript → Rust → Kotlin.
 Verify a built demo's merged minimum SDK with:
 
 ```sh
-node tests/android/verify-min-sdk.mjs "$ANDROID_HOME/build-tools/37.0.0/aapt" \
+node tests/android/verify-min-sdk.ts "$ANDROID_HOME/build-tools/37.0.0/aapt" \
   examples/demo/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 ```
 

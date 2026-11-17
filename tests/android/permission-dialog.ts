@@ -1,6 +1,6 @@
 // Real Android permission dialogs in an installed debug Mochi Tauri app.
 // This resets only the explicitly named test app's data.
-// Usage: node tests/android/permission-dialog.mjs <adb> <serial> <test-app-id> <report.json>
+// Usage: node tests/android/permission-dialog.ts <adb> <serial> <test-app-id> <report.json>
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';

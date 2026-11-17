@@ -7,7 +7,7 @@
 #   - a requirement is named by no test file, or a test file names an ID the spec does not define.
 # A test is `file::name` (level): a Rust `fn`, a Kotlin `fun`, a Swift `func` or the title of a node:test `test(...)`.
 # A script is no test. Test files: tests/, src/**/tests.rs and src/**/*_tests.rs, the `mod tests` part of other Rust
-# sources, android/src/test, examples/demo/tests and the demo's Rust tests. tests/spec-coverage.test.mjs tests this.
+# sources, android/src/test, examples/demo/tests and the demo's Rust tests. tests/spec-coverage.test.ts tests this.
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 exec python3 -I - "$root" <<'PYTHON'
@@ -41,7 +41,7 @@ roots = ["tests", "src", "android/src/test", "android/src/androidTest", "example
 for folder in roots:
     for path in sorted((root / folder).rglob("*")):
         relative = path.relative_to(root).as_posix()
-        if not path.is_file() or path.suffix not in {".rs", ".mjs", ".kt", ".swift"}:
+        if not path.is_file() or path.suffix not in {".rs", ".ts", ".kt", ".swift"}:
             continue
         if any(part in {"target", "node_modules", "build", "output"} for part in path.parts):
             continue
@@ -58,7 +58,7 @@ PREAMBLE = re.compile(r"^\s*(//|#\[|@)")
 def declaration(relative, name, text):
     """The declaration of test `name` with the comment, attribute and annotation lines directly above it, or None."""
     suffix = pathlib.PurePosixPath(relative).suffix
-    if suffix == ".mjs":
+    if suffix == ".ts":
         found = lambda line: any(f"test({quote}{name}{quote}" in line for quote in "'\"`")
     else:
         keyword = {".rs": "fn", ".kt": "fun", ".swift": "func"}[suffix]

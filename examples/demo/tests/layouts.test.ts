@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { keep } from '../../../tests/typescript-requests.mjs';
+import { keep } from '../../../tests/typescript-requests.ts';
 import {
   actionMessage, findLayoutExample, freshFor, layoutExamples, layoutRecordFor, nextLayoutSnapshot, openedMessage,
   runningLayoutExamples, startsIn,

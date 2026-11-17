@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { keep } from '../../../tests/typescript-requests.mjs';
+import { keep } from '../../../tests/typescript-requests.ts';
 import { exactAlarmFeedback, offersExactAlarms, permissionAction, permissionFeedback, selectCurrent } from '../src/ui-state.ts';
 import { startMochiActivity, advanceMochiActivity, snackStage, countdown, selectMochiActivity } from '../src/mochi.ts';
 

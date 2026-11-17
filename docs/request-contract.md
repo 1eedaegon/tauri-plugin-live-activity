@@ -131,7 +131,7 @@ states the weight of the layout, the styles and the new values, and an invalid o
 A fourth list, `ends`, holds a `start` and an `end_layout` with final content, checked the same way.
 Both files are activitykit's, and the plugin keeps no copy of them: its tests read the fixtures
 from the activitykit that the plugin's `Cargo.lock` names, in the folder where cargo has that crate
-(`node tools/activitykit.ts` prints it; `tests/contract-files.test.mjs`), and run no schema. Change
+(`node tools/activitykit.ts` prints it; `tests/contract-files.test.ts`), and run no schema. Change
 the contract in activitykit, not here. Most cases use
 `start_layout`, `update_layout` or `end_layout`. A few invalid cases send a body to the
 v1 `start` or `update` command, and a runner passes those to its v1 validator. Two use command

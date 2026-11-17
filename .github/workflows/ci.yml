@@ -71,7 +71,7 @@ jobs:
           # liveupdate's adapter against the crate that Cargo.lock names, the permissions that setup grants), so they
           # run for whatever starts the Rust or the Android job too. And for `contracts/`, a folder that is gone: a copy
           # of activitykit's schema that comes back there is refused by a node test.
-          area js '^(contracts/|guest-js/|cli/|tools/|tests/[^/]+\.(mjs|rs)$|tests/(release|jsx|declarations|android)/|package(-lock)?\.json$|tsconfig\.json$|examples/demo/|src/|android/|build\.rs$|Cargo\.(toml|lock)$|permissions/)'
+          area js '^(contracts/|guest-js/|cli/|tools/|tests/[^/]+\.(ts|rs)$|tests/(release|jsx|declarations|android)/|package(-lock)?\.json$|tsconfig\.json$|examples/demo/|src/|android/|build\.rs$|Cargo\.(toml|lock)$|permissions/)'
           # iOS is what the simulator suites read, as tests/ci/cache.sh lists it: the plugin's Rust on activitykit
           # (Cargo.lock holds activitykit's version), the TypeScript API, setup, the tools of the demo's build, the demo,
           # the UI tests and the CI scripts.
@@ -90,7 +90,7 @@ jobs:
         with:
           node-version: ${{ env.NODE }}
       - run: sh tools/spec-coverage.sh
-      - run: node --test tests/spec-coverage.test.mjs tests/ci.test.mjs tests/ci-cache.test.mjs tests/ios-run.test.mjs
+      - run: node --test tests/spec-coverage.test.ts tests/ci.test.ts tests/ci-cache.test.ts tests/ios-run.test.ts
   contracts:
     name: Rust, TypeScript and iOS
     needs: changes
@@ -118,7 +118,7 @@ jobs:
       # dash: the two differ in what a run does once nobody reads its log (TP-CI-5). For the js area `npm test` below
       # has these tests among its own.
       - if: env.AREA_IOS == 'true' && env.AREA_JS != 'true'
-        run: node --test tests/ios-run.test.mjs
+        run: node --test tests/ios-run.test.ts
       - if: env.AREA_RUST == 'true' || env.AREA_IOS == 'true'
         run: rustup toolchain install "$TOOLCHAIN" --profile minimal --component rustfmt,clippy,llvm-tools-preview --target x86_64-apple-ios,aarch64-apple-ios && rustup default "$TOOLCHAIN"
       # Only main saves a Rust cache, here and in the desktop job. A run for a pull request or a branch reads main's and
@@ -137,7 +137,7 @@ jobs:
         run: npm test && npm run typecheck && npm run build:demo
       - name: Test release guards
         if: env.AREA_JS == 'true'
-        run: node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.ts --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/release/release-guard.test.mjs
+        run: node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.ts --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/release/release-guard.test.ts
       - if: env.AREA_RUST == 'true'
         run: cargo fmt --all -- --check
       - if: env.AREA_RUST == 'true'
@@ -396,7 +396,7 @@ jobs:
           done
           exit 1
       - name: Verify Android minimum in the merged APK
-        run: node tests/android/verify-min-sdk.mjs "$ANDROID_HOME/build-tools/37.0.0/aapt" android/build/outputs/apk/androidTest/debug/live-activity-debug-androidTest.apk
+        run: node tests/android/verify-min-sdk.ts "$ANDROID_HOME/build-tools/37.0.0/aapt" android/build/outputs/apk/androidTest/debug/live-activity-debug-androidTest.apk
   desktop:
     name: Desktop contract (${{ matrix.os }})
     needs: changes

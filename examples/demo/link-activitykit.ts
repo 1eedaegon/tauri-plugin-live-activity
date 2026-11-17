@@ -1,6 +1,6 @@
 // Links src-tauri/gen/apple/activitykit to the folder of the activitykit crate that the plugin builds with, so that the
 // demo's project.yml names activitykit's Swift package by a path inside the project: `activitykit/swift`. The link is
-// local (gen/apple/.gitignore); build.mjs makes it before each build, and so may you: node link-activitykit.mjs.
+// local (gen/apple/.gitignore); build.ts makes it before each build, and so may you: node link-activitykit.ts.
 import { lstatSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { activitykitDir } from '../../tools/activitykit.ts';

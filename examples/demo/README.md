@@ -33,9 +33,9 @@ it under **The request**. Starting an example ends the other examples first.
   Swift. The demo has no custom views, so the app target does not link `ActivityKitViews`.
 - `src-tauri/gen/apple/project.yml` names activitykit's Swift package as `activitykit/swift`.
   `src-tauri/gen/apple/activitykit` is a link to the folder of the activitykit crate that the
-  plugin builds with, which [link-activitykit.mjs](link-activitykit.mjs) finds with
-  `cargo metadata`. `build.mjs`, and so `npm run build:demo`, makes the link before each build;
-  `node link-activitykit.mjs` makes it alone. The link is local to your checkout and ignored by
+  plugin builds with, which [link-activitykit.ts](link-activitykit.ts) finds with
+  `cargo metadata`. `build.ts`, and so `npm run build:demo`, makes the link before each build;
+  `node link-activitykit.ts` makes it alone. The link is local to your checkout and ignored by
   git.
 - The project was written by hand, the way the [iOS integration guide](../../docs/ios-integration.md)
   describes; `setup` leaves a project that already has a widget extension alone.
@@ -65,7 +65,7 @@ lifecycle test.
 `android dev` and `ios dev` stay until you stop them, and a change shows without building the app
 again where it can:
 
-- **The page.** Both start `node build.mjs --watch`, which writes `dist` again after each change
+- **The page.** Both start `node build.ts --watch`, which writes `dist` again after each change
   of the demo's sources and of the plugin's `guest-js`, and Tauri's dev server has the app load
   the page again. On an Android emulator the page was back 0.6 s after a change of
   `src/layouts.ts`.

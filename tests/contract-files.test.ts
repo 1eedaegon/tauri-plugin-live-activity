@@ -26,7 +26,7 @@ test('the layout fixtures are those of the activitykit crate that Cargo.lock nam
   // read the fixtures take them from the crate.
   const tracked = execFileSync('git', ['ls-files', '--', 'contracts', 'tests/fixtures/layout-requests.json'], { cwd: root, encoding: 'utf8' });
   assert.equal(tracked, '');
-  assert.match(read('tests/api.test.mjs'), /^const fixtures = contract\(LAYOUT_FIXTURES\);$/m);
+  assert.match(read('tests/api.test.ts'), /^const fixtures = contract\(LAYOUT_FIXTURES\);$/m);
   assert.match(read('tests/contract.rs'), /\.join\("tests\/fixtures\/layout-requests\.json"\)/);
   assert.throws(() => activitykitDir({ cargo: join(dir, 'no-such-cargo') }), /cargo metadata failed/);
 });

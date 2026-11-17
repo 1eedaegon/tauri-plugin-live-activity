@@ -1,11 +1,11 @@
-// The files of tests/fixtures/typescript are those that the tests keep (tests/typescript-requests.mjs), which Rust
+// The files of tests/fixtures/typescript are those that the tests keep (tests/typescript-requests.ts), which Rust
 // judges (tests/typescript_requests.rs), and the script that writes them again runs each of those tests.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { keep } from './typescript-requests.mjs';
+import { keep } from './typescript-requests.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const folder = new URL('./fixtures/typescript/', import.meta.url);
@@ -17,8 +17,8 @@ test('the folder holds the files that the tests keep and no other, and write:req
   const [, list] = / --test-update-snapshots (.+)$/.exec(scripts['write:requests']);
   const written = list.split(' ');
   // Every test file that keeps requests is one that the script runs: its file would not be written again otherwise.
-  const keeping = execFileSync('git', ['grep', '-l', "typescript-requests.mjs'", '--', '*.test.mjs'], { cwd: root, encoding: 'utf8' })
-    .split('\n').filter((file) => file !== '' && file !== 'tests/typescript-requests.test.mjs');
+  const keeping = execFileSync('git', ['grep', '-l', "typescript-requests.ts'", '--', '*.test.ts'], { cwd: root, encoding: 'utf8' })
+    .split('\n').filter((file) => file !== '' && file !== 'tests/typescript-requests.test.ts');
   assert.deepEqual(keeping.sort(), [...written].sort());
   // Each keeps one file, and those are the files of the folder: one that no test keeps would be judged by Rust
   // though nothing builds it any more.

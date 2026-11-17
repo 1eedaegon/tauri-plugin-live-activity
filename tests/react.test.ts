@@ -6,7 +6,7 @@ import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { emit } from '@tauri-apps/api/event';
 import { useLiveActivity } from '../dist-js/react/index.js';
 import { Session } from '../dist-js/react/session.js';
-import { keep } from './typescript-requests.mjs';
+import { keep } from './typescript-requests.ts';
 
 // The event mock draws its listener ids from window.crypto.
 globalThis.window = { crypto: globalThis.crypto };
