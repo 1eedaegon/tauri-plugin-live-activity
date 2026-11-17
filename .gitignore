@@ -3,6 +3,8 @@ target/
 node_modules/
 dist/
 dist-js/
+# The setup command, compiled beside its TypeScript sources (cli/*.mts)
+/cli/*.mjs
 .tauri/
 coverage/
 *.tgz

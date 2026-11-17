@@ -508,6 +508,95 @@ test('fails with a clear message outside a Tauri app, without the crate or witho
   assert.throws(() => run(context), { message: /No src-tauri\/Cargo\.toml/ });
 });
 
+// Setup reads what cargo prints as cargo's own format: packages with an id, a name, a version and the path of their
+// manifest. Output in another form is not taken for it; the resolve graph only says which activitykit the plugin uses.
+test('cargo metadata in another form stops setup, and one without a resolve graph finds activitykit by name', t => {
+  const context = makeApp(t);
+  const metadata = JSON.parse(readFileSync(context.env.FAKE_METADATA, 'utf8'));
+  const print = value => writeFileSync(context.env.FAKE_METADATA, JSON.stringify(value));
+
+  for (const packages of [
+    {},
+    [...metadata.packages, 'tauri-plugin-live-activity'],
+    metadata.packages.map(({ manifest_path: _, ...rest }) => rest),
+    metadata.packages.map(item => ({ ...item, version: 1 })),
+  ]) {
+    print({ ...metadata, packages });
+    assert.throws(() => run(context, { dryRun: true }), { name: 'SetupError', message: /not its JSON/ }, JSON.stringify(packages));
+  }
+
+  // Two packages of the name: the graph says which the plugin builds with, and without a graph it is the first.
+  const other = { name: 'activitykit', version: '9.0.0', id: 'activitykit 9', manifest_path: join(context.base, 'registry', 'activitykit-9.0.0', 'Cargo.toml') };
+  const kit = () => findCrates({ srcTauri: context.srcTauri }, context.env).activitykit;
+  print({ packages: [...metadata.packages, other], resolve: { nodes: [{ id: 'plugin', deps: [{ name: 'activitykit', pkg: 'activitykit 9' }] }] } });
+  assert.deepEqual(kit(), { version: '9.0.0', dir: dirname(other.manifest_path) });
+  print({ packages: [...metadata.packages, other] });
+  assert.deepEqual(kit(), { version: '0.1.0', dir: context.activitykit });
+  const graphs = [null, { nodes: {} }, { nodes: [{ id: 'plugin', deps: {} }] }, { nodes: [null, { id: 'plugin', deps: [null, { name: 'activitykit', pkg: 7 }] }] }];
+  for (const resolve of graphs) {
+    print({ packages: [...metadata.packages, other], resolve });
+    assert.deepEqual(kit(), { version: '0.1.0', dir: context.activitykit }, JSON.stringify(resolve));
+  }
+});
+
+// What setup reads of the app's own files is checked where it is read. A list is no object, and the text of an App
+// Group that is no JSON string names no group.
+test('a list where the app\'s JSON should hold an object is not taken for one', t => {
+  const context = makeApp(t);
+  const capability = join(context.srcTauri, 'capabilities', 'default.json');
+  const before = readFileSync(capability, 'utf8');
+  writeFileSync(capability, '[]\n');
+  const todo = run(context, { dryRun: true }).steps.find(step => step.path === 'src-tauri/capabilities/default.json');
+  assert.equal(todo.status, 'todo');
+  assert.match(todo.detail, /not valid JSON with a permissions list/);
+  writeFileSync(capability, before);
+
+  assert.equal(appGroupOf('        ActivityKitAppGroup: "group.com.example\\q"\n'), undefined);
+
+  writeFileSync(join(context.srcTauri, 'tauri.conf.json'), '[]\n');
+  assert.throws(() => run(context), { name: 'SetupError', message: /src-tauri\/tauri\.conf\.json is not valid JSON/ });
+});
+
+// The widget extension's bundle identifier is the app's with `.widget`: the first of project.yml, or tauri.conf.json's.
+test('an app without a bundle identifier stops setup before anything is written', t => {
+  const context = makeApp(t);
+  const configPath = join(context.srcTauri, 'tauri.conf.json');
+  const { identifier: _, ...config } = JSON.parse(readFileSync(configPath, 'utf8'));
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const spec = step => step.path === 'src-tauri/gen/apple/live-activity.yml';
+  assert.equal(run(context, { dryRun: true }).steps.find(spec).status, 'created');
+
+  const projectPath = join(context.srcTauri, 'gen/apple/project.yml');
+  writeFileSync(projectPath, read(context, 'gen/apple/project.yml').replace(/^\s*PRODUCT_BUNDLE_IDENTIFIER:.*\n/m, ''));
+  const before = snapshot(context.app);
+  assert.throws(() => run(context), { name: 'SetupError', message: /no identifier.*PRODUCT_BUNDLE_IDENTIFIER/s });
+  assert.throws(() => run(context, { appGroup: true }), { name: 'SetupError', message: /no identifier.*PRODUCT_BUNDLE_IDENTIFIER/s });
+  assert.deepEqual(snapshot(context.app), before);
+});
+
+// What the package's `files` name is what an app has in node_modules: the command runs from those files alone, and
+// says so when its template is not among them.
+test('the command runs from the files the package ships, and says when its template is missing', t => {
+  const context = makeApp(t);
+  const manifest = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'));
+  const installed = join(context.base, 'node_modules', manifest.name);
+  mkdirSync(join(installed, 'cli'), { recursive: true });
+  cpSync(join(repo, 'package.json'), join(installed, 'package.json'));
+  for (const name of readdirSync(join(repo, 'cli')).filter(name => name.endsWith('.mjs'))) cpSync(join(repo, 'cli', name), join(installed, 'cli', name));
+  cpSync(join(repo, 'cli/templates'), join(installed, 'cli/templates'), { recursive: true });
+  const exec = (...args) => spawnSync(process.execPath, [join(installed, manifest.bin[manifest.name]), ...args], { cwd: context.app, env: context.env, encoding: 'utf8' });
+
+  const dry = exec('setup', '--dry-run');
+  assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /would create +src-tauri\/gen\/apple\/LiveActivityWidget\/LiveActivityCustomViews\.swift/);
+
+  rmSync(join(installed, 'cli/templates'), { recursive: true });
+  const broken = exec('setup', '--dry-run');
+  assert.equal(broken.status, 1, broken.stderr);
+  assert.match(broken.stderr, /has no cli\/templates\/LiveActivityCustomViews\.swift/);
+  assert.doesNotMatch(broken.stderr, /\n\s+at /);
+});
+
 test('the CLI prints a summary, takes --dry-run and --ios-only, and rejects unknown arguments', t => {
   const context = makeApp(t);
   const cli = join(repo, 'cli', 'bin.mjs');
@@ -549,11 +638,26 @@ test('the permissions it adds are permissions of the plugin', () => {
   assert.deepEqual(PERMISSIONS, ['live-activity:default', ...commands.map(command => `live-activity:allow-${command}`)]);
 });
 
-test('the npm package ships the command', () => {
+// The command is TypeScript. Node runs no .ts file of a package in node_modules, so `npm run build` compiles each
+// module beside its source, to the path the package always had; docs/usage.md names cli/templates.
+test('the npm package ships the command, compiled to the paths it always had', () => {
   const manifest = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'));
   assert.deepEqual(manifest.bin, { 'tauri-plugin-live-activity': 'cli/bin.mjs' });
-  assert.ok(manifest.files.includes('cli'));
-  assert.match(readFileSync(join(repo, 'cli/bin.mjs'), 'utf8'), /^#!\/usr\/bin\/env node\n/);
+  assert.deepEqual(manifest.files.filter(entry => entry.startsWith('cli')), ['cli/*.mjs', 'cli/templates']);
+  const modules = ['bin', 'ios', 'main', 'migration', 'plist', 'report', 'setup', 'steps', 'widget-files', 'xcodegen'];
+  const names = readdirSync(join(repo, 'cli'));
+  assert.deepEqual(names.filter(name => name.endsWith('.mts')).sort(), modules.map(name => `${name}.mts`));
+  assert.deepEqual(names.filter(name => name.endsWith('.mjs')).sort(), modules.map(name => `${name}.mjs`));
+  assert.deepEqual(readdirSync(join(repo, 'cli/templates')), ['LiveActivityCustomViews.swift']);
+  // What is compiled is not tracked, and it imports what is compiled.
+  assert.match(readFileSync(join(repo, '.gitignore'), 'utf8'), /^\/cli\/\*\.mjs$/m);
+  for (const name of modules) {
+    const compiled = readFileSync(join(repo, 'cli', `${name}.mjs`), 'utf8');
+    assert.doesNotMatch(compiled, /\.mts['"]/, name);
+  }
+  for (const file of ['cli/bin.mts', 'cli/bin.mjs']) assert.match(readFileSync(join(repo, file), 'utf8'), /^#!\/usr\/bin\/env node\n/, file);
+  // npm packs a file with the mode it has: the command was executable in the package, and the build keeps it so.
+  if (process.platform !== 'win32') assert.equal(statSync(join(repo, 'cli/bin.mjs')).mode & 0o111, 0o111);
   assert.deepEqual(Object.keys(manifest.dependencies ?? {}), []);
 });
 

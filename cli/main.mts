@@ -20,31 +20,63 @@ ever made from scratch.
                      compact parts of a layout without one; later runs keep it
 `;
 
-const FLAGS = { '--dry-run': 'dryRun', '--ios-only': 'iosOnly', '--small-family': 'smallFamily' };
-const FILES = { '--font': 'fonts', '--asset': 'assets' };
+const FLAGS = { '--dry-run': 'dryRun', '--ios-only': 'iosOnly', '--small-family': 'smallFamily' } as const;
+const FILES = { '--font': 'fonts', '--asset': 'assets' } as const;
 const HELP = new Set(['help', '--help', '-h']);
 
+/** What the command line asks of `setup`. */
+interface CommandOptions {
+  fonts: string[];
+  assets: string[];
+  dryRun?: true;
+  iosOnly?: true;
+  smallFamily?: true;
+  /** True for `--app-group`, or the name that follows its `=`. */
+  appGroup?: string | true;
+}
+
+/** What `parseOptions` answers: the options, or the `error` to print with the usage. */
+type ParsedOptions = { readonly options: CommandOptions } | { readonly error: string };
+
+/** Where the command runs and writes. A member left out or undefined is the process's own. */
+export interface CommandIo {
+  readonly cwd?: string | undefined;
+  readonly env?: NodeJS.ProcessEnv | undefined;
+  readonly platform?: NodeJS.Platform | undefined;
+  readonly out?: ((text: string) => void) | undefined;
+  readonly err?: ((text: string) => void) | undefined;
+}
+
+/** 0: done. 1: something is left to do, or setup could not start. 2: the command line is not one it takes. */
+export type ExitStatus = 0 | 1 | 2;
+
+const isFlag = (name: string): name is keyof typeof FLAGS => Object.hasOwn(FLAGS, name);
+const takesFile = (name: string): name is keyof typeof FILES => Object.hasOwn(FILES, name);
+
 /** The options of `setup`, or the argument it does not take and why. */
-function parseOptions(args) {
-  const options = { fonts: [], assets: [] };
-  for (let index = 0; index < args.length; index += 1) {
-    const [name, inline] = args[index].split(/=(.*)/s);
-    if (Object.hasOwn(FLAGS, args[index])) options[FLAGS[args[index]]] = true;
+function parseOptions(args: readonly string[]): ParsedOptions {
+  const options: CommandOptions = { fonts: [], assets: [] };
+  const left = [...args];
+  for (let arg = left.shift(); arg !== undefined; arg = left.shift()) {
+    const equals = arg.indexOf('=');
+    const name = equals === -1 ? arg : arg.slice(0, equals);
+    const inline = equals === -1 ? undefined : arg.slice(equals + 1);
+    if (isFlag(arg)) options[FLAGS[arg]] = true;
     else if (name === '--app-group') options.appGroup = inline ?? true;
-    else if (Object.hasOwn(FILES, name)) {
-      const file = inline ?? args[(index += 1)];
+    else if (takesFile(name)) {
+      const file = inline ?? left.shift();
       if (!file) return { error: `${name} needs a file.` };
       options[FILES[name]].push(file);
-    } else return { error: `Unknown option ${args[index]}.` };
+    } else return { error: `Unknown option ${arg}.` };
   }
   return { options };
 }
 
 /** Runs the command and returns its exit status: 0 done, 1 something left to do or an error, 2 usage. */
-export function main(argv, {
+export function main(argv: readonly string[], {
   cwd = process.cwd(), env = process.env, platform = process.platform,
   out = text => process.stdout.write(text), err = text => process.stderr.write(text),
-} = {}) {
+}: CommandIo = {}): ExitStatus {
   const [command, ...rest] = argv;
   if (command === undefined || HELP.has(command) || (command === 'setup' && rest.some(arg => HELP.has(arg)))) {
     out(USAGE);
@@ -54,13 +86,13 @@ export function main(argv, {
     err(`Unknown command ${command}.\n\n${USAGE}`);
     return 2;
   }
-  const { options, error } = parseOptions(rest);
-  if (error) {
-    err(`${error}\n\n${USAGE}`);
+  const parsed = parseOptions(rest);
+  if ('error' in parsed) {
+    err(`${parsed.error}\n\n${USAGE}`);
     return 2;
   }
   try {
-    const result = setup({ cwd, env, platform, ...options });
+    const result = setup({ cwd, env, platform, ...parsed.options });
     out(formatReport(result));
     return result.steps.some(item => item.status === 'todo') ? 1 : 0;
   } catch (error) {
