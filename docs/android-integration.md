@@ -15,7 +15,7 @@ crate, driven by the Android backend of the [`liveactivity`](https://crates.io/c
 crate, of which the plugin is an adapter. Rust owns request validation, fallback selection,
 idempotency, revisions, limits, retry, terminal states and reconciliation. The plugin's Android
 library carries liveupdate's own Android adapter, copied from the crate
-(`node tools/sync-liveupdate.mjs`, which a test checks; the copy only renames liveupdate's `R` to
+(`node tools/sync-liveupdate.ts`, which a test checks; the copy only renames liveupdate's `R` to
 the plugin's): a framework adapter with seven bounded operations, which stores Rust's receipts,
 posts and cancels notifications, observes them, and drains the taps and dismissals its
 receivers stored. The plugin's own Kotlin is the permission commands, the folder of the app's files, a

@@ -137,7 +137,7 @@ jobs:
         run: npm test && npm run typecheck && npm run build:demo
       - name: Test release guards
         if: env.AREA_JS == 'true'
-        run: node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.mjs --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/release/release-guard.test.mjs
+        run: node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.ts --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/release/release-guard.test.mjs
       - if: env.AREA_RUST == 'true'
         run: cargo fmt --all -- --check
       - if: env.AREA_RUST == 'true'

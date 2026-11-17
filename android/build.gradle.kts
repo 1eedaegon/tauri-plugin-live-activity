@@ -54,7 +54,7 @@ dependencies {
 }
 
 
-// liveupdate's adapter is copied from its crate and tested there (tools/sync-liveupdate.mjs); the gate counts the
+// liveupdate's adapter is copied from its crate and tested there (tools/sync-liveupdate.ts); the gate counts the
 // plugin's own classes.
 val coverageClasses = fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
     exclude("io/github/eedaegon/liveupdate/**")

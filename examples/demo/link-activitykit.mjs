@@ -3,7 +3,7 @@
 // local (gen/apple/.gitignore); build.mjs makes it before each build, and so may you: node link-activitykit.mjs.
 import { lstatSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { activitykitDir } from '../../tools/activitykit.mjs';
+import { activitykitDir } from '../../tools/activitykit.ts';
 
 const link = fileURLToPath(new URL('src-tauri/gen/apple/activitykit', import.meta.url));
 const manifest = fileURLToPath(new URL('src-tauri/Cargo.toml', import.meta.url));
