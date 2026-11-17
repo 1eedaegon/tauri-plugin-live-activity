@@ -5,8 +5,8 @@
   "identifier": "io.github.eedaegon.liveactivitydemo",
   "build": {
     "frontendDist": "../dist",
-    "beforeDevCommand": "node --experimental-strip-types build.mjs --watch",
-    "beforeBuildCommand": "node --experimental-strip-types build.mjs"
+    "beforeDevCommand": "node --experimental-strip-types build.ts --watch",
+    "beforeBuildCommand": "node --experimental-strip-types build.ts"
   },
   "app": {
     "windows": [

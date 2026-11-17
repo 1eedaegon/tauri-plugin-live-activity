@@ -1,6 +1,6 @@
 //! The Android contents of tests/fixtures/android/contents.json through the plugin's own exports. One fixture serves
 //! three sides: the TypeScript declarations take each content and declare no member beside theirs
-//! (tests/android-contents.test.mjs), the Rust models read each and write it back the same (here), and liveupdate's
+//! (tests/android-contents.test.ts), the Rust models read each and write it back the same (here), and liveupdate's
 //! Android side posts each (NativeBridgeTest.kt, on a device). The models are liveupdate's, which the liveactivity
 //! crate re-exports.
 

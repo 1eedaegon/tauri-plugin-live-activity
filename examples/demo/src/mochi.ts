@@ -40,7 +40,9 @@ export function countdown(endsAt: number, now: number): string {
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-export function selectMochiActivity(records: readonly ActivityRecord[], mode: MochiMode): ActivityRecord | undefined {
+export function selectMochiActivity<Listed extends Pick<ActivityRecord, 'activityKey' | 'state'>>(
+  records: readonly Listed[], mode: MochiMode,
+): Listed | undefined {
   return records.find(record => record.activityKey.startsWith(`mochi:${mode}:`)
     && record.state !== 'ended' && record.state !== 'dismissed');
 }

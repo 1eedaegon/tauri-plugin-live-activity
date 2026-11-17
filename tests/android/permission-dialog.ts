@@ -1,24 +1,36 @@
 // Real Android permission dialogs in an installed debug Mochi Tauri app.
 // This resets only the explicitly named test app's data.
-// Usage: node tests/android/permission-dialog.mjs <adb> <serial> <test-app-id> <report.json>
+// Usage: node tests/android/permission-dialog.ts <adb> <serial> <test-app-id> <report.json>
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
+import type { PermissionState } from '../../dist-js/index.js';
+import { list, member, present, record, text } from '../support.ts';
 
-const [adbPath, serial, appId, output] = process.argv.slice(2);
+/** A check that passed: the state, or the states, that the permission may be in, and the one that the plugin answered. */
+interface Check {
+  readonly name: string;
+  // No readonly list: `Array.isArray` would take one for a list of `any`.
+  readonly expected: PermissionState | PermissionState[];
+  readonly actual: unknown;
+  readonly passed: true;
+}
+
+// An app ID that is not given is the empty text, which is no test app: the functions below read it as text.
+const [adbPath, serial, appId = '', output] = process.argv.slice(2);
 const testApps = ['io.github.eedaegon.liveactivitydemo', 'io.github.eedaegon.liveactivityregistry'];
 if (!adbPath || !serial || !testApps.includes(appId) || !output) {
   throw new Error('Provide adb, emulator serial, a live-activity test app ID and report path.');
 }
-const adb = (...args) => execFileSync(adbPath, ['-s', serial, ...args], { encoding: 'utf8', timeout: 15000 }).trim();
-const pause = () => new Promise(resolve => setTimeout(resolve, 150));
-const checks = [];
+const adb = (...args: readonly string[]): string => execFileSync(adbPath, ['-s', serial, ...args], { encoding: 'utf8', timeout: 15000 }).trim();
+const pause = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 150));
+const checks: Check[] = [];
 
-async function evaluate(expression) {
-  const targets = await (await fetch('http://127.0.0.1:9222/json')).json();
-  const target = targets.find(item => item.type === 'page' && URL.canParse(item.url) && new URL(item.url).origin === 'http://tauri.localhost');
+async function evaluate(expression: string): Promise<unknown> {
+  const targets = list(await (await fetch('http://127.0.0.1:9222/json')).json(), "the WebView's targets").map(item => record(item, 'a target of the WebView'));
+  const target = targets.find(item => item.type === 'page' && URL.canParse(text(item.url)) && new URL(text(item.url)).origin === 'http://tauri.localhost');
   assert.ok(target, 'A local Tauri WebView must be present.');
-  const socket = new WebSocket(target.webSocketDebuggerUrl);
+  const socket = new WebSocket(text(target.webSocketDebuggerUrl, "the address of the WebView's socket"));
   await new Promise((resolve, reject) => {
     socket.addEventListener('open', resolve, { once: true });
     socket.addEventListener('error', reject, { once: true });
@@ -26,19 +38,20 @@ async function evaluate(expression) {
   try {
     return await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('WebView evaluation timed out')), 10000);
-      socket.addEventListener('message', event => {
-        const result = JSON.parse(event.data);
-        if (result.id !== 1) return;
+      socket.addEventListener('message', (event: MessageEvent<string>) => {
+        const result: unknown = JSON.parse(event.data);
+        if (member(result, 'id') !== 1) return;
         clearTimeout(timeout);
-        if (result.error || result.result.exceptionDetails) reject(new Error(`WebView evaluation failed: ${JSON.stringify(result.error ?? result.result.exceptionDetails)}`));
-        else resolve(result.result.result.value);
+        // A reply has an error or a result: one with neither is no reply of the debugger, and reading it fails.
+        if (member(result, 'error') || record(member(result, 'result'), "the debugger's result").exceptionDetails) reject(new Error(`WebView evaluation failed: ${JSON.stringify(member(result, 'error') ?? member(result, 'result', 'exceptionDetails'))}`));
+        else resolve(record(member(result, 'result', 'result'), 'what the evaluation gave').value);
       });
       socket.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } }));
     });
   } finally { socket.close(); }
 }
 
-async function waitFor(predicate, description) {
+async function waitFor(predicate: () => Promise<unknown>, description: string): Promise<void> {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     if (await predicate()) return;
     await pause();
@@ -46,7 +59,7 @@ async function waitFor(predicate, description) {
   throw new Error(`Timed out: ${description}`);
 }
 
-async function resetApp() {
+async function resetApp(): Promise<void> {
   assert.equal(adb('shell', 'pm', 'clear', appId), 'Success');
   adb('shell', 'am', 'start', '-n', `${appId}/.MainActivity`);
   await waitFor(async () => {
@@ -58,18 +71,18 @@ async function resetApp() {
   }, 'Mochi app ready');
 }
 
-async function showDialog() {
+async function showDialog(): Promise<void> {
   await evaluate("document.querySelector('#permission').click(); true");
   await waitFor(async () => {
     if (!/topResumedActivity=.*GrantPermissionsActivity/.test(adb('shell', 'dumpsys', 'activity', 'activities'))) return false;
     const windows = adb('shell', 'dumpsys', 'window', 'windows').split(/\n  Window #/);
-    return windows.some(window => window.split('\n')[0].includes('GrantPermissionsActivity') &&
+    return windows.some(window => present(window.split('\n')[0]).includes('GrantPermissionsActivity') &&
       window.includes('mDrawState=HAS_DRAWN') && window.includes('mEnterAnimationPending=false') &&
       window.includes('isReadyForDisplay()=true') && window.includes('isVisible=true'));
   }, 'visible Android permission dialog ready for input');
 }
 
-async function choosePermission(choice) {
+async function choosePermission(choice: 'allow' | 'deny'): Promise<void> {
   adb('shell', 'rm', '-f', '/sdcard/live-activity-permission.xml');
   const dump = adb('shell', 'uiautomator', 'dump', '/sdcard/live-activity-permission.xml');
   assert.match(dump, /dumped to:/, 'Read the current permission dialog, never an older hierarchy');
@@ -79,13 +92,13 @@ async function choosePermission(choice) {
   const bounds = pattern.exec(xml);
   assert.ok(bounds, `Android ${choice} button must exist`);
   const [, left, top, right, bottom] = bounds.map(Number);
-  adb('shell', 'input', 'tap', String(Math.round((left + right) / 2)), String(Math.round((top + bottom) / 2)));
+  adb('shell', 'input', 'tap', String(Math.round((present(left) + present(right)) / 2)), String(Math.round((present(top) + present(bottom)) / 2)));
 }
 
-async function expectPermission(expected, name) {
+async function expectPermission(expected: Check['expected'], name: string): Promise<void> {
   await waitFor(async () => !await evaluate("document.querySelector('#permission').disabled"), 'permission callback');
-  const state = await evaluate("window.__TAURI_INTERNALS__.invoke('plugin:live-activity|check_permissions', {})");
-  const allowed = Array.isArray(expected) ? expected : [expected];
+  const state = record(await evaluate("window.__TAURI_INTERNALS__.invoke('plugin:live-activity|check_permissions', {})"), 'the permissions');
+  const allowed: readonly unknown[] = Array.isArray(expected) ? expected : [expected];
   assert.ok(allowed.includes(state.notifications), `${name}: expected ${allowed.join(' or ')}, received ${state.notifications}`);
   checks.push({ name, expected, actual: state.notifications, passed: true });
   console.info(`${name}: ${state.notifications}`);

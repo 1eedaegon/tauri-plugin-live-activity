@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { crateDir } from '../tools/cargo.ts';
 import { adapt, copiedFiles, differing, liveupdateDir, missingManifestEntries } from '../tools/sync-liveupdate.ts';
+import { present } from './support.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -49,7 +50,7 @@ test("a permission or a receiver of liveupdate's manifest that the plugin's lack
 });
 
 const OWN = 'android/src/main/java/io/github/eedaegon/liveactivity';
-const own = file => readFileSync(join(root, OWN, file), 'utf8');
+const own = (file: string): string => readFileSync(join(root, OWN, file), 'utf8');
 
 // TP-ANDROID-11
 test('the plugin has no Kotlin lifecycle, renderer, receivers or validator for layouts', () => {
@@ -96,7 +97,7 @@ test("every run_mobile_plugin call of the plugin's Rust has a guard for Tauri's 
   const calls = /\brun_mobile_plugin(?:_async)?\s*(?:::\s*<[^>]*>)?\s*\(/g;
   const sources = readdirSync(join(root, 'src')).filter(name => name.endsWith('.rs') && !name.endsWith('_tests.rs'));
   const called = Object.fromEntries(sources
-    .map(name => [name, [...readFileSync(join(root, 'src', name), 'utf8').replace(/^\s*\/\/.*$/gm, '').matchAll(calls)].length])
+    .map((name): [file: string, count: number] => [name, [...readFileSync(join(root, 'src', name), 'utf8').replace(/^\s*\/\/.*$/gm, '').matchAll(calls)].length])
     .filter(([, count]) => count > 0));
   assert.deepEqual(called, { 'android.rs': 3 });
   const rust = readFileSync(join(root, 'src/android.rs'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
@@ -129,7 +130,7 @@ test("the plugin's Kotlin opens Android's setting for exact alarms, and reads wh
   const plugin = own('LiveActivityPlugin.kt');
   // Tauri finds the method that takes an activity's result by its name, and answers nothing when none has it: the
   // call would wait for ever.
-  const [, callback] = /startActivityForResult\(invoke, intent, "(\w+)"\)/.exec(plugin);
+  const callback = present(/startActivityForResult\(invoke, intent, "(\w+)"\)/.exec(plugin)?.[1], 'the name of the method that takes the result');
   assert.match(plugin, new RegExp(`@ActivityCallback\\s+private fun ${callback}\\(invoke: Invoke, result: ActivityResult\\)`));
   // Android's own setting, for this app.
   assert.match(plugin, /Intent\(Settings\.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri\.parse\("package:\$packageName"\)\)/);

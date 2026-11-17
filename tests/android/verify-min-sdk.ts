@@ -1,5 +1,5 @@
 // Verify the merged APK metadata, including library manifest requirements.
-// Usage: node tests/android/verify-min-sdk.mjs <aapt> <apk>
+// Usage: node tests/android/verify-min-sdk.ts <aapt> <apk>
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 

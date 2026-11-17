@@ -1,6 +1,6 @@
 /**
  * A type of the contract against the values of a fixture that Rust reads and writes back the same: the compiler
- * compares the members that the type declares with the members that the values hold. tests/android-contents.test.mjs
+ * compares the members that the type declares with the members that the values hold. tests/android-contents.test.ts
  * writes the paths of the values' members and compiles them against the types of this file, and members.check.ts
  * shows on a small type what each of them gives.
  *

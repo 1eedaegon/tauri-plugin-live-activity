@@ -14,8 +14,17 @@ const A1 = ['TP', 'A', '1'].join('-');
 const A2 = ['TP', 'A', '2'].join('-');
 const B9 = ['TP', 'B', '9'].join('-');
 
+/** Texts by name: the cells of the test table by requirement, or the files of a tree by path. */
+type Texts = Readonly<Record<string, string>>;
+
+/** How a run of the tool ended, and all that it said. */
+interface Checked {
+  readonly status: number | null;
+  readonly output: string;
+}
+
 /** Runs the tool on a tree of `files` with a spec that defines A1 and A2 and lists `rows` as its tests. */
-function check(rows, files) {
+function check(rows: Texts, files: Texts): Checked {
   const root = mkdtempSync(join(tmpdir(), 'live-activity-spec-'));
   try {
     const spec = ['# Spec', '', '| ID | Behavior | Input | Errors | Platform |', '| --- | --- | --- | --- | --- |',
@@ -44,12 +53,12 @@ const node = [
   "test('helper without a requirement', () => {});",
   '',
 ].join('\n');
-const two = `\`tests/a.test.mjs::${A2}: two works\` (node)`;
-const fails = (output, text) => assert.ok(output.includes(`FAIL ${text}`), output);
+const two = `\`tests/a.test.ts::${A2}: two works\` (node)`;
+const fails = (output: string, text: string): void => assert.ok(output.includes(`FAIL ${text}`), output);
 
 // TP-CI-2
 test('a test counts when it names the requirement right above it or in its title', () => {
-  const { status, output } = check({ [A1]: '`tests/a.test.mjs::one works` (node)', [A2]: two }, { 'tests/a.test.mjs': node });
+  const { status, output } = check({ [A1]: '`tests/a.test.ts::one works` (node)', [A2]: two }, { 'tests/a.test.ts': node });
   assert.equal(status, 0, output);
   assert.match(output, /requirements: 2; test references: 2 \(node 2\)/);
 });
@@ -57,22 +66,22 @@ test('a test counts when it names the requirement right above it or in its title
 // TP-CI-2
 test('a test whose file names the requirement only elsewhere does not count', () => {
   const { status, output } = check({
-    [A1]: '`tests/a.test.mjs::helper without a requirement` (node)', [A2]: two,
-  }, { 'tests/a.test.mjs': node });
+    [A1]: '`tests/a.test.ts::helper without a requirement` (node)', [A2]: two,
+  }, { 'tests/a.test.ts': node });
   assert.equal(status, 1, output);
-  fails(output, `${A1}: tests/a.test.mjs::helper without a requirement does not name it above its declaration`);
+  fails(output, `${A1}: tests/a.test.ts::helper without a requirement does not name it above its declaration`);
 });
 
 // TP-CI-2
 test('a script, a missing test or an undefined ID fails the check', () => {
-  const script = check({ [A1]: '`tools/spec-coverage.sh::spec-coverage.sh` (build)', [A2]: two }, { 'tests/a.test.mjs': node });
+  const script = check({ [A1]: '`tools/spec-coverage.sh::spec-coverage.sh` (build)', [A2]: two }, { 'tests/a.test.ts': node });
   assert.equal(script.status, 1, script.output);
   fails(script.output, `${A1} has no test in the test table`);
-  const missing = check({ [A1]: '`tests/a.test.mjs::one fails` (node)', [A2]: two }, { 'tests/a.test.mjs': node });
-  fails(missing.output, `${A1}: tests/a.test.mjs has no test one fails`);
+  const missing = check({ [A1]: '`tests/a.test.ts::one fails` (node)', [A2]: two }, { 'tests/a.test.ts': node });
+  fails(missing.output, `${A1}: tests/a.test.ts has no test one fails`);
   const extra = `${node}// ${B9}\ntest('three', () => {});\n`;
-  const undefinedId = check({ [A1]: '`tests/a.test.mjs::one works` (node)', [A2]: two }, { 'tests/a.test.mjs': extra });
-  fails(undefinedId.output, `tests/a.test.mjs name ${B9}, which docs/spec.md does not define`);
+  const undefinedId = check({ [A1]: '`tests/a.test.ts::one works` (node)', [A2]: two }, { 'tests/a.test.ts': extra });
+  fails(undefinedId.output, `tests/a.test.ts name ${B9}, which docs/spec.md does not define`);
 });
 
 // TP-CI-2

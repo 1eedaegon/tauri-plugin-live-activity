@@ -540,7 +540,7 @@ class NativeBridgeTest {
 
     /**
      * The image that the `appFile` icons of the fixture name, in the folder where `writeImage` puts one
-     * (tests/android-contents.test.mjs compares the three).
+     * (tests/android-contents.test.ts compares the three).
      */
     private fun writeBadge(): File {
         val badge = File(context.filesDir, "tauri-live-activity/images/badge.png")

@@ -1,8 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { keep } from '../../../tests/typescript-requests.mjs';
+import type { ActivityRecord, Snapshot, UpdateInput } from '../../../guest-js/index.js';
+import { present } from '../../../tests/support.ts';
+import { keep } from '../../../tests/typescript-requests.ts';
 import { exactAlarmFeedback, offersExactAlarms, permissionAction, permissionFeedback, selectCurrent } from '../src/ui-state.ts';
 import { startMochiActivity, advanceMochiActivity, snackStage, countdown, selectMochiActivity } from '../src/mochi.ts';
+
+/** Of a record, the members that the page reads when it selects one. */
+type Listed = Pick<ActivityRecord, 'id' | 'state'>;
+/** The same of one of Mochi's activities, which the page tells by their keys. */
+type ListedByKey = Pick<ActivityRecord, 'id' | 'activityKey' | 'state'>;
 
 test('uses the iOS Live Activity settings check instead of notification permission', () => {
   assert.deepEqual(permissionAction('ios'), { kind: 'liveActivities', label: 'Check Live Activity settings' });
@@ -22,7 +29,7 @@ test('permission feedback distinguishes settings controls from granted access', 
 });
 
 test('the setting for exact alarms is offered where a start can be scheduled and would not begin at its time', () => {
-  const android = (scheduledStart, exactStart) => ({ androidPresentation: { scheduledStart, exactStart } });
+  const android = (scheduledStart: boolean, exactStart: boolean) => ({ androidPresentation: { scheduledStart, exactStart } });
   assert.equal(offersExactAlarms(android(true, false)), true);
   // Allowed already, or no scheduled start at all: nothing to offer.
   assert.equal(offersExactAlarms(android(true, true)), false);
@@ -34,14 +41,14 @@ test('the setting for exact alarms is offered where a start can be scheduled and
 });
 
 test('preserves the current handle while Android observation is pending', () => {
-  const previous = { id: 'current', state: 'active' };
-  const observed = { id: 'current', state: 'unknown' };
+  const previous: Listed = { id: 'current', state: 'active' };
+  const observed: Listed = { id: 'current', state: 'unknown' };
   assert.deepEqual(selectCurrent([observed], previous), observed);
 });
 
 test('releases terminal handles and selects another observed active activity', () => {
-  const previous = { id: 'current', state: 'active' };
-  const active = { id: 'other', state: 'active' };
+  const previous: Listed = { id: 'current', state: 'active' };
+  const active: Listed = { id: 'other', state: 'active' };
   assert.deepEqual(selectCurrent([{ id: 'current', state: 'ended' }, active], previous), active);
   assert.equal(selectCurrent([{ id: 'current', state: 'dismissed' }], previous), undefined);
   assert.equal(selectCurrent([], previous), undefined);
@@ -78,9 +85,11 @@ test('a nap uses absolute timestamps and snoozing preserves its start time', () 
   const input = startMochiActivity('nap', 1_700_000_000_000, 5);
   assert.equal(input.template, 'timer');
   assert.deepEqual(input.snapshot.timer, { startedAt: 1_700_000_000_000, endsAt: 1_700_000_300_000 });
-  const next = advanceMochiActivity({ ...input, id: 'nap' });
-  assert.equal(next.timer.startedAt, input.snapshot.timer.startedAt);
-  assert.equal(next.timer.endsAt, input.snapshot.timer.endsAt + 60_000);
+  // The update reads the snapshot alone. The compiler takes an object with a member more by a name, not in place.
+  const current = { ...input, id: 'nap' };
+  const next = advanceMochiActivity(current);
+  assert.equal(next.timer?.startedAt, input.snapshot.timer.startedAt);
+  assert.equal(next.timer?.endsAt, input.snapshot.timer.endsAt + 60_000);
   assert.equal(next.revision, 1);
 });
 
@@ -92,9 +101,9 @@ test('countdown is derived from the clock, clamps at zero and does not send upda
 });
 
 test('scenario recovery isolates snack and nap records and retains pending ownership', () => {
-  const snack = { id: 'snack', activityKey: 'mochi:snack:1', state: 'active' };
-  const nap = { id: 'nap', activityKey: 'mochi:nap:2', state: 'unknown' };
-  const unrelated = { id: 'other', activityKey: 'integration:3', state: 'active' };
+  const snack: ListedByKey = { id: 'snack', activityKey: 'mochi:snack:1', state: 'active' };
+  const nap: ListedByKey = { id: 'nap', activityKey: 'mochi:nap:2', state: 'unknown' };
+  const unrelated: ListedByKey = { id: 'other', activityKey: 'integration:3', state: 'active' };
   assert.equal(selectMochiActivity([snack, nap, unrelated], 'snack')?.id, 'snack');
   assert.equal(selectMochiActivity([snack, nap, unrelated], 'nap')?.id, 'nap');
   assert.equal(selectMochiActivity([{ ...snack, state: 'ended' }], 'snack'), undefined);
@@ -110,7 +119,7 @@ test('invalid nap durations are rejected before constructing a native request', 
 // TP-CONTRACT-9
 test("the requests of Mochi's snack and nap are kept for Rust to judge", (t) => {
   const now = 1_800_000_000_000;
-  const update = (snapshot) => ({ id: 'handle', snapshot });
+  const update = (snapshot: Snapshot): UpdateInput => ({ id: 'handle', snapshot });
   const snack = startMochiActivity('snack', now, 5);
   const onTheWay = advanceMochiActivity(snack);
   const home = advanceMochiActivity({ snapshot: onTheWay });
@@ -122,6 +131,6 @@ test("the requests of Mochi's snack and nap are kept for Rust to judge", (t) => 
     { name: 'the snack is home', command: 'update', input: update(home) },
     { name: 'a nap of one minute starts', command: 'start', input: short },
     { name: 'a nap of an hour starts', command: 'start', input: long },
-    { name: 'the nap of an hour is a minute longer', command: 'update', input: update(advanceMochiActivity(long)) },
+    { name: 'the nap of an hour is a minute longer', command: 'update', input: update(advanceMochiActivity(present(long))) },
   ]);
 });

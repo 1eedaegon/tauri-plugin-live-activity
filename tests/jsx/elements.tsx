@@ -1,4 +1,4 @@
-// One element of every component, compiled by tests/jsx.test.mjs with the package as its JSX import source.
+// One element of every component, compiled by tests/jsx.test.ts with the package as its JSX import source.
 import {
   Button, Custom, Divider, Gauge, HStack, Image, Link, Path, Progress, SFSymbol, Spacer, Text, TimerText, Toggle, VStack,
   ZStack, bind,
@@ -33,7 +33,7 @@ export const elements = {
   hidden: <SFSymbol name="sparkles" accessibility={{ hidden: true }} />,
 };
 
-/** A lock screen with a link, a toggle and those members, which tests/jsx.test.mjs keeps in a request for Rust to judge. */
+/** A lock screen with a link, a toggle and those members, which tests/jsx.test.ts keeps in a request for Rust to judge. */
 export const recorder = (
   <VStack spacing={8} accessibility={{ label: 'Recorder' }}>
     <HStack spacing={8}>

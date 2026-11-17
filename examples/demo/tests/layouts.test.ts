@@ -1,31 +1,45 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { keep } from '../../../tests/typescript-requests.mjs';
+import type {
+  Layout, LayoutActivityRecord, LayoutEndInput, LayoutIsland, LayoutIslandExpanded, LayoutNode, LayoutStartInput,
+  LayoutUpdateInput, LayoutValues,
+} from '../../../guest-js/index.js';
+import { list, member, present, text } from '../../../tests/support.ts';
+import { keep } from '../../../tests/typescript-requests.ts';
+import type { KeptRequest } from '../../../tests/typescript-requests.ts';
 import {
   actionMessage, findLayoutExample, freshFor, layoutExamples, layoutRecordFor, nextLayoutSnapshot, openedMessage,
   runningLayoutExamples, startsIn,
 } from '../src/layouts.ts';
+import type { LayoutExample } from '../src/layouts.ts';
 
 const NOW = 1_800_000_000_000;
 const MINUTE = 60_000;
 const widget = new URL('../widget/', import.meta.url);
 
+/** The nodes of a layout whose `type` is `T`. */
+type NodeOf<T extends LayoutNode['type']> = Extract<LayoutNode, { readonly type: T }>;
+
 /** Every node of the lock screen, of each island region and of the small region, depth first. */
-function nodes(layout) {
-  const island = layout.island ?? {};
-  const roots = [layout.lockScreen, ...Object.values(island.expanded ?? {}),
-    island.compactLeading, island.compactTrailing, island.minimal, layout.small].filter(Boolean);
-  const walk = node => [node, ...(node.children ?? []).flatMap(walk), ...(node.child ? walk(node.child) : [])];
+function nodes(layout: Layout): LayoutNode[] {
+  const island: LayoutIsland = layout.island ?? {};
+  // The regions of the expanded part by name: it has options beside them, which are no nodes.
+  const expanded: LayoutIslandExpanded = island.expanded ?? {};
+  const roots = [layout.lockScreen, expanded.leading, expanded.trailing, expanded.center, expanded.bottom,
+    island.compactLeading, island.compactTrailing, island.minimal, layout.small]
+    .filter(root => root !== undefined);
+  const walk = (node: LayoutNode): LayoutNode[] =>
+    [node, ...('children' in node ? node.children : []).flatMap(walk), ...('child' in node ? walk(node.child) : [])];
   return roots.flatMap(walk);
 }
 
-const startOf = id => findLayoutExample(id).start(NOW);
+const startOf = (id: string): LayoutStartInput => present(findLayoutExample(id), `the ${id} example`).start(NOW);
 /** How many updates of an example the tests follow. */
 const UPDATES = 4;
 /** The values of the first updates of `example`, each made from the one before it; none when it has no update. */
-function updatesOf(example) {
-  const chain = [];
+function updatesOf(example: LayoutExample): LayoutValues[] {
+  const chain: LayoutValues[] = [];
   let { values } = example.start(NOW).snapshot;
   for (let step = 0; example.next !== undefined && step < UPDATES; step += 1) {
     values = example.next(values);
@@ -33,8 +47,9 @@ function updatesOf(example) {
   }
   return chain;
 }
-const nodesOf = id => nodes(startOf(id).layout);
-const ofType = (id, type) => nodesOf(id).filter(node => node.type === type);
+const nodesOf = (id: string): LayoutNode[] => nodes(startOf(id).layout);
+const ofType = <T extends LayoutNode['type']>(id: string, type: T): NodeOf<T>[] =>
+  nodesOf(id).filter((node): node is NodeOf<T> => node.type === type);
 
 test('offers one example per layout feature, each under its own key', () => {
   assert.deepEqual(layoutExamples.map(example => example.id), [
@@ -75,12 +90,12 @@ test('updates keep the keys and value types of the start and change what is show
 
 // TP-CONTRACT-9
 test('the start of every example and the updates that follow it are kept for Rust to judge', (t) => {
-  const cases = layoutExamples.flatMap((example) => {
+  const cases = layoutExamples.flatMap((example): KeptRequest[] => {
     const start = { name: `the ${example.id} example starts`, command: 'start_layout', input: example.start(NOW) };
     // Rust judges each update against the layout and the styles of its start, as the native layer does.
     const updates = updatesOf(example).map((values, index) => ({
       name: `the ${example.id} example, update ${index + 1}`, command: 'update_layout',
-      input: { id: 'handle', snapshot: { revision: index + 1, values } }, after: start.name,
+      input: { id: 'handle', snapshot: { revision: index + 1, values } } satisfies LayoutUpdateInput, after: start.name,
     }));
     return [start, ...updates];
   });
@@ -88,11 +103,11 @@ test('the start of every example and the updates that follow it are kept for Rus
   // update and as the final content of an end.
   const { values } = startOf('styles').snapshot;
   const snapshot = { revision: 1, values: { ...values, tone: 'crimson' } };
-  const refused = { after: 'the styles example starts', code: 'INVALID_INPUT' };
+  const refused: Pick<KeptRequest, 'after' | 'code'> = { after: 'the styles example starts', code: 'INVALID_INPUT' };
   keep(t, 'demo-layouts', [
     ...cases,
-    { name: 'the styles example, an update with a color that is none', command: 'update_layout', input: { id: 'handle', snapshot }, ...refused },
-    { name: 'the styles example, an end with a color that is none', command: 'end_layout', input: { id: 'handle', policy: { kind: 'default' }, snapshot }, ...refused },
+    { name: 'the styles example, an update with a color that is none', command: 'update_layout', input: { id: 'handle', snapshot } satisfies LayoutUpdateInput, ...refused },
+    { name: 'the styles example, an end with a color that is none', command: 'end_layout', input: { id: 'handle', policy: { kind: 'default' }, snapshot } satisfies LayoutEndInput, ...refused },
   ]);
 });
 
@@ -101,10 +116,10 @@ test('text binds values, names styles and hides nodes with if and unless', () =>
   assert.ok(texts.some(node => node.bind === 'title' && node.style === 'title'));
   assert.ok(texts.some(node => node.unless === 'arrived'));
   assert.ok(texts.some(node => node.value !== undefined && node.if === 'arrived'));
-  const example = findLayoutExample('text');
+  const example = present(findLayoutExample('text'));
   let values = example.start(NOW).snapshot.values;
   const seen = [values.arrived];
-  for (let step = 0; step < 3; step += 1) { values = example.next(values); seen.push(values.arrived); }
+  for (let step = 0; step < 3; step += 1) { values = present(example.next)(values); seen.push(values.arrived); }
   assert.deepEqual(seen, [false, false, true, false]);
 });
 
@@ -113,14 +128,15 @@ test('symbols show a plain, a multicolor and a variable SF Symbol', () => {
   assert.ok(symbols.some(node => node.rendering === undefined && node.variableBind === undefined));
   assert.ok(symbols.some(node => node.rendering === 'multicolor'));
   const variable = symbols.find(node => node.variableBind !== undefined);
-  assert.equal(typeof startOf('symbols').snapshot.values[variable.variableBind], 'number');
+  assert.equal(typeof startOf('symbols').snapshot.values[present(variable?.variableBind)], 'number');
 });
 
 test('the image example names a PNG in the widget extension asset catalog', () => {
-  const [image] = ofType('image', 'image');
+  const image = present(ofType('image', 'image')[0], 'the image');
   const set = new URL(`Assets.xcassets/${image.source.asset}.imageset/`, widget);
-  const contents = JSON.parse(readFileSync(new URL('Contents.json', set), 'utf8'));
-  const files = contents.images.map(entry => entry.filename).filter(Boolean);
+  const contents: unknown = JSON.parse(readFileSync(new URL('Contents.json', set), 'utf8'));
+  const files = list(member(contents, 'images'), 'the images').map(entry => member(entry, 'filename')).filter(Boolean)
+    .map(file => text(file, 'a file name'));
   assert.ok(files.length >= 2);
   for (const file of files) {
     assert.match(file, /\.png$/);
@@ -144,44 +160,44 @@ test('gauges and progress views come in both shapes', () => {
 });
 
 test('the timer counts down five minutes from the start and a snooze adds one', () => {
-  const [timer] = ofType('timer', 'timerText');
+  const timer = present(ofType('timer', 'timerText')[0], 'the timer');
   const { values } = startOf('timer').snapshot;
   assert.equal(values[timer.start], NOW);
   assert.equal(values[timer.end], NOW + 5 * MINUTE);
-  const next = findLayoutExample('timer').next(values);
+  const next = present(present(findLayoutExample('timer')).next)(values);
   assert.equal(next[timer.start], NOW);
   assert.equal(next[timer.end], NOW + 6 * MINUTE);
 });
 
 test('stacks use every container, a spacer and a divider', () => {
   const types = new Set(nodesOf('stacks').map(node => node.type));
-  for (const type of ['vstack', 'hstack', 'zstack', 'spacer', 'divider']) assert.ok(types.has(type), type);
+  for (const type of ['vstack', 'hstack', 'zstack', 'spacer', 'divider'] as const) assert.ok(types.has(type), type);
 });
 
 test('buttons report pet and done, and have no in-app update', () => {
   assert.deepEqual(ofType('buttons', 'button').map(node => node.actionId), ['pet', 'done']);
   assert.equal(startOf('buttons').snapshot.values.pets, 0);
-  assert.equal(findLayoutExample('buttons').next, undefined);
+  assert.equal(present(findLayoutExample('buttons')).next, undefined);
 });
 
 test('the switch shows a flag that is off and reports purr, with the lines Rust sets', () => {
   const [purr] = ofType('switch', 'toggle');
   assert.equal(ofType('switch', 'toggle').length, 1);
-  assert.deepEqual([purr.actionId, purr.bind, purr.child.value], ['purr', 'purring', 'Purr alerts']);
+  assert.deepEqual([purr?.actionId, purr?.bind, member(purr?.child, 'value')], ['purr', 'purring', 'Purr alerts']);
   const values = startOf('switch').snapshot.values;
   assert.equal(values.purring, false);
   // Rust's handler writes the same two lines (src-tauri/src/actions.rs).
   const rust = readFileSync(new URL('../src-tauri/src/actions.rs', import.meta.url), 'utf8');
   assert.ok(rust.includes(`pub const QUIET: &str = "${values.status}";`));
   assert.ok(rust.includes('pub const PURRING: &str = "Purring out loud";'));
-  assert.equal(findLayoutExample('switch').next, undefined);
+  assert.equal(present(findLayoutExample('switch')).next, undefined);
 });
 
 test('the link opens a URL of a scheme that the Android app declares', () => {
   const [jar] = ofType('link', 'link');
   assert.equal(ofType('link', 'link').length, 1);
-  assert.equal(jar.url, 'mochi://treats');
-  assert.equal(jar.child.value, 'Open the treat jar');
+  assert.equal(jar?.url, 'mochi://treats');
+  assert.equal(member(jar?.child, 'value'), 'Open the treat jar');
   // Android opens a link only in an activity of the app that takes its scheme; without one the link is left out.
   const manifest = readFileSync(new URL('../src-tauri/gen/android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8');
   assert.match(manifest, /<action android:name="android\.intent\.action\.VIEW" \/>[\s\S]*<data android:scheme="mochi" \/>/);
@@ -192,19 +208,19 @@ test('the staleness example is stale 45 seconds after its start and draws one li
   assert.equal(freshFor, 45_000);
   assert.equal(input.snapshot.staleAt, NOW + freshFor);
   const conditional = nodesOf('staleness').filter(node => node.ifStale !== undefined);
-  assert.deepEqual(conditional.map(node => [node.ifStale, node.bind ?? node.value]), [
+  assert.deepEqual(conditional.map(node => [node.ifStale, member(node, 'bind') ?? member(node, 'value')]), [
     [false, 'news'], [true, 'Waiting for news of the snack'],
   ]);
   // An update carries no stale time: its content is fresh for good.
   const record = { id: 's', activityKey: input.activityKey, snapshot: input.snapshot };
-  assert.equal(nextLayoutSnapshot(record, findLayoutExample('staleness')).staleAt, undefined);
+  assert.equal(nextLayoutSnapshot(record, present(findLayoutExample('staleness'))).staleAt, undefined);
 });
 
 test('the scheduled start begins 30 seconds after it is asked for, with an alert, and has no update', () => {
   const input = startOf('later');
   assert.equal(startsIn, 30_000);
   assert.deepEqual(input.scheduled, { at: NOW + startsIn, alert: { title: 'Dinner time', body: 'Mochi’s bowl is full.' } });
-  assert.equal(findLayoutExample('later').next, undefined);
+  assert.equal(present(findLayoutExample('later')).next, undefined);
   // The alert says other words than the activity, so that what shows at the time can be told apart.
   const values = Object.values(input.snapshot.values);
   assert.ok(!values.includes(input.scheduled.alert.title) && !values.includes(input.scheduled.alert.body));
@@ -213,39 +229,39 @@ test('the scheduled start begins 30 seconds after it is asked for, with an alert
 test('the changing styles example binds a color, and an update turns the status red', () => {
   const { styles, snapshot: { values } } = startOf('styles');
   const status = nodesOf('styles').find(node => node.type === 'text' && node.bind === 'status');
-  assert.deepEqual(styles[status.style].color, { bind: 'tone' });
-  assert.deepEqual(styles[status.style].weight, { bind: 'weight' });
-  const bound = Object.values(styles).flatMap(style => Object.values(style)).filter(member => member?.bind === 'tone');
+  assert.deepEqual(present(styles)[present(status?.style)]?.color, { bind: 'tone' });
+  assert.deepEqual(present(styles)[present(status?.style)]?.weight, { bind: 'weight' });
+  const bound = Object.values(present(styles)).flatMap((style): unknown[] => Object.values(style)).filter(entry => member(entry, 'bind') === 'tone');
   assert.ok(bound.length >= 3, 'the badge, the status and the bar follow one color');
   assert.equal(values.tone, 'green');
-  const example = findLayoutExample('styles');
-  const late = example.next(values);
+  const example = present(findLayoutExample('styles'));
+  const late = present(example.next)(values);
   assert.equal(late.tone, 'red');
   assert.equal(late.weight, 'bold');
   assert.notEqual(late.status, values.status);
-  const home = example.next(late);
-  assert.match(home.tone, /^#[0-9A-F]{6}$/);
-  assert.deepEqual(example.next(home), values);
+  const home = present(example.next)(late);
+  assert.match(text(home.tone), /^#[0-9A-F]{6}$/);
+  assert.deepEqual(present(example.next)(home), values);
 });
 
 test('the Dynamic Island example fills every region and tints the keyline', () => {
   const { island, keyline } = startOf('island').layout;
-  assert.deepEqual(Object.keys(island.expanded).sort(), ['bottom', 'center', 'leading', 'trailing']);
-  for (const region of ['compactLeading', 'compactTrailing', 'minimal']) assert.ok(island[region], region);
+  assert.deepEqual(Object.keys(present(island?.expanded)).sort(), ['bottom', 'center', 'leading', 'trailing']);
+  for (const region of ['compactLeading', 'compactTrailing', 'minimal'] as const) assert.ok(island?.[region], region);
   assert.ok(keyline);
 });
 
 test('the watch and car example has a glance for the small family beside its compact parts', () => {
   const { small, island } = startOf('small').layout;
   // Where the widget extension does not draw the small family, a watch and a car show the compact parts.
-  for (const region of ['compactLeading', 'compactTrailing']) assert.ok(island[region], region);
-  const glance = nodes({ lockScreen: small });
+  for (const region of ['compactLeading', 'compactTrailing'] as const) assert.ok(island?.[region], region);
+  const glance = nodes({ lockScreen: present(small) });
   // What the contract takes of the region, which Rust judges with the start (demo-layouts.json): few nodes, and
   // nothing to tap.
   assert.ok(glance.length <= 12, String(glance.length));
   for (const node of glance) assert.equal(['button', 'link', 'toggle'].includes(node.type), false, node.type);
   // It shows what the updates of the example change.
-  assert.deepEqual(glance.map(node => node.bind).filter(Boolean).sort(), ['done', 'eta', 'title']);
+  assert.deepEqual(glance.map(node => member(node, 'bind')).filter(Boolean).sort(), ['done', 'eta', 'title']);
 });
 
 test('the Android and Now Bar examples are public and lead with a title and a body', () => {
@@ -253,15 +269,15 @@ test('the Android and Now Bar examples are public and lead with a title and a bo
     const input = startOf(id);
     assert.deepEqual(input.android, { visibility: 'public' });
     const [title, body] = nodes(input.layout).filter(node => node.type === 'text' && node.bind !== undefined);
-    assert.equal(title.bind, 'title');
-    assert.equal(body.bind, 'status');
+    assert.equal(title?.bind, 'title');
+    assert.equal(body?.bind, 'status');
     assert.equal(ofType(id, 'progress').length, 1);
   }
   assert.deepEqual(ofType('android', 'button').map(node => node.actionId), ['wake']);
 });
 
 test('only the demo examples that are still running are ended before another starts', () => {
-  const records = [
+  const records: readonly Pick<LayoutActivityRecord, 'id' | 'activityKey' | 'state'>[] = [
     { id: 'a', activityKey: 'mochi:paths', state: 'active' },
     { id: 'b', activityKey: 'mochi:gauge', state: 'ended' },
     { id: 'c', activityKey: 'mochi:timer', state: 'unknown' },
@@ -276,15 +292,15 @@ test('only the demo examples that are still running are ended before another sta
 });
 
 test('the next snapshot raises the revision and leaves the record alone', () => {
-  const example = findLayoutExample('progress');
+  const example = present(findLayoutExample('progress'));
   const input = example.start(NOW);
   const record = Object.freeze({ id: 'p', activityKey: input.activityKey, snapshot: Object.freeze({ ...input.snapshot, staleAt: NOW }) });
   const next = nextLayoutSnapshot(record, example);
   assert.equal(next.revision, 1);
   assert.equal(next.staleAt, undefined);
-  assert.deepEqual(next.values, example.next(input.snapshot.values));
+  assert.deepEqual(next.values, present(example.next)(input.snapshot.values));
   assert.equal(record.snapshot.revision, 0);
-  assert.throws(() => nextLayoutSnapshot(record, findLayoutExample('image')), /no update/);
+  assert.throws(() => nextLayoutSnapshot(record, present(findLayoutExample('image'))), /no update/);
 });
 
 test('an opening is described with what the person tapped and the example', () => {

@@ -30,7 +30,7 @@ version=1
 temp=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
 # The tracked files that the demo on the simulator is built and tested from: the plugin crate and its permissions, the
 # TypeScript API, setup, the tools that the demo's build imports, the npm packages, the demo, the UI tests and this
-# script. The ios area of ci.yml's changes job names the same files (tests/ci.test.mjs).
+# script. The ios area of ci.yml's changes job names the same files (tests/ci.test.ts).
 inputs="src build.rs Cargo.toml Cargo.lock permissions guest-js cli tools package.json package-lock.json tsconfig.json
 examples/demo tests/ios tests/ci"
 

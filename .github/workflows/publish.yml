@@ -55,7 +55,7 @@ jobs:
       - run: npm install --global npm@11.20.0 --ignore-scripts
       - name: Test release controller guards
         working-directory: automation
-        run: node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.ts --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/release/release-guard.test.mjs
+        run: node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.ts --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/release/release-guard.test.ts
       - run: rustup toolchain install 1.99.1 --profile minimal && rustup default 1.99.1
       - name: Validate tag, package versions and completed CI
         id: prepare

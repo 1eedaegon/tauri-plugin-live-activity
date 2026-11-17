@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import type { SpawnSyncReturns } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,17 +15,20 @@ import {
   compareVersions,
   nextTagNeedsUpdate,
 } from '../../tools/release-guard.ts';
+import type { ReleaseCandidate } from '../../tools/release-guard.ts';
+import type { JsonObject } from '../support.ts';
 
 const name = 'tauri-plugin-live-activity';
 const version = '0.1.0-alpha.3';
 const repository = '1eedaegon/tauri-plugin-live-activity';
 const headSha = 'a'.repeat(40);
-const metadata = (release = version) => ({
+const metadata = (release = version): ReleaseCandidate => ({
   tag: `v${release}`,
   npmManifest: { name, version: release },
   cargoPackage: { name, version: release },
 });
-const ciRun = (overrides = {}) => ({
+// What a test hands a builder replaces its members, also with a value of another kind than the registry or GitHub gives.
+const ciRun = (overrides: JsonObject = {}): JsonObject => ({
   id: 123,
   repository: { full_name: repository },
   head_repository: { full_name: repository },
@@ -40,20 +44,45 @@ const npmExpected = {
   name, version, shasum: 'b'.repeat(40),
   integrity: `sha512-${Buffer.alloc(64, 1).toString('base64')}`,
 };
-const npmBody = (overrides = {}) => ({
-  name, version, dist: { shasum: npmExpected.shasum, integrity: npmExpected.integrity },
-  ...overrides,
-});
+/** npm's JSON for one version. */
+type NpmVersion = {
+  readonly name: string;
+  readonly version: string;
+  readonly dist: { readonly shasum: string; readonly integrity: string };
+};
+/** npm's JSON for the version; with `overrides`, some of its members replaced, also by a value of another kind. */
+function npmBody(): NpmVersion;
+function npmBody(overrides: JsonObject): JsonObject;
+function npmBody(overrides: JsonObject = {}): JsonObject {
+  return {
+    name, version, dist: { shasum: npmExpected.shasum, integrity: npmExpected.integrity },
+    ...overrides,
+  };
+}
 const cargoExpected = { name, version, checksum: 'c'.repeat(64) };
-const cargoRecord = (overrides = {}) => ({
+const cargoRecord = (overrides: JsonObject = {}): JsonObject => ({
   name, vers: version, cksum: cargoExpected.checksum, yanked: false, ...overrides,
 });
-const frozenArtifacts = () => ({
+/** The artifacts that were frozen for a version, as tests/release/alpha3-artifacts.json holds them and the guard reads them. */
+interface FrozenArtifacts {
+  readonly version: string;
+  readonly sourceCommit: string;
+  readonly npm: typeof npmExpected & { readonly tarSha256: string };
+  readonly cargo: { readonly name: string; readonly sha256: string };
+}
+const frozenArtifacts = (): FrozenArtifacts => ({
   version, sourceCommit: headSha,
   npm: { ...npmExpected, tarSha256: 'd'.repeat(64) },
   cargo: { name, sha256: cargoExpected.checksum },
 });
-const rebuiltRelease = () => ({
+/** The record of a release as the controller writes it after `archive`, as the guard reads it. */
+interface ReleaseRecord {
+  readonly version: string;
+  readonly sourceCommit: string;
+  readonly npm: typeof npmExpected;
+  readonly cargo: typeof cargoExpected;
+}
+const rebuiltRelease = (): ReleaseRecord => ({
   version, sourceCommit: headSha,
   npm: { ...npmExpected, shasum: 'e'.repeat(40), integrity: `sha512-${Buffer.alloc(64, 2).toString('base64')}` },
   cargo: { ...cargoExpected },
@@ -119,8 +148,8 @@ test('CI blocks wrong repositories, branches, workflows, SHAs, triggers and inco
 });
 
 test('only explicit HTTP 404 permits a missing registry resource', () => {
-  assert.equal(checkNpmRegistry({ status: 404, expected: npmExpected }), 'missing');
-  assert.equal(checkCargoRegistry({ status: 404, expected: cargoExpected }), 'missing');
+  assert.equal(checkNpmRegistry({ status: 404, body: undefined, expected: npmExpected }), 'missing');
+  assert.equal(checkCargoRegistry({ status: 404, records: undefined, expected: cargoExpected }), 'missing');
   for (const status of [undefined, '404', 0, 201, 204, 301, 400, 401, 403, 408, 429, 500, 502, 503]) {
     assert.throws(() => checkNpmRegistry({ status, body: npmBody(), expected: npmExpected }), /HTTP/);
     assert.throws(() => checkCargoRegistry({ status, records: [cargoRecord()], expected: cargoExpected }), /HTTP/);
@@ -153,17 +182,17 @@ test('bad expected metadata fails even when the registry returns 404', () => {
     { ...npmExpected, version: 'bad' }, { ...npmExpected, shasum: 'z'.repeat(40) },
     { ...npmExpected, shasum: `${npmExpected.shasum}\n` },
     { ...npmExpected, integrity: 'sha512-invalid' }, { ...npmExpected, integrity: `${npmExpected.integrity}\n` }]) {
-    assert.throws(() => checkNpmRegistry({ status: 404, expected }), /npm/);
+    assert.throws(() => checkNpmRegistry({ status: 404, body: undefined, expected }), /npm/);
   }
   for (const expected of [null, {}, { ...cargoExpected, name: 'other' },
     { ...cargoExpected, version: 'bad' }, { ...cargoExpected, checksum: 'z'.repeat(64) },
     { ...cargoExpected, checksum: `${cargoExpected.checksum}\n` }]) {
-    assert.throws(() => checkCargoRegistry({ status: 404, expected }), /Cargo/);
+    assert.throws(() => checkCargoRegistry({ status: 404, records: undefined, expected }), /Cargo/);
   }
 });
 
 test('guards leave frozen caller inputs unchanged', () => {
-  const inputs = [metadata(), [ciRun()], npmBody(), [cargoRecord()], { latest: '0.2.0', next: '0.1.0-alpha.4' }];
+  const inputs = [metadata(), [ciRun()], npmBody(), [cargoRecord()], { latest: '0.2.0', next: '0.1.0-alpha.4' }] as const;
   const before = JSON.stringify(inputs);
   validateReleaseMetadata(Object.freeze(inputs[0]));
   requireSuccessfulCiRun(Object.freeze(inputs[1]), { repository, headSha });
@@ -235,7 +264,7 @@ test('frozen release accepts compression-only differences after full tar and Car
 });
 
 test('frozen release rejects missing or malformed source commits and release versions', () => {
-  const check = (release, frozen) => requireFrozenArtifacts({ release, frozen, npmTarSha256: 'd'.repeat(64) });
+  const check = (release: unknown, frozen: unknown): unknown => requireFrozenArtifacts({ release, frozen, npmTarSha256: 'd'.repeat(64) });
   for (const invalid of [undefined, null, {}]) {
     assert.throws(() => check(invalid, frozenArtifacts()), /frozen/i);
     assert.throws(() => check(rebuiltRelease(), invalid), /frozen/i);
@@ -287,10 +316,10 @@ test('the release controller runs as TypeScript and says what it lacks', t => {
   const controller = fileURLToPath(new URL('../../tools/release.ts', import.meta.url));
   const directory = mkdtempSync(join(tmpdir(), 'la-release-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const run = (args, env = {}) => spawnSync(process.execPath, ['--experimental-strip-types', controller, ...args], {
+  const run = (args: readonly string[], env: NodeJS.ProcessEnv = {}): SpawnSyncReturns<string> => spawnSync(process.execPath, ['--experimental-strip-types', controller, ...args], {
     encoding: 'utf8', env: { PATH: process.env.PATH, ...env },
   });
-  const said = (args, message, env) => {
+  const said = (args: readonly string[], message: RegExp, env?: NodeJS.ProcessEnv): void => {
     const result = run(args, env);
     assert.equal(result.status, 1, args.join(' '));
     assert.match(result.stderr, message, args.join(' '));
@@ -310,7 +339,7 @@ test('the release controller runs as TypeScript and says what it lacks', t => {
   // A record or a pack list that lacks a member stops the step that reads it, before it writes or asks a registry.
   const env = { RELEASE_DIR: directory, GITHUB_OUTPUT: join(directory, 'output') };
   const record = { version, distTag: 'next', tag: `v${version}`, sourceCommit: headSha };
-  const write = (file, value) => writeFileSync(join(directory, file), JSON.stringify(value));
+  const write = (file: string, value: unknown): void => writeFileSync(join(directory, file), JSON.stringify(value));
   write('release.json', record);
   for (const packs of [null, {}, [], [null], [{ name, version, filename: 'a.tgz', shasum: 'a'.repeat(40) }]]) {
     write('npm-pack.json', packs);
@@ -325,7 +354,7 @@ test('the release controller runs as TypeScript and says what it lacks', t => {
     [{ ...record, distTag: undefined }, /release\.json has no distTag of latest or next/],
     [{ ...record, sourceCommit: undefined }, /release\.json has no sourceCommit/],
     [record, /release\.json has no npm\.filename/],
-  ]) {
+  ] as const) {
     write('release.json', stored);
     said(['inspect', 'npm'], message, env);
   }

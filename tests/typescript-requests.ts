@@ -9,9 +9,36 @@
 // The comparison is a file snapshot of node:test (`t.assert.fileSnapshot`, from Node 22.14), which writes the file
 // instead when node runs with --test-update-snapshots, as that script does.
 import { fileURLToPath } from 'node:url';
+import type { ErrorCode } from '../dist-js/index.js';
+
+/** A request that a test keeps for Rust to judge: a `Case` of tests/typescript_requests.rs. */
+export interface KeptRequest {
+  /** What the request is, once in its file. */
+  readonly name: string;
+  /** The command that the request is for, as the IPC names it: `start_layout`. Rust knows which there are. */
+  readonly command: string;
+  /** The request as the test builds it. */
+  readonly input: unknown;
+  /** The name of a start earlier in the file, which Rust also judges the request against. */
+  readonly after?: string | undefined;
+  /** The code that Rust is to refuse the request with. Without a value it is left out of the file, as `after` is. */
+  readonly code?: ErrorCode | undefined;
+}
+
+/** How `keep` writes the cases of a file: the one serializer of its file snapshot. */
+export type KeptFileSerializer = (cases: readonly KeptRequest[]) => string;
+
+/** What `keep` asks of a test: its file snapshot, as `keep` calls it. The `TestContext` of node:test is one. */
+export interface FileSnapshotContext {
+  readonly assert: {
+    readonly fileSnapshot: (
+      cases: readonly KeptRequest[], path: string, options: { readonly serializers: readonly [KeptFileSerializer] },
+    ) => void;
+  };
+}
 
 const folder = new URL('./fixtures/typescript/', import.meta.url);
-const written = (cases) => `${JSON.stringify(cases, null, 2)}\n`;
+const written: KeptFileSerializer = (cases) => `${JSON.stringify(cases, null, 2)}\n`;
 
 /**
  * Keeps `cases` as the file `name` of tests/fixtures/typescript, in the test `t`. A case is `{ name, command, input }`,
@@ -19,7 +46,7 @@ const written = (cases) => `${JSON.stringify(cases, null, 2)}\n`;
  * in the file, Rust takes the request on its own and judges it against that start, as the native layer judges an
  * update or an end.
  */
-export function keep(t, name, cases) {
+export function keep(t: FileSnapshotContext, name: string, cases: readonly KeptRequest[]): void {
   const file = `tests/fixtures/typescript/${name}.json`;
   try {
     t.assert.fileSnapshot(cases, fileURLToPath(new URL(`${name}.json`, folder)), { serializers: [written] });
