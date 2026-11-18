@@ -149,8 +149,9 @@ test('the changes job starts each job for its paths, and the ios area is what th
   assert.match(workflow, /\n  spec:\n    name: Specification\n    runs-on: ubuntu-latest\n/);
   assert.match(workflow, /run: sh tools\/spec-coverage\.sh/);
   // So do the tests of CI's own scripts: a change to tests/ios/run.sh or tests/ci/cache.sh alone starts the ios
-  // area, for which the macOS job runs none of the other node tests.
-  assert.ok(job('spec').endsWith('      - run: node --test tests/spec-coverage.test.ts tests/ci.test.ts tests/ci-cache.test.ts tests/ios-run.test.ts'));
+  // area, for which the macOS job runs none of the other node tests. And so does the test of the documents'
+  // links and pictures (TP-CI-8): a change of the documents alone starts no other job.
+  assert.ok(job('spec').endsWith('      - run: node --test tests/spec-coverage.test.ts tests/ci.test.ts tests/ci-cache.test.ts tests/ios-run.test.ts tests/docs.test.ts'));
   assert.deepEqual(started('tests/ios/run.sh'), ['ios']);
   assert.deepEqual(started('tests/ci/cache.sh'), ['ios']);
   // The Specification job has dash for its sh. The simulator jobs run run.sh with a Mac's, bash 3.2, and the two

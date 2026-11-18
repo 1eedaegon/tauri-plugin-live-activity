@@ -91,7 +91,7 @@ jobs:
         with:
           node-version: ${{ env.NODE }}
       - run: sh tools/spec-coverage.sh
-      - run: node --test tests/spec-coverage.test.ts tests/ci.test.ts tests/ci-cache.test.ts tests/ios-run.test.ts
+      - run: node --test tests/spec-coverage.test.ts tests/ci.test.ts tests/ci-cache.test.ts tests/ios-run.test.ts tests/docs.test.ts
   contracts:
     name: Rust, TypeScript and iOS
     needs: changes
