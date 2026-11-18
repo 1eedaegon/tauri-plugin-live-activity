@@ -1801,9 +1801,9 @@ dependencies = [
 
 [[package]]
 name = "liveactivity"
-version = "0.7.3"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5da0e2dd683e9f1610555ba646160556fd046e3f544232110815f3c7db5de399"
+checksum = "a42e4c5b09cfc0bafe4aa6e244cf7ebbf233f305c0ff5fcbfd4cab82a4a2d4d2"
 dependencies = [
  "activitykit",
  "liveupdate",
