@@ -21,7 +21,11 @@ the JavaScript and Rust APIs or in the permissions.
   example came in one appearance at its start before the correction too: dark with light text on the one, light
   with dark text on the other.
 - The glance of the demo's Watch and car example shows its whole title: its ring is 36 points wide, and the
-  title may shrink.
+  title may shrink. The demo's README shows it in the Smart Stack of a paired Apple Watch simulator, the first
+  picture here of the `small` region where it is drawn. No watch has been tried.
+- The iOS pictures of the documents are taken again from this version, on the iPhone 17 Pro simulator with iOS
+  26.3: none of the 21 cards came light at its first start, and the picture of a light card is gone from the
+  usage guide and the demo's README.
 
 When updating:
 

@@ -230,7 +230,7 @@ What each example shows:
   </tr>
   <tr>
     <td><b>Watch and car</b><br>The <code>small</code> region, a glance for a paired Apple Watch and CarPlay.</td>
-    <td><img src="../../docs/images/ios-layout-small.png" width="300" alt="The lock screen tree of the example on the iPhone: title, status and a bar"><br>The iPhone itself draws the lock screen tree. The glance is not captured: the simulator has no watch, and its CarPlay display shows no Live Activity.</td>
+    <td><img src="../../docs/images/ios-layout-small.png" width="300" alt="The lock screen tree of the example on the iPhone: title, status and a bar"><br>The iPhone itself draws the lock screen tree.<br><img src="../../docs/images/ios-layout-small-watch.png" width="150" alt="The Smart Stack of an Apple Watch under its date and clock: the example's glance, a paw, Mochi’s snack, 4 min and a ring"><br>The glance, in the Smart Stack of a paired Apple Watch simulator. CarPlay is not captured: the simulator's CarPlay display shows no Live Activity.</td>
     <td>A watch and a car show the notification by themselves: <code>layout.small</code>.</td>
   </tr>
   <tr>
@@ -390,18 +390,23 @@ device before a run, and a local port that is free: it stops when the port alrea
 would and is skipped in every other run. [screens.ts](../../tests/android/screens.ts) drives the page
 through the WebView's DevTools socket and the notification shade through adb.
 
-On the simulator a card sometimes came on a light background under the text of the dark scheme, which is
-hard to read: the first drawing of a card with a timer every time, other cards now and then, fewer after an
-update. So `DemoScreens` takes most cards after an update, and starts an example again whose card came out
-light. The run's `light-cards.txt` names the pictures that stayed light all the same; such a picture was
-taken from another run. Whether a phone does the same has not been looked at. A card in that state, the
-Buttons example at its start as one run took it:
-
-<img src="../../docs/images/ios-card-light.png" width="300" alt="A light card on the iOS Lock Screen with a cat, the button Pet Mochi and a pale All done; its white title and status can hardly be read">
+Before 0.10.3 a card on the simulator sometimes came on a light background under the text of the dark scheme,
+which is hard to read: the layout's color pair was the system's tint of the activity, and activitykit 0.6.5
+draws it with the content. `DemoScreens` still takes most cards after an update and starts an example again
+whose card came out light, and the run's `light-cards.txt` names the pictures that stayed light all the same.
+In the run of 2026-11-19, the first on activitykit 0.6.5, none of the 21 first starts was light. On two iPhones
+(iOS 27.2 and 18.7) the cards that were looked at came in one appearance before the correction too.
 
 The three moving pictures are parts of screen recordings, joined and scaled down with ffmpeg: on iOS
 `xcrun simctl io <udid> recordVideo` beside such a run, on Android `adb shell screenrecord` while the page
-was driven the same way. What lies between the parts is left out, and nothing is drawn over a frame.
+was driven the same way. What lies between the parts is left out, and nothing is drawn over a frame. One part
+is longer than it took: the picture of the Changing styles example stays on its last frame, the red card on the
+Lock Screen, for a few seconds after the recording had left it.
+
+The glance of the Watch and car example is the whole screen of an Apple Watch Series 11 (46mm) simulator with
+watchOS 26.2, paired with the iPhone simulator that ran the example, as `xcrun simctl io <udid> screenshot`
+gives it. No command of this repository takes it: it needs a paired watch simulator, whose runtime is a download
+of its own.
 
 Some pictures are older, and neither command takes them:
 
