@@ -512,9 +512,9 @@ const smallExample: LayoutExample = {
     },
     styles: {
       card, title, status, meter,
-      glanceTitle: { font: 'headline', design: 'rounded', lineLimit: 1 },
+      glanceTitle: { font: 'headline', design: 'rounded', lineLimit: 1, minimumScaleFactor: 0.8 },
       glanceValue: { font: 'caption', weight: 'semibold', monospacedDigit: true, color: mint },
-      glanceMeter: { tint: mint },
+      glanceMeter: { tint: mint, frame: { width: 36, height: 36 } },
       mint: { color: mint },
     },
     snapshot: {
