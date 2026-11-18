@@ -213,8 +213,8 @@ again then.
 ## Layouts
 
 Captures: the [demo](../examples/demo/README.md) on the iPhone 17 Pro simulator with iOS 26.3 and on an
-emulator of Android 16, taken on 2026-11-18 from main after 0.10.1 (liveactivity 0.7.4, activitykit 0.6.3,
-liveupdate 0.4.1). The demo adds Mochi's colors and padding to the code shown here. Two captures are of
+emulator of Android 16, taken on 2026-11-18 from the code that 0.10.2 released (liveactivity 0.7.4, activitykit
+0.6.3, liveupdate 0.4.1). The demo adds Mochi's colors and padding to the code shown here. Two captures are of
 2026-11-06 and were not taken again: the minimal Dynamic Island, which the simulator did not show for the demo's
 activities alone, and the Samsung Now Bar, which is a Galaxy S23's.
 
@@ -513,7 +513,8 @@ A progress view shows a number from 0 to 1 as a bar or a ring.
 
 Android turns the first progress view into the notification's bar. From Android 16 it is Android's progress
 style, as in the capture: thick as far as the value goes, and a thin line ahead of it. Below Android 16 it is the
-plain bar, as the bar of the [progress template](#progress-template) is on every Android.
+plain bar, as the bar of the [progress template](#progress-template) is on every Android. One UI shows no bar
+where it draws a card of its own, which it does with the [Samsung Now Bar](#samsung-now-bar) extras on.
 
 ### Timer
 
@@ -945,9 +946,9 @@ also needs this entry in the `<application>` of
 <meta-data android:name="com.samsung.android.support.ongoing_activity" android:value="true" />
 ```
 
-With the extras, One UI draws the notification as a card of its own, with the title and the body and without
-the notification's actions: a button, a switch or a link cannot be tapped there. An activity that needs them on
-a Galaxy leaves the option off.
+With the extras, One UI draws the notification as a card of its own, with the title and the body, without the
+bar of a progress and without the notification's actions: a button, a switch or a link cannot be tapped there.
+An activity that needs its bar or its actions on a Galaxy leaves the option off.
 
 What was found about the Now Bar on One UI 9 is in [Android setup](android-integration.md#samsung-now-bar).
 
