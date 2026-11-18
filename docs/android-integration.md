@@ -407,12 +407,13 @@ What the app can do:
   has listed the package; it is needed only if Samsung lists it without the `RON` flag.
   The plugin does not add it.
 - Know what the extras cost. With them, One UI 9 draws a card of its own for the notification, in the shade and
-  under the status bar chip: the title and the status line, and none of the notification's actions. A button, a
-  switch or a link of the layout cannot be tapped there; a tap on the card opens the app (`onOpened` without an
-  action). Without the extras the same notification is drawn as Android draws it, with its actions, and its chip
-  shows the title. Seen on a Galaxy S23 with the developer option on, with the demo's Switch and Link examples;
-  whether an app on Samsung's list is drawn differently is not known. An activity that needs its actions on a
-  Galaxy leaves the option off.
+  under the status bar chip: the title and the status line, with no bar of a progress and none of the
+  notification's actions. A button, a switch or a link of the layout cannot be tapped there; a tap on the card
+  opens the app (`onOpened` without an action). Without the extras the same notification is drawn as Android
+  draws it, with its bar and its actions, and its chip shows the title. Seen on a Galaxy S23 with the developer
+  option on, with the demo's Switch and Link examples, and for the bar with its Progress example
+  ([Android coverage](android-coverage.md#the-bar-of-a-layout-0102)); whether an app on Samsung's list is drawn
+  differently is not known. An activity that needs its bar or its actions on a Galaxy leaves the option off.
 - Read the developer option with `Settings.Secure.getInt(resolver,
   "enable_notification_nowbar_test", -1)` (-1: absent). An app cannot change it.
 

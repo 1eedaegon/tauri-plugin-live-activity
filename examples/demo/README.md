@@ -44,6 +44,11 @@ npm run tauri -- ios dev        # or: npm run tauri -- android dev
   `ANDROID_SERIAL` to its serial: Tauri's CLI asks adb for the app's process without naming the device,
   and waits for an answer that never comes. It also waits for the boot animation to have stopped, which
   an emulator started with `-no-boot-anim` never reports.
+- **A Galaxy.** This app turns on `android.samsungNowBar`, and with it One UI 9 drew the notification of a
+  layout as a card of its own on a Galaxy S23: the title and the text, with no bar and no actions to tap.
+  The Android pictures of this page are an emulator's, but the one of the Now Bar. Take the option out of
+  `src-tauri/tauri.conf.json` to see the same on a Galaxy
+  ([Samsung Now Bar](../../docs/usage.md#samsung-now-bar)).
 - **Desktop.** A desktop build shows the page and says that the device has no backend: the start buttons
   stay off.
 
