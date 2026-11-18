@@ -2,24 +2,43 @@
 
 ## Unreleased
 
-On iOS the tap of a button comes without `on`. Built on liveactivity 0.7.5 and activitykit 0.6.4, with
-liveupdate 0.4.1 as before. Nothing changes in the JavaScript and Rust APIs or in the permissions.
+On iOS the tap of a button comes without `on`, and a color pair behind a card is of the appearance of the card's
+content. Built on liveactivity 0.7.6 and activitykit 0.6.5, with liveupdate 0.4.1 as before. Nothing changes in
+the JavaScript and Rust APIs or in the permissions.
 
 - On iOS the tap of a button reaches `on_action` and `onAction` without `on`, as the contract says: `on` is a
   toggle's alone. It came with `on: false`, on the simulator and on phones, as the tap of a toggle that asks to
   switch off: by activitykit's account since its 0.5.0, which is 0.7.0 here, the first version with toggles. The
   system hands the app a value that an intent never set as `false`, and activitykit's intent carried the state
-  as one optional value. In activitykit 0.6.4, which the plugin requires now through liveactivity 0.7.5, the
-  intent says beside the state whether the tap is a toggle's. A toggle's tap is as before, and so is Android.
+  as one optional value. Since activitykit 0.6.4 the intent says beside the state whether the tap is a
+  toggle's. A toggle's tap is as before, and so is Android.
+- On iOS a layout's `background` that is a light and dark pair is of the appearance its content is drawn in.
+  The pair was the system's tint of the activity, and a card could come with the pair's light color behind
+  content of the dark appearance: white text on a light card, as the documents of 0.10.2 showed for the
+  simulator's Lock Screen. Since activitykit 0.6.5 its widget draws a pair itself, behind the content, on the
+  Lock Screen and in the small family. A color name and a hex color are the system's tint as before. It was
+  seen on simulators only. On an iPhone 16 (iOS 27.2) and an iPhone XS (iOS 18.7) the card of the demo's Buttons
+  example came in one appearance at its start before the correction too: dark with light text on the one, light
+  with dark text on the other.
+- The glance of the demo's Watch and car example shows its whole title: its ring is 36 points wide, and the
+  title may shrink. The demo's README shows it in the Smart Stack of a paired Apple Watch simulator, the first
+  picture here of the `small` region where it is drawn. No watch has been tried.
+- The iOS pictures of the documents are taken again from this version, on the iPhone 17 Pro simulator with iOS
+  26.3: none of the 21 cards came light at its first start, and the picture of a light card is gone from the
+  usage guide and the demo's README.
 
 When updating:
 
-- Run `setup` again, as after every update: the correction is in activitykit's Swift package, which the widget
-  extension and the app's intent are built from, and `live-activity.yml` names the folder of the earlier one
-  until then. An Xcode project that names the package by hand takes the new folder by hand.
+- Run `setup` again, as after every update: both corrections are in activitykit's Swift package, which the
+  widget extension and the app's intent are built from, and `live-activity.yml` names the folder of the earlier
+  one until then. An Xcode project that names the package by hand takes the new folder by hand.
+- With a pair as `background`, the system's own parts of a card, such as its question whether the app may go on
+  showing Live Activities, have the system's colors and no longer the pair's.
 - An app that told a toggle by its action id needs no change. One that builds `ActivityKitActionIntent` itself
   needs none either: its initializer is the same. Its property `isOn` is a `Bool` now, beside the new
   `isToggle`.
+- A widget of the app's own that draws layouts, in place of `ActivityKitLayoutWidget`, does with
+  `LayoutDocument.drawnBackground(values:)` and `backgroundTint(values:)` what that widget does.
 
 ## 0.10.2
 

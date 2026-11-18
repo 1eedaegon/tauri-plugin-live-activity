@@ -373,7 +373,7 @@ started activity.
     "minimal": Node,
     "margins": { "expanded": 8 }   // optional; at least one member
   },
-  "background": Color | Binding,   // optional; tint of the activity background
+  "background": Color | Binding,   // optional; the color behind the activity's content
   "keyline": Color | Binding,      // optional; tint of the Dynamic Island keyline
   "url": Url | Binding,            // optional; what a tap on the activity opens the app with
   "small": Node                    // optional; for a paired Apple Watch and CarPlay
@@ -387,6 +387,12 @@ tree does. activitykit's widget draws the family only when the widget extension'
 there, and a layout without it shows its `compactLeading` and `compactTrailing` parts, or their defaults, in a row.
 Without the key the system shows the compact parts itself, and the record of a layout with `small` lists
 `layout.small` in `degradedFeatures`, as it does below iOS 18 and on Android.
+
+A `background` that is a color name or a hex color is the system's tint of the activity. One that is a light and
+dark pair is drawn by activitykit's widget behind the content, on the Lock Screen and in the small family, so that
+it is of the appearance the content is drawn in; the system's own parts of a card, such as its question whether
+the app may go on showing Live Activities, then have the system's colors. Before 0.10.3 a pair was the tint too,
+and a card could come with the pair's light color behind content of the dark appearance (seen on simulators).
 
 An island part that the layout leaves out is drawn with a default:
 

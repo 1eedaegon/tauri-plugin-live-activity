@@ -213,17 +213,16 @@ again then.
 ## Layouts
 
 Captures: the [demo](../examples/demo/README.md) on the iPhone 17 Pro simulator with iOS 26.3 and on an
-emulator of Android 16, taken on 2026-11-18 from the code that 0.10.2 released (liveactivity 0.7.4, activitykit
-0.6.3, liveupdate 0.4.1). The demo adds Mochi's colors and padding to the code shown here. Two captures are of
+emulator of Android 16. The iOS ones are taken on 2026-11-19 from the code that 0.10.3 releases (liveactivity
+0.7.6, activitykit 0.6.5), the Android ones on 2026-11-18 from the code that 0.10.2 released (liveactivity 0.7.4,
+liveupdate 0.4.1). The demo adds Mochi's colors and padding to the code shown here. Two captures are of
 2026-11-06 and were not taken again: the minimal Dynamic Island, which the simulator did not show for the demo's
 activities alone, and the Samsung Now Bar, which is a Galaxy S23's.
 
-Known, on that simulator: a card sometimes comes on a light background under the text of the dark scheme, which
-is hard to read. The first drawing of a card with a timer came so every time, other cards now and then, and
-fewer after an update, so most of the iOS captures are taken after an update. Whether a phone does the same has
-not been looked at. A card in that state, the demo's Buttons example at its start:
-
-<img src="images/ios-card-light.png" width="380" alt="A light card on the iOS Lock Screen with a cat, the button Pet Mochi and a pale All done; its white title and status can hardly be read">
+Most of the iOS captures are taken after an update. Before 0.10.3 a card on that simulator sometimes came on a
+light background under the text of the dark scheme: the layout's color pair was the system's tint of the activity,
+and the system kept it in the other appearance than the content's. In the run for these captures none of the 21
+cards did at its first start.
 
 With a layout the app designs the activity itself: a tree of nodes, a table of styles and a
 map of values. On iOS activitykit's widget, `ActivityKitLayoutWidget`, draws it, with no SwiftUI

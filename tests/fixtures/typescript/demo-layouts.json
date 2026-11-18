@@ -2179,7 +2179,8 @@
         "glanceTitle": {
           "font": "headline",
           "design": "rounded",
-          "lineLimit": 1
+          "lineLimit": 1,
+          "minimumScaleFactor": 0.8
         },
         "glanceValue": {
           "font": "caption",
@@ -2188,7 +2189,11 @@
           "color": "#A3D9C2"
         },
         "glanceMeter": {
-          "tint": "#A3D9C2"
+          "tint": "#A3D9C2",
+          "frame": {
+            "width": 36,
+            "height": 36
+          }
         },
         "mint": {
           "color": "#A3D9C2"
