@@ -795,8 +795,12 @@ the Info.plist file: a build setting, which expands to text, does not count. To 
 The templates of `start` have no small region. Android has no place for one: a watch and a car show the
 notification by themselves, nothing of `small` is drawn, and the record names `layout.small`.
 
-No test of this project sees the region on a watch or in a car, and no capture shows it: the Simulator's CarPlay
-display shows no Live Activity, by activitykit's account.
+No test of this project sees the region on a watch or in a car. One capture shows it, taken by hand from 0.10.3:
+the demo's Watch and car example in the Smart Stack of an Apple Watch simulator (Series 11, watchOS 26.2), paired
+with the iPhone simulator that ran it. No watch has been tried. No capture shows the region in a car: the
+Simulator's CarPlay display shows no Live Activity, by activitykit's account.
+
+<img src="images/ios-layout-small-watch.png" width="200" alt="The Smart Stack of an Apple Watch under its date and clock: the example's glance, a paw, Mochi’s snack, 4 min and a ring">
 
 ### Android
 
