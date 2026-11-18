@@ -57,6 +57,20 @@ test('the app turns on the Samsung Now Bar extras and grants the layout commands
     'live-activity:allow-end-layout']) assert.ok(permissions.includes(permission), permission);
 });
 
+test('the page draws its two ornaments itself, and has neither as a character', () => {
+  const page = read('../src/index.html');
+  // U+273F and U+2726: the simulator of iOS 26.3 has no glyph for either and showed a boxed question mark.
+  assert.doesNotMatch(page, /[\u273F\u2726]/u);
+  for (const drawing of ['flower', 'spark']) {
+    assert.ok(page.includes(`<symbol id="${drawing}" `), `no drawing of the ${drawing}`);
+    assert.ok(page.includes(`<use href="#${drawing}"/>`), `the ${drawing} is drawn nowhere`);
+  }
+  // The app's content security policy takes no style of the page's own, as an attribute or as an element: the style
+  // sheet gives the drawings their size.
+  assert.doesNotMatch(page, /\sstyle\s*=|<style[\s>]/);
+  assert.match(read('../src/styles.css'), /^\.glyph \{ width: 1em; height: 1em; /m);
+});
+
 // TP-ANDROID-18
 test('the demo is an app that can be allowed exact alarms: it declares the permission and grants the command', () => {
   // Android's setting lists an app only when its own manifest asks for the permission; the plugin's library asks for none.
