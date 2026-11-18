@@ -5,7 +5,9 @@ Both registries use `tauri-plugin-live-activity` and the same version. The
 
 1. Run the native checks for what the release claims, on emulators, simulators and
    devices, and record the results in [validation.md](validation.md).
-2. Update npm, Cargo and demo versions and lockfiles; commit and push to `main`.
+2. Update npm, Cargo and demo versions and lockfiles, and give the `Unreleased` section of the
+   [changelog](../CHANGELOG.md), where a change is noted when it is merged, the version as its
+   heading; commit and push to `main`.
 3. Wait for the CI run of that commit on `main`. It must succeed.
 4. Push the matching tag on that commit, for example `v0.2.0`.
 

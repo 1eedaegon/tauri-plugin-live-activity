@@ -317,8 +317,10 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
   demo's Xcode project and the test project with XcodeGen, builds the demo with
   `tauri ios build --debug --target x86_64|aarch64-sim --ci` for this Mac's architecture, installs it and runs the UI
   tests of `tests/ios/DemoUITests`: a bound style on the Lock Screen, a Lock Screen button that reaches Rust and
-  JavaScript, `listLayout` after a relaunch, the demo's lifecycle test, the two templates on the Lock Screen, and a
-  tap that launches the app for a slow Rust handler. The tests run through the `DemoUITests` scheme of the project
+  JavaScript, `listLayout` after a relaunch, the demo's lifecycle test, the two templates on the Lock Screen, a
+  tap that launches the app for a slow Rust handler, a layout that Rust starts, a switch that reports the state
+  it was asked for, a link that opens the app, content that turns stale, a scheduled start that begins with the
+  app ended, and a retry that finds its example stopped. The tests run through the `DemoUITests` scheme of the project
   that XcodeGen generates on every run; with an `.xctestrun` file alone, xcodebuild found no simulator on a CI
   runner. It copies the screenshots, the other attachments and `xcodebuild.log` to `tests/ios/output` (or `$OUTPUT`,
   where it replaces only its own files), then deletes the simulator and the build, and puts back the tracked files of
@@ -345,6 +347,10 @@ brings `LiveActivityLayoutAttributes`, `LayoutDocument` and `LayoutView` for one
   - After the simulator build Tauri archives the app and installs the archive's copy; on an Intel Mac that archive is
     a device build, which needs a signing team (`bundle > iOS > developmentTeam` or `APPLE_DEVELOPMENT_TEAM`). The
     script answers the archive with the simulator build itself.
+- `TEST_RUNNER_DEMO_SCREENS=1 ONLY=DemoScreens tests/ios/run.sh` takes the pictures of the documents instead of
+  testing: the class `DemoScreens` walks the demo's page and keeps the page, the Lock Screen's card of each example
+  and the Dynamic Island under the names they have in `docs/images`. Every other run skips it
+  ([the demo's README](../examples/demo/README.md#the-pictures)).
 - `BUILD_DIR=<folder>` keeps the built demo and UI tests, and `BUILD_KEY=<name>` marks a complete build: a later run
   with the same key tests those products without building, as CI does on a cache hit (`tests/ci/cache.sh` makes the
   key from the tracked files, Xcode and the pinned tools). The simulator destination names its architecture.

@@ -456,10 +456,13 @@ answers.
 
 ## Reproduce
 
+The commands as they run today. 0.2.0 also ran the plugin's own Swift tests, with `tests/ios/run-core.sh`: they
+went with the plugin's Swift and are activitykit's now.
+
 ```sh
 npm ci
 npm test && npm run typecheck && npm run build:demo
-node --test --experimental-test-coverage --test-coverage-include=tools/release-guard.ts \
+node --experimental-strip-types --test --experimental-test-coverage --test-coverage-include=tools/release-guard.ts \
   --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 \
   tests/release/release-guard.test.ts
 cargo fmt --all -- --check
@@ -467,7 +470,6 @@ cargo fmt --manifest-path examples/demo/src-tauri/Cargo.toml -- --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo llvm-cov --locked --summary-only --fail-under-lines 80
 cargo test --locked --manifest-path examples/demo/src-tauri/Cargo.toml
-bash tests/ios/run-core.sh
 npm pack --dry-run
 cargo package --locked
 cd tests/android
@@ -477,6 +479,6 @@ cd tests/android
 ./gradlew -PliveActivityCoverage=true :live-activity:connectedDebugAndroidTest \
   :live-activity:testDebugUnitTest --rerun :live-activity:coverageVerification
 cd ../..
-node tests/android/verify-min-sdk.ts "$ANDROID_HOME/build-tools/37.0.0/aapt" \
+node --experimental-strip-types tests/android/verify-min-sdk.ts "$ANDROID_HOME/build-tools/37.0.0/aapt" \
   android/build/outputs/apk/androidTest/debug/live-activity-debug-androidTest.apk
 ```

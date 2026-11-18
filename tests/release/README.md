@@ -47,17 +47,19 @@ their public registries before starting the app.
 For a combined consumer, configure the package names and exact same release version:
 
 ```sh
-npm install --save-exact tauri-plugin-live-activity@0.2.0
+npm install --save-exact tauri-plugin-live-activity@<version>
 ```
 
 ```toml
 [dependencies]
-tauri-plugin-live-activity = "=0.2.0"
+tauri-plugin-live-activity = "=<version>"
 ```
 
-Register the plugin and capabilities as shown in the root README. On iOS, include
-the shared attributes module from the downloaded crate in the host's Widget
-Extension. Generate and build the host with the Tauri CLI, then run the demo's
+Register the plugin and run its `setup`, as the root README shows: it grants the
+permissions and, on a Mac, adds the widget extension that draws the activities.
+Through 0.3 the host's Widget Extension took the shared attributes module from the
+downloaded crate instead; the plugin has had no Swift of its own since 0.5.
+Generate and build the host with the Tauri CLI, then run the demo's
 lifecycle test through its WebView. Check the saved result, native OS surface,
 resolved Cargo metadata and npm lockfile. A screenshot alone is not a lifecycle
 test, and a mock IPC result is not evidence that ActivityKit or Android displayed
