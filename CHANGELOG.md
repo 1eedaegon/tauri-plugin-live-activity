@@ -42,8 +42,8 @@ When updating:
   repeat as before, and updates are not affected.
 
 Known, on iOS, and not new in this release: the tap of a button reaches `onAction` with `on: false`, where the
-contract gives `on` to a toggle alone (seen on the iOS 26.3 simulator). Tell a toggle by its action id, as the
-[usage guide](docs/usage.md#links-and-toggles) says.
+contract gives `on` to a toggle alone. It is so on the simulator and on phones (iOS 18.7 and 27.2), since 0.9.0
+at least. Tell a toggle by its action id, as the [usage guide](docs/usage.md#links-and-toggles) says.
 
 ## 0.10.1
 

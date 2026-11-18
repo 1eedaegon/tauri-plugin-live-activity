@@ -96,6 +96,31 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## The bar of a layout, 0.10.2
+
+0.10.2 requires liveactivity 0.7.4, which asks Android to style the bar of a layout by its progress. On Android
+the release changes that alone: the plugin's Kotlin library and its Rust differ from 0.10.1 in comments.
+
+- A Galaxy S23 with Android 17 (API 37, One UI 9), unlocked, ran a build of the release's pull request. The
+  demo's lifecycle test passed, 30 of 30 in 3 of 3 runs, and the library's device tests 10 of 10.
+- The Progress example on that phone, its value set to 0, 0.15, 0.65 and 1 by updates. What Android held of the
+  notification each time (`dumpsys notification`): the progress style with `progress` 0, 150, 650 and 1000 of
+  1000, one segment of 1000 and `styledByProgress=true`, and 0%, 15%, 65% and 100% as the chip's text.
+- What the shade drew of it, in a build with `android.samsungNowBar` off, a change that was never committed: the
+  notification with its bar. At 0 the bar was a thin line; at 0.15 and 0.65 it was thick as far as the value,
+  with the thin line ahead; at 1 it was thick from end to end.
+- With the Now Bar extras on, as the demo ships, One UI drew its own card in the shade, with the title and the
+  text and no bar, at every value. A pull on the card did not open it.
+- An emulator of Android 16 (API 36) had shown the bar as the phone's second build drew it, at 0.15, 0.65 and 1,
+  in a build of the demo on liveactivity's correction before 0.7.4 was published (#56), and the pictures that the
+  documents have from main show it at 0.65 (`docs/images/android-layout-progress.png`). With liveactivity 0.7.3
+  the bar on that emulator was thick from end to end at 0.65.
+
+Not looked at: Android 15 and earlier, which the change does not reach; a content of the app's own with the
+`progress` style on a device; and the case of the changelog in which a repeat of a start answers `CONFLICT`,
+which liveactivity tests in its own repository
+(`exchange::req_a_023_a_start_projected_before_the_flag_is_compared_as_liveupdate_keeps_it`).
+
 ## A process without an activity, 0.10.1
 
 0.10.1 has the correction of TP-ANDROID-19 and liveactivity 0.7.2. On Android it changes Rust alone: the
