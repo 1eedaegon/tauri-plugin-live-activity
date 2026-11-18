@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-On iOS the tap of a button comes without `on` again. Built on liveactivity 0.7.5 and activitykit 0.6.4, with
+On iOS the tap of a button comes without `on`. Built on liveactivity 0.7.5 and activitykit 0.6.4, with
 liveupdate 0.4.1 as before. Nothing changes in the JavaScript and Rust APIs or in the permissions.
 
 - On iOS the tap of a button reaches `on_action` and `onAction` without `on`, as the contract says: `on` is a
