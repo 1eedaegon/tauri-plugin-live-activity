@@ -1,13 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.10.2
 
-On main since 0.10.1, in no release yet. Nothing changes in the JavaScript and Rust APIs or in the permissions.
+On Android 16 and later the bar of a layout shows its value, and `setup` says what is wrong with input it cannot
+read. Built on liveactivity 0.7.4, with activitykit 0.6 and liveupdate 0.4.1 as before. Nothing changes in the
+JavaScript and Rust APIs or in the permissions.
 
 - On Android 16 and later the bar of a layout shows its value. Android's progress style drew its one segment
   full at any value, because liveactivity's projection of a layout left `styledByProgress` off. liveactivity
   0.7.4, which the plugin requires now, turns it on: the bar is thick as far as the value goes, with a thin
-  line ahead of it.
+  line ahead of it. The progress template and Android 15 and earlier are as before. A content that the app
+  gives (`snapshot.android` with the `progress` style) says `styledByProgress` for itself, as before: one that
+  leaves it out is drawn full.
 - `setup` is written in TypeScript and compiled to the files that the package always had: its 33 files have the
   names they had. On input that is not what its writer documents, `setup` says what is wrong where it used to
   fail by accident:
@@ -28,6 +32,18 @@ On main since 0.10.1, in no release yet. Nothing changes in the JavaScript and R
 - The demo's README shows how to use the demo, with pictures of the page, the Lock Screen, the Dynamic Island and
   the Android notification, and the usage guide's captures of the demo are of the current engines. Two scripts
   take them again: `DemoScreens` among the UI tests, and `tests/android/screens.ts`.
+
+When updating:
+
+- One case on Android, while an app is updated with such an activity running. An activity of a layout with a
+  `progress` that an earlier version started and that Android has not shown yet answers `CONFLICT` to a repeat
+  of its start: liveupdate keeps the projection of that start and compares it, and the projection of the same
+  request now has the flag. End the activity and start it again. An activity that Android shows answers the
+  repeat as before, and updates are not affected.
+
+Known, on iOS, and not new in this release: the tap of a button reaches `onAction` with `on: false`, where the
+contract gives `on` to a toggle alone. It is so on the simulator and on phones (iOS 18.7 and 27.2), since 0.9.0
+at least. Tell a toggle by its action id, as the [usage guide](docs/usage.md#links-and-toggles) says.
 
 ## 0.10.1
 

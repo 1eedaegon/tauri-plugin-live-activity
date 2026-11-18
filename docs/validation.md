@@ -1,3 +1,52 @@
+# 0.10.2 validation
+
+0.10.2 is a patch release. It brings what main has since 0.10.1: liveactivity 0.7.4, with which the bar of a
+layout shows its value on Android 16 and later (#56); `setup` written in TypeScript and compiled to the files
+that the package always had, with messages for input it cannot read (#53); and the demo's page with its two
+ornaments drawn by itself, beside the documents' pictures of the current engines (#57). Nothing changes in the
+JavaScript and Rust APIs or in the permissions. Of what the crate and the Android library ship, comments alone
+differ from 0.10.1, beside the requirement of liveactivity 0.7.4. Checked before the tag, on a build of the
+release's pull request:
+
+- A Galaxy S23 with Android 17 (One UI 9), unlocked: the demo's lifecycle test passed, 30 of 30 in 3 of 3 runs,
+  and the Android library's device tests 10 of 10. The bar of the Progress layout at 0, 0.15, 0.65 and 1: the
+  notification held the value each time with `styledByProgress=true`, and in a build with
+  `android.samsungNowBar` off the shade drew the bar as far as the value, with a thin line ahead of it. With the
+  Now Bar extras on, as the demo ships, One UI drew its own card, which has no bar.
+  [Android coverage](android-coverage.md#the-bar-of-a-layout-0102) has the runs.
+- An iPhone XS with iOS 18.7: the lifecycle test passed, 27 of 27, twice.
+- `npm test` (306 tests in six suites) and `cargo test` (52 unit and 7 integration tests), `cargo clippy`,
+  `tools/spec-coverage.sh` (91 requirements, each with a test). The npm package has 33 files with the names of
+  0.10.1's, counted with the npm of the Publish workflow (11.20.0), and the crate has 68.
+- The Publish workflow, started by hand on main for the tag v0.10.1 with `publish` off (run 44275787277): its
+  release controller had not run since it became TypeScript (#54). The package job passed, and the package it
+  built from v0.10.1 has the checksums that npm and crates.io hold. The two jobs that publish do not run without
+  `publish`, so they run in TypeScript for the first time at this release's tag.
+- CI: the pull request's run, and the two simulator suites, started by hand on its head before this record was
+  added (run 44280336474, iOS 26.2), the first hosted run of them since `setup`, the tools and the tests became
+  TypeScript (#53 to #55). The suite on the built demo passed its 12 tests, each on its first try; the seven
+  methods that take the documents' pictures are skipped there. The one on `tauri ios dev` passed its 4: `test2`
+  found no "Pet Mochi" button on the Lock Screen at its first try (`DemoTests.swift:260`) and passed at its
+  second. The log of that first try has what one earlier run had: chronod's watchdog ended the widget
+  extension's session (`CHSErrorDomain Code=1001 "Watchdog provision violated for getActivities(1)"`) and the
+  activity's content failed to load; the picture kept at the failure shows the Lock Screen without the card. The
+  main run of the release commit.
+
+The bar itself was first seen on an emulator of Android 16 (API 36), in a build on liveactivity's correction
+before 0.7.4 was published, and the documents' pictures from main show it.
+
+Not checked: the iPhone 16, which was not connected; the UI tests on a phone; a content of the app's own with
+the `progress` style on a device; and on a device, the case of the changelog in which a repeat of a start
+answers `CONFLICT`, which liveactivity tests in its own repository. The lifecycle test asks the plugin and reads
+its answers: it does not look at the Lock Screen.
+
+Known and not new: on iOS the tap of a button comes with `on: false`, where the contract gives `on` to a toggle
+alone. After the tap, the page of this run's `test2` reads "Mochi felt “pet”, asked off", and so do the pictures
+that the UI tests kept on phones: on the iPhone XS with iOS 18.7 for 0.9.0 and on the iPhone 16 with iOS 27.2
+for 0.10.0. The test compares the beginning of that line only.
+
+The record of 0.10.1 follows.
+
 # 0.10.1 validation
 
 0.10.1 is a patch release. It brings the correction of TP-ANDROID-19, which main had since its pull request

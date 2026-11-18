@@ -154,6 +154,21 @@ After the release the same build ran on the iPhone 16 with iOS 27.2:
 with iOS 18.7 in 2 of 2 runs, 27 checks each, and on the iPhone 16 with iOS 27.2 in 2 of 2 runs, 31 checks each.
 The UI tests did not run on a phone for this release.
 
+## 0.10.2 on an iPhone
+
+0.10.2 changes nothing of the plugin on iOS while an app runs: the Rust is that of 0.10.1 but for comments, and
+liveactivity 0.7.4 differs from 0.7.3 in its Android projection alone. `setup`, which writes the widget
+extension, takes the same steps in TypeScript, and the demo's page draws its two ornaments itself. A build of
+the release's pull request passed the lifecycle test on the iPhone XS with iOS 18.7 in 2 of 2 runs, 27 checks
+each. The iPhone 16 was not connected, and the UI tests did not run on a phone for this release. That test asks
+the plugin and reads its answers: it does not look at the Lock Screen.
+
+Found for this release in pictures that earlier runs had kept: the tap of a button reaches JavaScript with
+`on: false` on a phone as on the simulator, where the contract gives `on` to a toggle alone. After the tap on
+"Pet Mochi" the page read "Mochi felt “pet”, asked off, from the Buttons example." in the UI tests on the iPhone
+XS with iOS 18.7 for 0.9.0 and on the iPhone 16 with iOS 27.2 for 0.10.0. `test2` compares the beginning of
+that line, so it passed.
+
 ## Tests added after the first release
 
 - Exact encoded Unicode title/status equality: NFC and NFD strings must conflict at the same revision, matching JS/Rust/Android contracts. Swift's default canonical string equivalence incorrectly accepted the changed text. A failing core test and the actual published alpha.1 consumer reproduced it; the local fix compares UTF-8 bytes.
