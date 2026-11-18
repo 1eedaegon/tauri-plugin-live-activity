@@ -1,3 +1,60 @@
+# 0.10.3 validation
+
+0.10.3 is a patch release. It brings what main has since 0.10.2: liveactivity 0.7.5 and 0.7.6 with activitykit
+0.6.4 and 0.6.5, whose two corrections are in activitykit's Swift package. On iOS the tap of a button reaches the
+app without `on` (#60), and a layout's color pair as `background` is of the appearance its content is drawn in
+(#61). Beside them the glance of the demo's Watch and car example shows its whole title, the iOS pictures of the
+documents are taken again (#61), and the documents say that One UI's own card has no bar (#59). Nothing changes
+in the JavaScript and Rust APIs or in the permissions, and nothing in the plugin's own Rust, Kotlin, Swift,
+TypeScript or `setup`: of what the crate and the npm package ship, the versions, the requirement of liveactivity
+0.7.6 and one document of the crate (`docs/android-integration.md`, by #59) differ from 0.10.2. Checked before
+the tag:
+
+- An iPhone 16 with iOS 27.2 and an iPhone XS with iOS 18.7.12, on a build of #60's head (activitykit 0.6.4): the
+  UI tests of the button's tap and of the switch passed on both. After the tap on a button on the Lock Screen the
+  page's record read `{"actionId":"pet","activityId":"la-ios-layout-…","activityKey":"mochi:buttons"}` and its
+  message named no state; the switch's taps came with `"on":true` and then `"on":false`. No phone had run
+  activitykit's correction before.
+- The same two phones on a build of this release's pull request (activitykit 0.6.5): the lifecycle test passed
+  twice on each, 31 of 31 and 27 of 27. On the iPhone XS the UI tests of a bound style, of the button's tap and
+  of the switch passed, and its cards have the pair's light color under dark text to their four rounded
+  corners, as they had with 0.6.4. On the iPhone 16 the UI tests did not start, at three attempts on two builds
+  ("Failed to initialize for UI testing … Timed out while enabling automation mode", before any test); the same
+  runner had started there ninety minutes before, and why it no longer did is not known. So one phone's cards
+  were seen on 0.6.5. [iOS coverage](ios-coverage.md#0103-on-two-iphones) has the runs.
+- A Galaxy S23 with Android 17 (One UI 9), unlocked, on a build of this release's pull request: the demo's
+  lifecycle test passed, 30 of 30 in 3 of 3 runs. Nothing of Android changes in this release: liveupdate 0.4.1
+  and the plugin's Kotlin library are those of 0.10.2, and liveactivity 0.7.5 and 0.7.6 change nothing of that
+  library's Rust. So the Android library's device tests were not run again; CI ran its unit tests and lint.
+  [Android coverage](android-coverage.md#0103-on-a-phone) has the run.
+- The simulator, for the documents' pictures, on #61 before its last commit: all of `DemoScreens` on the iPhone
+  17 Pro simulator with iOS 26.3, where 21 cards were started and each was dark at its first look, none started
+  again; and by hand the glance of the Watch and car example in the Smart Stack of a paired Apple Watch Series
+  11 simulator with watchOS 26.2, which showed the pair's dark color and the title whole. Each picture was
+  looked at before it was committed.
+- `npm test` (306 tests in six suites) and `cargo test` (52 unit and 7 integration tests), `cargo clippy`,
+  `tools/spec-coverage.sh` (91 requirements, each with a test). The npm package has 33 files with the names of
+  0.10.2's, counted with the npm of the Publish workflow (11.20.0), and the crate has 68.
+- CI: the pull requests' runs, and the two simulator suites, started by hand on the head of #60 (run
+  44365704038) and of #61 (run 44399984222), both on iOS 26.2. `test2` compares the whole of what the page heard
+  since #60: its message and its record of the tap. In the first run the suite on the built demo passed its 12
+  tests, each at its first try, after its runner had once failed to start ("Timed out waiting for AX loaded
+  notification") and `tests/ios/run.sh` ran it once more; the one on `tauri ios dev` passed its 4. In the
+  second run both passed, 12 and 4, each test at its first try and the runner at its first start. The seven
+  methods that take the documents' pictures are skipped there. The main run of the release commit.
+
+Not checked: a card of the iPhone 16 on activitykit 0.6.5; the dark appearance on the iPhone XS; the system's
+question under a card on a phone, whose colors change with a pair; a watch and CarPlay; and `setup` run again in
+an app of its own after the update, which is how an app takes the new Swift package: the demo's build links
+activitykit's folder itself. The lifecycle test asks the plugin and reads its answers: it does not look at the
+Lock Screen.
+
+The light card under white text was seen on simulators only, by this project in its pictures for 0.10.2 and by
+activitykit in its own tests. Before the correction the two phones showed the Buttons card in one appearance at
+its start: dark with light text on the iPhone 16, light with dark text on the iPhone XS.
+
+The record of 0.10.2 follows.
+
 # 0.10.2 validation
 
 0.10.2 is a patch release. It brings what main has since 0.10.1: liveactivity 0.7.4, with which the bar of a

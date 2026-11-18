@@ -96,6 +96,14 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## 0.10.3 on a phone
+
+0.10.3 changes nothing on Android: liveupdate 0.4.1 and the plugin's Kotlin library are those of 0.10.2, and
+liveactivity 0.7.5 and 0.7.6, which the release moves to for two corrections of iOS, change nothing of that
+library's Rust. A Galaxy S23 with Android 17 (API 37, One UI 9), unlocked, ran a build of the release's pull
+request: the demo's lifecycle test passed, 30 of 30 in 3 of 3 runs, and no alarm of the demo was left after
+them. The library's device tests were not run again for this release, and no emulator was run by hand.
+
 ## The bar of a layout, 0.10.2
 
 0.10.2 requires liveactivity 0.7.4, which asks Android to style the bar of a layout by its progress. On Android

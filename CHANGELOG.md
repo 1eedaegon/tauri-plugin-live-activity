@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.3
 
 On iOS the tap of a button comes without `on`, and a color pair behind a card is of the appearance of the card's
 content. Built on liveactivity 0.7.6 and activitykit 0.6.5, with liveupdate 0.4.1 as before. Nothing changes in

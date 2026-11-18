@@ -169,6 +169,38 @@ Found for this release in pictures that earlier runs had kept: the tap of a butt
 XS with iOS 18.7 for 0.9.0 and on the iPhone 16 with iOS 27.2 for 0.10.0. `test2` compares the beginning of
 that line, so it passed.
 
+## 0.10.3 on two iPhones
+
+0.10.3 changes nothing of the plugin's own code. What changes on iOS is in activitykit's Swift package, which
+the demo's widget extension and intent are built from: a button's tap without `on` (0.6.4) and a color pair
+behind a card drawn with the content (0.6.5). The phones are an iPhone 16 with iOS 27.2 and an iPhone XS with
+iOS 18.7.12. The UI tests are those of the simulator, from a copy that signs its runner, three of them: a bound
+style on the Lock Screen (`test1`), the button's tap (`test2`) and the switch (`test8`).
+
+| Build | iPhone 16 | iPhone XS |
+| --- | --- | --- |
+| `901eb49`, on activitykit 0.6.4 | the lifecycle test, 31 of 31; `test2` and `test8` passed | the lifecycle test, 27 of 27; `test2` and `test8` passed |
+| `6210582`, on activitykit 0.6.5 | the lifecycle test, 31 of 31; the UI tests did not start, at two attempts | the lifecycle test, 27 of 27; `test1`, `test2` and `test8` passed |
+| the release's pull request | the lifecycle test, 31 of 31, twice; the UI tests did not start | the lifecycle test, 27 of 27, twice; `test1`, `test2` and `test8` passed |
+
+- The button's tap. After the tap on "Pet Mochi" on the Lock Screen the page's record read
+  `Last tap: {"actionId":"pet","activityId":"la-ios-layout-…","activityKey":"mochi:buttons"}` in each run
+  where `test2` ran, on both phones, and its message "Mochi felt “pet” from the Buttons example.": no `on`.
+  After the same tap the page had read "asked off" on the iPhone XS for 0.9.0 and on the iPhone 16 for 0.10.0.
+  The switch's taps came with `"on":true` and then `"on":false`. These runs were the first of activitykit's
+  correction on a phone.
+- The color pair. On the iPhone XS with activitykit 0.6.5 the cards of the Buttons and of the Changing styles
+  example have the pair's light color under dark text, to the card's four rounded corners, as they had with
+  0.6.4. On the iPhone 16 with 0.6.4 the Buttons card was dark with light text at its start. So neither phone
+  showed a card of two appearances before the correction, and one phone shows the drawn pair after it. A light
+  card under white text was seen on simulators only.
+- What did not run. On the iPhone 16 the UI tests did not start from 05:32 of the Mac's time on, at three
+  attempts on two builds: "Failed to initialize for UI testing … Timed out while enabling automation mode",
+  before any test. The same runner had started there at 04:06 on the first build. Why is not known, so no card of that phone was seen on
+  activitykit 0.6.5. Not seen on any phone: the dark appearance on the iPhone XS, the system's question under
+  a card, a watch, CarPlay. The lifecycle test asks the plugin and reads its answers: it does not look at the
+  Lock Screen.
+
 ## Tests added after the first release
 
 - Exact encoded Unicode title/status equality: NFC and NFD strings must conflict at the same revision, matching JS/Rust/Android contracts. Swift's default canonical string equivalence incorrectly accepted the changed text. A failing core test and the actual published alpha.1 consumer reproduced it; the local fix compares UTF-8 bytes.

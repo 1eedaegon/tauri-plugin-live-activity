@@ -3290,7 +3290,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-live-activity"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "liveactivity",
  "serde",
