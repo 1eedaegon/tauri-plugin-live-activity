@@ -61,6 +61,11 @@
     },
     {
       "viewport": "390x844",
+      "artifact": "mobile-layouts.png",
+      "observation": "The Layouts tab with one chip per example and an example under way: new values or the end. Browser adapter only."
+    },
+    {
+      "viewport": "390x844",
       "artifact": "mobile-loading.png",
       "observation": "Busy state retains the illustration and action position while disabling interactions."
     },
@@ -85,8 +90,9 @@
     "Keyboard focus is visible and scenario toggle works with Enter",
     "Nap start, snooze, scenario switching and finish preserve correct handles",
     "Snack advances through packing, delivery and completion; terminal action resets",
-    "Lifecycle runner remains opt-in and preserves all 13 checks",
+    "Lifecycle runner remains opt-in and passes its 30 checks",
     "Narrow 320px layout has no horizontal overflow",
+    "Layouts: an example starts, takes new values and ends",
     "A successful receipt survives a failed refresh and mode switching",
     "Loading keeps scene stable and disables mutable controls",
     "Permission is explicit; no automatic request; Android action requests notifications",

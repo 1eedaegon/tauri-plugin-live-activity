@@ -168,9 +168,10 @@ function adapter(config: QaConfig): void {
     const operation = name.replace(/_layout$/, '');
     if (config.delay) await new Promise(resolve => setTimeout(resolve, config.delay));
     const permissions = (): Partial<Permissions> => ({ notifications: platform === 'android' ? permission : 'notApplicable', liveActivities: platform === 'ios' ? permission : 'notApplicable', promotion: 'notApplicable' });
-    if (operation === 'get_capabilities') return { platform, backend: platform === 'ios' ? 'activityKit' : 'androidNotification', start: config.unsupported ? 'unsupported' : 'supported', progress: 'supported', timer: 'supported' } satisfies Partial<Capabilities>;
+    if (operation === 'get_capabilities') return { platform, backend: platform === 'ios' ? 'activityKit' : 'androidNotification', start: config.unsupported ? 'unsupported' : 'supported', progress: 'supported', timer: 'supported', layout: 'supported', push: 'unsupported' } satisfies Partial<Capabilities>;
     if (operation === 'check_permissions') return permissions();
     if (operation === 'request_permissions') { permission = 'granted'; return permissions(); }
+    if (operation === 'push_tokens') return { activities: [] };
     if (operation === 'list') {
       if (config.failListAfterStart && records.length > 0) { config.failListAfterStart = false; return fail('NATIVE_ERROR', 'Temporary observation failure.'); }
       return structuredClone(records.filter(record => (record.schemaVersion === 2) === layout));
@@ -181,7 +182,9 @@ function adapter(config: QaConfig): void {
       const input = args.input;
       const previous = records.find(record => record.activityKey === input.activityKey && record.state !== 'ended');
       if (previous) return structuredClone(previous);
-      const record: QaRecord = { ...input, id: `qa-${++serial}`, backend: platform === 'ios' ? 'activityKit' : 'androidNotification', state: config.pending ? 'unknown' : 'active', visibility: 'unknown', promotionRequested: false, promotionState: 'notApplicable', degradedFeatures: [] };
+      // A start at a later time is pending until then, and the preview never gets there.
+      const later = 'scheduled' in input && input.scheduled !== undefined;
+      const record: QaRecord = { ...input, id: `qa-${++serial}`, backend: platform === 'ios' ? 'activityKit' : 'androidNotification', state: config.pending ? 'unknown' : later ? 'pending' : 'active', visibility: 'unknown', promotionRequested: false, promotionState: 'notApplicable', degradedFeatures: [] };
       records = [...records, record];
       return structuredClone(record);
     }
@@ -189,6 +192,7 @@ function adapter(config: QaConfig): void {
       const previous = records.find(record => record.id === args.input.id);
       if (!previous || (operation === 'update' && previous.state === 'ended')) return fail('NOT_FOUND', 'Activity ended.');
       if (operation === 'update') {
+        if (previous.state === 'pending') return fail('CONFLICT', 'The activity has not begun.');
         const snapshot = args.input.snapshot;
         if (snapshot.revision < previous.snapshot.revision) return fail('STALE_REVISION', 'Stale revision.');
         if (snapshot.revision === previous.snapshot.revision && JSON.stringify(snapshot) !== JSON.stringify(previous.snapshot)) return fail('CONFLICT', 'Conflicting revision.');
@@ -199,6 +203,7 @@ function adapter(config: QaConfig): void {
       return structuredClone(record);
     }
     if (command === 'save_self_test_report') return 'app-data/self-test-report.json';
+    if (command === 'self_test_requested') return false;
     throw new Error(`Unhandled QA command: ${command}`);
   } };
 }
@@ -274,20 +279,39 @@ try {
     await page.locator('#end').click(); await ready(page);
     assert.equal(await page.locator('#start').isVisible(), true);
   });
-  await check('Lifecycle runner remains opt-in and preserves all 19 checks', async () => {
+  await check('Lifecycle runner remains opt-in and passes its 30 checks', async () => {
     assert.equal(await page.locator('#self-test-report').getAttribute('data-status'), 'idle');
-    await page.locator('summary').click();
+    await page.locator('.developer-tools summary').click();
     await page.locator('#run-self-test').click(); await ready(page);
     const report: unknown = JSON.parse(await page.locator('#self-test-report').innerText());
-    assert.equal(member(report, 'status'), 'passed'); assert.equal(list(member(report, 'checks'), 'the checks').length, 19);
+    // 13 of the templates, 6 of a layout, 1 of a start that asks for a push token where there are no pushes, 3 of a
+    // switch and a link, 2 of the small region and 5 of a scheduled start.
+    assert.equal(member(report, 'status'), 'passed', JSON.stringify(report));
+    assert.equal(list(member(report, 'checks'), 'the checks').length, 30);
     assert.match(await page.locator('#report-path').innerText(), /Saved report/);
   });
   await check('Narrow 320px layout has no horizontal overflow', async () => {
     await page.setViewportSize({ width: 320, height: 740 }); await noOverflow(page);
-    await page.locator('summary').click();
+    await page.locator('.developer-tools summary').click();
     await capture(page, 'narrow-empty', 'At 320px the labels and primary action remain within the viewport without horizontal scrolling.');
   });
   await page.close();
+  const layouts = await open(); await ready(layouts);
+  await check('Layouts: an example starts, takes new values and ends', async () => {
+    await layouts.locator('#mode-layout').click();
+    await layouts.locator('#example-styles').click();
+    // The request is in a part of the page that is closed: the text is there, and nothing of it is drawn.
+    assert.match(await layouts.locator('#layout-request').evaluate(request => request.textContent ?? ''), /"activityKey": "mochi:styles"/);
+    await layouts.locator('#layout-start').click(); await ready(layouts);
+    assert.match(await layouts.locator('#message').innerText(), /Changing styles is on its way/);
+    await layouts.locator('#layout-update').click(); await ready(layouts);
+    assert.match(await layouts.locator('#message').innerText(), /New values sent at revision 1/);
+    assert.equal(await layouts.evaluate(() => window.__MOCHI_QA__.records[0]?.snapshot.revision), 1);
+    await noOverflow(layouts); await accessible(layouts);
+    await capture(layouts, 'mobile-layouts', 'The Layouts tab with one chip per example and an example under way: new values or the end. Browser adapter only.');
+    await layouts.locator('#layout-end').click(); await ready(layouts);
+    assert.equal(await layouts.locator('#layout-start').isVisible(), true);
+  }); await layouts.close();
   const receipt = await open({ failListAfterStart: true }); await ready(receipt);
   await check('A successful receipt survives a failed refresh and mode switching', async () => {
     await receipt.locator('#start').click(); await ready(receipt);
