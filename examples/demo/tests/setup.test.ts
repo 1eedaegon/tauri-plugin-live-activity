@@ -1,6 +1,6 @@
 // The demo is set up for layouts the way docs/usage.md tells an app to be, on activitykit's Swift products.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { list, member } from '../../../tests/support.ts';
@@ -55,6 +55,32 @@ test('the app turns on the Samsung Now Bar extras and grants the layout commands
   const permissions = list(member(JSON.parse(read('../src-tauri/capabilities/default.json')), 'permissions'), 'the permissions');
   for (const permission of ['core:default', 'live-activity:allow-start-layout', 'live-activity:allow-update-layout',
     'live-activity:allow-end-layout']) assert.ok(permissions.includes(permission), permission);
+});
+
+test('the page draws its two ornaments itself, and has neither as a character', () => {
+  const page = read('../src/index.html');
+  // U+273F and U+2726: the simulator of iOS 26.3 has no glyph for either and showed a boxed question mark.
+  assert.doesNotMatch(page, /[\u273F\u2726]/u);
+  for (const drawing of ['flower', 'spark']) {
+    assert.ok(page.includes(`<symbol id="${drawing}" `), `no drawing of the ${drawing}`);
+    assert.ok(page.includes(`<use href="#${drawing}"/>`), `the ${drawing} is drawn nowhere`);
+  }
+  // The app's content security policy takes no style of the page's own, as an attribute or as an element: the style
+  // sheet gives the drawings their size.
+  assert.doesNotMatch(page, /\sstyle\s*=|<style[\s>]/);
+  assert.match(read('../src/styles.css'), /^\.glyph \{ width: 1em; height: 1em; /m);
+});
+
+test('the report of the browser check is of the check as it stands: its checks by their names, and the previews it keeps', () => {
+  // No workflow runs examples/demo/tests/browser-qa.ts, so nothing else says when its report was left behind.
+  const script = read('./browser-qa.ts');
+  const report: unknown = JSON.parse(read('../design/browser-report.json'));
+  const checks = [...script.matchAll(/await check\('([^']+)'/g)].map(match => match[1]);
+  const previews = [...script.matchAll(/await capture\(\w+, '([^']+)'/g)].map(match => `${match[1]}.png`);
+  assert.ok(checks.length > 0 && previews.length > 0, 'the script names its checks and previews in another way now');
+  assert.deepEqual(list(member(report, 'checks'), 'the checks of the report'), checks);
+  assert.deepEqual(list(member(report, 'renderedEvidence'), 'the previews of the report').map(preview => member(preview, 'artifact')), previews);
+  for (const preview of previews) assert.ok(existsSync(new URL(`../design/${preview}`, import.meta.url)), `no file ${preview}`);
 });
 
 // TP-ANDROID-18

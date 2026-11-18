@@ -1,6 +1,8 @@
 :root { font: 15px/1.5 ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #3f4438; background: #faf7ef; color-scheme: light; --ink: #3f4438; --muted: #6a6d60; --line: #deded0; --coral: #a74432; --teal: #286d60; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+.glyphs { position: absolute; width: 0; height: 0; }
+.glyph { width: 1em; height: 1em; fill: currentColor; vertical-align: -.14em; }
 body { margin: 0; padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)); }
 main { max-width: 960px; margin: auto; }
 button, select { font: inherit; }

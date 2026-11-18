@@ -1,8 +1,8 @@
 # Android OS coverage
 
 This adapter implements progress and countdown activities, and since 0.2.0 layout activities, using
-Android notifications. It does not start a foreground service, schedule background work,
-or guarantee OEM lock-screen surfaces.
+Android notifications. It starts no foreground service and guarantees no OEM lock-screen surface. The one
+thing it schedules is the alarm of [a scheduled start](android-integration.md#a-scheduled-start), since 0.8.0.
 
 ## Platform behavior
 

@@ -212,10 +212,18 @@ again then.
 
 ## Layouts
 
-Captures: iOS 26.3 on the iPhone 17 simulator, Android 16 on an emulator. The demo adds
-Mochi's colors and padding to the code shown here. The iOS captures were made with 0.3, before
-the renderer moved from the plugin into activitykit. The Android captures were made before 0.5.0,
-when the plugin posted the notification itself.
+Captures: the [demo](../examples/demo/README.md) on the iPhone 17 Pro simulator with iOS 26.3 and on an
+emulator of Android 16, taken on 2026-11-18 from main after 0.10.1 (liveactivity 0.7.4, activitykit 0.6.3,
+liveupdate 0.4.1). The demo adds Mochi's colors and padding to the code shown here. Two captures are of
+2026-11-06 and were not taken again: the minimal Dynamic Island, which the simulator did not show for the demo's
+activities alone, and the Samsung Now Bar, which is a Galaxy S23's.
+
+Known, on that simulator: a card sometimes comes on a light background under the text of the dark scheme, which
+is hard to read. The first drawing of a card with a timer came so every time, other cards now and then, and
+fewer after an update, so most of the iOS captures are taken after an update. Whether a phone does the same has
+not been looked at. A card in that state, the demo's Buttons example at its start:
+
+<img src="images/ios-card-light.png" width="380" alt="A light card on the iOS Lock Screen with a cat, the button Pet Mochi and a pale All done; its white title and status can hardly be read">
 
 With a layout the app designs the activity itself: a tree of nodes, a table of styles and a
 map of values. On iOS activitykit's widget, `ActivityKitLayoutWidget`, draws it, with no SwiftUI
@@ -390,6 +398,20 @@ The demo's **Changing styles** example cycles through on time (green), late (red
 home (a teal hex color). The full rules are in the
 [request contract](request-contract.md#bound-style-members).
 
+<table>
+  <tr><th></th><th>iOS 26.3 simulator</th><th>Android 16 emulator</th></tr>
+  <tr>
+    <td>Start</td>
+    <td><img src="images/ios-layout-styles-before.png" width="380" alt="On time in green, with a green badge and bar, on the iOS Lock Screen"></td>
+    <td>Not captured: the notification below, with "On time".</td>
+  </tr>
+  <tr>
+    <td>After an update</td>
+    <td><img src="images/ios-layout-styles-after.png" width="380" alt="Running 5 min late, red and bold, with a red badge and bar"></td>
+    <td><img src="images/android-layout-styles.png" width="380" alt="Running 5 min late as plain text over the bar of an Android notification"></td>
+  </tr>
+</table>
+
 ### SF Symbols
 
 ```ts
@@ -489,7 +511,9 @@ A progress view shows a number from 0 to 1 as a bar or a ring.
   </tr>
 </table>
 
-Android turns the first progress view into the notification's bar. The capture is from before 0.5.0.
+Android turns the first progress view into the notification's bar. From Android 16 it is Android's progress
+style, as in the capture: thick as far as the value goes, and a thin line ahead of it. Below Android 16 it is the
+plain bar, as the bar of the [progress template](#progress-template) is on every Android.
 
 ### Timer
 
@@ -505,12 +529,13 @@ snapshot: { revision: 0, values: { title: 'Mochi’s nap', start: Date.now(), en
 <table>
   <tr><th>iOS 26.3 simulator</th><th>Android 16 emulator</th></tr>
   <tr>
-    <td><img src="images/ios-layout-timer.png" width="400" alt="A countdown at 4:50 under Mochi's nap on the iOS Lock Screen"></td>
+    <td><img src="images/ios-layout-timer.png" width="400" alt="A countdown under Mochi's nap on the iOS Lock Screen"></td>
     <td><img src="images/android-layout-timer.png" width="400" alt="The countdown as the chronometer in the Android notification header"></td>
   </tr>
 </table>
 
-Android shows the first timer as the notification's chronometer.
+Android shows the first timer as the notification's chronometer. The iOS capture is after an update that
+gave the nap one more minute.
 
 ### Stacks
 
@@ -529,9 +554,15 @@ snapshot: { revision: 0, values: { title: 'Snack route', eta: '4 min', from: 'Ki
 `vstack`, `hstack` and `zstack` put nodes in a column, in a row or on top of each other.
 `spacer` takes the free space and `divider` draws a line.
 
-| iOS 26.3 simulator | Android |
-| --- | --- |
-| <img src="images/ios-layout-stacks.png" width="400" alt="A paw badge, title and time in a row, a line, and From and To below on the iOS Lock Screen"> | Only the first two texts, as the title and the body. Not captured. |
+<table>
+  <tr><th>iOS 26.3 simulator</th><th>Android 16 emulator</th></tr>
+  <tr>
+    <td><img src="images/ios-layout-stacks.png" width="400" alt="A paw badge, title and time in a row, a line, and From and To below on the iOS Lock Screen"></td>
+    <td><img src="images/android-layout-stacks.png" width="400" alt="Snack route and 4 min as the title and the body of an Android notification"></td>
+  </tr>
+</table>
+
+Android shows only the first two texts, as the title and the body.
 
 ### Buttons
 
@@ -599,9 +630,9 @@ in Rust when it must not be lost. `onAction` needs `core:event:default`, which a
     <td><img src="images/android-layout-buttons-before.png" width="380" alt="Pet Mochi and All done as Android notification actions"></td>
   </tr>
   <tr>
-    <td>After taps on Pet Mochi</td>
+    <td>After a tap on Pet Mochi</td>
     <td><img src="images/ios-layout-buttons-after.png" width="380" alt="The status reads Purring. 1 pet so far after one tap on iOS"></td>
-    <td><img src="images/android-layout-buttons-after.png" width="380" alt="The body reads Purring. 2 pets so far after two taps on Android"></td>
+    <td><img src="images/android-layout-buttons-after.png" width="380" alt="The body reads Purring. 1 pet so far after one tap on Android"></td>
   </tr>
 </table>
 
@@ -616,6 +647,9 @@ A `link` opens the app with its URL, which the app receives as any URL it is ope
 reports it on iOS. A `toggle` shows the boolean value of its key beside its label. A tap reports the
 action with `on`, the state the person asked for, and does not move the switch: send an update with
 the new value, or none to refuse the change.
+
+Known, on iOS: the tap of a button comes with `on: false` as well (seen on the iOS 26.3 simulator), where the
+contract gives `on` to a toggle alone. Tell a toggle by its action id, not by whether `on` is there.
 
 ```ts
 const { vstack, bound, text, link, toggle } = layout;
@@ -647,6 +681,27 @@ tap on the notification opens, where the device offers `links`. The app declares
 in an intent filter of one of its activities ([Android setup](android-integration.md#links)); without
 one the snapshot is shown without its links, and the record names `layout.link` and `layout.url`. A
 toggle is an action titled by its label, with a check mark before it while on, and its tap has `on`.
+
+<table>
+  <tr><th></th><th>iOS 26.3 simulator</th><th>Android 16 emulator</th></tr>
+  <tr>
+    <td>A toggle, off</td>
+    <td><img src="images/ios-layout-switch-off.png" width="380" alt="The switch Purr alerts, off, under Quiet as a mouse on the iOS Lock Screen"></td>
+    <td><img src="images/android-layout-switch-off.png" width="380" alt="Purr alerts as an action of an Android notification"></td>
+  </tr>
+  <tr>
+    <td>After a tap and the update that answers it</td>
+    <td><img src="images/ios-layout-switch-on.png" width="380" alt="The switch on, under Purring out loud"></td>
+    <td><img src="images/android-layout-switch-on.png" width="380" alt="A check mark before Purr alerts, under Purring out loud"></td>
+  </tr>
+  <tr>
+    <td>A link</td>
+    <td><img src="images/ios-layout-link.png" width="380" alt="Open the treat jar as a link under Three treats left on the iOS Lock Screen"></td>
+    <td><img src="images/android-layout-link.png" width="380" alt="Open the treat jar as an action of an Android notification"></td>
+  </tr>
+</table>
+
+These are the demo's **Switch** and **Link** examples; its Rust handler answers the switch.
 
 ### Dynamic Island
 
@@ -683,7 +738,8 @@ the island's edge.
   </tr>
 </table>
 
-iOS 26.3 on the iPhone 17 simulator. Android has no Dynamic Island and lists `layout.island`.
+iOS 26.3 on the iPhone 17 Pro simulator; the minimal form is the capture of 2026-11-06, on the iPhone 17
+simulator. Android has no Dynamic Island and lists `layout.island`.
 
 When the app runs several activities, the Dynamic Island shows the one with the highest `relevance`, a number that
 a snapshot may carry, at a start, an update or an end. Without one the activity keeps its score, which is 0 at first:
@@ -776,9 +832,9 @@ android: { visibility: 'public' },
 
 | iOS | Android 16 emulator |
 | --- | --- |
-| Drawn as written, like the examples above. | <img src="images/android-layout-android.png" width="400" alt="Mochi's nap at 60% with a Wake Mochi action in the Android notification shade"> |
+| <img src="images/ios-layout-android.png" width="400" alt="The same tree on the iOS Lock Screen: a moon, Mochi's nap, Fast asleep, a bar at 60% and the button Wake Mochi"> | <img src="images/android-layout-android.png" width="400" alt="Mochi's nap, Fast asleep, a bar at 60% and the action Wake Mochi in the Android notification shade"> |
 
-The capture is after an update to `Fast asleep` and `0.6`. On Android 16 and later the plugin
+The captures are after an update to `Fast asleep` and `0.6`. On Android 16 and later the plugin
 requests promotion to a Live Update where the app may post one; `promotionState` reports what
 Android did.
 
@@ -835,6 +891,9 @@ const delivery = await startLayout({
 | `timer` | `{ timer: { startedAt, endsAt }, countsDown }` | the chronometer, counting down to the end or up from the start |
 | `metric` | `{ metrics, criticalMetric? }` | up to three labelled values, each an integer, a decimal or a text; Android 17 (`metricStyle`) |
 
+- A progress shows its value on Android 16 only where the content says how: with `styledByProgress: true` Android
+  draws what lies ahead of the progress as a thin line, and without it every segment looks done, so the value shows
+  by segments of two colors, as above, or by a `trackerIcon`. Below Android 16 the plain bar shows it.
 - The title is 1 to 120 code points and the status 1 to 240. `largeIcon` and an action's `icon` name a drawable or
   mipmap resource of the app (`{ kind: 'resource', value }`) or a file under the app's files, such as one that
   `writeImage` wrote (`{ kind: 'appFile', value }`). `samsungNowBar: { primary?, secondary? }` gives the Now Bar its
@@ -1040,6 +1099,16 @@ can. What differs from iOS:
 - **Not with the foreground placement**, `android: { placement: 'foreground' }`: `UNSUPPORTED_FEATURE`.
 
 A device whose `scheduledStart` is false answers `UNSUPPORTED_FEATURE` and keeps nothing.
+
+<table>
+  <tr><th>iOS 26.3 simulator</th><th>Android 16 emulator</th></tr>
+  <tr>
+    <td><img src="images/ios-layout-later.png" width="380" alt="Mochi's dinner bell, Dinner is served, on the iOS Lock Screen once the system has begun the activity"></td>
+    <td><img src="images/android-layout-later.png" width="380" alt="Mochi's dinner bell, Dinner is served, as the notification that the alarm posted"></td>
+  </tr>
+</table>
+
+The demo's **Scheduled start** example, 30 seconds after its start.
 
 `ios: { transient: true }` asks for a transient activity (iOS 18). By Apple's description it shows in the
 expanded Dynamic Island, and the system ends it when the person locks the device, collapses that
@@ -1524,9 +1593,6 @@ restart. It gives template activities only, and `listLayout()` layout activities
   </tr>
 </table>
 
-The iOS captures here show the demo's own widget of 0.3, with the cat. 0.5 has no such widget:
-activitykit's widget draws the template's fixed layout, with the same title, status and bar.
-
 ### Timer template
 
 ```ts
@@ -1545,16 +1611,17 @@ await start({
 });
 ```
 
-Times are Unix milliseconds. The system counts down; the app sends nothing per second. The iOS
-capture is of 0.3's demo widget too.
+Times are Unix milliseconds. The system counts down; the app sends nothing per second.
 
 <table>
   <tr><th>iOS 26.3 simulator</th><th>Android 16 emulator</th></tr>
   <tr>
-    <td><img src="images/ios-v1-timer.png" width="400" alt="Mochi's nap counting down from 4:48 on the iOS Lock Screen"></td>
+    <td><img src="images/ios-v1-timer.png" width="400" alt="Mochi's nap counting down on the iOS Lock Screen"></td>
     <td><img src="images/android-v1-timer.png" width="400" alt="Mochi's nap with the countdown in the Android notification header"></td>
   </tr>
 </table>
+
+The iOS capture is after an update that moved the end by a minute.
 
 ## Plugin configuration
 
@@ -1580,13 +1647,13 @@ capture is of 0.3's demo widget too.
 
 <img src="images/ios-demo-picker.png" width="300" alt="The demo's Layouts tab with one chip per example">
 
-The demo's Layouts tab starts each layout example of this page. From the repository root,
-with the mobile toolchain configured:
+The demo's Layouts tab starts each layout example of this page, and its
+[README](../examples/demo/README.md) shows each with what the Lock Screen and the notification make of it.
+From the repository root, with the mobile toolchain configured:
 
 ```sh
 npm ci && npm run build:demo && cd examples/demo && npm run tauri -- ios dev
 ```
 
 Use `android dev` for Android. `tests/ios/run.sh` runs the demo with UI tests on an iOS Simulator
-of its own ([iOS integration](ios-integration.md#testing)). The
-[demo's README](../examples/demo/README.md) has more.
+of its own ([iOS integration](ios-integration.md#testing)).

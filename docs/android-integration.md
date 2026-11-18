@@ -15,7 +15,7 @@ crate, driven by the Android backend of the [`liveactivity`](https://crates.io/c
 crate, of which the plugin is an adapter. Rust owns request validation, fallback selection,
 idempotency, revisions, limits, retry, terminal states and reconciliation. The plugin's Android
 library carries liveupdate's own Android adapter, copied from the crate
-(`node tools/sync-liveupdate.ts`, which a test checks; the copy only renames liveupdate's `R` to
+(`node --experimental-strip-types tools/sync-liveupdate.ts`, which a test checks; the copy only renames liveupdate's `R` to
 the plugin's): a framework adapter with seven bounded operations, which stores Rust's receipts,
 posts and cancels notifications, observes them, and drains the taps and dismissals its
 receivers stored. The plugin's own Kotlin is the permission commands, the folder of the app's files, a
@@ -229,14 +229,16 @@ host app; the plugin does not provide one.
 
 A process without an activity is another case. A Tauri app's process ends some seconds after its last activity
 does, unless the app prevents that exit (`RunEvent::ExitRequested`). In those seconds, and in a process that the
-app kept, Tauri cannot hand a call to the plugin's Kotlin side: wry needs one of the app's activities for it and
-panics while there is none ("no available activity", wry 0.57.1). The plugin catches that panic: the calls of its
-Rust API that go to the Kotlin side, as a start, update or end of a valid request and every list do, answer
+app kept, Tauri cannot hand a call to the plugin's Kotlin side: wry needs one of the app's activities for it and,
+through 0.57.2, panics while there is none ("no available activity"). The plugin catches that panic: the calls of
+its Rust API that go to the Kotlin side, as a start, update or end of a valid request and every list do, answer
 `NATIVE_ERROR` then, and its thread that drains lives on. A tap that liveupdate stored meanwhile reaches
 `on_action` with the next one once the app has an activity again, or in the next process. A build with
-`panic = "abort"` ends at that panic, which the plugin cannot catch. Whether a process that was kept shows the
-page again is Tauri's and the app's: the demo, made to prevent its exit, showed an empty window when it was
-opened again.
+`panic = "abort"` ends at that panic, which the plugin cannot catch. wry no longer panics there from its next
+release on ([tauri-apps/wry#1938](https://github.com/tauri-apps/wry/pull/1938), merged on 2026-11-18): Tauri's
+call then answers an error, which the plugin answers with `NATIVE_ERROR` as well. Whether a process that was
+kept shows the page again is Tauri's and the app's: the demo, made to prevent its exit, showed an empty window
+when it was opened again.
 
 ## Links
 
@@ -476,9 +478,13 @@ test: the full Tauri demo exercises JavaScript → Rust → Kotlin.
 Verify a built demo's merged minimum SDK with:
 
 ```sh
-node tests/android/verify-min-sdk.ts "$ANDROID_HOME/build-tools/37.0.0/aapt" \
+node --experimental-strip-types tests/android/verify-min-sdk.ts "$ANDROID_HOME/build-tools/37.0.0/aapt" \
   examples/demo/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 ```
+
+The pictures of the demo's notification in the documents are an emulator's, taken by
+`tests/android/screens.ts`: [the demo's README](../examples/demo/README.md#the-pictures) has the command. The
+one of the Now Bar is a phone's.
 
 ## Research sources
 

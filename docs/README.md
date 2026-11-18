@@ -13,7 +13,21 @@ Installation and a short example are in the [README](../README.md)
 | [Android setup](android-integration.md) | Notification permission, promotion, what the plugin's Kotlin does beside liveupdate's adapter, the projection of a layout, buttons, links, the opened event, a foreground service, the Samsung Now Bar, state recovery and limits |
 | [Validation](validation.md) | Test, emulator and packaging results |
 | [Releases](releasing.md) | The publish workflow and the registry setup |
-| [Demo app](../examples/demo/README.md) | How to run it, lifecycle checks through the real bridge, and the UI tests on an iOS Simulator |
+| [Demo app](../examples/demo/README.md) | How to run it and what each part of it does, with pictures of the page, the Lock Screen, the Dynamic Island and the Android notification; the lifecycle test through the real bridge, and the UI tests on an iOS Simulator |
+
+## Records
+
+What ran, release by release. A record says what was seen at the time, on the versions it names.
+
+| Record | Contents |
+| --- | --- |
+| [Platform coverage](platform-coverage.md) | What the OS offers, what the plugin implements and which tests ran |
+| [iOS coverage](ios-coverage.md) | The runs on simulators and iPhones, from the alphas to the current release |
+| [Android coverage](android-coverage.md) | The runs on emulators and phones, the minimum OS, the permission dialogs |
+| [Desktop coverage](desktop-coverage.md) | Why desktop answers `UNSUPPORTED_PLATFORM`, and the research on a notification fallback |
+| Alpha validation: [alpha.1](validation-alpha.1.md), [alpha.2](validation-alpha.2.md), [alpha.3](validation-alpha.3.md), [alpha.4](validation-alpha.4.md) | The validation records of the first four releases |
+| [Registry consumer checks](../tests/release/README.md) | The packages of the alphas, installed from npm and crates.io into new projects |
+| The first alpha's plan: [requirements](implementation/PRD.md), [system design](implementation/system_design.md), [implementation contract](implementation/tech_doc.md), [checklist](implementation/task_list.md), [review](implementation/review.md) | What the first alpha set out to do and how it was reviewed. Its Swift package and its Kotlin lifecycle are gone: the plugin is an adapter of the liveactivity crate now |
 
 ## Research notes
 

@@ -27,7 +27,7 @@ Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과 Dynamic Island에, A
 <table>
   <tr><th>iOS: 잠금 화면의 간식 배달과 낮잠 타이머</th><th>iOS: 갱신으로 바뀌는 바인딩된 스타일</th><th>Android: 같은 요청이 잠금 화면의 알림으로</th></tr>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-demo.gif" width="250" alt="데모가 Mochi의 간식 배달을 시작하고, 잠금 화면에 진행률 막대가 있는 카드가 뜨고, 낮잠 타이머가 줄어듭니다"></td>
+    <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-demo.gif" width="250" alt="데모가 Mochi의 간식을 출발시키면 잠금 화면에 진행률 막대가 있는 카드가 뜨고(처음에는 시스템의 허용 질문과 함께), 이어서 낮잠을 시작하면 그 카드의 타이머가 줄어듭니다"></td>
     <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-styles.gif" width="250" alt="데모가 새 값을 보내면 잠금 화면 카드의 상태가 빨갛고 굵게 바뀝니다"></td>
     <td><img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/android-snack.gif" width="250" alt="데모가 Mochi의 간식 배달을 시작하고, 폰을 잠그면 잠금 화면에 알림이 보이며 갱신마다 진행률 막대가 움직이고, 밀어서 풀면 배달이 끝납니다"></td>
   </tr>

@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+On main since 0.10.1, in no release yet. Nothing changes in the JavaScript and Rust APIs or in the permissions.
+
+- On Android 16 and later the bar of a layout shows its value. Android's progress style drew its one segment
+  full at any value, because liveactivity's projection of a layout left `styledByProgress` off. liveactivity
+  0.7.4, which the plugin requires now, turns it on: the bar is thick as far as the value goes, with a thin
+  line ahead of it.
+- `setup` is written in TypeScript and compiled to the files that the package always had: its 33 files have the
+  names they had. On input that is not what its writer documents, `setup` says what is wrong where it used to
+  fail by accident:
+  - cargo's metadata with a package that lacks its id, name, version or manifest path is "not its JSON", and a
+    resolve graph in another form counts as none. The first was a `TypeError` or a wrong package, the second a
+    `TypeError`.
+  - A `tauri.conf.json` that holds a list "is not valid JSON", and a capability file that holds one is left to
+    the person. A string where `bundle` or `bundle.android` should be an object is passed over; its characters
+    were spread into the file.
+  - An app with no identifier in `tauri.conf.json` and no `PRODUCT_BUNDLE_IDENTIFIER` in `project.yml` stops
+    `setup` with a message before anything is written. The widget extension's identifier came out as
+    `undefined.widget`.
+  - A copy of the package without the template of the custom views file stops `setup` with a message, where the
+    step was planned and then failed at the write.
+  - An App Group in a spec changed by hand that is no JSON string names no group. It was a `SyntaxError`.
+- The demo's page draws the flower of its wordmark and the spark of its Layouts tab itself. An iOS Simulator has
+  no glyph for the two characters and showed a boxed question mark in their place.
+- The demo's README shows how to use the demo, with pictures of the page, the Lock Screen, the Dynamic Island and
+  the Android notification, and the usage guide's captures of the demo are of the current engines. Two scripts
+  take them again: `DemoScreens` among the UI tests, and `tests/android/screens.ts`.
+
 ## 0.10.1
 
 On Android, a call that Tauri cannot make no longer ends the plugin's thread. Built on liveactivity 0.7.2, with

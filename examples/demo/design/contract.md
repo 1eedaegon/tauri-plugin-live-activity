@@ -7,8 +7,10 @@ it while the same state appears on the phone's native activity surface.
 The previous screen placed request fields and raw JSON ahead of the activity.
 Keep those diagnostics available in a collapsed Developer tools section. The
 first viewport should instead show Mochi, the selected activity, its state, and
-one primary action. The illustration is a compact cat drawn in local SVG; no
-external assets or network font requests are needed.
+one primary action. The illustration is a compact cat drawn in local SVG, as
+are the flower of the wordmark and the spark of the Layouts tab, two characters
+for which an iOS Simulator has no glyph; no external assets or network font
+requests are needed.
 
 Visual direction: warm cream, dark brown text, restrained coral actions, and teal
 progress. A small stitched-label motif belongs to the pet's delivery, rather
@@ -36,7 +38,7 @@ visible, and motion respects reduced-motion settings.
 | Success | Snack reaches home or activity ends | Delivered/completed message and next action | Finish or start again |
 | Permission | Notification access missing or Live Activities disabled | Brief reason and platform-appropriate permission/settings action | Explicit user-triggered permission check/request |
 
-The native lifecycle runner keeps its existing 13 assertions and opt-in startup
+The lifecycle test of Developer tools stays opt-in: its button, or a startup
 flag. Browser QA may inject a test IPC adapter to inspect UI states; such captures
-are UI preview evidence only. Published-package native tests and final native
-screenshots are recorded separately.
+are UI preview evidence only. Pictures of the app on a simulator and an emulator
+are in the [demo's README](../README.md).
