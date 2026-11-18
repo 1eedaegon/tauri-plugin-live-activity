@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "activitykit"
-version = "0.6.3"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "950e51a3e95e00c854d8f3b922ccf24a1ea7102a534db72aee451fc32ad6b761"
+checksum = "895469ddbc55ec56a7d12ed4c6a14fc899d64e7e12f63ac5b6093fe2f1c5470d"
 dependencies = [
  "async-channel",
  "serde",
@@ -1673,9 +1673,9 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "liveactivity"
-version = "0.7.4"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a42e4c5b09cfc0bafe4aa6e244cf7ebbf233f305c0ff5fcbfd4cab82a4a2d4d2"
+checksum = "6dbe9cc2ece05e341deb7fce834146f0ba2527322ab93eeb6360d8deb9bbe8fc"
 dependencies = [
  "activitykit",
  "liveupdate",

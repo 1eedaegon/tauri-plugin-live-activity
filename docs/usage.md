@@ -649,9 +649,8 @@ reports it on iOS. A `toggle` shows the boolean value of its key beside its labe
 action with `on`, the state the person asked for, and does not move the switch: send an update with
 the new value, or none to refuse the change.
 
-Known, on iOS: the tap of a button comes with `on: false` as well (seen on the simulator and on phones with iOS
-18.7 and 27.2), where the contract gives `on` to a toggle alone. Tell a toggle by its action id, not by whether
-`on` is there.
+The tap of a button has no `on`. Before 0.10.3 it came with `on: false` on iOS, as the tap of a toggle that
+asks to switch off: an app that also runs on those versions tells a toggle by its action id.
 
 ```ts
 const { vstack, bound, text, link, toggle } = layout;

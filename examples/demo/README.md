@@ -251,10 +251,8 @@ Rust handles the taps ([src-tauri/src/actions.rs](src-tauri/src/actions.rs)), so
 page does not run: the system can launch the app for a tap with no web view yet. `pet` counts a pet and
 `purr` sets the flag that the switch asked for, each with an update after a pause of a second that the
 tap's intent waits for; `done` and `wake` end the activity. The page only reports what it hears, in its
-message and under **Developer tools**.
-
-Known, on iOS: the tap of a button comes with `on: false`, as the picture below shows for `pet`, where the
-contract gives `on` to a toggle alone. Tell a toggle by its action, not by whether `on` is there.
+message and under **Developer tools**. The tap of a button has no `on`, as the picture below shows for `pet`;
+a switch's has the state it asked for.
 
 ### Developer tools
 
