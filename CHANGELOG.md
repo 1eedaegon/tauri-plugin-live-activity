@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+On iOS the tap of a button comes without `on` again. Built on liveactivity 0.7.5 and activitykit 0.6.4, with
+liveupdate 0.4.1 as before. Nothing changes in the JavaScript and Rust APIs or in the permissions.
+
+- On iOS the tap of a button reaches `on_action` and `onAction` without `on`, as the contract says: `on` is a
+  toggle's alone. It came with `on: false`, on the simulator and on phones, as the tap of a toggle that asks to
+  switch off: by activitykit's account since its 0.5.0, which is 0.7.0 here, the first version with toggles. The
+  system hands the app a value that an intent never set as `false`, and activitykit's intent carried the state
+  as one optional value. In activitykit 0.6.4, which the plugin requires now through liveactivity 0.7.5, the
+  intent says beside the state whether the tap is a toggle's. A toggle's tap is as before, and so is Android.
+
+When updating:
+
+- Run `setup` again, as after every update: the correction is in activitykit's Swift package, which the widget
+  extension and the app's intent are built from, and `live-activity.yml` names the folder of the earlier one
+  until then. An Xcode project that names the package by hand takes the new folder by hand.
+- An app that told a toggle by its action id needs no change. One that builds `ActivityKitActionIntent` itself
+  needs none either: its initializer is the same. Its property `isOn` is a `Bool` now, beside the new
+  `isToggle`.
+
 ## 0.10.2
 
 On Android 16 and later the bar of a layout shows its value, and `setup` says what is wrong with input it cannot

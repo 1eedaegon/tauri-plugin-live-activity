@@ -266,10 +266,14 @@ final class DemoTests: XCTestCase {
         XCTAssertTrue(springboard.staticTexts["No pets yet"].waitForNonExistence(timeout: redraw))
         capture("e2e-2-buttons-after-rust")
         leaveLockScreen()
-        // The page's onAction listener shows the tap, in its message and under Developer tools.
-        XCTAssertTrue(webText("Mochi felt “pet”").waitForExistence(timeout: page))
+        // The page's onAction listener shows the tap, in its message and under Developer tools. A button's tap has no
+        // `on`: with one the message reads "asked off" or "asked on", and the record ends with the member.
+        XCTAssertTrue(webText("Mochi felt “pet” from the Buttons example.").waitForExistence(timeout: page))
         tap("Developer tools")
-        XCTAssertTrue(webText("Last tap: {\"actionId\":\"pet\"").waitForExistence(timeout: page))
+        let heard = webText("Last tap: {\"actionId\":\"pet\"")
+        XCTAssertTrue(heard.waitForExistence(timeout: page))
+        let record = #"^Last tap: \{"actionId":"pet","activityId":"[^"]+","activityKey":"mochi:buttons"\}$"#
+        XCTAssertNotNil(heard.label.range(of: record, options: .regularExpression), heard.label)
         capture("e2e-2-tap-in-javascript")
         tap("End this example")
         XCTAssertTrue(webText("has ended").waitForExistence(timeout: page))
