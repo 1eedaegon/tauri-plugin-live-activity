@@ -9,7 +9,7 @@ activitykit's Swift package. Installing the crate or the npm package does not ad
 `npx tauri-plugin-live-activity setup` does, for the Xcode project that Tauri generates
 ([Usage](usage.md#what-setup-does)).
 
-Live Activities need iOS 16.2 on an iPhone and iPadOS 17 on an iPad; buttons need iOS 17. Below that every command
+Live Activities need iOS 16.2 on an iPhone and iPadOS 17 on an iPad; buttons need iOS 17.2. Below that every command
 but the reads answers `UNSUPPORTED_PLATFORM`, and `getCapabilities()` reports every feature as unsupported. An iOS app
 running on a Mac is unsupported too.
 
@@ -111,8 +111,11 @@ target every name is listed. Keep the Objective-C name; the Swift class name may
 
 ## Buttons
 
-A `button` node needs iOS 17; `getCapabilities()` reports `actions: 'supported'` there. Below iOS 17 the widget shows
-the button's label without the button.
+A `button` node needs iOS 17.2; `getCapabilities()` reports `actions: 'supported'` there. Below iOS 17.2 the widget
+shows the button's label without the button. activitykit's intent is of 17.0, but Xcode writes it into the app's App
+Intents metadata as one that begins with 17.2: with an activitykit before 0.6.6 a button was drawn on 17.0 and 17.1
+and its tap ran nothing. What Xcode wrote is in the built app: `<App>.app/Metadata.appintents/extract.actionsdata`,
+under `actions.ActivityKitActionIntent`.
 
 A tap runs activitykit's `ActivityKitActionIntent`, a `LiveActivityIntent`, in the app process. When the app was not
 running, the system launches it in the background. The intent posts the tap to activitykit's bridge for at most 5
@@ -133,7 +136,7 @@ and may not run at all while the web view is suspended. Taps that come before th
   With Face ID matched and the Lock Screen still up it runs at once. A native app's own `.alwaysAllowed` intent
   behaved the same ([Validation record](#validation-record)).
 - A tap does not change the activity. Update it from the handler if the button should change.
-- A `toggle` shows its switch from iOS 17; before it shows its label alone. Its tap comes to `onAction` and
+- A `toggle` shows its switch from iOS 17.2; before it shows its label alone. Its tap comes to `onAction` and
   `on_action` with `on`, the state the person asked for, and the switch moves only with an update.
 - A `link` opens the app with its URL. The app receives the URL as any URL it is opened with (`onOpenURL` or the
   scene's URL contexts), and no event reports it; `onOpened` is Android's. `layout.url` does the same for a tap on
@@ -153,7 +156,7 @@ prompt of its own:
   `UNSUPPORTED_FEATURE`.
 - While the app runs, a change of either switch in Settings comes to `onPermissions` with the new permissions.
 - `getCapabilities()`: with Live Activities supported, every feature but `actions` is `supported`, and `actions`
-  follows iOS 17. Without them every feature is `unsupported` and the backend `unsupported`. `maxPayloadBytes` is 4096.
+  follows iOS 17.2. Without them every feature is `unsupported` and the backend `unsupported`. `maxPayloadBytes` is 4096.
 
 ## Starts, updates and ends
 

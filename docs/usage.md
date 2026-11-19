@@ -564,6 +564,28 @@ snapshot: { revision: 0, values: { title: 'Snack route', eta: '4 min', from: 'Ki
 
 Android shows only the first two texts, as the title and the body.
 
+### Placement on the Lock Screen
+
+The system gives the card its place and its width, and makes it as high as the layout. The layout decides the rest:
+activitykit measured on simulators of iOS 16.2 to 26.3, and saw the same on each.
+
+- **There is no margin.** A node at the edge of the layout touches the edge of the card, and the card's rounded
+  corners cut what stands in them. Give the root a padding: `vstack([...], { style: 'card' })` with
+  `styles: { card: { padding: 16 } }`.
+- **A layout is as wide as its widest node, and stands in the middle of the card.** A stack's `alignment` moves its
+  children inside the stack, not the stack in the card. To put something at an edge, let a node fill the width,
+  `frame: { maxWidth: 'infinity', alignment: 'leading' }`, or push with a `spacer()`, which takes the room that is
+  left. A style's own `alignment` aligns the lines of a text that wraps, and moves nothing.
+- **A style is applied in one order**: padding, the frame, the background, the corner radius, the opacity. A
+  background covers the padding of its node, and padding, a background and a corner radius on one node make a box.
+- **The card is as high as the layout**, at most 160 points: of a higher layout the system shows the middle and
+  cuts the top and the bottom alike. `maxHeight: 'infinity'` on the root does not ask for those 160 points; a
+  `height` or a `minHeight` does.
+
+activitykit's widget gives the layout the card's whole width since 0.6.6, and a narrower layout stands in its
+middle as before: iOS 17.2 and 17.4 did not find a button or a toggle of a narrower layout under a tap, and opened
+the app instead. Android projects the layout onto a notification and places nothing of it.
+
 ### Buttons
 
 ```ts
@@ -636,7 +658,7 @@ in Rust when it must not be lost. `onAction` needs `core:event:default`, which a
   </tr>
 </table>
 
-The demo's Rust handler counts the pets and updates the status. Buttons need iOS 17
+The demo's Rust handler counts the pets and updates the status. Buttons need iOS 17.2
 (`getCapabilities()` reports `actions`). Android shows up to three actions, buttons, links and
 toggles together, as notification actions. Android stores a tap that starts a killed app, and the
 plugin delivers it when it starts.
