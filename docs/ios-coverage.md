@@ -212,6 +212,16 @@ style on the Lock Screen (`test1`), the button's tap (`test2`) and the switch (`
 - Not seen on any phone: the dark appearance on the iPhone XS, the system's question under a card, a watch,
   CarPlay. The lifecycle test asks the plugin and reads its answers: it does not look at the Lock Screen.
 
+## 0.11.0 on an iPhone
+
+0.11.0 changes nothing on iOS: activitykit stays 0.6.5, and liveactivity 0.8.0 differs from 0.7.6 on Android
+and in what a Rust caller builds on. A build of the release's pull request passed the lifecycle test on the
+iPhone XS with iOS 18.7.12 in 2 of 2 runs, 27 checks each, and the UI tests of a bound style on the Lock Screen,
+of the button's tap and of the switch, at the runner's first start: the tap's record read
+`{"actionId":"pet","activityId":"la-ios-layout-…","activityKey":"mochi:buttons"}`. The iPhone 16 read
+unavailable when that build began, and was not run. The two simulator suites ran on a hosted runner
+before the pull request of the change was merged (iOS 26.2).
+
 ## Tests added after the first release
 
 - Exact encoded Unicode title/status equality: NFC and NFD strings must conflict at the same revision, matching JS/Rust/Android contracts. Swift's default canonical string equivalence incorrectly accepted the changed text. A failing core test and the actual published alpha.1 consumer reproduced it; the local fix compares UTF-8 bytes.

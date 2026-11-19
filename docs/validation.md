@@ -1,3 +1,53 @@
+# 0.11.0 validation
+
+0.11.0 is a minor release. It brings what main has since 0.10.3: the plugin on liveactivity 0.8.0 and liveupdate
+0.7.0, from 0.7.6 and 0.4.1, with what liveupdate added in seven releases (#64). An event of a kind that this
+version does not know reaches JavaScript as `live-activity://unknown`; the option and the member of a watch's
+Ongoing Activity and its capability are in the contract; liveupdate's adapter of 0.7.0 shows a metric style's
+metrics below Android 17, drops the tap of an action that asks for the unlock on a locked device below Android
+12, and makes room in its store; the contract's enums may grow, and the plugin re-exports the liveupdate crate.
+activitykit stays 0.6.5: nothing of iOS changes. It is breaking for a Rust caller, whose `match` on the
+contract's enums needs a `_` arm; JSON written for 0.10 reads unchanged, and the permissions are as they were.
+Checked before the tag:
+
+- A Galaxy S23 with Android 17 (One UI 9), unlocked. On a build of #64's head but one (`8e777b1`): the demo's
+  lifecycle test passed, 30 of 30 in 3 of 3 runs, and the Android library's device tests 10 of 10 after one was
+  corrected. That test expected `INVALID_INPUT` for a command that liveupdate's dispatcher does not know, and
+  liveupdate 0.7.0 answers `UNSUPPORTED_FEATURE` there: the test was behind the adapter. The adapter posted each
+  of the fixture's twenty Android contents, the one with `wearOngoingActivity: false` among them. On a build of
+  this release's pull request: the lifecycle test passed again, 30 of 30 in 3 of 3 runs, and the capabilities
+  answered `wearOngoingActivity: false`. [Android coverage](android-coverage.md#liveupdate-070-0110) has the runs.
+- An iPhone XS with iOS 18.7.12, on a build of this release's pull request: the lifecycle test passed, 27 of 27,
+  twice, and the UI tests of a bound style, of the button's tap and of the switch passed. The tap's record had no
+  `on`. [iOS coverage](ios-coverage.md#0110-on-an-iphone) has the run.
+- The Android pictures of the documents, taken again on an emulator of Android 16 from `8e777b1`, with
+  `tests/android/screens.ts`: 14 of its 17 pictures are the same bytes as the files, and three differ in the
+  digits of a clock alone, a countdown's and the status bar's. Nothing was committed. The demo posts no metric
+  content, so the new drawing of metrics has no picture.
+- `npm test` (309 tests in six suites) and `cargo test` (53 unit and 9 integration tests), `cargo clippy`,
+  `tools/spec-coverage.sh` (94 requirements, each with a test). The npm package has 33 files with the names of
+  0.10.3's, counted with the npm of the Publish workflow (11.20.0), and the crate has 70: liveupdate's two new
+  Kotlin files beside the 68.
+- CI: the pull requests' runs, where the Android unit tests and lint built the library with liveupdate's
+  `WearOngoing.kt` for the first time, and the two simulator suites, started by hand on `8e777b1` (run
+  44511957029, iOS 26.2). The suite on the built demo passed its 12 tests, each at its first try, after its
+  runner had once failed to start ("Timed out waiting for AX loaded notification") and `tests/ios/run.sh` ran it
+  once more; the one on `tauri ios dev` passed its 4. Main's run of #64's merge failed in one job, the desktop
+  contract on Ubuntu, whose packages could not be fetched from Ubuntu's archive; that job was run again. The main
+  run of the release commit.
+
+Not checked: a watch. A Tauri app is a web view, which Wear OS does not offer, so the plugin does not run on
+one: the Ongoing Activity is in the contract, in the declarations and in the adapter's code, the capability is
+false on every device that ran, and no test of the plugin sees one. liveupdate ran its library on a Galaxy
+Watch4 with Wear OS 5. Also not checked: a metric content on a device below Android 17 (the device tests post
+the fixture's on the device at hand, which was Android 17); an action that asks for the unlock on a locked
+device below Android 12; a store without room, which the liveactivity crate tests with a driver in memory; an
+event of an unknown kind from Android's own store, which the unit tests hand to the plugin's sink; and the
+iPhone 16, which read unavailable when the release's build began. The lifecycle test asks the plugin
+and reads its answers: it does not look at the notification or at the Lock Screen.
+
+The record of 0.10.3 follows.
+
 # 0.10.3 validation
 
 0.10.3 is a patch release. It brings what main has since 0.10.2: liveactivity 0.7.5 and 0.7.6 with activitykit
