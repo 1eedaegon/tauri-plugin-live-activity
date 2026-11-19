@@ -157,7 +157,8 @@ Android draws the layout as it is while fresh; `layout.transition` for a shown n
 `transition`; and `layout.privacy` for a shown node with `privacy` when `android.visibility` is
 `public`. `layout.island`, `layout.small`, `layout.styles`, `layout.background` and `layout.keyline` are
 added when the request has them: a notification draws no styles, so a bound color changes nothing on
-Android, and a watch and a car show the notification by themselves, so nothing of `small` is drawn. A node
+Android, and `small` is iOS's, for a paired Apple Watch and CarPlay, so nothing of it is drawn
+([A watch and a car](usage.md#a-watch-and-a-car)). A node
 hidden by its condition is not listed. liveupdate's own `nativeLiveActivity` comes first. The list is
 computed from the current values, so it can change with an update.
 

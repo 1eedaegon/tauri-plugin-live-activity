@@ -62,7 +62,7 @@ in the app's build.
     (iOS 16.2, the `ActivityKitWidget` and `ActivityKitViews` products, `ActivityKitLayout` = 2 in
     its Info.plist, the bundle identifier `<app identifier>.widget`, the app's version, the bundled
     fonts, with `--app-group` the [App Group](#pictures-the-app-draws) and with `--small-family` the
-    key for the [small region](#apple-watch-and-carplay)), and in the app target
+    key for the [small region](#a-watch-and-a-car)), and in the app target
     the extension, the `ActivityKitIntent` and `ActivityKitViews` products and the custom views file.
     That file is also the Swift the app target must compile, so that Xcode takes the App Intents
     metadata of the button intent;
@@ -98,7 +98,7 @@ Run it again:
 | `--font <file>` | Bundles a `.ttf`, `.otf` or `.ttc` font in the widget extension and prints its names; repeatable |
 | `--asset <file>` | Puts a `.png`, `.jpg`, `.jpeg`, `.pdf` or `.svg` image in the widget's asset catalog; repeatable |
 | `--app-group[=<id>]` | Gives both targets an App Group for `writeImage`, `group.<app identifier>` unless named; kept on later runs |
-| `--small-family` | Has the widget draw a layout's [`small` region](#apple-watch-and-carplay) on a paired Apple Watch and in CarPlay; kept on later runs |
+| `--small-family` | Has the widget draw a layout's [`small` region](#a-watch-and-a-car) on a paired Apple Watch and in CarPlay; kept on later runs |
 
 It exits with 0 when everything is set up, 1 when something is left to do (listed under
 "To do") or it could not start, such as a `--font` file that does not exist, and 2 for an
@@ -185,7 +185,7 @@ targets:
 
 `groups: [app]` gives the extension the signing team of Tauri's `app` setting group. For bundled
 fonts, add `UIAppFonts` with the file names under `properties`, and put the files in
-`LiveActivityWidget/Fonts`. For the [small region](#apple-watch-and-carplay), add
+`LiveActivityWidget/Fonts`. For the [small region](#a-watch-and-a-car), add
 `ActivityKitSmallFamily: true` under `properties`. For drawn images, add
 `ActivityKitAppGroup: "group.com.example.app"` under `properties`, and to both targets:
 
@@ -762,7 +762,16 @@ island: {
 },
 ```
 
-### Apple Watch and CarPlay
+### A watch and a car
+
+<a id="apple-watch-and-carplay"></a>
+
+| | iOS | Android |
+| --- | --- | --- |
+| A watch | A paired Apple Watch shows the activity in its Smart Stack (iOS 18 with watchOS 11): the layout's `small` region, or its compact parts | A phone's ongoing notification is not bridged to a paired Wear OS watch, and a Live Update only to some watches, by the Wear OS version and the maker. An app on the watch itself shows its activity as an Ongoing Activity, but a Tauri app does not run on Wear OS ([Wear OS](#wear-os)) |
+| A car | CarPlay shows the activity on the car's display (iOS 26): `small`, or the compact parts | No place: Android Auto shows the notifications of messaging apps built for it, and Android's documents name none there for a Live Update |
+
+On Android nothing of `small` is drawn, and the record names `layout.small`. The rest of this section is iOS's.
 
 ```ts
 layout: {
@@ -792,8 +801,8 @@ row. Without the key iOS shows the compact parts itself, as it did before 0.9, a
 the Info.plist file: a build setting, which expands to text, does not count. To stop drawing the family, delete
 `live-activity.yml` and run setup again with the options the app still needs.
 
-The templates of `start` have no small region. Android has no place for one: a watch and a car show the
-notification by themselves, nothing of `small` is drawn, and the record names `layout.small`.
+The templates of `start` have no small region. A notification has no place for one: nothing of `small` is drawn
+on Android, and the record names `layout.small`.
 
 No test of this project sees the region on a watch or in a car. One capture shows it, taken by hand from 0.10.3:
 the demo's Watch and car example in the Smart Stack of an Apple Watch simulator (Series 11, watchOS 26.2), paired
@@ -960,8 +969,10 @@ plugin offers what belongs to it, as the liveactivity crate has it:
 It has nowhere to show from a Tauri app today. A Tauri app is a web view, and Wear OS offers none
 ([`android.webkit` is not supported there](https://developer.android.com/training/wearables/wear-v-mobile)), so an
 app with this plugin does not run on a watch, the capability is false wherever it runs, and the two members
-change nothing on a phone. A phone's activity is not shown on a paired watch either: Android does not bridge an
-ongoing notification. The members are there so that a request written for the liveactivity crate is the same
+change nothing on a phone. Whether a phone's activity shows on a paired watch is Android's: it does not bridge an
+ongoing notification, and bridges a Live Update to some watches, by the Wear OS version and the maker
+([Android's documentation](https://developer.android.com/training/wearables/notifications/bridger)); on
+liveupdate's Galaxy Watch4 with Wear OS 5 the phone's activity stayed on the phone. The members are there so that a request written for the liveactivity crate is the same
 request here, and for the day a Tauri app runs on a watch.
 
 ### Samsung Now Bar

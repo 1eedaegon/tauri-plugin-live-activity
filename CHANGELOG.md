@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- The documents say what a watch and a car show, on iOS and on Android each. They said that an Android watch and
+  car show the notification by themselves, and that Android bridges no ongoing notification to a paired watch. By
+  Android's documentation a phone's ongoing notification is not bridged, a Live Update is bridged to some watches
+  by the Wear OS version and the maker, and Android Auto shows the notifications of messaging apps built for it.
+  The usage guide's section is "A watch and a car" (`#a-watch-and-a-car`); the old anchor still leads there.
+
 ## 0.11.0
 
 Built on liveactivity 0.8.1 and liveupdate 0.7.1, from 0.7.6 and 0.4.1, with activitykit 0.6.5 as before. It
