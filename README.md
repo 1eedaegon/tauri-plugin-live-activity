@@ -248,10 +248,11 @@ island: {
 keyline: '#A3D9C2', // the island's edge color
 ```
 
-A paired Apple Watch (iOS 18) and CarPlay (iOS 26) show the island's compact parts. `small` gives them a tree of
-their own, at most 12 nodes without buttons, links or toggles, once the widget extension draws that family
-(`setup --small-family`): `small: hstack([symbol('pawprint.fill'), bound('eta')])`. Android names it in
-`degradedFeatures`. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#apple-watch-and-carplay)
+On iOS a paired Apple Watch (iOS 18) and CarPlay (iOS 26) show the island's compact parts. `small` gives them a
+tree of their own, at most 12 nodes without buttons, links or toggles, once the widget extension draws that family
+(`setup --small-family`): `small: hstack([symbol('pawprint.fill'), bound('eta')])`. On Android a phone's ongoing
+notification is not bridged to a paired watch, and a Live Update only to some; Android Auto has no place for one.
+Android names `small` in `degradedFeatures`. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#a-watch-and-a-car)
 
 ## Pushes (iOS)
 
