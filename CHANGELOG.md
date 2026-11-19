@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.11.1
 
 Built on liveactivity 0.8.3 with activitykit 0.6.6, from 0.8.1 and 0.6.5, and liveupdate 0.7.1 as before. Nothing of
 the JavaScript or the Rust API changes.
@@ -22,6 +22,8 @@ the JavaScript or the Rust API changes.
   Android's documentation a phone's ongoing notification is not bridged, a Live Update is bridged to some watches
   by the Wear OS version and the maker, and Android Auto shows the notifications of messaging apps built for it.
   The usage guide's section is "A watch and a car" (`#a-watch-and-a-car`); the old anchor still leads there.
+- The documents say that a release build which shrinks resources removes a drawable or mipmap that only a request
+  names, and how to keep it (`res/raw/keep.xml`): such a start answered `INVALID_INPUT` on a Galaxy S23.
 
 ## 0.11.0
 

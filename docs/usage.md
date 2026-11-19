@@ -943,6 +943,10 @@ const delivery = await startLayout({
   mipmap resource of the app (`{ kind: 'resource', value }`) or a file under the app's files, such as one that
   `writeImage` wrote (`{ kind: 'appFile', value }`). `samsungNowBar: { primary?, secondary? }` gives the Now Bar its
   own two lines.
+- A resource that only a request names is one that a release build which shrinks resources removes: no code or
+  layout of the app refers to it. A start or an update that names it then answers `INVALID_INPUT` (seen on a Galaxy
+  S23). Keep it in `src-tauri/gen/android/app/src/main/res/raw/keep.xml`, with the names the requests use:
+  `<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@drawable/ic_ride,@mipmap/ic_launcher" />`.
 - A tap on one of the content's actions comes through `onAction` and `on_action`, like a tap on a button node.
 - A metric's `stopwatch` (`{ startedAt }`) and `countdown` (`{ endsAt }`) values are posted.
 - A snapshot may have another notification style than the activity's first where the device offers
