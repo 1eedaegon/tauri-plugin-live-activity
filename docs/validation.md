@@ -53,6 +53,12 @@ The light card under white text was seen on simulators only, by this project in 
 activitykit in its own tests. Before the correction the two phones showed the Buttons card in one appearance at
 its start: dark with light text on the iPhone 16, light with dark text on the iPhone XS.
 
+Added two hours after the tag, on the same build: the UI tests ran on the iPhone 16. Its runner timed out once
+more and started at the next attempt, and the tests of a bound style, of the button's tap and of the switch
+passed. Its cards have the pair's dark color under light text to their four rounded corners. So both phones'
+cards were seen on activitykit 0.6.5, and the first item of the list above is closed.
+[iOS coverage](ios-coverage.md#0103-on-two-iphones) has what the phone's process list showed of the attempts.
+
 The record of 0.10.2 follows.
 
 # 0.10.2 validation
