@@ -768,8 +768,9 @@ export interface Layout {
    * What the activity shows in the Smart Stack of a paired Apple Watch (iOS 18) and in CarPlay (iOS 26): at most 12
    * nodes and no button, link or toggle. iOS draws it when the widget extension's Info.plist sets
    * `ActivityKitSmallFamily` to true (`setup --small-family`); without the key the system shows the compact parts of
-   * the island there, and the record names `layout.small` in `degradedFeatures`. So does Android, where a watch and a
-   * car show the notification.
+   * the island there, and the record names `layout.small` in `degradedFeatures`. So does Android, which has no place
+   * for it: a phone's ongoing notification is not bridged to a paired watch (a Live Update only to some), and Android
+   * Auto shows only messaging apps' notifications.
    */
   readonly small?: LayoutNode;
 }

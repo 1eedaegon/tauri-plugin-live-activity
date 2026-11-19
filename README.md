@@ -133,7 +133,7 @@ call them off the main thread (on iOS a call on the main thread answers `NATIVE_
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_live_activity::{
-    Element, EndPolicy, Fallback, Layout, LayoutEndInput, LayoutSnapshot, LayoutStartInput,
+    AndroidOptions, AndroidVisibility, Element, Layout, LayoutEndInput, LayoutSnapshot, LayoutStartInput,
     LayoutUpdateInput, LiveActivityExt, Result, Value,
 };
 
@@ -143,28 +143,31 @@ fn snapshot(revision: u64, status: &str) -> LayoutSnapshot {
 }
 
 fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
-    let input = LayoutStartInput {
-        activity_key: "mochi:snack".into(),
-        schema_version: 2,
-        // Android, and iOS without Live Activities: shown as a notification.
-        fallback: Fallback::Notification,
-        layout: Layout {
-            lock_screen: Element::Text { value: None, bind: Some("status".into()) }.into(),
-            island: None, background: None, keyline: None, url: None, small: None,
-        },
-        styles: None,
-        snapshot: snapshot(0, "On time"),
-        android: None, // Android only: `AndroidOptions::new(visibility)` for the lock screen
-        ios: None,     // iOS only: `IosOptions::new(transient)` for a transient activity (iOS 18)
-        scheduled: None, // iOS 26 and Android: `ScheduledStart::new(at, alert)` starts it later
-        push: None,    // iOS only: `Some(LayoutPush::Token)` asks for the activity's APNs token
+    let layout = Layout {
+        lock_screen: Element::Text { value: None, bind: Some("status".into()) }.into(),
+        island: None, background: None, keyline: None, url: None, small: None,
     };
+    // Android, and iOS without Live Activities, show it as a notification.
+    let mut input = LayoutStartInput::new("mochi:snack", layout, snapshot(0, "On time"));
+    // Android only: the lock screen, the foreground placement, a watch's Ongoing Activity.
+    input.android = Some(AndroidOptions::new(AndroidVisibility::Public).with_wear_ongoing_activity(false));
+    // Also: `ios` (`IosOptions::new(transient)`, iOS 18), `scheduled` (`ScheduledStart::new(at, alert)`, iOS 26 and
+    // Android), `push` (`Some(LayoutPush::Token)`, iOS).
     let activity = app.live_activity().start_layout(input)?;
     // Every update sends all values again, with a higher revision.
     app.live_activity().update_layout(LayoutUpdateInput::new(activity.id.clone(), snapshot(1, "At the door")))?;
-    app.live_activity().end_layout(LayoutEndInput { id: activity.id, policy: EndPolicy::Immediate {}, snapshot: None })?;
+    app.live_activity().end_layout(LayoutEndInput::immediate(activity.id))?;
     Ok(())
 }
+```
+
+Requests are built on their constructors, and the enums may grow: match them with a `_` arm, and the code compiles
+against the next version. liveupdate's types for an Android content come with the crate the plugin builds with,
+`tauri_plugin_live_activity::liveupdate`:
+
+```rust
+use tauri_plugin_live_activity::liveupdate::{Timer, TimerStyle};
+let clock = TimerStyle::new(Timer::new(started_at, ends_at), true); // counts down to `ends_at`
 ```
 
 A tap that must not be lost belongs in Rust: the system can launch the app for it with no web view yet, and
@@ -174,8 +177,7 @@ JavaScript listeners are not awaited. Register the handler on the built `App` be
 let handle = app.handle().clone();
 app.live_activity().on_action(move |event| {
     if event.action_id == "done" {
-        let input = LayoutEndInput { id: event.activity_id, policy: EndPolicy::Immediate {}, snapshot: None };
-        let _ = handle.live_activity().end_layout(input);
+        let _ = handle.live_activity().end_layout(LayoutEndInput::immediate(event.activity_id));
     }
 });
 ```
@@ -205,7 +207,20 @@ activity (iOS 18). The layout stays as it started; each update sends every value
 `onAction`, push tokens and pushed content to `onPushToken`, `onPushToStartToken` and `onUpdated`, and what happens
 to an activity outside the app's calls to `onState`, `onStarted`, `onOpened` (Android: the person opened the app from an
 activity's notification; the opening that launched the app waits for the page), `onPermissions` and `onUnknown`
-(Android: something stored for an activity that this version has no event for).
+(`live-activity://unknown`; Android: something stored for an activity that this version has no event for).
+
+On Android a start takes `android: { visibility, publicVersion, placement, wearOngoingActivity }`:
+
+```ts
+android: {
+  visibility: 'public',       // what a locked device shows: 'public', 'private' or 'secret'
+  placement: 'foreground',    // the notification that the app's foreground service holds (`foregroundPlacement`)
+  wearOngoingActivity: false, // off the face of a watch (Wear OS 3 to 6; a Tauri app does not run there)
+}
+```
+
+The service attaches it with `LiveUpdateForeground.attach(service, type)`.
+[More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md#a-foreground-service)
 
 A snapshot may also carry a `relevance`, which decides which of the app's activities the Dynamic Island shows, and
 an `android` content, the notification in Android's own terms (a segmented progress, metrics, the chip text) in
@@ -254,6 +269,10 @@ tree of their own, at most 12 nodes without buttons, links or toggles, once the 
 notification is not bridged to a paired watch, and a Live Update only to some; Android Auto has no place for one.
 Android names `small` in `degradedFeatures`. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#a-watch-and-a-car)
 
+On the Lock Screen the card has no margin and shows a narrower layout in its middle: give the root a padding, and a
+node that should reach an edge a style with `frame: { maxWidth: 'infinity', alignment: 'leading' }`.
+[More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#placement-on-the-lock-screen)
+
 ## Pushes (iOS)
 
 A server updates, ends or starts activities through APNs. Start with `push: 'token'` (or `{ channel }` on iOS 18)
@@ -273,7 +292,7 @@ at most 1 MiB and 1224 × 480 pixels. [More](https://github.com/1eedaegon/tauri-
 
 ## Limits
 
-- iOS: an iPhone with iOS 16.2 or an iPad with iPadOS 17; buttons need iOS 17.2. An activity starts only while the
+- iOS: an iPhone with iOS 16.2 or an iPad with iPadOS 17; buttons and toggles need iOS 17.2. An activity starts only while the
   app is in the foreground (`NOT_FOREGROUND` otherwise), and the system ends it after 8 hours.
 - iOS keeps each activity's last values in plain text in the app's Application Support, unless the plugin
   configuration sets `"receipts": "redacted"`.
@@ -281,6 +300,8 @@ at most 1 MiB and 1224 × 480 pixels. [More](https://github.com/1eedaegon/tauri-
 - Pushes are iOS only. Android shows an ongoing notification, promoted to a Live Update where the system allows it.
 - From Android 15 a timer whose clock is more than 14 days old is refused with `INVALID_INPUT`: Android would show
   nothing of such a notification and tell the app nothing.
+- `SYSTEM_LIMIT` is the platform's limit: on Android 32 live activities, or no room left in the store of 1,000,000
+  bytes, or a second foreground placement; on iOS ActivityKit's.
 - Keep the npm package and the crate on the same minor version.
 
 ## Samsung Now Bar

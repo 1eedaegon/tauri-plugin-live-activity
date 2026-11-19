@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- The README shows each interface of 0.11 in a line or a few, in both languages: the options of a start on Android
+  (`visibility`, `placement: 'foreground'`, `wearOngoingActivity`), the event name of `onUnknown`, the constructors
+  of the Rust requests with `LayoutEndInput::immediate`, `tauri_plugin_live_activity::liveupdate`, a layout's
+  placement on the Lock Screen, and `SYSTEM_LIMIT`. Its Rust example and the usage guide's are built on the
+  constructors.
+- Corrected: the declaration of a layout's `small` said that an Android watch and car show the notification; the
+  Korean README said that Android 16 shows nothing of an old clock, where the plugin refuses it from Android 15;
+  the usage guide's table of Android options lacked `placement` and `publicVersion`; the compatibility notes had no
+  rows for push-to-start, a broadcast channel and the foreground placement, and pointed at a validation record of
+  0.2.0; the request contract's history stopped at 0.8.
+
 ## 0.11.1
 
 Built on liveactivity 0.8.3 with activitykit 0.6.6, from 0.8.1 and 0.6.5, and liveupdate 0.7.1 as before. Nothing of
@@ -16,7 +29,7 @@ the JavaScript or the Rust API changes.
 - **activitykit's build script names SwiftPM's own build system** (`--build-system native`), for Xcode 27, whose
   `swift build` defaults to Swift Build. An app built with Xcode 27.2 reported that activitykit's bridge did not
   build for iOS without it and patched the crate; with 0.6.6 such a patch should not be needed. Neither activitykit
-  nor this project has run Xcode 27.
+  nor this project has built activitykit's bridge with Xcode 27: this project's iOS runs since 0.5 use Xcode 26.3.
 - The documents say what a watch and a car show, on iOS and on Android each. They said that an Android watch and
   car show the notification by themselves, and that Android bridges no ongoing notification to a paired watch. By
   Android's documentation a phone's ongoing notification is not bridged, a Live Update is bridged to some watches

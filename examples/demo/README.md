@@ -231,7 +231,7 @@ What each example shows:
   <tr>
     <td><b>Watch and car</b><br>The <code>small</code> region, a glance for a paired Apple Watch and CarPlay.</td>
     <td><img src="../../docs/images/ios-layout-small.png" width="300" alt="The lock screen tree of the example on the iPhone: title, status and a bar"><br>The iPhone itself draws the lock screen tree.<br><img src="../../docs/images/ios-layout-small-watch.png" width="150" alt="The Smart Stack of an Apple Watch under its date and clock: the example's glance, a paw, Mochi’s snack, 4 min and a ring"><br>The glance, in the Smart Stack of a paired Apple Watch simulator. CarPlay is not captured: the simulator's CarPlay display shows no Live Activity.</td>
-    <td>A watch and a car show the notification by themselves: <code>layout.small</code>.</td>
+    <td>A notification has no place for it: <code>layout.small</code>.</td>
   </tr>
   <tr>
     <td><b>Android</b><br>What a notification takes of a layout: title, body, the bar and up to three actions.</td>
