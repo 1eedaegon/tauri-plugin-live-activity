@@ -132,7 +132,7 @@ prop입니다. [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activ
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_live_activity::{
-    Element, EndPolicy, Fallback, Layout, LayoutEndInput, LayoutSnapshot, LayoutStartInput,
+    AndroidOptions, AndroidVisibility, Element, Layout, LayoutEndInput, LayoutSnapshot, LayoutStartInput,
     LayoutUpdateInput, LiveActivityExt, Result, Value,
 };
 
@@ -142,28 +142,31 @@ fn snapshot(revision: u64, status: &str) -> LayoutSnapshot {
 }
 
 fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
-    let input = LayoutStartInput {
-        activity_key: "mochi:snack".into(),
-        schema_version: 2,
-        // Android와, Live Activity가 없는 iOS에서는 알림으로 보입니다.
-        fallback: Fallback::Notification,
-        layout: Layout {
-            lock_screen: Element::Text { value: None, bind: Some("status".into()) }.into(),
-            island: None, background: None, keyline: None, url: None, small: None,
-        },
-        styles: None,
-        snapshot: snapshot(0, "On time"),
-        android: None, // Android 전용: 잠금 화면 표시 범위는 `AndroidOptions::new(visibility)`
-        ios: None,     // iOS 전용: `IosOptions::new(transient)`이면 일시적 액티비티(iOS 18)
-        scheduled: None, // iOS 26과 Android: `ScheduledStart::new(at, alert)`이면 나중에 시작
-        push: None,    // iOS 전용: `Some(LayoutPush::Token)`이면 액티비티의 APNs 토큰을 요청
+    let layout = Layout {
+        lock_screen: Element::Text { value: None, bind: Some("status".into()) }.into(),
+        island: None, background: None, keyline: None, url: None, small: None,
     };
+    // Android와, Live Activity가 없는 iOS에서는 알림으로 보입니다.
+    let mut input = LayoutStartInput::new("mochi:snack", layout, snapshot(0, "On time"));
+    // Android 전용: 잠금 화면 표시 범위, 포그라운드 배치, 워치의 Ongoing Activity.
+    input.android = Some(AndroidOptions::new(AndroidVisibility::Public).with_wear_ongoing_activity(false));
+    // 그 밖에: `ios`(`IosOptions::new(transient)`, iOS 18), `scheduled`(`ScheduledStart::new(at, alert)`,
+    // iOS 26과 Android), `push`(`Some(LayoutPush::Token)`, iOS).
     let activity = app.live_activity().start_layout(input)?;
     // 갱신마다 모든 값을 다시, 더 높은 revision으로 보냅니다.
     app.live_activity().update_layout(LayoutUpdateInput::new(activity.id.clone(), snapshot(1, "At the door")))?;
-    app.live_activity().end_layout(LayoutEndInput { id: activity.id, policy: EndPolicy::Immediate {}, snapshot: None })?;
+    app.live_activity().end_layout(LayoutEndInput::immediate(activity.id))?;
     Ok(())
 }
+```
+
+요청은 생성자로 만들고, 열거형은 늘어날 수 있으니 `_` 가지로 매치하면 다음 버전에서도 컴파일됩니다. Android
+콘텐츠에 쓰는 liveupdate의 타입은 플러그인이 쓰는 크레이트째로 `tauri_plugin_live_activity::liveupdate`에
+있습니다:
+
+```rust
+use tauri_plugin_live_activity::liveupdate::{Timer, TimerStyle};
+let clock = TimerStyle::new(Timer::new(started_at, ends_at), true); // `ends_at`까지 거꾸로 셉니다
 ```
 
 놓치면 안 되는 탭은 Rust에서 받습니다. 시스템이 탭 때문에 앱을 켤 때는 웹 뷰가 아직 없을 수 있고,
@@ -173,8 +176,7 @@ JavaScript 리스너는 기다려 주지 않습니다. 만들어진 `App`에 `ru
 let handle = app.handle().clone();
 app.live_activity().on_action(move |event| {
     if event.action_id == "done" {
-        let input = LayoutEndInput { id: event.activity_id, policy: EndPolicy::Immediate {}, snapshot: None };
-        let _ = handle.live_activity().end_layout(input);
+        let _ = handle.live_activity().end_layout(LayoutEndInput::immediate(event.activity_id));
     }
 });
 ```
@@ -200,7 +202,20 @@ await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 
 시작 요청에 `scheduled: { at, alert }`를 주면 나중에 시작하고(iOS 26과 Android. Android에서는 사용자가 정확한 알람을 허용해야 제시간에 시작하며, `openExactAlarmSettings()`가 그 설정 화면을 엽니다), `ios: { transient: true }`이면 일시적 액티비티가 됩니다(iOS 18). 레이아웃은 시작한 모습 그대로이고, 갱신마다 모든 값을 더 높은 revision으로 다시 보냅니다. 탭은
 `onAction`으로, 푸시 토큰과 푸시된 내용은 `onPushToken`, `onPushToStartToken`, `onUpdated`로, 앱이 호출하지 않은
-액티비티의 변화는 `onState`, `onStarted`, `onOpened`(Android: 액티비티의 알림으로 앱을 연 일. 앱을 실행시킨 열림도 페이지가 구독할 때까지 보관됩니다), `onPermissions`, `onUnknown`(Android: 액티비티에 대해 저장되어 있지만 이 버전이 이름을 모르는 이벤트)으로 옵니다.
+액티비티의 변화는 `onState`, `onStarted`, `onOpened`(Android: 액티비티의 알림으로 앱을 연 일. 앱을 실행시킨 열림도 페이지가 구독할 때까지 보관됩니다), `onPermissions`, `onUnknown`(`live-activity://unknown`, Android: 액티비티에 대해 저장되어 있지만 이 버전이 이름을 모르는 이벤트)으로 옵니다.
+
+Android에서는 시작에 `android: { visibility, publicVersion, placement, wearOngoingActivity }`를 줍니다:
+
+```ts
+android: {
+  visibility: 'public',       // 잠긴 기기에 보이는 정도: 'public', 'private', 'secret'
+  placement: 'foreground',    // 앱의 포그라운드 서비스가 쥐는 알림(`foregroundPlacement`)
+  wearOngoingActivity: false, // 워치 화면에서 뺌(Wear OS 3~6, Tauri 앱은 워치에서 돌지 않음)
+}
+```
+
+서비스는 `LiveUpdateForeground.attach(service, type)`로 이 알림을 쥡니다.
+[더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md#a-foreground-service)
 
 스냅샷에는 `relevance`(앱의 여러 액티비티 중 Dynamic Island가 무엇을 보일지 정하는 점수)와 `android`
 콘텐츠(레이아웃 투영 대신 Android 방식 그대로 쓰는 알림: 구간이 있는 진행 막대, 지표, 칩 텍스트)를 넣을 수
@@ -248,6 +263,10 @@ iOS에서는 페어링된 Apple Watch(iOS 18)와 CarPlay(iOS 26)가 아일랜드
 Android에서는 폰의 ongoing 알림이 페어링된 워치로 전달되지 않고 Live Update만 일부 워치에 전달되며, Android
 Auto에는 이를 보여 줄 자리가 없습니다. Android는 `small`을 `degradedFeatures`에 적습니다. [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#a-watch-and-a-car)
 
+잠금 화면의 카드에는 여백이 없고, 더 좁은 레이아웃은 가운데에 놓입니다. 루트에 padding을 주고, 가장자리에 붙일
+노드에는 `frame: { maxWidth: 'infinity', alignment: 'leading' }`인 스타일을 줍니다.
+[더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#placement-on-the-lock-screen)
+
 ## 푸시 (iOS)
 
 서버가 APNs로 액티비티를 갱신하고 끝내고 시작합니다. `push: 'token'`(iOS 18에서는 `{ channel }`도)으로
@@ -267,14 +286,16 @@ Auto에는 이를 보여 줄 자리가 없습니다. Android는 `small`을 `degr
 
 ## 제약
 
-- iOS: iOS 16.2의 iPhone 또는 iPadOS 17의 iPad, 버튼은 iOS 17.2부터. 액티비티는 앱이 전면일 때만 시작되고
+- iOS: iOS 16.2의 iPhone 또는 iPadOS 17의 iPad, 버튼과 토글은 iOS 17.2부터. 액티비티는 앱이 전면일 때만 시작되고
   (아니면 `NOT_FOREGROUND`), 시스템이 8시간 뒤 끝냅니다.
 - iOS는 각 액티비티의 마지막 값을 앱의 Application Support에 평문으로 둡니다. 플러그인 설정에
   `"receipts": "redacted"`를 주면 가립니다.
 - 버튼 탭은 Rust `on_action` 핸들러를 최대 4초 기다립니다. JavaScript 리스너는 기다리지 않습니다.
 - 푸시는 iOS만. Android는 진행 중 알림을 보여 주고, 시스템이 허용하는 곳에서는 Live Update로 올립니다.
-- Android 16은 시각이 두 주보다 지난 알림을 보여 주지 않으며, 앱에도 알리지 않습니다. 타이머의 시작이나 끝이 게시보다
-  그만큼 앞선 경우입니다.
+- Android 15부터 시계가 14일보다 오래된 타이머는 `INVALID_INPUT`으로 거절됩니다. Android는 그런 알림을 보여 주지
+  않고 앱에도 알리지 않습니다.
+- `SYSTEM_LIMIT`은 플랫폼의 한도입니다. Android에서는 살아 있는 액티비티 32개, 1,000,000바이트 저장소가 꽉 찬 경우,
+  두 번째 포그라운드 배치이고, iOS에서는 ActivityKit의 한도입니다.
 - npm 패키지와 크레이트는 같은 마이너 버전으로 맞춥니다.
 
 ## Samsung Now Bar

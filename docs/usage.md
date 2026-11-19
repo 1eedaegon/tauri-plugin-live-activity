@@ -330,7 +330,7 @@ await updateLayout({
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Runtime};
 use tauri_plugin_live_activity::{
-    Bound, Element, Fallback, Layout, LayoutSnapshot, LayoutStartInput, LayoutUpdateInput,
+    Bound, Element, Layout, LayoutSnapshot, LayoutStartInput, LayoutUpdateInput,
     LiveActivityExt, Node, Result, Style, Value,
 };
 
@@ -344,17 +344,10 @@ fn start_input() -> LayoutStartInput {
     let text = Element::Text { value: None, bind: Some("status".into()) };
     let status = Node { style: Some("status".into()), ..text.into() };
     let style = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
+    let layout = Layout { lock_screen: status, island: None, background: None, keyline: None, url: None, small: None };
     LayoutStartInput {
-        activity_key: "mochi:snack".into(),
-        schema_version: 2,
-        fallback: Fallback::Notification,
-        layout: Layout { lock_screen: status, island: None, background: None, keyline: None, url: None, small: None },
         styles: Some(BTreeMap::from([("status".to_string(), style)])),
-        snapshot: delivery(0, "On time", "green"),
-        android: None,
-        ios: None,
-        scheduled: None,
-        push: None,
+        ..LayoutStartInput::new("mochi:snack", layout, delivery(0, "On time", "green"))
     }
 }
 
@@ -618,7 +611,7 @@ view. Taps that must work then belong in Rust. Register the handler on the built
 before `run`:
 
 ```rust
-use tauri_plugin_live_activity::{EndPolicy, LayoutEndInput, LiveActivityExt};
+use tauri_plugin_live_activity::{LayoutEndInput, LiveActivityExt};
 
 let built = tauri::Builder::default()
     .plugin(tauri_plugin_live_activity::init())
@@ -634,8 +627,7 @@ let app = match built {
 let handle = app.handle().clone();
 app.live_activity().on_action(move |event| {
     if event.action_id == "done" {
-        let input = LayoutEndInput { id: event.activity_id, policy: EndPolicy::Immediate {}, snapshot: None };
-        let _ = handle.live_activity().end_layout(input);
+        let _ = handle.live_activity().end_layout(LayoutEndInput::immediate(event.activity_id));
     }
 });
 app.run(|_, _| {});
@@ -851,6 +843,8 @@ order, with the current values:
 | `layout.url` | what a tap on the notification opens, where the device offers `links` |
 | an `accessibility` label or value on a node the notification cannot draw | a text in its place |
 | `android.visibility` | lock screen visibility: `public`, `private` (default) or `secret` |
+| `android.publicVersion` | what a locked device shows of a `private` activity in its place, where the device offers `publicVersion` |
+| `android.placement` | `foreground`: the notification that the app's foreground service holds, where the device offers `foregroundPlacement` ([A foreground service](android-integration.md#a-foreground-service)) |
 | `android.wearOngoingActivity` | `false` keeps the activity off the face of a watch, in all of its snapshots: see [Wear OS](#wear-os) |
 
 Everything else is listed in `degradedFeatures`, here `layout.symbol` and `layout.styles`:

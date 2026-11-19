@@ -23,7 +23,9 @@ Android notification styles, each of which the device reports in `getCapabilitie
 | Android notification permission | Android 13 / API 33+ | Runtime request, cancellation, denial and the settings-required state |
 | Android Live Updates | Android 16 / API 36+ | Promotion request after eligibility and user-setting checks; the result is read from the OS flag |
 | iPhone layouts (v2) | iOS 16.2+ | activitykit's widget, `ActivityKitLayoutWidget`, draws the layout tree; on iPad the iPadOS 17+ rule above applies |
-| iPhone layout buttons | iOS 17.2+ | activitykit's `ActivityKitActionIntent` brings the tap to the app process |
+| iPhone layout buttons | iOS 17.2+ | activitykit's `ActivityKitActionIntent` brings the tap to the app process; below it the label alone, and `actions` is `unsupported` |
+| iPhone push-to-start | iOS 17.2+ | `pushToStart` in the plugin configuration; the app's token comes to `onPushToStartToken` |
+| iPhone broadcast channel | iOS 18+ | `push: { channel }` of a start; `UNSUPPORTED_FEATURE` before |
 | iPhone layout toggles | iOS 17.2+ | The switch; before it the label alone. A tap comes as `on` |
 | iPhone transient activity | iOS 18+ | `ios: { transient: true }`; `UNSUPPORTED_FEATURE` before |
 | iPhone scheduled start | iOS 26+ | `scheduled`, the record is `pending` until it begins; `UNSUPPORTED_FEATURE` before |
@@ -32,9 +34,10 @@ Android notification styles, each of which the device reports in `getCapabilitie
 | Android layouts (v2) | Android 8.0 / API 26+ | Shown in part as a notification (title, body, progress bar, chronometer, up to three actions: buttons, links and toggles); the rest is listed in `degradedFeatures` |
 | Android notification styles | Android 8.0 / API 26+, by the device | Standard and big text everywhere; the progress style with segments and points from Android 16 (`progressStyle`), the metric style from Android 17 (`metricStyle`), and below it the metrics as lines of text with a header clock. `getCapabilities().androidPresentation` says which the device draws and offers |
 | An action's unlock before its tap | Android 12 / API 31+ | `authenticationRequired` of an Android content's action; on Android 8 to 11 the tap of a locked device is dropped |
-| A watch's Ongoing Activity | A Wear OS watch below Wear OS 7 whose app has `androidx.wear:wear-ongoing` | Offered in the contract (`wearOngoingActivity`) and not reachable from a Tauri app, which Wear OS, having no web view, does not run |
+| A watch's Ongoing Activity | An app on a watch with Wear OS 3 to 6 that has `androidx.wear:wear-ongoing` | Offered in the contract (`wearOngoingActivity`) and not reachable from a Tauri app, which Wear OS, having no web view, does not run |
 | Android links | Where the device offers `links` | A layout's `url` and a `link` open the app's URL; the app declares the scheme in an intent filter |
 | Android alerts of an update | Where the device offers `alert` | An update's alert alerts again; elsewhere the update is silent and the record names `alert` |
+| Android foreground placement | Where the device offers `foregroundPlacement` | `android.placement: 'foreground'`: the notification that the app's foreground service holds with `LiveUpdateForeground.attach`; one activity at a time |
 | Android end `after` | Where the device offers `delayedEnd` | The last content stays until its time; elsewhere `UNSUPPORTED_FEATURE` |
 | Samsung Now Bar extras | Android 17 / API 37+ | With `android.samsungNowBar` on, adds One UI's text extras. Does not put the app on Samsung's allow list |
 | macOS, Windows, Linux | No activity backend | Capability queries and a stable unsupported error; no desktop notification fallback yet |
@@ -68,7 +71,7 @@ listed as tested.
 | Tauri | Tauri 2: Rust `^2.12.5`, JS API `^2.12.4` |
 | Apple Swift package | activitykit's: Swift tools 5.9, built for iOS 15+; activity features need the OS versions in the table above. The plugin has no Swift of its own since 0.5 |
 | Demo and Widget Extension | The demo app's deployment target is iOS 16.1, the widget extension's 16.2; the 17+ rule applies on iPad |
-| Apple toolchain for checks | Xcode 27.2 / iOS SDK 27.2 for the alpha releases; Xcode 26.3 for the 0.2.0 checks |
+| Apple toolchain for checks | Xcode 27.2 / iOS SDK 27.2 for the alpha releases; Xcode 26.3 for the 0.2.0 checks and since 0.5 |
 | Android package | `minSdk = 26` since alpha.3; `compileSdk = 37` |
 | Android toolchain for checks | JDK 21, Android SDK 37, NDK 30 |
 
@@ -112,11 +115,12 @@ setting ships as a new version, with the same version on both registries. A publ
 version is never overwritten. A desktop fallback enters the table above only after its
 backend and contract are tested.
 
-Before 1.0 a minor version may change the public API; 0.7 changes Rust callers and TypeScript members as its
-changelog lists. The [0.2.0 validation record](validation.md) separates what was checked from what was not,
+Before 1.0 a minor version may change the public API: 0.7 and 0.11 change Rust callers and TypeScript members as
+their changelog lists (0.11: the contract's enums may grow, and a `match` needs a `_` arm). The
+[validation record](validation.md), newest first, separates what was checked from what was not for each release,
 including old Apple runtimes, physical iPhones and iPads, and how Samsung One UI shows, permits and dismisses
-activities. The Android changes of 0.7 have no validation record in this folder yet. A simulator pass does not
-stand in for a device check.
+activities; the runs on Android are in [Android coverage](android-coverage.md). A simulator pass does not stand in
+for a device check.
 
 ## Display and lifetime
 

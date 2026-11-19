@@ -108,7 +108,9 @@ contract of the [liveactivity](https://github.com/1eedaegon/liveactivity-rs) cra
 layout's `url`, the Dynamic Island's `priority`, `belowIfTooWide` and `margins`, a style's
 `contentTransition`, the start options `ios` and `scheduled`, the alert's `sound` and the Android
 content's presentation members. Version 0.8 is that crate's 0.6.0: the JSON is the same, and Android takes a
-scheduled start. It follows the [layout DSL RFC](rfc-layout-dsl.md) with the differences
+scheduled start. Version 0.9 is that crate's 0.7, which adds the layout's `small` region. Version 0.11 is its 0.8:
+the Android option `wearOngoingActivity` of a start, the member `wearOngoingActivity` of an Android content's
+presentation, and the event of an unknown kind. It follows the [layout DSL RFC](rfc-layout-dsl.md) with the differences
 listed at the end of this section. Contract v1 above is unchanged.
 
 In v2 the host sends a tree of nodes. On iOS activitykit's widget, `ActivityKitLayoutWidget`, draws
