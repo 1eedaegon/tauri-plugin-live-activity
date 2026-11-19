@@ -3,7 +3,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutEndInput, LayoutStartInput,
   LayoutUpdateInput, OpenedEvent, PermissionKind, Permissions, PushToStartTokenEvent, PushTokenEvent, PushTokens,
-  StartInput, StartedEvent, StateEvent, UpdateInput, UpdatedEvent,
+  StartInput, StartedEvent, StateEvent, UnknownEvent, UpdateInput, UpdatedEvent,
 } from './types.js';
 
 export type * from './types.js';
@@ -309,4 +309,14 @@ export async function onOpened(handler: (event: OpenedEvent) => void): Promise<U
  */
 export function onPermissions(handler: (permissions: Permissions) => void): Promise<UnlistenFn> {
   return listen<Permissions>('live-activity://permissions', event => handler(event.payload));
+}
+
+/**
+ * Receive what Android stored for an activity and this version has no event for (Android). It names the activity
+ * and nothing else: liveupdate, which reads Android's stored events, knows no more of it. It comes when those
+ * events are of a later version of the plugin than the one that reads them, as after the app went back to an
+ * earlier version. Earlier versions of the plugin dropped such an event.
+ */
+export function onUnknown(handler: (event: UnknownEvent) => void): Promise<UnlistenFn> {
+  return listen<UnknownEvent>('live-activity://unknown', event => handler(event.payload));
 }

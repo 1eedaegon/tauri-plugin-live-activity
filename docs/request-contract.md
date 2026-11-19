@@ -243,6 +243,7 @@ everywhere or nowhere:
 | `relevance` | a snapshot, of a start, an update or an end | a finite number | which of the app's activities the Dynamic Island shows first: the highest wins; without it the activity keeps its score, 0 at first | ignored; the record does not repeat it |
 | `android` | a snapshot | `{ "title", "status", "presentation" }` and no other member: a title of 1 to 120 and a status of 1 to 240 code points, not only whitespace, and a presentation of the liveupdate crate with a `style`; its members are checked on every platform | ignored; the record does not repeat it | shown in place of the projection of the layout. A snapshot may have another style than the activity's first where the device offers `styleChange`; elsewhere that is `UNSUPPORTED_FEATURE`. A member the device does not offer is `UNSUPPORTED_FEATURE`, the alert excepted |
 | `alert` | `update_layout` | `{ "title", "body" }` and no other member: 1 to 120 and 1 to 240 code points, not only whitespace; `sound`?: a file name of the app's bundle or `Library/Sounds`, such as `chime.aiff` | the device lights up, the Dynamic Island expands and an Apple Watch shows the two texts; `sound` plays that file | the update alerts again where the device offers `alert`, else it is silent and the record names `alert`; the channel's sound plays, and the record names `alert.sound` for a `sound` |
+| `android.wearOngoingActivity` | a start, in its `android` options | a boolean | ignored | `false`: the activity carries no Ongoing Activity of a watch, in any of its snapshots. Absent or `true`: it carries one where the device offers it (`androidPresentation.wearOngoingActivity`), and a start that says `true` is the same activity as one that says nothing. A presentation of an Android content has the same member, for its snapshot; the activity carries one where neither turns it off. No device that runs this plugin offers it ([usage](usage.md#wear-os)) |
 | `ios` | a start | `{ "transient" }`: a boolean, required in it | `transient: true` asks for a transient activity (iOS 18; `UNSUPPORTED_FEATURE` before) | ignored; not part of the start's identity |
 | `scheduled` | a start | `{ "at", "alert" }`: `at` a time in epoch milliseconds, `alert` required and of an update's form | the activity begins at `at` (iOS 26); the record is `pending` until then, and an update is `CONFLICT`; `UNSUPPORTED_FEATURE` before | an alarm of the plugin's library posts the notification at `at`, also while the app does not run; the record is `pending` until then, and an update is `CONFLICT`. The notification alerts where the device offers `alert`; the alert's text is not shown. `UNSUPPORTED_FEATURE` with the foreground placement |
 
@@ -335,7 +336,10 @@ A failed request answers `{ "code", "message" }`; the message never repeats the 
 refused a start because the app was not in the foreground (0.3 answered `NATIVE_ERROR` or
 `PERMISSION_DENIED`). On iOS the codes are activitykit's, and the message of `UNSUPPORTED_FEATURE`
 names the feature and the iOS version it needs, that of `SYSTEM_LIMIT` whether the app's or the
-device's limit was reached.
+device's limit was reached. On Android `SYSTEM_LIMIT` is also a second activity with the foreground
+placement, and a start or an update for which the live activities leave no room in liveupdate's store of
+1,000,000 bytes: some thirty activities with the longest texts an Android content has. Ended activities make
+room by themselves, and ending a live one makes room for the request.
 
 ### Values
 

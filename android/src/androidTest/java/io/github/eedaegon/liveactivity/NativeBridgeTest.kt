@@ -88,8 +88,11 @@ class NativeBridgeTest {
 
     @Test
     fun pluginKeepsProtocolFailuresInsideTheInnerEnvelope() {
+        // A command that liveupdate's dispatcher does not know is no wrong request, since liveupdate 0.7.0: a
+        // later crate may ask for it. And a member of a payload that it does not know is left alone.
         val unknown = liveUpdateFailure("start", JSONObject())
-        assertEquals("INVALID_INPUT", unknown.getJSONObject("error").getString("code"))
+        assertEquals("UNSUPPORTED_FEATURE", unknown.getJSONObject("error").getString("code"))
+        liveUpdate("read", JSONObject().put("later", 1))
 
         val malformed = liveUpdateFailure("post", JSONObject().put("record", JSONObject()))
         assertEquals("INVALID_INPUT", malformed.getJSONObject("error").getString("code"))

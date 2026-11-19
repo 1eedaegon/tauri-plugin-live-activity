@@ -42,10 +42,13 @@ mod types_tests;
 pub use config::{AndroidConfig, Config, Receipts};
 pub use events::{
     ACTION_EVENT, OPENED_EVENT, PERMISSIONS_EVENT, PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT,
-    STARTED_EVENT, STATE_EVENT, UPDATED_EVENT,
+    STARTED_EVENT, STATE_EVENT, UNKNOWN_EVENT, UPDATED_EVENT,
 };
 /// The contract: the requests, records, layout types, errors and checks.
 pub use liveactivity::contract::*;
+/// The liveupdate crate that the plugin builds with, for what the parts of an Android content take beside the
+/// contract's types: its `Timer` for a `TimerStyle`, whose name the contract gives to the template's timer.
+pub use liveactivity::liveupdate;
 pub use openings::OPENINGS_KEPT;
 pub use service::LiveActivity;
 

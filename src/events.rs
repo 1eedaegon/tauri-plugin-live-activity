@@ -34,6 +34,9 @@ pub const OPENED_EVENT: &str = "live-activity://opened";
 /// The Tauri event that carries the [`Permissions`](crate::Permissions) after the person changed them in
 /// Settings (iOS).
 pub const PERMISSIONS_EVENT: &str = "live-activity://permissions";
+/// The Tauri event that carries an [`UnknownEvent`](crate::UnknownEvent): something that Android stored for an
+/// activity and this version has no event for. It names the activity and nothing else.
+pub const UNKNOWN_EVENT: &str = "live-activity://unknown";
 
 /// How long a tap waits for the handlers of `on_action`: what iOS gives a tap's intent.
 const HANDLERS: Duration = Duration::from_secs(4);
@@ -89,6 +92,10 @@ pub(crate) fn sink_within<R: Runtime>(
                 openings.keep(opened.clone());
                 let _ = app.emit(OPENED_EVENT, opened);
             }
+            Event::Unknown(unknown) => {
+                let _ = app.emit(UNKNOWN_EVENT, unknown);
+            }
+            // A kind that a later liveactivity adds, whose enum may grow: the plugin has no name for it yet.
             _ => {}
         }));
     }

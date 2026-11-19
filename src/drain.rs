@@ -51,16 +51,17 @@ fn wait(check: Option<NextCheck>, now: u64, tries: &mut usize) -> Option<Duratio
             *tries = 0;
             Some(Duration::from_millis(time - now))
         }
-        // A state is due although the thread has just drained, a post is not shown yet, or a stale time has passed
-        // and the activity is not stale yet: shortly, a little later each time, and no more after a few.
-        Some(NextCheck::Now | NextCheck::Soon | NextCheck::At(_)) => {
-            let step = SOON.get(*tries).copied();
-            *tries = tries.saturating_add(1);
-            step
-        }
         Some(NextCheck::Never) | None => {
             *tries = 0;
             None
+        }
+        // A state is due although the thread has just drained, a post is not shown yet, or a stale time has passed
+        // and the activity is not stale yet: shortly, a little later each time, and no more after a few. So for an
+        // answer that a later liveupdate adds, whose enum may grow.
+        Some(_) => {
+            let step = SOON.get(*tries).copied();
+            *tries = tries.saturating_add(1);
+            step
         }
     }
 }
@@ -182,7 +183,7 @@ mod tests {
     const SHORTLY: Duration = Duration::from_millis(120);
     const LONG: Duration = Duration::from_secs(5);
 
-    // TP-ANDROID-15
+    // TP-ANDROID-15, TP-RUST-6
     #[test]
     fn the_wait_follows_what_liveupdate_says_of_the_next_state() {
         let mut tries = 0;

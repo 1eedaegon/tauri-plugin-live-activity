@@ -225,3 +225,178 @@ fn layout_numbers_keep_their_value_when_read_from_json_text() {
         );
     }
 }
+
+// TP-RUST-6
+#[test]
+fn requests_are_built_on_the_constructors_through_the_plugins_exports() {
+    use std::collections::BTreeMap;
+    use tauri_plugin_live_activity::{
+        AndroidContent, AndroidOptions, AndroidPresentation, AndroidVisibility, EndInput,
+        EndPolicy, ImageInput, LayoutSnapshot, PresentationStyle, ProgressSegment, ProgressStyle,
+        PublicVersion, Snapshot, StartInput, Template, UpdateInput,
+    };
+    // The templates: a start takes its template from its snapshot.
+    let start = StartInput::new("ride:7", Snapshot::progress(0, "Ride", "On the way", 0.5));
+    assert_eq!(
+        serde_json::to_value(&start).unwrap(),
+        json!({"activityKey":"ride:7","schemaVersion":1,"template":"progress","fallback":"notification",
+            "snapshot":{"revision":0,"title":"Ride","status":"On the way","progress":0.5}})
+    );
+    assert_eq!(start.validate(), Ok(()));
+    let nap = Snapshot::timer(1, "Nap", "Asleep", 10, 20);
+    assert_eq!(
+        serde_json::to_value(UpdateInput::new("id", nap)).unwrap(),
+        json!({"id":"id","snapshot":{"revision":1,"title":"Nap","status":"Asleep",
+            "timer":{"startedAt":10,"endsAt":20}}})
+    );
+    assert_eq!(
+        serde_json::to_value(EndInput::after("id", 9)).unwrap(),
+        json!({"id":"id","policy":{"kind":"after","at":9}})
+    );
+    assert_eq!(
+        serde_json::to_value(ImageInput::new("cat.png", vec![1, 2])).unwrap(),
+        json!({"name":"cat.png","png":[1,2]})
+    );
+
+    // A layout's snapshot with an Android content, and the options of its start, each on its constructor.
+    let track = ProgressStyle {
+        styled_by_progress: true,
+        ..ProgressStyle::new(60, vec![ProgressSegment::new(100)])
+    };
+    let mut snapshot = LayoutSnapshot::new(0, BTreeMap::new());
+    snapshot.android = Some(AndroidContent::new(
+        "Ride",
+        "On the way",
+        AndroidPresentation {
+            public_version: Some(PublicVersion::new("Ride", "Soon")),
+            wear_ongoing_activity: false,
+            ..AndroidPresentation::new(PresentationStyle::Progress(track))
+        },
+    ));
+    assert_eq!(
+        serde_json::to_value(&snapshot).unwrap()["android"],
+        json!({"title":"Ride","status":"On the way","presentation":{
+            "style":{"kind":"progress","value":{"progress":60,"styledByProgress":true,"segments":[{"length":100}]}},
+            "publicVersion":{"title":"Ride","status":"Soon"},
+            "wearOngoingActivity":false}})
+    );
+    assert_eq!(
+        serde_json::to_value(
+            AndroidOptions::new(AndroidVisibility::Private).with_wear_ongoing_activity(false)
+        )
+        .unwrap(),
+        json!({"visibility":"private","wearOngoingActivity":false})
+    );
+
+    // The other parts of a presentation, each on its constructor. A timer style takes liveupdate's `Timer`,
+    // which the plugin has under `liveupdate`, since the contract's `Timer` is the template's.
+    use tauri_plugin_live_activity::{
+        BigTextStyle, Metric, MetricStyle, MetricValue, NotificationAction, Timer, TimerStyle,
+        liveupdate,
+    };
+    assert_eq!(
+        serde_json::to_value(Timer::new(10, 20)).unwrap(),
+        json!({"startedAt":10,"endsAt":20})
+    );
+    let clock = TimerStyle::new(liveupdate::Timer::new(10, 20), true);
+    let steps = Metric::new(
+        "Steps",
+        MetricValue::Integer {
+            value: 42,
+            unit: None,
+        },
+    );
+    let presentation = AndroidPresentation {
+        actions: vec![NotificationAction::new("call", "Call")],
+        chronometer: Some(clock),
+        ..AndroidPresentation::new(PresentationStyle::Metric(MetricStyle::new(vec![steps])))
+    };
+    assert_eq!(
+        serde_json::to_value(&presentation).unwrap(),
+        json!({"style":{"kind":"metric","value":{"metrics":[{"label":"Steps","value":{"kind":"integer","value":{"value":42}}}]}},
+            "actions":[{"id":"call","title":"Call"}],
+            "chronometer":{"timer":{"startedAt":10,"endsAt":20},"countsDown":true}})
+    );
+    assert_eq!(
+        serde_json::to_value(PresentationStyle::BigText(BigTextStyle::new("A long text"))).unwrap(),
+        json!({"kind":"bigText","value":{"text":"A long text"}})
+    );
+
+    // The contract's enums are matched with a last arm.
+    #[deny(unreachable_patterns)]
+    fn named(template: Template, policy: &EndPolicy) -> (&'static str, &'static str) {
+        let template = match template {
+            Template::Progress => "progress",
+            Template::Timer => "timer",
+            _ => "later",
+        };
+        let policy = match policy {
+            EndPolicy::Immediate {} => "immediate",
+            EndPolicy::Default {} => "default",
+            EndPolicy::After { .. } => "after",
+            _ => "later",
+        };
+        (template, policy)
+    }
+    assert_eq!(
+        named(Template::Timer, &EndPolicy::After { at: 1 }),
+        ("timer", "after")
+    );
+}
+
+// TP-ANDROID-20
+#[test]
+fn a_watchs_ongoing_activity_is_a_boolean_in_a_start_and_in_a_content() {
+    let start = |members: Value| {
+        let mut request = json!({"activityKey":"ride:7","schemaVersion":2,"fallback":"notification",
+            "layout":{"lockScreen":{"type":"text","bind":"eta"}},
+            "snapshot":{"revision":0,"values":{"eta":"4 min"}}});
+        request
+            .as_object_mut()
+            .unwrap()
+            .extend(members.as_object().unwrap().clone());
+        validate_request("start_layout", request).map_err(|error| error.code)
+    };
+    let option =
+        |value: Value| json!({"android":{"visibility":"private","wearOngoingActivity":value}});
+    let content = |value: Value| {
+        json!({"snapshot":{"revision":0,"values":{"eta":"4 min"},"android":{"title":"Ride","status":"On the way",
+            "presentation":{"style":{"kind":"standard"},"wearOngoingActivity":value}}}})
+    };
+    // Off, and on, which is what a request without the member says.
+    for right in [
+        option(json!(false)),
+        option(json!(true)),
+        content(json!(false)),
+        content(json!(true)),
+    ] {
+        assert_eq!(start(right.clone()), Ok(()), "{right}");
+    }
+    for wrong in [
+        option(json!("no")),
+        option(json!(0)),
+        option(Value::Null),
+        content(json!("no")),
+        content(json!(0)),
+        content(Value::Null),
+        // Where it does not belong: in a style, and beside the options.
+        json!({"snapshot":{"revision":0,"values":{"eta":"4 min"},"android":{"title":"Ride","status":"On the way",
+            "presentation":{"style":{"kind":"standard","wearOngoingActivity":true}}}}}),
+        json!({"wearOngoingActivity":false}),
+    ] {
+        assert_eq!(
+            start(wrong.clone()),
+            Err("INVALID_INPUT".to_owned()),
+            "{wrong}"
+        );
+    }
+    // What a start that turns it off is to Rust: the options built on their constructor, written as the request.
+    let options = tauri_plugin_live_activity::AndroidOptions::new(
+        tauri_plugin_live_activity::AndroidVisibility::Private,
+    )
+    .with_wear_ongoing_activity(false);
+    assert_eq!(
+        serde_json::to_value(options).unwrap(),
+        option(json!(false))["android"]
+    );
+}

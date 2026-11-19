@@ -182,14 +182,42 @@ the record names `alert` in `degradedFeatures`. Android alerts with the sound of
 `sound` is not played, and the record names `alert.sound`.
 
 Layouts with a `progress`, and contents of the `progress` style, are posted on Android 16. The adapter
-the plugin carries is liveupdate 0.4.1's, which does not call the method that only Android 17 has. Below
+the plugin carries is liveupdate 0.7.0's, which does not call the method that only Android 17 has. Below
 Android 16 liveupdate posts the plain bar, as the progress template does on every Android.
 
-Known: on Android 16 a notification whose time is more than two weeks past is not shown, and the app is
-told nothing: the post is answered as shown. liveupdate sets the time of a timer alone, its end when it
-counts down and its start when it counts up, so a timer that ended or began more than two weeks before
-the post shows nothing. Measured on an Android 16 emulator: a time 13 days ago shows, one 15 days ago does
-not.
+What a device shows of a content follows its Android version, by liveupdate's account:
+
+| Shown as | From | Before it |
+| --- | --- | --- |
+| A promoted Live Update | Android 16 | An ongoing notification, with the fallback `notification` |
+| A `progress` style's segments, points and icons | Android 16 | A plain progress bar |
+| The status chip's `shortCriticalText` | Android 16 | Not shown |
+| A `metric` style | Android 17 | The numbers and the texts as lines under the status, and the first stopwatch or countdown as the clock in the header (liveupdate 0.7.0; before it the title and the status alone). `metricStyle` is false there |
+| Semantic colors of a segment, a point and a metric | Android 17 | Not shown |
+| Samsung Now Bar | Android 17, One UI | Not shown |
+| The unlock before the tap of an action with `authenticationRequired` | Android 12 | The tap of a locked device is dropped (liveupdate 0.4.4; before it the tap was taken at once), and the person taps again after unlocking. An action that opens a URL starts the app, for which Android asks on every version |
+
+A timer whose clock is more than 14 days old is refused from Android 15 ([A scheduled start](#a-scheduled-start)
+has the rule): Android would show nothing of such a notification and tell the app nothing. Measured on an
+Android 16 emulator before liveupdate refused it: a time 13 days ago shows, one 15 days ago does not.
+
+### The adapter and a watch
+
+The plugin's Android library carries liveupdate's adapter as source, of the liveupdate version in `Cargo.lock`,
+so the crate and the adapter are always of one version: what liveupdate says of a crate and an AAR of two
+versions does not arise here. Two of its files are new with 0.7.0. `MetricFallback` draws the metrics below
+Android 17. `WearOngoing` puts a watch's Ongoing Activity into a notification, on a watch below Wear OS 7 whose
+app has `androidx.wear:wear-ongoing`: the library compiles against that dependency and does not bring it, as
+liveupdate's own AAR does not, and its consumer rules keep R8 quiet in an app without it. A Tauri app does not
+run on a watch ([usage](usage.md#wear-os)), so none of this code runs today, and the capability
+`wearOngoingActivity` is false.
+
+Stored events that this version does not know are passed on: liveupdate reads an event of a kind it does not
+know for its activity, and the plugin reports it as `live-activity://unknown` (`onUnknown`, Rust
+`UNKNOWN_EVENT`). Such an event is one that a later version of the plugin stored, as after the app went back to
+an earlier version. liveupdate stores its receipts in at most 1,000,000 bytes at a start and at an update: ended
+activities go for the room, the oldest first, and a start or an update for which the live ones alone leave none
+is `SYSTEM_LIMIT`.
 
 The notification keeps what a Live Update needs, as liveupdate posts it: ongoing, a title,
 a system style, no custom views, not colorized, not a group summary, liveupdate's

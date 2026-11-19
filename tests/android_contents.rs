@@ -126,6 +126,8 @@ impl Held {
         self.variants.extend(icon.as_ref().map(|icon| match icon {
             IconSource::Resource(_) => "icon: resource",
             IconSource::AppFile(_) => "icon: appFile",
+            // liveupdate's enums may grow: a variant that this test does not walk shows in what it found.
+            _ => "icon: a variant this test does not know",
         }));
     }
 
@@ -138,6 +140,7 @@ impl Held {
                 SemanticStyle::Safe => "semanticStyle: safe",
                 SemanticStyle::Caution => "semanticStyle: caution",
                 SemanticStyle::Danger => "semanticStyle: danger",
+                _ => "semanticStyle: a variant this test does not know",
             }));
     }
 
@@ -155,6 +158,7 @@ impl Held {
             small_icon,
             accent_color,
             sub_text,
+            wear_ongoing_activity,
         } = presentation;
         self.member(
             "presentation.shortCriticalText",
@@ -189,6 +193,8 @@ impl Held {
         self.icon("presentation.smallIcon", small_icon);
         self.member("presentation.accentColor", accent_color.is_some());
         self.member("presentation.subText", sub_text.is_some());
+        // True by default, and written only when it is not.
+        self.member("presentation.wearOngoingActivity", !*wear_ongoing_activity);
         self.style(style);
     }
 
@@ -216,6 +222,10 @@ impl Held {
                 self.variants.insert("style: metric");
                 self.member("metric.criticalMetric", critical_metric.is_some());
                 metrics.iter().for_each(|metric| self.metric(metric));
+            }
+            _ => {
+                self.variants
+                    .insert("style: a variant this test does not know");
             }
         }
     }
@@ -286,6 +296,10 @@ impl Held {
             MetricValue::Countdown { ends_at: _ } => {
                 self.variants.insert("metric: countdown");
             }
+            _ => {
+                self.variants
+                    .insert("metric: a variant this test does not know");
+            }
         }
     }
 }
@@ -311,7 +325,7 @@ fn locked(version: &PublicVersion) {
 
 /// The fixture is as wide as the models: what TypeScript declares and what liveupdate's Android side takes are
 /// compared with all that Rust can write, not with a part of it.
-// TP-JS-7, TP-ANDROID-14
+// TP-JS-7, TP-ANDROID-14, TP-ANDROID-20
 #[test]
 fn the_fixture_holds_every_member_of_the_models_given_and_left_out_and_every_variant() {
     let mut held = Held::default();

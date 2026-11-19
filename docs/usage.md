@@ -817,6 +817,7 @@ order, with the current values:
 | `layout.url` | what a tap on the notification opens, where the device offers `links` |
 | an `accessibility` label or value on a node the notification cannot draw | a text in its place |
 | `android.visibility` | lock screen visibility: `public`, `private` (default) or `secret` |
+| `android.wearOngoingActivity` | `false` keeps the activity off the face of a watch, in all of its snapshots: see [Wear OS](#wear-os) |
 
 Everything else is listed in `degradedFeatures`, here `layout.symbol` and `layout.styles`:
 
@@ -842,9 +843,9 @@ The captures are after an update to `Fast asleep` and `0.6`. On Android 16 and l
 requests promotion to a Live Update where the app may post one; `promotionState` reports what
 Android did.
 
-Known: on Android 16 a notification whose time is more than two weeks past is not shown, and the app
-is told nothing. This is a timer whose start or end lies that far before the post; the post is answered
-as shown. Measured on an Android 16 emulator: 13 days shows, 15 days does not.
+From Android 15 a timer whose clock is more than 14 days old is refused with `INVALID_INPUT`: its end when it
+counts down, its start when it counts up. Android would show nothing of such a notification and tell the app
+nothing (measured on an Android 16 emulator: 13 days shows, 15 days does not), so liveupdate refuses the post.
 
 ### Android content
 
@@ -893,7 +894,7 @@ const delivery = await startLayout({
 | `bigText` | `{ text, summary? }` | a longer text under the title |
 | `progress` | `{ progress, segments, points?, indeterminate?, styledByProgress?, startIcon?, endIcon?, trackerIcon? }` | a bar; its 1 to 32 segments, up to 32 points, colors and icons from Android 16 (`progressStyle`), a plain bar below |
 | `timer` | `{ timer: { startedAt, endsAt }, countsDown }` | the chronometer, counting down to the end or up from the start |
-| `metric` | `{ metrics, criticalMetric? }` | up to three labelled values, each an integer, a decimal or a text; Android 17 (`metricStyle`) |
+| `metric` | `{ metrics, criticalMetric? }` | up to three labelled values, each an integer, a decimal or a text; Android 17 (`metricStyle`). Below it the numbers and the texts are lines under the status, and the first stopwatch or countdown is the clock in the header |
 
 - A progress shows its value on Android 16 only where the content says how: with `styledByProgress: true` Android
   draws what lies ahead of the progress as a thin line, and without it every segment looks done, so the value shows
@@ -909,18 +910,49 @@ const delivery = await startLayout({
 - A presentation takes `openUrl`, a `chronometer`, an `alert` (this revision alerts again), a
   `publicVersion`, a `smallIcon`, an `accentColor` and a `subText`. Each is behind a capability of
   `getCapabilities().androidPresentation`: `links`, `chronometer`, `alert`, `publicVersion` and
-  `branding` (the small icon, the color and the sub text). A content that uses a member its device
+  `branding` (the small icon, the color and the sub text). The same object says `wearOngoingActivity`, which
+  stands before no member ([Wear OS](#wear-os)). A content that uses a member its device
   does not offer is `UNSUPPORTED_FEATURE`, except the alert: it is left out and `alert` is named in
   `degradedFeatures`.
 - An action takes `openUrl` too. Such an action opens the URL in the app and sends no tap; `onOpened`
   reports it with the action's `id`.
+- An action with `authenticationRequired: true` asks the person to unlock the device before its tap is sent,
+  from Android 12. Android 8 to 11 have no such setting and would send the tap from a locked device at once:
+  there liveupdate's library drops a tap while the device is locked, and the person taps again after unlocking.
+  An action that opens a URL starts the app, for which Android asks on every version.
+- `wearOngoingActivity: false` in a presentation keeps this snapshot's notification off the face of a watch:
+  see [Wear OS](#wear-os). No capability stands before it: a device that carries no Ongoing Activity shows the
+  content as it is.
 - The Android record keeps the content in its snapshot, and its `degradedFeatures` names nothing of the layout,
   since the content is what Android shows; an iOS record does not repeat it. Every platform checks the content, so a request is valid everywhere or nowhere.
-- In Rust it is `snapshot.android = Some(AndroidContent { title, status, presentation })`. `AndroidContent` is the
-  liveactivity crate's, and the presentation types are liveupdate's, re-exported: `AndroidPresentation`,
-  `PresentationStyle`, `ProgressStyle`, `ProgressSegment` and the rest. One is missing: a `TimerStyle` takes
-  liveupdate's `Timer`, which the plugin does not re-export (its `Timer` is the template's). Read a timer style from
-  JSON with `serde_json`, or add the `liveupdate` crate at the version the plugin builds with.
+- In Rust it is `snapshot.android = Some(AndroidContent::new(title, status, presentation))`. `AndroidContent` is
+  the liveactivity crate's, and the presentation types are liveupdate's, re-exported: `AndroidPresentation`,
+  `PresentationStyle`, `ProgressStyle`, `ProgressSegment` and the rest. Build each on its constructor, which takes
+  what is required (`AndroidPresentation::new(style)`, `ProgressStyle::new(progress, segments)`,
+  `ProgressSegment::new(length)`, `PublicVersion::new(title, status)`, …) and name the other members with the
+  struct update syntax: a member that a later version adds is then left at its default, and the code still
+  compiles. Their enums may grow too: match them with a `_` arm. A `TimerStyle` takes liveupdate's `Timer`,
+  not the plugin's `Timer`, which is the template's: the plugin re-exports the liveupdate crate it builds with,
+  so it is `TimerStyle::new(tauri_plugin_live_activity::liveupdate::Timer::new(started_at, ends_at), true)`.
+
+### Wear OS
+
+On a watch below Wear OS 7, liveupdate's library puts an activity on the watch face, as an icon that opens the
+app, and among the recent apps: the Ongoing Activity of a watch app that has `androidx.wear:wear-ongoing`. The
+plugin offers what belongs to it, as the liveactivity crate has it:
+
+- `getCapabilities().androidPresentation.wearOngoingActivity` says whether the device carries one.
+- `android: { visibility, wearOngoingActivity: false }` in a start keeps the activity in the tray, off the watch
+  face, in all of its snapshots (`AndroidOptions::new(visibility).with_wear_ongoing_activity(false)` in Rust).
+- `wearOngoingActivity: false` in the presentation of an Android content does so for its snapshot. An activity
+  carries the Ongoing Activity where neither turns it off; a template (`start`) has no such choice.
+
+It has nowhere to show from a Tauri app today. A Tauri app is a web view, and Wear OS offers none
+([`android.webkit` is not supported there](https://developer.android.com/training/wearables/wear-v-mobile)), so an
+app with this plugin does not run on a watch, the capability is false wherever it runs, and the two members
+change nothing on a phone. A phone's activity is not shown on a paired watch either: Android does not bridge an
+ongoing notification. The members are there so that a request written for the liveactivity crate is the same
+request here, and for the day a Tauri app runs on a watch.
 
 ### Samsung Now Bar
 
@@ -1124,11 +1156,12 @@ React hook takes `ios` as well, and not `scheduled`.
 What happens to an activity outside the app's own calls comes as events:
 
 ```ts
-import { onPermissions, onStarted, onState } from 'tauri-plugin-live-activity';
+import { onPermissions, onStarted, onState, onUnknown } from 'tauri-plugin-live-activity';
 
 await onState(({ activityId, activityKey, state }) => { /* 'stale', 'ended', 'dismissed', … */ });
 await onStarted(({ record }) => { /* a layout activity began, also one a push started (iOS) */ });
 await onPermissions(permissions => { /* the person changed them in Settings (iOS) */ });
+await onUnknown(({ activityId, activityKey }) => { /* Android stored something this version has no event for */ });
 ```
 
 | Event | Function | iOS | Android |
@@ -1137,13 +1170,14 @@ await onPermissions(permissions => { /* the person changed them in Settings (iOS
 | `live-activity://opened` | `onOpened` | none | the person opened the app from an activity's notification, by the notification or by an action that opens a URL |
 | `live-activity://started` | `onStarted` | a layout activity began: one the app started, or one a push started | none |
 | `live-activity://permissions` | `onPermissions` | Live Activities or frequent pushes were turned on or off in Settings | none |
+| `live-activity://unknown` | `onUnknown` | none | Android stored something for an activity that this version has no event for: an event of a later version of the plugin, as after the app went back to an earlier one. It names the activity and nothing else |
 
 An event reaches only the listeners there are when it goes out. What happened while the app did not run, or before
 the page listened, is in the records: `list()` and `listLayout()` at launch give every activity with its state, and
 `checkPermissions()` the permissions. On Android liveupdate stores the dismissal of a notification as it stores a tap, and the plugin reports it
 when it drains them: at once while the app's process lives, else when the app starts. The plugin's events
 thread also wakes at an activity's stale time and at the time of a scheduled start. The event names are public in Rust (`STATE_EVENT`, `STARTED_EVENT`,
-`PERMISSIONS_EVENT`, `OPENED_EVENT`) for `app.listen`.
+`PERMISSIONS_EVENT`, `OPENED_EVENT`, `UNKNOWN_EVENT`) for `app.listen`.
 
 An opening is in no record, and the one that launches the app is reported before its page has loaded. So the plugin
 keeps every opening until a page has handed it to a handler, the newest 16, and `onOpened` asks for them: its handler

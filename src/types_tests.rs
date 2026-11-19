@@ -297,7 +297,7 @@ fn the_typescript_timer_style_is_what_rust_reads_and_writes() {
     assert_eq!(members(&ts, "Timer"), written(timer, timer));
 }
 
-// TP-JS-7
+// TP-JS-7, TP-ANDROID-20
 #[test]
 fn the_typescript_options_of_a_start_on_android_are_what_rust_reads_and_writes() {
     let ts = types();
@@ -321,6 +321,8 @@ fn the_typescript_options_of_a_start_on_android_are_what_rust_reads_and_writes()
     let mut full = bare.clone();
     full.public_version = Some(version);
     full.placement = Some(AndroidPlacement::Foreground);
+    // Carried unless it says otherwise, and written only then.
+    let full = full.with_wear_ongoing_activity(false);
     assert_eq!(members(&ts, "LayoutAndroidOptions"), written(&full, &bare));
     assert_eq!(
         literals(&declared(&ts, "LayoutAndroidOptions", "visibility")),

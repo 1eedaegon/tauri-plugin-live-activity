@@ -88,6 +88,27 @@ test('the plugin has no Kotlin lifecycle, renderer, receivers or validator for l
   assert.deepEqual(kept, reflected);
 });
 
+// TP-ANDROID-20
+test("the Android library compiles against the library of a watch's Ongoing Activity and does not bring it", () => {
+  // liveupdate's WearOngoing is the one class of the adapter that names AndroidX classes of a watch. Its own AAR
+  // compiles against that library and does not bring it, and so does the plugin's Android library: an app has an
+  // Ongoing Activity only when it adds the library itself.
+  const adapter = 'android/src/main/java/io/github/eedaegon/liveupdate';
+  const naming = readdirSync(join(root, adapter)).filter(name => /androidx\.wear\.ongoing/.test(readFileSync(join(root, adapter, name), 'utf8')));
+  assert.deepEqual(naming, ['WearOngoing.kt']);
+  const gradle = readFileSync(join(root, 'android/build.gradle.kts'), 'utf8');
+  const wear = [...gradle.matchAll(/^\s*(\w+)\("androidx\.wear:wear-ongoing:([\d.]+)"\)/gm)].map(([, how, version]) => [how, version]);
+  assert.deepEqual(wear, [['compileOnly', '1.1.0']]);
+  // What liveupdate's own Gradle file compiles against is what the plugin compiles against.
+  const theirs = readFileSync(join(liveupdateDir(), 'android/build.gradle.kts'), 'utf8');
+  assert.match(theirs, /^\s*compileOnly\("androidx\.wear:wear-ongoing:1\.1\.0"\)/m);
+  // R8 in an app without that library: liveupdate's consumer rules for the class are the plugin's too.
+  const rule = (text: string): string[] => text.split('\n').filter(line => /^-(?:dontwarn|keep)\b.*(?:androidx\.wear|NotificationCompat|WearOngoing)/.test(line)).sort();
+  const ours = rule(readFileSync(join(root, 'android/consumer-rules.pro'), 'utf8'));
+  assert.deepEqual(ours, rule(readFileSync(join(liveupdateDir(), 'android/consumer-rules.pro'), 'utf8')));
+  assert.equal(ours.length, 3);
+});
+
 // TP-ANDROID-19
 test("every run_mobile_plugin call of the plugin's Rust has a guard for Tauri's panic", () => {
   // Tauri's call to a command of the Kotlin side panics while the app has no activity. `src/android.rs` is compiled

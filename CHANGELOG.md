@@ -1,5 +1,62 @@
 # Changelog
 
+## Unreleased
+
+Built on liveactivity 0.8.0 and liveupdate 0.7.0, from 0.7.6 and 0.4.1, with activitykit 0.6.5 as before. It
+brings what liveupdate added in seven releases, each part in the JavaScript and the Rust API. Breaking for a Rust
+caller, so the version is a minor one: the contract's types are the liveactivity crate's, whose `Template` and
+`EndPolicy` and liveupdate's enums are `#[non_exhaustive]` now. JSON written for 0.10 reads unchanged, and the
+permissions are as they were.
+
+- **An event of a kind that this version does not know** reaches JavaScript as `live-activity://unknown`
+  (`onUnknown`, Rust `UNKNOWN_EVENT`) with `activityId` and `activityKey`. It is one that a later version of the
+  plugin stored on Android, as after the app went back to an earlier version; liveupdate reads it for its
+  activity since 0.7.0. The plugin dropped such an event.
+- **A watch's Ongoing Activity**, as the liveactivity crate offers it: `android.wearOngoingActivity` in the
+  options of a layout's start, `wearOngoingActivity` in the presentation of an Android content, and the
+  capability `androidPresentation.wearOngoingActivity`. `false` keeps an activity off a watch's face; the
+  activity carries one where neither the start nor the content turns it off. It has nowhere to show from a Tauri
+  app: a Tauri app is a web view, which Wear OS does not offer, so an app with this plugin does not run on a
+  watch, the capability is false wherever it runs, and the two members change nothing on a phone. They are in the
+  contract so that a request is the same here and in the liveactivity crate.
+- **Below Android 17 a metric style shows its metrics**: the numbers and the texts as lines under the status,
+  and the first stopwatch or countdown as the clock in the header. It showed the title and the status alone.
+- **Below Android 12 the tap of an action that asks for the unlock is not taken from a locked device.** An
+  action of an Android content with `authenticationRequired` asks for the unlock from Android 12; Android 8 to
+  11 have no such setting and sent the tap at once. liveupdate's library now drops it while the device is
+  locked, and the person taps again after unlocking.
+- **liveupdate's store makes room.** A start and an update store liveupdate's receipts in at most 1,000,000
+  bytes: ended activities go, the oldest first. With large contents the store used to fill and fail every later
+  start with `NATIVE_ERROR`. A start or an update for which the live activities alone leave no room is
+  `SYSTEM_LIMIT`: some thirty activities with the longest texts an Android content has.
+- **Rust: code that compiles against the next version.** Build requests on the constructors, which take what
+  is required: new are `StartInput::new`, `Snapshot::progress` and `Snapshot::timer`, `Timer::new`,
+  `UpdateInput::new`, `EndInput::after`, `AndroidContent::new`, `ImageInput::new`,
+  `AndroidOptions::with_wear_ongoing_activity`, and liveupdate's `ProgressStyle::new`, `ProgressSegment::new`,
+  `ProgressPoint::new`, `BigTextStyle::new`, `TimerStyle::new`, `Metric::new`, `MetricStyle::new`,
+  `PublicVersion::new` and `SamsungNowBar::default()`, beside `AndroidPresentation::new` and
+  `NotificationAction::new`, which were there.
+- **Rust: the plugin re-exports the liveupdate crate** it builds with, as `tauri_plugin_live_activity::liveupdate`.
+  A `TimerStyle` takes liveupdate's `Timer`, whose name the contract gives to the template's timer: it was not
+  reachable without a dependency of the app's own. `TimerStyle::new(liveupdate::Timer::new(started_at, ends_at),
+  true)`.
+- The plugin's Android library carries liveupdate 0.7.0's adapter: `WearOngoing` and `MetricFallback` are new.
+  It compiles against `androidx.wear:wear-ongoing` and does not bring it, and its consumer rules keep R8 quiet
+  in an app without that library.
+- An Android content may write `wearOngoingActivity: true`, the default, as it may write any other member at
+  its default.
+- The documents said that a timer more than two weeks old shows nothing on Android 16 and that the app is told
+  nothing. Since 0.8.0 such a timer is refused with `INVALID_INPUT` from Android 15: the four places say so now,
+  in the README, the usage guide, the Android guide and the compatibility notes.
+
+When updating:
+
+- In Rust a `match` on `Template`, `EndPolicy` or one of liveupdate's enums (`PresentationStyle`, `MetricValue`,
+  `IconSource`, `SemanticStyle`) needs a `_` arm, and a struct literal of `AndroidPresentation` names the new
+  member or builds on `AndroidPresentation::new`.
+- An app that listens to every event of the plugin by name has one more: `live-activity://unknown`.
+- Nothing changes in the permissions, in `setup` or on iOS.
+
 ## 0.10.3
 
 On iOS the tap of a button comes without `on`, and a color pair behind a card is of the appearance of the card's
