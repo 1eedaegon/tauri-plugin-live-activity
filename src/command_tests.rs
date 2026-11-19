@@ -338,6 +338,43 @@ fn an_opening_from_a_notification_reaches_tauri_listeners() {
     );
 }
 
+// TP-EVENT-4
+#[test]
+fn what_android_stored_and_no_event_names_reaches_tauri_listeners() {
+    use crate::UNKNOWN_EVENT;
+    use liveactivity::Event;
+    use tauri::Listener;
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let (sender, heard) = std::sync::mpsc::channel();
+    app.listen(UNKNOWN_EVENT, move |event| {
+        let payload: Value = serde_json::from_str(event.payload()).unwrap();
+        let _ = sender.send(payload);
+    });
+    let actions = crate::actions::spawn(|_| {}).unwrap();
+    let sink = crate::events::sink(app.handle().clone(), actions, Default::default());
+    let unknown = |key: Option<&str>| {
+        Event::Unknown(crate::UnknownEvent {
+            activity_id: "la-1".into(),
+            activity_key: key.map(str::to_owned),
+        })
+    };
+    // Of an activity that the backend knows, then of one it knows no longer.
+    sink(unknown(Some("job:1")));
+    sink(unknown(None));
+    let wait = std::time::Duration::from_secs(10);
+    assert_eq!(
+        heard.recv_timeout(wait).unwrap(),
+        json!({"activityId":"la-1","activityKey":"job:1"})
+    );
+    assert_eq!(
+        heard.recv_timeout(wait).unwrap(),
+        json!({"activityId":"la-1"})
+    );
+}
+
 /// A backend that only takes where to send its events, and keeps it for the test to report through.
 struct Reporting(std::sync::Arc<std::sync::Mutex<Option<liveactivity::BackendContext>>>);
 

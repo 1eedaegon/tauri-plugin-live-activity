@@ -104,6 +104,18 @@
     "android": "ok"
   },
   {
+    "name": "a standard notification that stays off a watch's face",
+    "content": {
+      "title": "Mochi",
+      "status": "Dreaming of tuna",
+      "presentation": {
+        "style": { "kind": "standard" },
+        "wearOngoingActivity": false
+      }
+    },
+    "android": "ok"
+  },
+  {
     "name": "a long text",
     "content": {
       "title": "Mochi’s day",

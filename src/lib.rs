@@ -42,7 +42,7 @@ mod types_tests;
 pub use config::{AndroidConfig, Config, Receipts};
 pub use events::{
     ACTION_EVENT, OPENED_EVENT, PERMISSIONS_EVENT, PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT,
-    STARTED_EVENT, STATE_EVENT, UPDATED_EVENT,
+    STARTED_EVENT, STATE_EVENT, UNKNOWN_EVENT, UPDATED_EVENT,
 };
 /// The contract: the requests, records, layout types, errors and checks.
 pub use liveactivity::contract::*;

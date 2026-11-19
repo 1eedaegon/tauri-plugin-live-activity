@@ -5,6 +5,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.service.notification.StatusBarNotification
 import org.json.JSONArray
@@ -26,10 +27,19 @@ private const val LISTING_GRACE = 10_000L
 private const val OLD_TIME_API = 35
 private const val MAX_TIME_AGE = 14 * 24 * 60 * 60 * 1000L
 /** What a post may take from the adapter's check to Android's. */
-private const val POST_MARGIN = 60_000L
+internal const val POST_MARGIN = 60_000L
+/** The margin for a clock that the renderer adds on its own: the adapter's check of the post comes after it. */
+internal const val FALLBACK_CLOCK_MARGIN = 2 * POST_MARGIN
 private const val INVALID_MESSAGE = "Invalid live update request."
 private const val OLD_CLOCK_MESSAGE = "The clock is more than 14 days old: Android would not post it."
 private const val NATIVE_MESSAGE = "The Android live update adapter failed."
+
+/**
+ * Whether Android posts a notification whose header clock is [age] milliseconds old when it is posted. From API
+ * 35 it ignores one of more than 14 days, without an error; [margin] is what the post may take to reach it.
+ */
+internal fun postsClock(sdk: Int, age: Long, margin: Long): Boolean =
+    sdk < OLD_TIME_API || age <= MAX_TIME_AGE - margin
 
 /**
  * Android framework calls for the Rust lifecycle.
@@ -37,7 +47,8 @@ private const val NATIVE_MESSAGE = "The Android live update adapter failed."
  * [sdk] and [manufacturer] describe the device behavior the adapter follows. They use the real
  * device values; tests override them to exercise platform- and vendor-specific paths, and
  * [alertChannelId] to block the alerting channel as a user does. [exactAlarms] says whether an exact alarm may
- * be set, where Android is not to be asked, and [listingGrace] how long a post may stay unlisted.
+ * be set, where Android is not to be asked, [listingGrace] how long a post may stay unlisted, and [wearOngoing]
+ * whether a watch's Ongoing Activity is offered, where the device is not to be asked.
  */
 internal class AndroidAdapter(
     context: Context,
@@ -46,11 +57,17 @@ internal class AndroidAdapter(
     private val alertChannelId: String = ALERT_CHANNEL_ID,
     exactAlarms: Boolean? = null,
     listingGrace: Long = LISTING_GRACE,
+    wearOngoing: Boolean? = null,
 ) : ManagedAdapter {
     private val application = context.applicationContext
     private val manager = application.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val preferences = application.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
     private val scheduled = ScheduledStarts(application, this, preferences, exactAlarms, listingGrace)
+    private val wearOngoing = wearOngoing ?: offersWearOngoing(
+        application.packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH),
+        sdk,
+        ::hasWearOngoingLibrary,
+    )
 
     override fun capabilities(): JSONObject {
         ensureChannel()
@@ -77,19 +94,20 @@ internal class AndroidAdapter(
                 .put("publicVersion", true)
                 .put("branding", true)
                 .put("scheduledStart", true)
-                .put("exactStart", scheduled.exact()))
+                .put("exactStart", scheduled.exact())
+                .put("wearOngoingActivity", wearOngoing))
     }
 
     override fun read(): JSONArray {
         val raw = preferences.getString(RECORDS_KEY, "[]") ?: "[]"
-        if (raw.toByteArray(Charsets.UTF_8).size > MAX_RECORD_BYTES) nativeFailure()
+        if (exceedsUtf8(raw, MAX_RECORD_BYTES)) nativeFailure()
         return JSONArray(raw).also { if (it.length() > MAX_RECORDS) nativeFailure() }
     }
 
     override fun write(records: JSONArray) {
         if (records.length() > MAX_RECORDS) invalid()
         val raw = records.toString()
-        if (raw.toByteArray(Charsets.UTF_8).size > MAX_RECORD_BYTES) invalid()
+        if (exceedsUtf8(raw, MAX_RECORD_BYTES)) invalid()
         if (!preferences.edit().putString(RECORDS_KEY, raw).commit()) nativeFailure()
     }
 
@@ -173,11 +191,13 @@ internal class AndroidAdapter(
         }
         val id = record.optionalString("id") ?: invalid()
         if (!validId(id)) invalid()
-        // What a post would refuse at the time is refused now, also a clock that is too old by then.
-        val notification = build(record)
+        // What a post would refuse at the time is refused now, also a clock that is too old by then: the
+        // notification is built as it will be at its time.
+        val startAt = record.optJSONObject("origin")?.optLong("startAt") ?: 0
+        val postedAt = maxOf(System.currentTimeMillis(), startAt)
+        val notification = build(record, postedAt)
         if (record.optionalString("state") != "scheduled") invalid()
-        val startAt = record.getJSONObject("origin").getLong("startAt")
-        refuseOldTime(notification, maxOf(System.currentTimeMillis(), startAt))
+        refuseOldTime(notification, postedAt)
         // The alarm is set for the stored receipts, which the lifecycle writes before it schedules.
         if (stored(id)?.optionalString("state") != "scheduled") invalid()
         scheduled.take(id)
@@ -188,9 +208,10 @@ internal class AndroidAdapter(
     /** Begins the scheduled receipts whose time has come: for the alarm, and for a restart of the device. */
     internal fun startDue() = scheduled.run()
 
-    /** Whether Android lists the tagged notification of [id]. */
-    internal fun lists(id: String): Boolean =
-        manager.activeNotifications.any { it.tag == TAG_PREFIX + id && it.id == NOTIFICATION_ID }
+    /** The ids of the activities whose tagged notification Android lists, from one question to Android. */
+    internal fun listed(): Set<String> = manager.activeNotifications.mapNotNullTo(mutableSetOf()) { entry ->
+        entry.tag?.takeIf { entry.id == NOTIFICATION_ID && it.startsWith(TAG_PREFIX) }?.removePrefix(TAG_PREFIX)
+    }
 
     /** Removes the notification of [id] under the foreground id, if it is this activity's. */
     private fun cancelForeground(id: String) {
@@ -205,9 +226,17 @@ internal class AndroidAdapter(
         if (ours) manager.cancel(LiveUpdateForeground.NOTIFICATION_ID)
     }
 
-    /** The notification of a stored receipt, on the alerting channel when its revision alerts and the user allows. */
-    internal fun build(record: JSONObject): Notification =
-        NotificationRenderer(application, sdk, CHANNEL_ID, manufacturer).build(record, alertChannel(record))
+    /**
+     * The notification of a stored receipt as it is posted at [postedAt], on the alerting channel when its
+     * revision alerts and the user allows.
+     */
+    internal fun build(record: JSONObject, postedAt: Long = System.currentTimeMillis()): Notification =
+        renderer().build(record, alertChannel(record), postedAt)
+
+    private fun renderer(): NotificationRenderer {
+        val ongoing: ((Context, Notification) -> Unit)? = if (wearOngoing) WearOngoing::apply else null
+        return NotificationRenderer(application, sdk, CHANNEL_ID, manufacturer, ongoing)
+    }
 
     /**
      * The id and the notification of the live activity with the foreground placement, for a service of the
@@ -221,7 +250,7 @@ internal class AndroidAdapter(
             isForegroundPlaced(record) && record.optionalString("state") !in setOf("ended", "dismissed")
         } ?: return null
         val id = record.optionalString("id") ?: return null
-        val notification = NotificationRenderer(application, sdk, CHANNEL_ID, manufacturer).build(posted(record))
+        val notification = renderer().build(posted(record))
         refuseOldTime(notification)
         return id to notification
     }
@@ -241,14 +270,21 @@ internal class AndroidAdapter(
      */
     private fun refuseOldTime(notification: Notification, postedAt: Long = System.currentTimeMillis()) {
         if (!notification.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER)) return
-        val age = postedAt - notification.`when`
-        if (sdk >= OLD_TIME_API && age > MAX_TIME_AGE - POST_MARGIN) {
+        if (!postsClock(sdk, postedAt - notification.`when`, POST_MARGIN)) {
             throw AdapterFailure("INVALID_INPUT", OLD_CLOCK_MESSAGE)
         }
     }
 
     /** Whether a receipt of the activity [id] is stored. */
     internal fun knows(id: String): Boolean = stored(id) != null
+
+    /** Whether the stored receipt of [id] has the action [actionId] and says that it requires authentication. */
+    internal fun requiresAuthentication(id: String, actionId: String): Boolean {
+        val actions = stored(id)?.optJSONObject("snapshot")?.optJSONObject("presentation")?.optJSONArray("actions")
+            ?: return false
+        return (0 until actions.length()).mapNotNull(actions::optJSONObject)
+            .any { it.optionalString("id") == actionId && it.opt("authenticationRequired") == true }
+    }
 
     private fun stored(id: String): JSONObject? {
         val records = read()

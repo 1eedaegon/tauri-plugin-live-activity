@@ -71,6 +71,12 @@ export interface AndroidPresentationSupport {
    * takes the person to the setting that allows it.
    */
   readonly exactStart: boolean;
+  /**
+   * Whether a notification carries a watch's Ongoing Activity, its icon on the watch face: on a watch below Wear
+   * OS 7 whose app has `androidx.wear:wear-ongoing`. False on a phone. A Tauri app has a web view, which Wear OS
+   * does not offer, so this is false wherever the plugin runs today.
+   */
+  readonly wearOngoingActivity: boolean;
 }
 
 export interface Permissions {
@@ -272,6 +278,13 @@ export interface AndroidPresentation {
   readonly accentColor?: number;
   /** The third text of the header, at most 64 code points (`branding`). */
   readonly subText?: string;
+  /**
+   * `false`: this snapshot's notification carries no Ongoing Activity of a watch, the icon on the watch face of a
+   * Wear OS app that has `androidx.wear:wear-ongoing`. Absent or `true`, it carries one where the device offers it
+   * (`wearOngoingActivity` in the capabilities) and the start did not turn it off (`android.wearOngoingActivity`).
+   * A phone carries none, whatever this says.
+   */
+  readonly wearOngoingActivity?: boolean;
 }
 
 export type AndroidStyle =
@@ -779,6 +792,13 @@ export interface LayoutAndroidOptions {
    * answers `UNSUPPORTED_FEATURE`.
    */
   readonly placement?: 'tagged' | 'foreground';
+  /**
+   * `false`: the activity carries no Ongoing Activity of a watch, in any of its snapshots. Absent or `true`, it
+   * carries one where the device offers it (`wearOngoingActivity` in the capabilities), and a start that says
+   * `true` is the same activity as one that says nothing. Anything but a boolean is `INVALID_INPUT`, on every
+   * platform.
+   */
+  readonly wearOngoingActivity?: boolean;
 }
 
 /**
@@ -935,6 +955,18 @@ export interface ActionEvent {
    * content.
    */
   readonly on?: boolean;
+}
+
+/**
+ * Something that Android stored for an activity and this version has no event for (Android): liveupdate read what
+ * it knows of it, which is the activity. It comes when the stored events are of a later version of the plugin than
+ * the one that reads them, as after the app went back to an earlier version.
+ */
+export interface UnknownEvent {
+  /** Handle of the activity. */
+  readonly activityId: string;
+  /** The key of that activity, when the plugin knows it. */
+  readonly activityKey?: string;
 }
 
 /**

@@ -305,6 +305,46 @@ test('onStarted, onState and onPermissions listen to their events', async t => {
   assert.equal(started.length, 1);
 });
 
+// TP-EVENT-4
+test('onUnknown hands each unknown event to its handler until it is unsubscribed', async t => {
+  t.mock.method(console, 'warn', () => {});
+  mockIPC(() => undefined, { shouldMockEvents: true });
+  const heard: unknown[] = [];
+  const unlisten = await activity.onUnknown(event => heard.push(event));
+  const known = { activityId: layoutRecord.id, activityKey: layoutInput.activityKey };
+  const forgotten = { activityId: 'an-activity-the-plugin-knows-no-longer' };
+  await emit('live-activity://unknown', known);
+  await emit('live-activity://unknown', forgotten);
+  // Another event is none of its own.
+  await emit('live-activity://state', { ...known, state: 'active' });
+  assert.deepEqual(heard, [known, forgotten]);
+
+  await unlisten();
+  await emit('live-activity://unknown', known);
+  assert.equal(heard.length, 2);
+});
+
+// TP-ANDROID-20
+test("a start that keeps its activity off a watch's face is sent as given", async () => {
+  const calls: NativeCall[] = [];
+  mockIPC((nativeCommand, payload?: InvokeArgs) => {
+    calls.push({ nativeCommand, payload });
+    return layoutRecord;
+  });
+  // In the options of the start, for every snapshot of the activity; and in the presentation of an Android content,
+  // for its snapshot.
+  const quiet: LayoutStartInput = deepFreeze({
+    ...layoutInput,
+    android: { visibility: 'private', wearOngoingActivity: false },
+    snapshot: {
+      ...layoutInput.snapshot,
+      android: { title: 'Mochi', status: 'Dreaming of tuna', presentation: { style: { kind: 'standard' }, wearOngoingActivity: false } },
+    },
+  });
+  await activity.startLayout(quiet);
+  assert.deepEqual(calls, [{ nativeCommand: 'plugin:live-activity|start_layout', payload: { input: quiet } }]);
+});
+
 /** How many openings the plugin of this page has kept so far. The tests of this file are one page with one plugin:
  * its numbers go on from test to test, as the page's own do. */
 let openingsKept = 0;

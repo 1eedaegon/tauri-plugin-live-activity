@@ -225,3 +225,87 @@ fn layout_numbers_keep_their_value_when_read_from_json_text() {
         );
     }
 }
+
+// TP-RUST-6
+#[test]
+fn requests_are_built_on_the_constructors_through_the_plugins_exports() {
+    use std::collections::BTreeMap;
+    use tauri_plugin_live_activity::{
+        AndroidContent, AndroidOptions, AndroidPresentation, AndroidVisibility, EndInput,
+        EndPolicy, ImageInput, LayoutSnapshot, PresentationStyle, ProgressSegment, ProgressStyle,
+        PublicVersion, Snapshot, StartInput, Template, UpdateInput,
+    };
+    // The templates: a start takes its template from its snapshot.
+    let start = StartInput::new("ride:7", Snapshot::progress(0, "Ride", "On the way", 0.5));
+    assert_eq!(
+        serde_json::to_value(&start).unwrap(),
+        json!({"activityKey":"ride:7","schemaVersion":1,"template":"progress","fallback":"notification",
+            "snapshot":{"revision":0,"title":"Ride","status":"On the way","progress":0.5}})
+    );
+    assert_eq!(start.validate(), Ok(()));
+    let nap = Snapshot::timer(1, "Nap", "Asleep", 10, 20);
+    assert_eq!(
+        serde_json::to_value(UpdateInput::new("id", nap)).unwrap(),
+        json!({"id":"id","snapshot":{"revision":1,"title":"Nap","status":"Asleep",
+            "timer":{"startedAt":10,"endsAt":20}}})
+    );
+    assert_eq!(
+        serde_json::to_value(EndInput::after("id", 9)).unwrap(),
+        json!({"id":"id","policy":{"kind":"after","at":9}})
+    );
+    assert_eq!(
+        serde_json::to_value(ImageInput::new("cat.png", vec![1, 2])).unwrap(),
+        json!({"name":"cat.png","png":[1,2]})
+    );
+
+    // A layout's snapshot with an Android content, and the options of its start, each on its constructor.
+    let track = ProgressStyle {
+        styled_by_progress: true,
+        ..ProgressStyle::new(60, vec![ProgressSegment::new(100)])
+    };
+    let mut snapshot = LayoutSnapshot::new(0, BTreeMap::new());
+    snapshot.android = Some(AndroidContent::new(
+        "Ride",
+        "On the way",
+        AndroidPresentation {
+            public_version: Some(PublicVersion::new("Ride", "Soon")),
+            wear_ongoing_activity: false,
+            ..AndroidPresentation::new(PresentationStyle::Progress(track))
+        },
+    ));
+    assert_eq!(
+        serde_json::to_value(&snapshot).unwrap()["android"],
+        json!({"title":"Ride","status":"On the way","presentation":{
+            "style":{"kind":"progress","value":{"progress":60,"styledByProgress":true,"segments":[{"length":100}]}},
+            "publicVersion":{"title":"Ride","status":"Soon"},
+            "wearOngoingActivity":false}})
+    );
+    assert_eq!(
+        serde_json::to_value(
+            AndroidOptions::new(AndroidVisibility::Private).with_wear_ongoing_activity(false)
+        )
+        .unwrap(),
+        json!({"visibility":"private","wearOngoingActivity":false})
+    );
+
+    // The contract's enums are matched with a last arm.
+    #[deny(unreachable_patterns)]
+    fn named(template: Template, policy: &EndPolicy) -> (&'static str, &'static str) {
+        let template = match template {
+            Template::Progress => "progress",
+            Template::Timer => "timer",
+            _ => "later",
+        };
+        let policy = match policy {
+            EndPolicy::Immediate {} => "immediate",
+            EndPolicy::Default {} => "default",
+            EndPolicy::After { .. } => "after",
+            _ => "later",
+        };
+        (template, policy)
+    }
+    assert_eq!(
+        named(Template::Timer, &EndPolicy::After { at: 1 }),
+        ("timer", "after")
+    );
+}
