@@ -901,9 +901,10 @@ const delivery = await startLayout({
   by segments of two colors, as above, or by a `trackerIcon`. Below Android 16 the plain bar shows it. The member
   is false when a content leaves it out; in Rust `ProgressStyle::new` builds the style with it, and
   `styled_by_progress: false` turns it off.
-- On One UI 9 a point at the full length of the track is not drawn, the status chip shows the first metric
-  whatever `criticalMetric` names, and of three metrics a value longer than about seven characters is cut, a
-  number too: liveupdate saw so on a Galaxy S23.
+- On One UI 9 with Android 17 a point at the full length of the track is not drawn, the status chip of a
+  `metric` style shows the first metric whatever `criticalMetric` names, and of three metrics a value longer than
+  about seven characters is cut, a number too: liveupdate saw so on a Galaxy S23. A right-to-left layout is the
+  system's: nothing of a content gives a direction.
 - The title is 1 to 120 code points and the status 1 to 240. `largeIcon` and an action's `icon` name a drawable or
   mipmap resource of the app (`{ kind: 'resource', value }`) or a file under the app's files, such as one that
   `writeImage` wrote (`{ kind: 'appFile', value }`). `samsungNowBar: { primary?, secondary? }` gives the Now Bar its

@@ -192,7 +192,7 @@ What a device shows of a content follows its Android version, by liveupdate's ac
 | A promoted Live Update | Android 16 | An ongoing notification, with the fallback `notification` |
 | A `progress` style's segments, points and icons | Android 16 | A plain progress bar |
 | The status chip's `shortCriticalText` | Android 16 | Not shown |
-| A `metric` style | Android 17 | The numbers and the texts as lines under the status, a decimal with at most two fraction digits as Android 17 writes it, and the first stopwatch or countdown as the clock in the header (liveupdate 0.7.0; before it the title and the status alone). `metricStyle` is false there |
+| A `metric` style | Android 17 | The numbers and the texts as lines under the status, and the first stopwatch or countdown as the clock in the header (liveupdate 0.7.0; before it the title and the status alone). A decimal has at most two fraction digits, as Android 17 writes it, and what rounds to nothing is `0` (liveupdate 0.7.1; 0.7.0 wrote every digit). `metricStyle` is false there |
 | Semantic colors of a segment, a point and a metric | Android 17 | Not shown |
 | Samsung Now Bar | Android 17, One UI | Not shown |
 | The unlock before the tap of an action with `authenticationRequired` | Android 12 | The tap of a locked device is dropped (liveupdate 0.4.4; before it the tap was taken at once), and the person taps again after unlocking. An action that opens a URL starts the app, for which Android asks on every version |
@@ -212,8 +212,9 @@ liveupdate's own AAR does not, and its consumer rules keep R8 quiet in an app wi
 run on a watch ([usage](usage.md#wear-os)), so none of this code runs today, and the capability
 `wearOngoingActivity` is false. So is what liveupdate 0.7.1 adds for a watch: where the adapter offers the
 Ongoing Activity, it cancels a shown notification that carries one before it posts one without, because a watch
-shows the icon until the notification is cancelled. An adapter that offers none cancels nothing, which is every
-phone.
+shows the icon until the notification is cancelled. A notification that a foreground service holds cannot be
+cancelled, and keeps its icon until the activity ends. An adapter that offers none cancels nothing, which is
+every phone.
 
 Stored events that this version does not know are passed on: liveupdate reads an event of a kind it does not
 know for its activity, and the plugin reports it as `live-activity://unknown` (`onUnknown`, Rust

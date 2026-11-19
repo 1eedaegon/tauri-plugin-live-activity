@@ -214,13 +214,16 @@ style on the Lock Screen (`test1`), the button's tap (`test2`) and the switch (`
 
 ## 0.11.0 on an iPhone
 
-0.11.0 changes nothing on iOS: activitykit stays 0.6.5, and liveactivity 0.8.0 differs from 0.7.6 on Android
-and in what a Rust caller builds on. A build of the release's pull request passed the lifecycle test on the
-iPhone XS with iOS 18.7.12 in 2 of 2 runs, 27 checks each, and the UI tests of a bound style on the Lock Screen,
-of the button's tap and of the switch, at the runner's first start: the tap's record read
-`{"actionId":"pet","activityId":"la-ios-layout-…","activityKey":"mochi:buttons"}`. The iPhone 16 read
-unavailable when that build began, and was not run. The two simulator suites ran on a hosted runner
-before the pull request of the change was merged (iOS 26.2).
+0.11.0 changes nothing on iOS: activitykit stays 0.6.5, and liveactivity 0.8.1 differs from 0.7.6 on Android
+and in what a Rust caller builds on. A build of `a809e7f`, the first commit of the release's pull request, which
+is of liveactivity 0.8.0, passed the lifecycle test on the iPhone XS with iOS 18.7.12 in 2 of 2 runs, 27 checks
+each, and the UI tests of a bound style on the Lock Screen, of the button's tap and of the switch, at the
+runner's first start: the tap's record read
+`{"actionId":"pet","activityId":"la-ios-layout-…","activityKey":"mochi:buttons"}`. The phone was not run again
+when the release took liveactivity 0.8.1, which differs from 0.8.0 in the liveupdate it builds on. The iPhone 16
+read unavailable when that build began, and was not run. The two simulator suites ran on a hosted runner with
+iOS 26.2 on both: on #64's head but one, and on `d96042b` with liveactivity 0.8.1, where the built demo passed
+its 12 tests and `tauri ios dev` its 4, each at its first try.
 
 ## Tests added after the first release
 

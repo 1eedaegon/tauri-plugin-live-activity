@@ -40,8 +40,8 @@ permissions are as they were.
 - **Rust: a progress style built on `ProgressStyle::new` is styled by its progress**, as Android's own default
   is: what is ahead of the progress is shown fainter. A caller who wants every segment in full says
   `styled_by_progress: false`. From JavaScript nothing changes: `styledByProgress` is false when a content leaves
-  it out, and then Android 16 shows a bar the same at 0 and at 100 unless it has segments of two colors or a
-  tracker icon.
+  it out, and then Android 16 shows every segment in full: the bar is the same at 0 and at 100 unless the content
+  shows the value itself, with a tracker icon or with two segments of two colors whose lengths it sets.
 - **Rust: the plugin re-exports the liveupdate crate** it builds with, as `tauri_plugin_live_activity::liveupdate`.
   A `TimerStyle` takes liveupdate's `Timer`, whose name the contract gives to the template's timer: it was not
   reachable without a dependency of the app's own. `TimerStyle::new(liveupdate::Timer::new(started_at, ends_at),
@@ -50,10 +50,11 @@ permissions are as they were.
   It compiles against `androidx.wear:wear-ongoing` and does not bring it, and its consumer rules keep R8 quiet
   in an app without that library. Where the adapter offers a watch's Ongoing Activity, it takes a shown
   notification away before it posts one without, so that the icon goes from the watch face with the update that
-  turns it off and with the end: on a phone it cancels nothing.
-- The documents say what liveupdate saw of One UI 9 on a Galaxy S23: a point at the full length of a progress
-  track is not drawn, the status chip shows the first metric whatever `criticalMetric` names, and of three
-  metrics a value longer than about seven characters is cut.
+  turns it off and with the end; what a foreground service holds cannot be cancelled and keeps its icon until
+  the activity ends. On a phone it cancels nothing.
+- The documents say what liveupdate saw of One UI 9 on a Galaxy S23 with Android 17: a point at the full length
+  of a progress track is not drawn, the status chip shows the first metric whatever `criticalMetric` names, and
+  of three metrics a value longer than about seven characters is cut.
 - An Android content may write `wearOngoingActivity: true`, the default, as it may write any other member at
   its default.
 - The documents said that a timer more than two weeks old shows nothing on Android 16 and that the app is told
