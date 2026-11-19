@@ -6,14 +6,17 @@ Built on liveactivity 0.8.3 with activitykit 0.6.6, from 0.8.1 and 0.6.5, and li
 the JavaScript or the Rust API changes.
 
 - **Buttons and toggles begin with iOS 17.2**, not 17.0. Below it the widget draws them as their labels and
-  `getCapabilities()` answers `actions: 'unsupported'`. On iOS 17.0 and 17.1 a button was drawn and its tap ran
-  nothing: Xcode writes activitykit's intent into the app's App Intents metadata as one that begins with iOS 17.2.
+  `getCapabilities()` answers `actions: 'unsupported'`. On iOS 17.0 a button was drawn and its tap ran nothing (seen
+  by activitykit on the simulator; 17.1 was not run): Xcode writes activitykit's intent into the app's App Intents
+  metadata as one that begins with iOS 17.2.
   The README, the guides and the declarations say iOS 17.2, and a test holds them to the activitykit of the lock.
 - **A button or a toggle of a narrow layout is tapped on iOS 17.** On the Lock Screen activitykit's widget gives
   the layout the card's whole width, and a narrower layout stands in its middle as before; iOS 17.2 and 17.4 did
   not find such a control under a tap and opened the app. The usage guide says how a layout is placed in the card.
-- **An app builds for iOS with Xcode 27 without a patch of activitykit.** Its build script names SwiftPM's own build
-  system: Xcode 27's `swift build` defaults to Swift Build, which did not build activitykit's bridge for iOS.
+- **activitykit's build script names SwiftPM's own build system** (`--build-system native`), for Xcode 27, whose
+  `swift build` defaults to Swift Build. An app built with Xcode 27.2 reported that activitykit's bridge did not
+  build for iOS without it and patched the crate; with 0.6.6 such a patch should not be needed. Neither activitykit
+  nor this project has run Xcode 27.
 - The documents say what a watch and a car show, on iOS and on Android each. They said that an Android watch and
   car show the notification by themselves, and that Android bridges no ongoing notification to a paired watch. By
   Android's documentation a phone's ongoing notification is not bridged, a Live Update is bridged to some watches

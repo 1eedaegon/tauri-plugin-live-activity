@@ -567,20 +567,23 @@ Android shows only the first two texts, as the title and the body.
 ### Placement on the Lock Screen
 
 The system gives the card its place and its width, and makes it as high as the layout. The layout decides the rest:
-activitykit measured on simulators of iOS 16.2 to 26.3, and saw the same on each.
+activitykit measured on simulators of iOS 16.2 to 26.3 and saw the same on each, and no phone has been measured.
+What differed was outside the layout: the card stood 14 points from the screen's sides on the Pro phones from
+iOS 17.0 and 10 points on iOS 16.2 and on an iPhone SE; and a hex `background`, which is the system's tint, read as
+itself up to iOS 18.0 and as (251, 251, 24) for `#FFFF00` on iOS 26.3.
 
 - **There is no margin.** A node at the edge of the layout touches the edge of the card, and the card's rounded
   corners cut what stands in them. Give the root a padding: `vstack([...], { style: 'card' })` with
   `styles: { card: { padding: 16 } }`.
 - **A layout is as wide as its widest node, and stands in the middle of the card.** A stack's `alignment` moves its
-  children inside the stack, not the stack in the card. To put something at an edge, let a node fill the width,
-  `frame: { maxWidth: 'infinity', alignment: 'leading' }`, or push with a `spacer()`, which takes the room that is
-  left. A style's own `alignment` aligns the lines of a text that wraps, and moves nothing.
+  children inside the stack, not the stack in the card. To put something at an edge, let a node fill the width
+  with a style, `styles: { wide: { frame: { maxWidth: 'infinity', alignment: 'leading' } } }`, or push with a
+  `spacer()`, which takes the room that is left. A style's own `alignment` aligns the lines of a text that wraps, and moves nothing.
 - **A style is applied in one order**: padding, the frame, the background, the corner radius, the opacity. A
   background covers the padding of its node, and padding, a background and a corner radius on one node make a box.
 - **The card is as high as the layout**, at most 160 points: of a higher layout the system shows the middle and
-  cuts the top and the bottom alike. `maxHeight: 'infinity'` on the root does not ask for those 160 points; a
-  `height` or a `minHeight` does.
+  cuts the top and the bottom alike. `maxHeight: 'infinity'` on the root does not ask for those 160 points (such a
+  card was 64 points high); a `height` or a `minHeight` does.
 
 activitykit's widget gives the layout the card's whole width since 0.6.6, and a narrower layout stands in its
 middle as before: iOS 17.2 and 17.4 did not find a button or a toggle of a narrower layout under a tap, and opened

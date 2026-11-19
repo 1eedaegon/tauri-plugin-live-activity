@@ -112,10 +112,12 @@ target every name is listed. Keep the Objective-C name; the Swift class name may
 ## Buttons
 
 A `button` node needs iOS 17.2; `getCapabilities()` reports `actions: 'supported'` there. Below iOS 17.2 the widget
-shows the button's label without the button. activitykit's intent is of 17.0, but Xcode writes it into the app's App
-Intents metadata as one that begins with 17.2: with an activitykit before 0.6.6 a button was drawn on 17.0 and 17.1
-and its tap ran nothing. What Xcode wrote is in the built app: `<App>.app/Metadata.appintents/extract.actionsdata`,
-under `actions.ActivityKitActionIntent`.
+shows the button's label without the button. The `LiveActivityIntent` protocol is of 17.0, but Xcode writes
+activitykit's intent into the app's App Intents metadata as one that begins with 17.2: with an activitykit before
+0.6.6 a button was drawn on 17.0 and its tap ran nothing (seen by activitykit on the simulator; 17.1 was not run).
+What Xcode wrote is in the built app: `<App>.app/Metadata.appintents/extract.actionsdata`, under
+`actions.ActivityKitActionIntent`. Right after an installation the system may not have read the app's intents yet:
+on the iOS 18.0 simulator activitykit's taps ran nothing until the seventh, twenty seconds apart.
 
 A tap runs activitykit's `ActivityKitActionIntent`, a `LiveActivityIntent`, in the app process. When the app was not
 running, the system launches it in the background. The intent posts the tap to activitykit's bridge for at most 5
