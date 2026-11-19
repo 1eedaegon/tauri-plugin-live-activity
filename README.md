@@ -278,8 +278,8 @@ at most 1 MiB and 1224 × 480 pixels. [More](https://github.com/1eedaegon/tauri-
   configuration sets `"receipts": "redacted"`.
 - A button's tap waits for the Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.
 - Pushes are iOS only. Android shows an ongoing notification, promoted to a Live Update where the system allows it.
-- Android 16 shows nothing of a notification whose time is more than two weeks past, and the app is told nothing. This
-  is a timer whose start or end lies that far before the post.
+- From Android 15 a timer whose clock is more than 14 days old is refused with `INVALID_INPUT`: Android would show
+  nothing of such a notification and tell the app nothing.
 - Keep the npm package and the crate on the same minor version.
 
 ## Samsung Now Bar

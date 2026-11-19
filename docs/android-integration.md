@@ -197,10 +197,9 @@ What a device shows of a content follows its Android version, by liveupdate's ac
 | Samsung Now Bar | Android 17, One UI | Not shown |
 | The unlock before the tap of an action with `authenticationRequired` | Android 12 | The tap of a locked device is dropped (liveupdate 0.4.4; before it the tap was taken at once), and the person taps again after unlocking. An action that opens a URL starts the app, for which Android asks on every version |
 
-From Android 15 a timer whose clock is more than 14 days old is refused with `INVALID_INPUT`, its end when it
-counts down and its start when it counts up: Android would show nothing of such a notification and tell the app
-nothing. Measured on an Android 16 emulator before liveupdate refused it: a time 13 days ago shows, one 15 days
-ago does not.
+A timer whose clock is more than 14 days old is refused from Android 15 ([A scheduled start](#a-scheduled-start)
+has the rule): Android would show nothing of such a notification and tell the app nothing. Measured on an
+Android 16 emulator before liveupdate refused it: a time 13 days ago shows, one 15 days ago does not.
 
 ### The adapter and a watch
 

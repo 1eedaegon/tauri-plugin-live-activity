@@ -30,17 +30,24 @@ permissions are as they were.
   start with `NATIVE_ERROR`. A start or an update for which the live activities alone leave no room is
   `SYSTEM_LIMIT`: some thirty activities with the longest texts an Android content has.
 - **Rust: code that compiles against the next version.** Build requests on the constructors, which take what
-  is required: new are `StartInput::new`, `Snapshot::progress` and `Snapshot::timer`, `UpdateInput::new`,
-  `EndInput::after`, `AndroidContent::new`, `ImageInput::new`, `AndroidOptions::with_wear_ongoing_activity`, and
-  liveupdate's `ProgressStyle::new`, `ProgressSegment::new`, `ProgressPoint::new`, `BigTextStyle::new`,
-  `TimerStyle::new`, `Metric::new`, `MetricStyle::new`, `PublicVersion::new` and `SamsungNowBar::default()`.
+  is required: new are `StartInput::new`, `Snapshot::progress` and `Snapshot::timer`, `Timer::new`,
+  `UpdateInput::new`, `EndInput::after`, `AndroidContent::new`, `ImageInput::new`,
+  `AndroidOptions::with_wear_ongoing_activity`, and liveupdate's `ProgressStyle::new`, `ProgressSegment::new`,
+  `ProgressPoint::new`, `BigTextStyle::new`, `TimerStyle::new`, `Metric::new`, `MetricStyle::new`,
+  `PublicVersion::new` and `SamsungNowBar::default()`, beside `AndroidPresentation::new` and
+  `NotificationAction::new`, which were there.
+- **Rust: the plugin re-exports the liveupdate crate** it builds with, as `tauri_plugin_live_activity::liveupdate`.
+  A `TimerStyle` takes liveupdate's `Timer`, whose name the contract gives to the template's timer: it was not
+  reachable without a dependency of the app's own. `TimerStyle::new(liveupdate::Timer::new(started_at, ends_at),
+  true)`.
 - The plugin's Android library carries liveupdate 0.7.0's adapter: `WearOngoing` and `MetricFallback` are new.
   It compiles against `androidx.wear:wear-ongoing` and does not bring it, and its consumer rules keep R8 quiet
   in an app without that library.
 - An Android content may write `wearOngoingActivity: true`, the default, as it may write any other member at
   its default.
 - The documents said that a timer more than two weeks old shows nothing on Android 16 and that the app is told
-  nothing. Since 0.8.0 such a timer is refused with `INVALID_INPUT` from Android 15: the three places say so now.
+  nothing. Since 0.8.0 such a timer is refused with `INVALID_INPUT` from Android 15: the four places say so now,
+  in the README, the usage guide, the Android guide and the compatibility notes.
 
 When updating:
 

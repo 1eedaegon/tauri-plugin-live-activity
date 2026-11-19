@@ -46,6 +46,9 @@ pub use events::{
 };
 /// The contract: the requests, records, layout types, errors and checks.
 pub use liveactivity::contract::*;
+/// The liveupdate crate that the plugin builds with, for what the parts of an Android content take beside the
+/// contract's types: its `Timer` for a `TimerStyle`, whose name the contract gives to the template's timer.
+pub use liveactivity::liveupdate;
 pub use openings::OPENINGS_KEPT;
 pub use service::LiveActivity;
 

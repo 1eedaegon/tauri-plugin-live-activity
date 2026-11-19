@@ -910,7 +910,8 @@ const delivery = await startLayout({
 - A presentation takes `openUrl`, a `chronometer`, an `alert` (this revision alerts again), a
   `publicVersion`, a `smallIcon`, an `accentColor` and a `subText`. Each is behind a capability of
   `getCapabilities().androidPresentation`: `links`, `chronometer`, `alert`, `publicVersion` and
-  `branding` (the small icon, the color and the sub text). A content that uses a member its device
+  `branding` (the small icon, the color and the sub text). The same object says `wearOngoingActivity`, which
+  stands before no member ([Wear OS](#wear-os)). A content that uses a member its device
   does not offer is `UNSUPPORTED_FEATURE`, except the alert: it is left out and `alert` is named in
   `degradedFeatures`.
 - An action takes `openUrl` too. Such an action opens the URL in the app and sends no tap; `onOpened`
@@ -930,9 +931,9 @@ const delivery = await startLayout({
   what is required (`AndroidPresentation::new(style)`, `ProgressStyle::new(progress, segments)`,
   `ProgressSegment::new(length)`, `PublicVersion::new(title, status)`, …) and name the other members with the
   struct update syntax: a member that a later version adds is then left at its default, and the code still
-  compiles. Their enums may grow too: match them with a `_` arm. One type is missing: a `TimerStyle` takes
-  liveupdate's `Timer`, which the plugin does not re-export (its `Timer` is the template's). Read a timer style
-  from JSON with `serde_json`, or add the `liveupdate` crate at the version the plugin builds with.
+  compiles. Their enums may grow too: match them with a `_` arm. A `TimerStyle` takes liveupdate's `Timer`,
+  not the plugin's `Timer`, which is the template's: the plugin re-exports the liveupdate crate it builds with,
+  so it is `TimerStyle::new(tauri_plugin_live_activity::liveupdate::Timer::new(started_at, ends_at), true)`.
 
 ### Wear OS
 
