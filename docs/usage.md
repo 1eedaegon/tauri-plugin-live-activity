@@ -894,11 +894,17 @@ const delivery = await startLayout({
 | `bigText` | `{ text, summary? }` | a longer text under the title |
 | `progress` | `{ progress, segments, points?, indeterminate?, styledByProgress?, startIcon?, endIcon?, trackerIcon? }` | a bar; its 1 to 32 segments, up to 32 points, colors and icons from Android 16 (`progressStyle`), a plain bar below |
 | `timer` | `{ timer: { startedAt, endsAt }, countsDown }` | the chronometer, counting down to the end or up from the start |
-| `metric` | `{ metrics, criticalMetric? }` | up to three labelled values, each an integer, a decimal or a text; Android 17 (`metricStyle`). Below it the numbers and the texts are lines under the status, and the first stopwatch or countdown is the clock in the header |
+| `metric` | `{ metrics, criticalMetric? }` | up to three labelled values, each an integer, a decimal or a text; Android 17 (`metricStyle`). Below it the numbers and the texts are lines under the status, a decimal with at most two fraction digits as Android 17 writes it, and the first stopwatch or countdown is the clock in the header |
 
 - A progress shows its value on Android 16 only where the content says how: with `styledByProgress: true` Android
   draws what lies ahead of the progress as a thin line, and without it every segment looks done, so the value shows
-  by segments of two colors, as above, or by a `trackerIcon`. Below Android 16 the plain bar shows it.
+  by segments of two colors, as above, or by a `trackerIcon`. Below Android 16 the plain bar shows it. The member
+  is false when a content leaves it out; in Rust `ProgressStyle::new` builds the style with it, and
+  `styled_by_progress: false` turns it off.
+- On One UI 9 with Android 17 a point at the full length of the track is not drawn, the status chip of a
+  `metric` style shows the first metric whatever `criticalMetric` names, and of three metrics a value longer than
+  about seven characters is cut, a number too: liveupdate saw so on a Galaxy S23. A right-to-left layout is the
+  system's: nothing of a content gives a direction.
 - The title is 1 to 120 code points and the status 1 to 240. `largeIcon` and an action's `icon` name a drawable or
   mipmap resource of the app (`{ kind: 'resource', value }`) or a file under the app's files, such as one that
   `writeImage` wrote (`{ kind: 'appFile', value }`). `samsungNowBar: { primary?, secondary? }` gives the Now Bar its
@@ -946,6 +952,10 @@ plugin offers what belongs to it, as the liveactivity crate has it:
   face, in all of its snapshots (`AndroidOptions::new(visibility).with_wear_ongoing_activity(false)` in Rust).
 - `wearOngoingActivity: false` in the presentation of an Android content does so for its snapshot. An activity
   carries the Ongoing Activity where neither turns it off; a template (`start`) has no such choice.
+- An update may turn it off or on. The icon goes from the watch face with the update that turns it off, and
+  with the end; an activity that a foreground service holds keeps it until it ends. The icon is all a watch
+  shows of an activity: Wear OS does not list an ongoing notification among its notifications, and a revision
+  that alerts does not pop up there.
 
 It has nowhere to show from a Tauri app today. A Tauri app is a web view, and Wear OS offers none
 ([`android.webkit` is not supported there](https://developer.android.com/training/wearables/wear-v-mobile)), so an

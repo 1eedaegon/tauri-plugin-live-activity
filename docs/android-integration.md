@@ -182,7 +182,7 @@ the record names `alert` in `degradedFeatures`. Android alerts with the sound of
 `sound` is not played, and the record names `alert.sound`.
 
 Layouts with a `progress`, and contents of the `progress` style, are posted on Android 16. The adapter
-the plugin carries is liveupdate 0.7.0's, which does not call the method that only Android 17 has. Below
+the plugin carries is liveupdate 0.7.1's, which does not call the method that only Android 17 has. Below
 Android 16 liveupdate posts the plain bar, as the progress template does on every Android.
 
 What a device shows of a content follows its Android version, by liveupdate's account:
@@ -192,7 +192,7 @@ What a device shows of a content follows its Android version, by liveupdate's ac
 | A promoted Live Update | Android 16 | An ongoing notification, with the fallback `notification` |
 | A `progress` style's segments, points and icons | Android 16 | A plain progress bar |
 | The status chip's `shortCriticalText` | Android 16 | Not shown |
-| A `metric` style | Android 17 | The numbers and the texts as lines under the status, and the first stopwatch or countdown as the clock in the header (liveupdate 0.7.0; before it the title and the status alone). `metricStyle` is false there |
+| A `metric` style | Android 17 | The numbers and the texts as lines under the status, and the first stopwatch or countdown as the clock in the header (liveupdate 0.7.0; before it the title and the status alone). A decimal has at most two fraction digits, as Android 17 writes it, and what rounds to nothing is `0` (liveupdate 0.7.1; 0.7.0 wrote every digit). `metricStyle` is false there |
 | Semantic colors of a segment, a point and a metric | Android 17 | Not shown |
 | Samsung Now Bar | Android 17, One UI | Not shown |
 | The unlock before the tap of an action with `authenticationRequired` | Android 12 | The tap of a locked device is dropped (liveupdate 0.4.4; before it the tap was taken at once), and the person taps again after unlocking. An action that opens a URL starts the app, for which Android asks on every version |
@@ -205,12 +205,16 @@ Android 16 emulator before liveupdate refused it: a time 13 days ago shows, one 
 
 The plugin's Android library carries liveupdate's adapter as source, of the liveupdate version in `Cargo.lock`,
 so the crate and the adapter are always of one version: what liveupdate says of a crate and an AAR of two
-versions does not arise here. Two of its files are new with 0.7.0. `MetricFallback` draws the metrics below
-Android 17. `WearOngoing` puts a watch's Ongoing Activity into a notification, on a watch below Wear OS 7 whose
+versions does not arise here. Two of its files are new with liveupdate 0.7.0. `MetricFallback` draws the metrics
+below Android 17. `WearOngoing` puts a watch's Ongoing Activity into a notification, on a watch below Wear OS 7 whose
 app has `androidx.wear:wear-ongoing`: the library compiles against that dependency and does not bring it, as
 liveupdate's own AAR does not, and its consumer rules keep R8 quiet in an app without it. A Tauri app does not
 run on a watch ([usage](usage.md#wear-os)), so none of this code runs today, and the capability
-`wearOngoingActivity` is false.
+`wearOngoingActivity` is false. So is what liveupdate 0.7.1 adds for a watch: where the adapter offers the
+Ongoing Activity, it cancels a shown notification that carries one before it posts one without, because a watch
+shows the icon until the notification is cancelled. A notification that a foreground service holds cannot be
+cancelled, and keeps its icon until the activity ends. An adapter that offers none cancels nothing, which is
+every phone.
 
 Stored events that this version does not know are passed on: liveupdate reads an event of a kind it does not
 know for its activity, and the plugin reports it as `live-activity://unknown` (`onUnknown`, Rust
@@ -441,7 +445,10 @@ What the app can do:
   draws it, with its bar and its actions, and its chip shows the title. Seen on a Galaxy S23 with the developer
   option on, with the demo's Switch and Link examples, and for the bar with its Progress example
   ([Android coverage](android-coverage.md#the-bar-of-a-layout-0102)); whether an app on Samsung's list is drawn
-  differently is not known. An activity that needs its bar or its actions on a Galaxy leaves the option off.
+  differently is not known. liveupdate's own look at a Galaxy S23 on 2026-11-19 saw the same: with the extras the
+  Now Bar and its card show the two lines with the app's icon and no bar, and without them a promoted activity is
+  in the Now Bar with its bar once it is opened. An activity that needs its bar or its actions on a Galaxy leaves
+  the option off.
 - Read the developer option with `Settings.Secure.getInt(resolver,
   "enable_notification_nowbar_test", -1)` (-1: absent). An app cannot change it.
 

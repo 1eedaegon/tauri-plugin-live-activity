@@ -96,6 +96,47 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## liveupdate 0.7.1, 0.11.0
+
+0.11.0 moves the plugin's Android side from liveupdate 0.4.1 to 0.7.1: the adapter's Kotlin is copied anew, with
+`MetricFallback` and `WearOngoing` as new files, and the library compiles against `androidx.wear:wear-ongoing`
+without bringing it. The change came in two steps, to 0.7.0 (#64) and, when 0.7.1 came out during the release's
+review, to 0.7.1 (#65), and the phone ran both.
+
+With liveupdate 0.7.1, on a build of `d96042b`:
+
+- A Galaxy S23 with Android 17 (API 37, One UI 9), unlocked. The demo's lifecycle test passed, 30 of 30 in 3 of
+  3 runs, and no alarm of the demo was left. The capabilities answered `wearOngoingActivity: false`, as on every
+  phone.
+- The library's device tests there: 10 of 10. `liveupdatesAdapterPostsEveryAndroidContentThatRustWrites` posted
+  the fixture's twenty contents, the one that turns the Ongoing Activity off among them: on a phone it is posted
+  as any other, and the adapter's new cancel before such a post is for a device that offers the Ongoing
+  Activity.
+- An emulator of Android 16 (API 36): `tests/android/screens.ts` took its 17 pictures. 15 are the same bytes as
+  the files of `docs/images`, `android-v1-progress` and `android-layout-progress`, the two that show a bar, among
+  them. `android-demo-snack` and `android-permission`, the two whole screens, differ inside their status bar
+  alone (3101 and 1670 of 2,397,600 pixels, between y 15 and 50): the time of day and the icon of the cell
+  signal. Nothing was committed.
+
+With liveupdate 0.7.0, before:
+
+- The same phone on a build of `8e777b1`, the head but one of #64: the lifecycle test 30 of 30 in 3 of 3 runs.
+  The device tests: 9 of 10, then 10 of 10. `pluginKeepsProtocolFailuresInsideTheInnerEnvelope` expected
+  `INVALID_INPUT` for a command that liveupdate's dispatcher does not know. Since liveupdate 0.7.0 the
+  dispatcher answers `UNSUPPORTED_FEATURE`, because a later crate may ask for it, and leaves a member of a payload
+  that it does not know alone: the test holds both now.
+- The same phone on a build of `a809e7f`, the first commit of the release's pull request: the lifecycle test, 30
+  of 30 in 3 of 3 runs.
+- An emulator of Android 16 (API 36), with a build of `8e777b1`: `tests/android/screens.ts` took its 17 pictures
+  again. 14 are the same bytes as the files of `docs/images`; `android-v1-timer` differs in one digit of its
+  countdown, and `android-demo-snack` and `android-permission` in the time of day of the status bar. Nothing was
+  committed.
+
+Not seen on a device: a metric style below Android 17, which the adapter draws as lines of text with a header
+clock, a decimal at two fraction digits since 0.7.1 (the demo posts no metric content, and the device tests ran
+on Android 17); the tap of an action that asks for the unlock, on a locked device below Android 12; a store of
+receipts without room; a watch, which the plugin does not run on.
+
 ## 0.10.3 on a phone
 
 0.10.3 changes nothing on Android: liveupdate 0.4.1 and the plugin's Kotlin library are those of 0.10.2, and

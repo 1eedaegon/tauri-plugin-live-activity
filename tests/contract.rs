@@ -259,10 +259,7 @@ fn requests_are_built_on_the_constructors_through_the_plugins_exports() {
     );
 
     // A layout's snapshot with an Android content, and the options of its start, each on its constructor.
-    let track = ProgressStyle {
-        styled_by_progress: true,
-        ..ProgressStyle::new(60, vec![ProgressSegment::new(100)])
-    };
+    let track = ProgressStyle::new(60, vec![ProgressSegment::new(100)]);
     let mut snapshot = LayoutSnapshot::new(0, BTreeMap::new());
     snapshot.android = Some(AndroidContent::new(
         "Ride",
@@ -342,6 +339,30 @@ fn requests_are_built_on_the_constructors_through_the_plugins_exports() {
         named(Template::Timer, &EndPolicy::After { at: 1 }),
         ("timer", "after")
     );
+}
+
+// TP-ANDROID-21
+#[test]
+fn a_progress_style_built_on_its_constructor_is_styled_by_its_progress() {
+    use tauri_plugin_live_activity::{ProgressSegment, ProgressStyle};
+    let built = ProgressStyle::new(40, vec![ProgressSegment::new(100)]);
+    assert!(built.styled_by_progress);
+    assert_eq!(
+        serde_json::to_value(&built).unwrap(),
+        json!({"progress":40,"styledByProgress":true,"segments":[{"length":100}]})
+    );
+    // What JavaScript sends is read as it was: a style that leaves the member out is not styled by its progress, and
+    // is written without it.
+    let sent = json!({"progress":40,"segments":[{"length":100}]});
+    let read: ProgressStyle = serde_json::from_value(sent.clone()).unwrap();
+    assert!(!read.styled_by_progress);
+    assert_eq!(serde_json::to_value(&read).unwrap(), sent);
+    // And a caller turns it off by name.
+    let plain = ProgressStyle {
+        styled_by_progress: false,
+        ..built
+    };
+    assert_eq!(serde_json::to_value(&plain).unwrap(), sent);
 }
 
 // TP-ANDROID-20

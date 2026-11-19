@@ -1,9 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.11.0
 
-Built on liveactivity 0.8.0 and liveupdate 0.7.0, from 0.7.6 and 0.4.1, with activitykit 0.6.5 as before. It
-brings what liveupdate added in seven releases, each part in the JavaScript and the Rust API. Breaking for a Rust
+Built on liveactivity 0.8.1 and liveupdate 0.7.1, from 0.7.6 and 0.4.1, with activitykit 0.6.5 as before. It
+brings what liveupdate added in eight releases, each part in the JavaScript and the Rust API. Breaking for a Rust
 caller, so the version is a minor one: the contract's types are the liveactivity crate's, whose `Template` and
 `EndPolicy` and liveupdate's enums are `#[non_exhaustive]` now. JSON written for 0.10 reads unchanged, and the
 permissions are as they were.
@@ -20,7 +20,8 @@ permissions are as they were.
   watch, the capability is false wherever it runs, and the two members change nothing on a phone. They are in the
   contract so that a request is the same here and in the liveactivity crate.
 - **Below Android 17 a metric style shows its metrics**: the numbers and the texts as lines under the status,
-  and the first stopwatch or countdown as the clock in the header. It showed the title and the status alone.
+  a decimal with at most two fraction digits as Android 17 writes it, and the first stopwatch or countdown as the
+  clock in the header. It showed the title and the status alone.
 - **Below Android 12 the tap of an action that asks for the unlock is not taken from a locked device.** An
   action of an Android content with `authenticationRequired` asks for the unlock from Android 12; Android 8 to
   11 have no such setting and sent the tap at once. liveupdate's library now drops it while the device is
@@ -36,13 +37,24 @@ permissions are as they were.
   `ProgressPoint::new`, `BigTextStyle::new`, `TimerStyle::new`, `Metric::new`, `MetricStyle::new`,
   `PublicVersion::new` and `SamsungNowBar::default()`, beside `AndroidPresentation::new` and
   `NotificationAction::new`, which were there.
+- **Rust: a progress style built on `ProgressStyle::new` is styled by its progress**, as Android's own default
+  is: what is ahead of the progress is shown fainter. A caller who wants every segment in full says
+  `styled_by_progress: false`. From JavaScript nothing changes: `styledByProgress` is false when a content leaves
+  it out, and then Android 16 shows every segment in full: the bar is the same at 0 and at 100 unless the content
+  shows the value itself, with a tracker icon or with two segments of two colors whose lengths it sets.
 - **Rust: the plugin re-exports the liveupdate crate** it builds with, as `tauri_plugin_live_activity::liveupdate`.
   A `TimerStyle` takes liveupdate's `Timer`, whose name the contract gives to the template's timer: it was not
   reachable without a dependency of the app's own. `TimerStyle::new(liveupdate::Timer::new(started_at, ends_at),
   true)`.
-- The plugin's Android library carries liveupdate 0.7.0's adapter: `WearOngoing` and `MetricFallback` are new.
+- The plugin's Android library carries liveupdate 0.7.1's adapter: `WearOngoing` and `MetricFallback` are new.
   It compiles against `androidx.wear:wear-ongoing` and does not bring it, and its consumer rules keep R8 quiet
-  in an app without that library.
+  in an app without that library. Where the adapter offers a watch's Ongoing Activity, it takes a shown
+  notification away before it posts one without, so that the icon goes from the watch face with the update that
+  turns it off and with the end; what a foreground service holds cannot be cancelled and keeps its icon until
+  the activity ends. On a phone it cancels nothing.
+- The documents say what liveupdate saw of One UI 9 on a Galaxy S23 with Android 17: a point at the full length
+  of a progress track is not drawn, the status chip shows the first metric whatever `criticalMetric` names, and
+  of three metrics a value longer than about seven characters is cut.
 - An Android content may write `wearOngoingActivity: true`, the default, as it may write any other member at
   its default.
 - The documents said that a timer more than two weeks old shows nothing on Android 16 and that the app is told
