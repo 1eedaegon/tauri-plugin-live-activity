@@ -324,6 +324,21 @@ crash in the foreground, where there is neither a saved state nor a flag; an ope
 The watch runs in the app's main process: an activity that the manifest puts in another process is not watched.
 Do not remove the provider from the merged manifest (`tools:node="remove"`): nothing else hands the intents over.
 
+## Resources that a request names
+
+A `smallIcon`, a `largeIcon` or an action's `icon` of `{ kind: 'resource', value }` names a drawable or mipmap of
+the app by its name, which the library looks up when it posts. A release build that shrinks resources keeps what
+code and layouts refer to, and a name in a request is neither: the resource is removed, and a start or an update
+that names it answers `INVALID_INPUT` (seen on a Galaxy S23 with an app whose release build shrinks resources).
+Keep each such resource in `src-tauri/gen/android/app/src/main/res/raw/keep.xml`:
+
+```xml
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_ride,@mipmap/ic_launcher" />
+```
+
+A file under the app's files (`{ kind: 'appFile' }`) is not a resource and needs nothing.
+
 ## A foreground service
 
 A start with `android: { placement: 'foreground' }` asks for the notification to be the one that a foreground

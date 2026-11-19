@@ -212,6 +212,23 @@ style on the Lock Screen (`test1`), the button's tap (`test2`) and the switch (`
 - Not seen on any phone: the dark appearance on the iPhone XS, the system's question under a card, a watch,
   CarPlay. The lifecycle test asks the plugin and reads its answers: it does not look at the Lock Screen.
 
+## 0.11.1 on two iPhones
+
+0.11.1 brings activitykit 0.6.6: buttons and toggles from iOS 17.2, and the card's whole width for a layout on the
+Lock Screen. A build of `bb3d561` ran on both phones:
+
+| | iPhone XS, iOS 18.7.12 | iPhone 16, iOS 27.2 |
+| --- | --- | --- |
+| Lifecycle test | 27 of 27, twice | 31 of 31, twice |
+| UI tests: a bound style, the button's tap, the switch | passed at the runner's first start | passed at its second start, the first timed out enabling automation mode |
+| The card of the bound style, the buttons, the switch | 354x86 at y 605, 355x126 at 566, 355x123 at 568 of 375x812: as with 0.11.0 | 365x86, 365x126, 365x124 at y 224 of 393x852 |
+
+The tap's record read `{"actionId":"pet","activityId":"la-ios-layout-…","activityKey":"mochi:buttons"}` on both. Both
+phones run an iOS above 17.2, where a button and a toggle were drawn and tapped before 0.6.6 too: the runs show that
+the widget's new width changed nothing there, not the fix for iOS 17. The demo's layouts fill the card's width
+(`frame: { maxWidth: 'infinity' }`), so a narrow layout's tap was not tried. The built app's
+`Metadata.appintents/extract.actionsdata` gives `ActivityKitActionIntent` the iOS 17.2 as its first.
+
 ## 0.11.0 on an iPhone
 
 0.11.0 changes nothing on iOS: activitykit stays 0.6.5, and liveactivity 0.8.1 differs from 0.7.6 on Android

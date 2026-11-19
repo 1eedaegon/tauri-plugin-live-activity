@@ -1,3 +1,38 @@
+# 0.11.1 validation
+
+0.11.1 is a patch release. It brings what main has since 0.11.0: the plugin on liveactivity 0.8.3 with activitykit
+0.6.6 (#67), whose three corrections are in its Swift package and its build script, and documents (#66 and this
+release). Buttons and toggles begin with iOS 17.2, below which the widget draws their labels and `getCapabilities()`
+answers `actions: 'unsupported'`; on the Lock Screen the widget gives a layout the card's whole width, so that iOS 17
+finds the controls of a narrow layout; and activitykit's build script names SwiftPM's own build system, for Xcode 27.
+The documents say what a watch and a car show on each platform, how a layout is placed in the card, and how to keep
+a resource that only a request names from a release build that shrinks resources. Nothing changes in the JavaScript
+and Rust APIs, in the permissions, in `setup`, or on Android: liveupdate is 0.7.1 as in 0.11.0. Checked before the
+tag, on a build of `bb3d561`, the release's version commit:
+
+- An iPhone XS with iOS 18.7.12: the demo's lifecycle test passed, 27 of 27, twice, and the UI tests of a bound style
+  on the Lock Screen, of the button's tap and of the switch passed at the runner's first start. The cards were of the
+  size and at the place of 0.11.0's run, to the point. The built app's App Intents metadata names activitykit's
+  intent as one that begins with iOS 17.2, as activitykit says Xcode writes it.
+- An iPhone 16 with iOS 27.2, with the user's leave: the lifecycle test passed, 31 of 31, twice, and the same three
+  UI tests at the runner's second start; at its first it timed out "while enabling automation mode", as before on
+  this phone. [iOS coverage](ios-coverage.md#0111-on-two-iphones) has the runs.
+- The simulator suites on a hosted runner (run 44614693959, iOS 26.2) on #67's head: the built demo passed its 12
+  tests, test10 at its second try, after the runner found no point to tap on the page's "End this example"; the
+  one on `tauri ios dev` passed its 4, after its runner had once failed to start ("Timed out waiting for AX loaded
+  notification") and `tests/ios/run.sh` ran it once more.
+- `npm test` (310 tests in six suites), the typecheck, `cargo test` (53 unit and 10 integration tests), `cargo
+  clippy`, `tools/spec-coverage.sh` (96 requirements, each with a test). TP-IOS-19's test holds the documents to the
+  iOS from which the activitykit of the lock says `buttons`; it failed on the new lock before the documents said
+  iOS 17.2. The npm package has 33 files with the names of 0.11.0's (npm 11.20.0), and the crate 70, as 0.11.0.
+
+Not checked: an iOS below 17.2, where the change of buttons shows (activitykit ran 17.0, 17.2 and 17.4 on
+simulators; no phone here runs one); a narrow layout's tap, since the demo's layouts fill the card's width; Xcode
+27 (this Mac has Xcode 26.3, where the build flag changes nothing); Android, where nothing changes and no device
+ran; and the placement's numbers on a phone, which activitykit measured on simulators.
+
+The record of 0.11.0 follows.
+
 # 0.11.0 validation
 
 0.11.0 is a minor release. It brings what main has since 0.10.3: the plugin on liveactivity 0.8.1 and liveupdate
