@@ -204,7 +204,8 @@ person allows exact alarms, where `openExactAlarmSettings()` takes them), and `i
 activity (iOS 18). The layout stays as it started; each update sends every value again, with a higher revision. Taps come to
 `onAction`, push tokens and pushed content to `onPushToken`, `onPushToStartToken` and `onUpdated`, and what happens
 to an activity outside the app's calls to `onState`, `onStarted`, `onOpened` (Android: the person opened the app from an
-activity's notification; the opening that launched the app waits for the page) and `onPermissions`.
+activity's notification; the opening that launched the app waits for the page), `onPermissions` and `onUnknown`
+(Android: something stored for an activity that this version has no event for).
 
 A snapshot may also carry a `relevance`, which decides which of the app's activities the Dynamic Island shows, and
 an `android` content, the notification in Android's own terms (a segmented progress, metrics, the chip text) in

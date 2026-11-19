@@ -30,7 +30,9 @@ Android notification styles, each of which the device reports in `getCapabilitie
 | A layout's `small` region | iOS 18+ with a paired Apple Watch (watchOS 11); iOS 26+ for CarPlay | Drawn in the watch's Smart Stack and on the car's display when the widget extension sets `ActivityKitSmallFamily` (`setup --small-family`); otherwise, and before iOS 18, the record names `layout.small`. Not seen by this project on a watch or in a car |
 | Android scheduled start | Android 8.0 / API 26+ | `scheduled`, the record is `pending` until an alarm of the plugin's library posts the notification, also while the app does not run. At its time with the permission for exact alarms (`exactStart`), which the app declares and, from Android 14, the person allows in a setting that `openExactAlarmSettings()` opens; without it late by up to three quarters of the wait, ten minutes at most while the device is awake and an hour while it dozes |
 | Android layouts (v2) | Android 8.0 / API 26+ | Shown in part as a notification (title, body, progress bar, chronometer, up to three actions: buttons, links and toggles); the rest is listed in `degradedFeatures` |
-| Android notification styles | Android 8.0 / API 26+, by the device | Standard and big text everywhere; the progress style with segments and points from Android 16 (`progressStyle`), the metric style from Android 17 (`metricStyle`). `getCapabilities().androidPresentation` says which the device draws and offers |
+| Android notification styles | Android 8.0 / API 26+, by the device | Standard and big text everywhere; the progress style with segments and points from Android 16 (`progressStyle`), the metric style from Android 17 (`metricStyle`), and below it the metrics as lines of text with a header clock. `getCapabilities().androidPresentation` says which the device draws and offers |
+| An action's unlock before its tap | Android 12 / API 31+ | `authenticationRequired` of an Android content's action; on Android 8 to 11 the tap of a locked device is dropped |
+| A watch's Ongoing Activity | A Wear OS watch below Wear OS 7 whose app has `androidx.wear:wear-ongoing` | Offered in the contract (`wearOngoingActivity`) and not reachable from a Tauri app, which Wear OS, having no web view, does not run |
 | Android links | Where the device offers `links` | A layout's `url` and a `link` open the app's URL; the app declares the scheme in an intent filter |
 | Android alerts of an update | Where the device offers `alert` | An update's alert alerts again; elsewhere the update is silent and the record names `alert` |
 | Android end `after` | Where the device offers `delayedEnd` | The last content stays until its time; elsewhere `UNSUPPORTED_FEATURE` |
@@ -125,8 +127,8 @@ stand in for a device check.
   posting again. After a restart it reconciles stored IDs with the OS state.
 - Pushes are iOS only, and FCM and background work are not in this release: the plugin runs no background task.
   Since 0.2.0, buttons, links and toggles work in layout activities only.
-- On Android 16 a notification whose time is more than two weeks past shows nothing, and the app is told nothing:
-  a timer whose start or end lies that far before the post. The post is answered as shown.
+- From Android 15 a timer whose clock is more than 14 days old is refused with `INVALID_INPUT`: Android would
+  show nothing of it and tell the app nothing.
 - The plugin picks the notification fallback only with `fallback: "notification"`.
   `none` does not stop the OS from hiding the activity or demoting it later.
 - iOS `staleAt` is passed to ActivityKit. An automatic stale transition that the current
