@@ -182,6 +182,7 @@ style on the Lock Screen (`test1`), the button's tap (`test2`) and the switch (`
 | `901eb49`, on activitykit 0.6.4 | the lifecycle test, 31 of 31; `test2` and `test8` passed | the lifecycle test, 27 of 27; `test2` and `test8` passed |
 | `6210582`, on activitykit 0.6.5 | the lifecycle test, 31 of 31; the UI tests did not start, at two attempts | the lifecycle test, 27 of 27; `test1`, `test2` and `test8` passed |
 | the release's pull request | the lifecycle test, 31 of 31, twice; the UI tests did not start | the lifecycle test, 27 of 27, twice; `test1`, `test2` and `test8` passed |
+| the same build, two hours after the tag | the UI tests did not start at one attempt; at the next, `test1`, `test2` and `test8` passed | not run again |
 
 - The button's tap. After the tap on "Pet Mochi" on the Lock Screen the page's record read
   `Last tap: {"actionId":"pet","activityId":"la-ios-layout-…","activityKey":"mochi:buttons"}` in each run
@@ -192,14 +193,24 @@ style on the Lock Screen (`test1`), the button's tap (`test2`) and the switch (`
 - The color pair. On the iPhone XS with activitykit 0.6.5 the cards of the Buttons and of the Changing styles
   example have the pair's light color under dark text, to the card's four rounded corners, as they had with
   0.6.4. On the iPhone 16 with 0.6.4 the Buttons card was dark with light text at its start. So neither phone
-  showed a card of two appearances before the correction, and one phone shows the drawn pair after it. A light
-  card under white text was seen on simulators only.
-- What did not run. On the iPhone 16 the UI tests did not start from 05:32 of the Mac's time on, at three
-  attempts on two builds: "Failed to initialize for UI testing … Timed out while enabling automation mode",
-  before any test. The same runner had started there at 04:06 on the first build. Why is not known, so no card of that phone was seen on
-  activitykit 0.6.5. Not seen on any phone: the dark appearance on the iPhone XS, the system's question under
-  a card, a watch, CarPlay. The lifecycle test asks the plugin and reads its answers: it does not look at the
-  Lock Screen.
+  showed a card of two appearances before the correction. A light card under white text was seen on simulators
+  only.
+- What did not run before the tag. On the iPhone 16 the UI tests did not start from 05:32 of the Mac's time on,
+  at three attempts on two builds: "Failed to initialize for UI testing … Timed out while enabling automation
+  mode", before any test. The same runner had started there at 04:06 on the first build. So the release was
+  tagged with no card of that phone seen on activitykit 0.6.5.
+- After the tag, on the release's build. At 09:20 the iPhone 16's runner timed out once more, and at 09:22 it
+  started: `test1`, `test2` and `test8` passed, and the tap's record had no `on`. The cards of the Buttons and of
+  the Changing styles example have the pair's dark color under light text, even to the card's four rounded
+  corners; with 0.6.4 the Buttons card was darker and shaded toward black at one side. So both phones show the
+  drawn pair, one in its light color and one in its dark.
+- Why the runner did not start. Read from the phone's process list during those last two attempts: in the
+  first the system's `AutomationModeUI` was not running for the minute that the runner waited, and it was there
+  at the next look, when the runner had gone; in the second it ran from the beginning, and the tests began at
+  once. Why it had not come up in the attempts before is not known; the phone answered `passcodeRequired: false`
+  all along.
+- Not seen on any phone: the dark appearance on the iPhone XS, the system's question under a card, a watch,
+  CarPlay. The lifecycle test asks the plugin and reads its answers: it does not look at the Lock Screen.
 
 ## Tests added after the first release
 
