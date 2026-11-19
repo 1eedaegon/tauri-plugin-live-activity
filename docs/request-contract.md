@@ -161,7 +161,7 @@ returns v1 activities and `list_layout` returns layout activities. On Android th
 `activityKey` can be in use in both; on iOS it cannot, see below.
 
 `getCapabilities` gains `layout`: `supported`, `unsupported` or `unknown`. `actions` is
-`supported` on iOS 17 and later and on Android, and `unsupported` elsewhere. On desktop both are
+`supported` on iOS 17.2 and later and on Android, and `unsupported` elsewhere. On desktop both are
 `unsupported`.
 
 A tap on a `button` node reaches the handlers registered with `onAction` and `on_action`. The

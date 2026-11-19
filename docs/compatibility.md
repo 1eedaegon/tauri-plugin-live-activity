@@ -23,8 +23,8 @@ Android notification styles, each of which the device reports in `getCapabilitie
 | Android notification permission | Android 13 / API 33+ | Runtime request, cancellation, denial and the settings-required state |
 | Android Live Updates | Android 16 / API 36+ | Promotion request after eligibility and user-setting checks; the result is read from the OS flag |
 | iPhone layouts (v2) | iOS 16.2+ | activitykit's widget, `ActivityKitLayoutWidget`, draws the layout tree; on iPad the iPadOS 17+ rule above applies |
-| iPhone layout buttons | iOS 17+ | activitykit's `ActivityKitActionIntent` brings the tap to the app process |
-| iPhone layout toggles | iOS 17+ | The switch; before it the label alone. A tap comes as `on` |
+| iPhone layout buttons | iOS 17.2+ | activitykit's `ActivityKitActionIntent` brings the tap to the app process |
+| iPhone layout toggles | iOS 17.2+ | The switch; before it the label alone. A tap comes as `on` |
 | iPhone transient activity | iOS 18+ | `ios: { transient: true }`; `UNSUPPORTED_FEATURE` before |
 | iPhone scheduled start | iOS 26+ | `scheduled`, the record is `pending` until it begins; `UNSUPPORTED_FEATURE` before |
 | A layout's `small` region | iOS 18+ with a paired Apple Watch (watchOS 11); iOS 26+ for CarPlay | Drawn in the watch's Smart Stack and on the car's display when the widget extension sets `ActivityKitSmallFamily` (`setup --small-family`); otherwise, and before iOS 18, the record names `layout.small`. Not seen by this project on a watch or in a car |

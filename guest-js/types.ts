@@ -668,7 +668,7 @@ export type LayoutLinkNode = NodeFields & {
 };
 
 /**
- * A switch beside its label (iOS 17; before, the label alone). It shows the boolean value of `bind`. A tap comes
+ * A switch beside its label (iOS 17.2; before, the label alone). It shows the boolean value of `bind`. A tap comes
  * through `onAction` with `on`, the state the person asked for, and does not move the switch: send an update with
  * the new value, or none to refuse the change. A toggle stands where a button may.
  */

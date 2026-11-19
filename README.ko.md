@@ -72,7 +72,7 @@ JSX이므로 레이아웃은 별도 파일에 둡니다.
 import { Button, HStack, Progress, SFSymbol, Text, VStack } from 'tauri-plugin-live-activity/jsx';
 
 // iOS: 잠금 화면이 이 트리를 그대로 그리고, 펼친 Dynamic Island에도 같은 트리가 보입니다
-//      (iOS 16.2 이상, Button은 iOS 17 이상).
+//      (iOS 16.2 이상, Button은 iOS 17.2 이상).
 // Android: 알림이 처음 두 Text를 제목과 본문으로, 첫 Progress를 진행률 막대로, Button을 최대 세 개까지
 //      동작으로 가져가고, 심볼과 스타일은 그리지 않습니다.
 export const lockScreen = (
@@ -217,9 +217,9 @@ await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 | `gauge` | `min`과 `max` 사이의 숫자를 고리나 막대로 | 예 | 아니오 |
 | `progress` | 0~1의 숫자를 고리나 막대로 | 예 | 첫 번째가 알림의 진행률 막대 |
 | `timerText` | `end`까지 내려가거나 `start`부터 올라가는 시간. 시스템이 셈 | 예 | 크로노미터 |
-| `button` | `onAction` / `on_action`으로 오는 탭 | iOS 17 이상 | 최대 세 개의 동작 |
+| `button` | `onAction` / `on_action`으로 오는 탭 | iOS 17.2 이상 | 최대 세 개의 동작 |
 | `link` | 탭하면 그 URL을 앱에서 여는 노드 | 예 | URL을 여는 동작(기기가 `links`를 제공할 때) |
-| `toggle` | 불리언 값을 보여 주는 스위치, 탭은 `on`으로 옴 | iOS 17 이상 | 레이블을 제목으로 한 동작, 켜진 동안 체크 표시 |
+| `toggle` | 불리언 값을 보여 주는 스위치, 탭은 `on`으로 옴 | iOS 17.2 이상 | 레이블을 제목으로 한 동작, 켜진 동안 체크 표시 |
 | `vstack`, `hstack`, `zstack`, `spacer`, `divider` | 배치 | 예 | 평평하게 |
 | `custom` | 이름으로 고른 자체 SwiftUI 뷰 | 예 | 아니오 |
 
@@ -267,7 +267,7 @@ Auto에는 이를 보여 줄 자리가 없습니다. Android는 `small`을 `degr
 
 ## 제약
 
-- iOS: iOS 16.2의 iPhone 또는 iPadOS 17의 iPad, 버튼은 iOS 17부터. 액티비티는 앱이 전면일 때만 시작되고
+- iOS: iOS 16.2의 iPhone 또는 iPadOS 17의 iPad, 버튼은 iOS 17.2부터. 액티비티는 앱이 전면일 때만 시작되고
   (아니면 `NOT_FOREGROUND`), 시스템이 8시간 뒤 끝냅니다.
 - iOS는 각 액티비티의 마지막 값을 앱의 Application Support에 평문으로 둡니다. 플러그인 설정에
   `"receipts": "redacted"`를 주면 가립니다.

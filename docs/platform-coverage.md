@@ -25,7 +25,7 @@ Layouts and their buttons are new in 0.2.0 and have been tested less than templa
 
 - iOS: the native harness ran every layout fixture on an iPhone 17 Pro simulator with
   iOS 26.3. The Lock Screen showed the layout, and a tap on a button reached the plugin's
-  action hub. Buttons need iOS 17.
+  action hub. Buttons need iOS 17.2.
 - Android: JVM tests cover the parser, the layout lifecycle, the projection onto a
   notification, the action relay and the Samsung extras. The instrumented tests passed on
   API 26 and API 36 emulators and on a Galaxy S23 with Android 17 (One UI 9), apart from
@@ -38,7 +38,7 @@ Layouts and their buttons are new in 0.2.0 and have been tested less than templa
 ## Layouts of 0.7.0
 
 0.7.0 is liveactivity 0.5.1: activitykit 0.5.0 on iOS and liveupdate 0.3.2 on Android. It adds to the layouts:
-toggles (iOS 17; the label alone before), links, the scheduled start (iOS 26) and the transient start (iOS 18),
+toggles (iOS 17.2; the label alone before), links, the scheduled start (iOS 26) and the transient start (iOS 18),
 the Android notification styles that the device reports, and the Android progress on Android 16. What ran is in
 [Android coverage](android-coverage.md#layout-activities-contract-v2-070) (a phone with Android 17) and
 [iOS coverage](ios-coverage.md#070-additions) (the simulator suites, started by hand in CI, and an iPhone with iOS 18 for the contract). The Android device tests also ran on an

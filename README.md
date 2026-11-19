@@ -72,7 +72,7 @@ since this JSX has no HTML elements.
 import { Button, HStack, Progress, SFSymbol, Text, VStack } from 'tauri-plugin-live-activity/jsx';
 
 // iOS: the Lock Screen draws this tree as it is, and the expanded Dynamic Island shows it too
-//      (iOS 16.2+; the Button needs iOS 17).
+//      (iOS 16.2+; the Button needs iOS 17.2).
 // Android: the notification takes the first two Texts as title and body, the first Progress as its
 //      bar and up to three Buttons as actions; symbols and styles are left out.
 export const lockScreen = (
@@ -223,9 +223,9 @@ place of the projection of the layout; `updateLayout` takes an `alert`, which li
 | `gauge` | a number between `min` and `max`, as a ring or a bar | yes | no |
 | `progress` | a number from 0 to 1, as a ring or a bar | yes | the first one is the notification's bar |
 | `timerText` | a count down to `end` or up from `start`, kept by the system | yes | the chronometer |
-| `button` | a tap for `onAction` / `on_action` | iOS 17+ | up to three actions |
+| `button` | a tap for `onAction` / `on_action` | iOS 17.2+ | up to three actions |
 | `link` | a tap that opens its URL in the app | iOS | an action that opens the URL (where the device offers `links`) |
-| `toggle` | a switch of a boolean value; a tap comes as `on` | iOS 17+ | an action titled by its label, with a check mark while on |
+| `toggle` | a switch of a boolean value; a tap comes as `on` | iOS 17.2+ | an action titled by its label, with a check mark while on |
 | `vstack`, `hstack`, `zstack`, `spacer`, `divider` | arrangement | yes | flattened |
 | `custom` | a SwiftUI view of your own, by name | yes | no |
 
@@ -273,7 +273,7 @@ at most 1 MiB and 1224 × 480 pixels. [More](https://github.com/1eedaegon/tauri-
 
 ## Limits
 
-- iOS: an iPhone with iOS 16.2 or an iPad with iPadOS 17; buttons need iOS 17. An activity starts only while the
+- iOS: an iPhone with iOS 16.2 or an iPad with iPadOS 17; buttons need iOS 17.2. An activity starts only while the
   app is in the foreground (`NOT_FOREGROUND` otherwise), and the system ends it after 8 hours.
 - iOS keeps each activity's last values in plain text in the app's Application Support, unless the plugin
   configuration sets `"receipts": "redacted"`.
