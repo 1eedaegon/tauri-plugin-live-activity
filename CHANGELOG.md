@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.11.0
 
 Built on liveactivity 0.8.0 and liveupdate 0.7.0, from 0.7.6 and 0.4.1, with activitykit 0.6.5 as before. It
 brings what liveupdate added in seven releases, each part in the JavaScript and the Rust API. Breaking for a Rust
