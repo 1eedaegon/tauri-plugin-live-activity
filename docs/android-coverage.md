@@ -96,6 +96,18 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## liveupdate 0.8.2, 0.13.0
+
+0.13.0 moves the plugin's Android side to liveupdate 0.8.2: the adapter's Kotlin is copied anew, with `JsonScan` as
+a new file, and a call's read passes the stored receipts on without parsing them. A build of `b5e19c8` ran on a
+Galaxy S23 with Android 17 (API 37, One UI 9), unlocked:
+
+- The demo's lifecycle test passed, 30 of 30 in 3 of 3 runs, and no alarm of the demo was left. The capabilities
+  answered as with 0.12.0.
+- The library's device tests: 10 of 10.
+
+Not measured on a device: how much less a read costs; liveupdate measured 114 ms to 7 ms for 160 records on the JVM.
+
 ## liveupdate 0.8.1, 0.12.0
 
 0.12.0 moves the plugin's Android side to liveupdate 0.8.1: the adapter's Kotlin is copied anew, with `Targets` and

@@ -1,3 +1,36 @@
+# 0.13.0 validation
+
+0.13.0 is a minor release. It brings what main has since 0.12.0: the plugin on liveactivity 0.11.0, with activitykit
+0.8.1 and liveupdate 0.8.2 (#73). Live Activities run on an iPhone from iOS 16.1, where iOS 16.1 takes the content
+without a stale date or a relevance, and `setup` writes the widget extension for iOS 16.1; activitykit's layout types
+are built on their constructors, and the plugin re-exports `activitykit` for its node functions; activitykit's widget
+draws what a later server pushes with what it knows, and a receipt that cannot be read costs only itself; the
+Android library carries liveupdate 0.8.2's Kotlin, which reads the stored receipts without parsing them. It is
+breaking for a Rust caller that built activitykit's types as literals or matched its enums without a `_` arm; JSON
+written for 0.12 reads the same, and the permissions are as they were. Checked before the tag, on a build of
+`b5e19c8`, #73's head, whose code the release carries (the release's own commits change versions and documents):
+
+- A Galaxy S23 with Android 17 (One UI 9), unlocked: the demo's lifecycle test passed, 30 of 30 in 3 of 3 runs, and
+  no alarm of the demo was left. The Android library's device tests passed, 10 of 10, on liveupdate 0.8.2's Kotlin.
+  [Android coverage](android-coverage.md#liveupdate-082-0130) has the runs.
+- An iPhone XS with iOS 18.7.12, with the widget extension built for iOS 16.1: the lifecycle test passed, 27 of 27,
+  twice, and the UI tests of a bound style, of the Lock Screen button and of the switch at the runner's first start.
+  The cards were of the size and at the place of 0.12.0's run. [iOS coverage](ios-coverage.md#0130-on-an-iphone) has
+  the run.
+- The simulator suites on a hosted runner (iOS 26.2), by hand on #73's head (run 44748241044): the built demo passed
+  its 12 tests and `tauri ios dev` its 4, each at its first try.
+- `npm test` (328 tests in six suites), the typecheck, `cargo test` (54 unit and 10 integration tests), `cargo
+  clippy`, `cargo check` of the demo, and `tools/spec-coverage.sh` (102 requirements, each with a test). The npm
+  package has 33 files with the names of 0.12.0's (npm 11.20.0); the crate has 74: liveupdate's `JsonScan.kt` beside
+  the 73.
+
+Not checked: an iPhone with iOS 16.1: none is at hand, and Xcode 26.3 runs no simulator below iOS 17; activitykit's
+CI runs none either. Content with members of a later version on a widget, and a receipt file that cannot be read:
+activitykit's own tests run both. The iPhone 16 (not asked for this release), Xcode 27, and a watch, which the plugin
+does not run on.
+
+The record of 0.12.0 follows.
+
 # 0.12.0 validation
 
 0.12.0 is a minor release. It brings what main has since 0.11.1: the plugin on liveactivity 0.10.1, with activitykit

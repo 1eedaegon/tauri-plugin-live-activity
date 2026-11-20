@@ -212,6 +212,15 @@ style on the Lock Screen (`test1`), the button's tap (`test2`) and the switch (`
 - Not seen on any phone: the dark appearance on the iPhone XS, the system's question under a card, a watch,
   CarPlay. The lifecycle test asks the plugin and reads its answers: it does not look at the Lock Screen.
 
+## 0.13.0 on an iPhone
+
+0.13.0 brings activitykit 0.8.1: Live Activities from iOS 16.1, the widget extension built for it, a widget that
+draws a later version's content with what it knows, and receipts that cost only themselves when one cannot be read.
+A build of `b5e19c8`, its widget extension at iOS 16.1, passed the lifecycle test on the iPhone XS with iOS 18.7.12
+in 2 of 2 runs, 27 checks each, and the UI tests of a bound style, of the Lock Screen button and of the switch at the
+runner's first start. The cards were 354x86 at y 605, 355x126 at 566 and 355x123 at 568 of 375x812, as with 0.12.0.
+No iPhone with iOS 16.1 was run, and the iPhone 16 was not run for this release.
+
 ## 0.12.0 on an iPhone
 
 0.12.0 brings activitykit 0.7.0: a tap says which it is, the authorization what the device runs, and the expanded
