@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Built on liveactivity 0.10.0, with activitykit 0.7.0 and liveupdate 0.8.0, from 0.8.3, 0.6.6 and 0.7.1.
+Built on liveactivity 0.10.1, with activitykit 0.7.0 and liveupdate 0.8.1, from 0.8.3, 0.6.6 and 0.7.1.
 
 - **A tap says which it is** (`ActionEvent.tap`: `id`, `at`, `revision`, `late`). On iOS a tap that the app did not
   take at once, because the tap launched it or its process ended first, is no longer lost: activitykit keeps it, at

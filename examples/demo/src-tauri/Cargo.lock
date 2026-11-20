@@ -1801,9 +1801,9 @@ dependencies = [
 
 [[package]]
 name = "liveactivity"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edfaa9ccd0b249a3f75cd4db7e176fd48213113d3331e398c5d0d213706e719a"
+checksum = "64fc0cc3fb3be6c1ac2c3508459039b20f64dedf6169c1c6534ebe14da056950"
 dependencies = [
  "activitykit",
  "liveupdate",
@@ -1814,9 +1814,9 @@ dependencies = [
 
 [[package]]
 name = "liveupdate"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dc5434e48f202853c7cbd2410de83512e9813faa4ad900266f3137d68a62493"
+checksum = "1952193384ea995cddb9f9f6896a45dd1b39b17ab38d370bc14138de6ecb4528"
 dependencies = [
  "jni 0.22.4",
  "ndk-context",

@@ -369,7 +369,8 @@ android: { visibility: 'public', targets: { record: { kind: 'foregroundService',
 `kind` is `service`, `foregroundService` or `broadcast`; `component` a class of the app's package (two or more Java
 identifiers joined by dots); `action` the intent's action, if any. The component is declared in the app's manifest
 (`src-tauri/gen/android/app/src/main/AndroidManifest.xml`), not exported, and in the app's process; one that Android
-does not resolve so is refused with `INVALID_INPUT`. A key of `targets` must be the `actionId` of a button or toggle
+does not resolve so is refused with `INVALID_INPUT`, and so is every update of an activity that names one that an
+update of the app removed: name another target, or none (liveupdate 0.8.1). A key of `targets` must be the `actionId` of a button or toggle
 of the lock screen tree, and a device without `getCapabilities().androidPresentation.actionTargets` answers
 `UNSUPPORTED_FEATURE`. The component takes the tap first:
 
