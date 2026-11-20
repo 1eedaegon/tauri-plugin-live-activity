@@ -96,6 +96,22 @@ branches (71.33%)**. The 80% line gate passes. This report does not claim fresh
 coverage collection on API 26 or 37.
 [Coverage inputs and source hashes](../tests/android/results/coverage-alpha3.json).
 
+## liveupdate 0.8.1, 0.12.0
+
+0.12.0 moves the plugin's Android side to liveupdate 0.8.1: the adapter's Kotlin is copied anew, with `Targets` and
+`LiveUpdateActions` as new files, so that an action can run a service, a foreground service or a receiver of the
+app. A build of `e3577a1` ran on a Galaxy S23 with Android 17 (API 37, One UI 9), unlocked:
+
+- The demo's lifecycle test passed, 30 of 30 in 3 of 3 runs, and no alarm of the demo was left. The capabilities
+  answered `actionTargets: true`.
+- The library's device tests: 10 of 10. `liveupdatesAdapterPostsEveryAndroidContentThatRustWrites` posted the
+  fixture's contents and refused with `INVALID_INPUT` the two whose actions name targets: `dev.example.app` has no
+  `RecorderService`, `MarkService`, `StopReceiver` or `ShareReceiver` in the test app, and the adapter refuses a
+  component that Android does not resolve in the app.
+
+Not seen on a device: a target that reaches its component (the demo has none; liveupdate's own device tests run
+each kind), `LiveUpdateActions.take`, `attachOr`, and a client built with `native::client_from_raw`.
+
 ## liveupdate 0.7.1, 0.11.0
 
 0.11.0 moves the plugin's Android side from liveupdate 0.4.1 to 0.7.1: the adapter's Kotlin is copied anew, with
