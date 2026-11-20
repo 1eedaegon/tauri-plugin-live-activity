@@ -14,6 +14,7 @@ Installation and a short example are in the [README](../README.md)
 | [Validation](validation.md) | Test, emulator and packaging results |
 | [Releases](releasing.md) | The publish workflow and the registry setup |
 | [Demo app](../examples/demo/README.md) | How to run it and what each part of it does, with pictures of the page, the Lock Screen, the Dynamic Island and the Android notification; the lifecycle test through the real bridge, and the UI tests on an iOS Simulator |
+| [Live editing](live-editing.md) | The demo's page for working on a layout: save its TSX card and the running Live Activity follows, through Vite's hot updates; what a save of values, styles or layout does, with a recording |
 
 ## Records
 

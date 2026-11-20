@@ -26,6 +26,10 @@ Built on liveactivity 0.10.1, with activitykit 0.7.0 and liveupdate 0.8.1, from 
 When updating: a struct literal of `ActionEvent`, `Capabilities` or `AndroidOptions` names the new member or builds
 on the constructor.
 
+- The demo has a page for working on a layout live (`npm run live:ios` in `examples/demo`, docs/live-editing.md): a
+  save of its TSX card reaches the running Live Activity through Vite's hot updates. New values update the activity;
+  a new layout, new styles, or a value added or of another type start a new one. The READMEs show it recorded on
+  the iOS Simulator. Nothing of the plugin's package changes.
 
 - The README shows each interface of 0.11 in a line or a few, in both languages: the options of a start on Android
   (`visibility`, `placement: 'foreground'`, `wearOngoingActivity`), the event name of `onUnknown`, the constructors
