@@ -323,6 +323,10 @@ where it can:
   do the same.
 - **Kotlin and Swift** are compiled when the app is built, so they show after such a build.
 
+To work on a layout, `npm run live:ios` runs a page of its own instead, where a save of `src/live/card.tsx`
+reaches the running activity through Vite's hot updates: new values update it; a new layout, new styles, or a
+value added or of another type start it again. See [Live editing](../../docs/live-editing.md).
+
 ## Tests
 
 ### On an iOS Simulator

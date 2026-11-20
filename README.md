@@ -33,6 +33,11 @@ The demo running, recorded on the iPhone 17 Pro simulator and an Android 16 emul
   </tr>
 </table>
 
+The card's TSX edited while the demo runs: new values update the activity in place, and a new layout or new styles
+start it again ([live editing](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/live-editing.md)):
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/live-editing.gif" width="800" alt="Left, the screen recording of the iPhone 17 Pro simulator: its Lock Screen pulled down over the demo, with Mochi's card. Right, card.tsx as an editor shows it, drawn from the log of the saves. Saves of values change the status, the time and the meter in place; a save that swaps the paw for a bicycle, and one that makes the title larger, each make the card go and come back changed.">
+
 All of them come from the [demo app](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo),
 which follows a cat named Mochi. iOS 16.2+ and Android 8+; on desktop the activity commands answer
 `UNSUPPORTED_PLATFORM`. The plugin is an adapter of the [liveactivity](https://github.com/1eedaegon/liveactivity-rs)

@@ -625,7 +625,7 @@ test('no JavaScript is tracked, and the type check covers every TypeScript file 
     const settings = record(JSON.parse(read(project)), project);
     assert.deepEqual([settings.exclude, settings.files], [undefined, undefined], `${project} lists its files with include alone`);
     return list(settings.include, `the include list of ${project}`).map(pattern => {
-      assert.match(text(pattern, 'a pattern'), /^(?:[\w-]+\/)*(?:\*\*\/)?[\w.*-]+\.m?ts$/, `${project}: a pattern of a form that this test follows`);
+      assert.match(text(pattern, 'a pattern'), /^(?:[\w-]+\/)*(?:\*\*\/)?[\w.*-]+\.(?:m?ts|tsx)$/, `${project}: a pattern of a form that this test follows`);
       return join(dirname(project), text(pattern, 'a pattern'));
     });
   });

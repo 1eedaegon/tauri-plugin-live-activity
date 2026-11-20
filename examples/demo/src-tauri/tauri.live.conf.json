@@ -1,0 +1,7 @@
+{
+  "$schema": "../../../node_modules/@tauri-apps/cli/config.schema.json",
+  "build": {
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "node --experimental-strip-types link-activitykit.ts && node ../../node_modules/vite/bin/vite.js"
+  }
+}

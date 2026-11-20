@@ -33,6 +33,11 @@ Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과 Dynamic Island에, A
   </tr>
 </table>
 
+데모가 도는 동안 카드의 TSX를 고치는 모습입니다. 값을 바꾸면 활동이 그 자리에서 갱신되고, 레이아웃이나 스타일을
+바꾸면 활동이 다시 시작됩니다([실시간 편집](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/live-editing.md)):
+
+<img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/live-editing.gif" width="800" alt="왼쪽은 iPhone 17 Pro 시뮬레이터의 화면 녹화로, 데모 위로 끌어내린 잠금 화면과 Mochi의 카드입니다. 오른쪽은 저장 기록으로 그린 편집기 화면의 card.tsx입니다. 값을 저장하면 상태 문구, 남은 시간, 진행률 막대가 그 자리에서 바뀌고, 발바닥을 자전거로 바꾸거나 제목을 키워 저장하면 카드가 사라졌다가 바뀐 모습으로 다시 뜹니다.">
+
 모두 고양이 Mochi를 따라가는 [데모 앱](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo)에서
 캡처했습니다. iOS 16.2 이상, Android 8 이상에서 동작하고, 데스크톱에서는 활동 명령이
 `UNSUPPORTED_PLATFORM`을 돌려줍니다. 플러그인은 [liveactivity](https://github.com/1eedaegon/liveactivity-rs)

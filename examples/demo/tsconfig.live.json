@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "paths": {
+      "tauri-plugin-live-activity": ["../../guest-js/index.ts"],
+      "tauri-plugin-live-activity/react": ["../../guest-js/react/index.ts"],
+      "tauri-plugin-live-activity/jsx": ["../../guest-js/jsx/index.ts"],
+      "tauri-plugin-live-activity/jsx/jsx-runtime": ["../../guest-js/jsx/jsx-runtime.ts"],
+      "tauri-plugin-live-activity/jsx/jsx-dev-runtime": ["../../guest-js/jsx/jsx-dev-runtime.ts"]
+    }
+  },
+  "include": ["src/live/*.tsx"]
+}

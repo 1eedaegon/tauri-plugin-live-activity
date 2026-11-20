@@ -1,0 +1,174 @@
+[
+  {
+    "name": "the live card, a start",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "live:7f6a6517",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "vstack",
+          "children": [
+            {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "symbol",
+                  "name": "pawprint.fill",
+                  "style": "paw"
+                },
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                },
+                {
+                  "type": "spacer"
+                },
+                {
+                  "type": "text",
+                  "bind": "eta",
+                  "style": "eta"
+                }
+              ],
+              "spacing": 8
+            },
+            {
+              "type": "text",
+              "bind": "status",
+              "style": "status"
+            },
+            {
+              "type": "progress",
+              "bind": "done",
+              "style": "meter"
+            }
+          ],
+          "alignment": "leading",
+          "spacing": 8,
+          "style": "card"
+        },
+        "island": {
+          "expanded": {
+            "leading": {
+              "type": "symbol",
+              "name": "pawprint.fill",
+              "style": "paw"
+            },
+            "center": {
+              "type": "text",
+              "bind": "title",
+              "style": "islandTitle"
+            },
+            "trailing": {
+              "type": "text",
+              "bind": "eta",
+              "style": "islandValue"
+            },
+            "bottom": {
+              "type": "progress",
+              "bind": "done",
+              "style": "islandMeter"
+            }
+          },
+          "compactLeading": {
+            "type": "symbol",
+            "name": "pawprint.fill",
+            "style": "paw"
+          },
+          "compactTrailing": {
+            "type": "text",
+            "bind": "eta",
+            "style": "islandValue"
+          },
+          "minimal": {
+            "type": "progress",
+            "bind": "done",
+            "kind": "circular",
+            "style": "islandMeter"
+          }
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        },
+        "keyline": "#A3D9C2"
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "Packing a tiny treat",
+          "eta": "9 min",
+          "done": 0.3
+        }
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "status": {
+          "font": "subheadline",
+          "color": "secondary",
+          "lineLimit": 2
+        },
+        "eta": {
+          "font": "caption",
+          "weight": "semibold",
+          "monospacedDigit": true
+        },
+        "paw": {
+          "color": "#C9654D"
+        },
+        "meter": {
+          "tint": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          }
+        },
+        "islandTitle": {
+          "font": "headline",
+          "design": "rounded",
+          "color": "white",
+          "lineLimit": 1
+        },
+        "islandValue": {
+          "font": "caption",
+          "weight": "semibold",
+          "monospacedDigit": true,
+          "color": "#A3D9C2"
+        },
+        "islandMeter": {
+          "tint": "#A3D9C2"
+        }
+      }
+    }
+  },
+  {
+    "name": "the live card, a save of other values",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s snack",
+          "status": "On the way",
+          "eta": "4 min",
+          "done": 0.7
+        }
+      }
+    },
+    "after": "the live card, a start"
+  }
+]

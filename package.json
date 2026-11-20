@@ -31,15 +31,15 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p cli && node -e \"require('node:fs').chmodSync('cli/bin.mjs', 0o755)\"",
-    "typecheck": "npm run build && tsc -p tools && tsc -p tests && tsc -p examples/demo/tsconfig.json && tsc -p examples/demo/tsconfig.node.json",
+    "typecheck": "npm run build && tsc -p tools && tsc -p tests && tsc -p examples/demo/tsconfig.json && tsc -p examples/demo/tsconfig.node.json && tsc -p examples/demo/tsconfig.live.json",
     "test": "npm run build && npm run test:contracts && npm run test:api && npm run test:jsx && npm run test:react && npm run test:demo && npm run test:setup",
     "test:contracts": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=tools/activitykit.ts\" \"--test-coverage-include=tools/sync-liveupdate.ts\" \"--test-coverage-include=tools/cargo.ts\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/contract-files.test.ts tests/typescript-requests.test.ts tests/android-liveupdate.test.ts tests/android-contents.test.ts tests/ci.test.ts tests/ci-cache.test.ts tests/ios-run.test.ts tests/spec-coverage.test.ts tests/docs.test.ts",
     "test:api": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=dist-js/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/api.test.ts tests/api-reload.test.ts",
     "test:jsx": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=dist-js/jsx/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/jsx.test.ts",
     "test:react": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=dist-js/react/*.js\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/react.test.ts",
-    "test:demo": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=examples/demo/src/*.ts\" \"--test-coverage-exclude=examples/demo/tests/**\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 examples/demo/tests/self-test.test.ts examples/demo/tests/ui-state.test.ts examples/demo/tests/layouts.test.ts examples/demo/tests/setup.test.ts",
+    "test:demo": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=examples/demo/src/*.ts\" \"--test-coverage-exclude=examples/demo/tests/**\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 examples/demo/tests/self-test.test.ts examples/demo/tests/ui-state.test.ts examples/demo/tests/layouts.test.ts examples/demo/tests/setup.test.ts examples/demo/tests/live-page.test.ts examples/demo/tests/live-card.test.ts",
     "test:setup": "node --experimental-strip-types --test --experimental-test-coverage \"--test-coverage-include=cli/*.mjs\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 tests/setup.test.ts",
-    "write:requests": "npm run build && node --experimental-strip-types --test --test-update-snapshots tests/jsx.test.ts tests/react.test.ts examples/demo/tests/layouts.test.ts examples/demo/tests/self-test.test.ts examples/demo/tests/ui-state.test.ts",
+    "write:requests": "npm run build && node --experimental-strip-types --test --test-update-snapshots tests/jsx.test.ts tests/react.test.ts examples/demo/tests/layouts.test.ts examples/demo/tests/self-test.test.ts examples/demo/tests/ui-state.test.ts examples/demo/tests/live-card.test.ts",
     "build:demo": "npm run build && node --experimental-strip-types examples/demo/build.ts",
     "prepack": "npm run build",
     "pack:check": "npm pack --dry-run"
@@ -56,10 +56,14 @@
     "@tauri-apps/api": "2.12.4",
     "@types/node": "22.20.5",
     "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@types/react-test-renderer": "19.3.1",
+    "@vitejs/plugin-react": "6.3.0",
     "esbuild": "0.28.2",
     "react": "19.3.1",
+    "react-dom": "19.3.1",
     "react-test-renderer": "19.3.1",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vite": "8.3.8"
   }
 }
