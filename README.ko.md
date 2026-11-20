@@ -202,20 +202,34 @@ await endLayout({ id: snack.id, policy: { kind: 'immediate' } });
 
 시작 요청에 `scheduled: { at, alert }`를 주면 나중에 시작하고(iOS 26과 Android. Android에서는 사용자가 정확한 알람을 허용해야 제시간에 시작하며, `openExactAlarmSettings()`가 그 설정 화면을 엽니다), `ios: { transient: true }`이면 일시적 액티비티가 됩니다(iOS 18). 레이아웃은 시작한 모습 그대로이고, 갱신마다 모든 값을 더 높은 revision으로 다시 보냅니다. 탭은
 `onAction`으로, 푸시 토큰과 푸시된 내용은 `onPushToken`, `onPushToStartToken`, `onUpdated`로, 앱이 호출하지 않은
-액티비티의 변화는 `onState`, `onStarted`, `onOpened`(Android: 액티비티의 알림으로 앱을 연 일. 앱을 실행시킨 열림도 페이지가 구독할 때까지 보관됩니다), `onPermissions`, `onUnknown`(`live-activity://unknown`, Android: 액티비티에 대해 저장되어 있지만 이 버전이 이름을 모르는 이벤트)으로 옵니다.
+액티비티의 변화는 `onState`, `onStarted`, `onOpened`(Android: 액티비티의 알림으로 앱을 연 일. 앱을 실행시킨 열림도 페이지가 구독할 때까지 보관됩니다), `onPermissions`, `onUnknown`(`live-activity://unknown`, Android: 액티비티에 대해 저장되어 있지만 이 버전이 이름을 모르는 이벤트), `onHandled`(Android: 앱의 서비스나 리시버가 직접 받은 탭, 아래)로 옵니다. 탭은 자기가 어떤 탭인지 말합니다. `tap.id`는 몇 번 전달돼도 같고, iOS에서 앱이 곧바로 받지 못한 탭(탭이 앱을 띄운 경우)은 나중에 `tap.late`로 오므로, id마다 한 번만 처리합니다:
 
-Android에서는 시작에 `android: { visibility, publicVersion, placement, wearOngoingActivity }`를 줍니다:
+```ts
+await onAction(({ actionId, tap }) => {
+  if (tap?.id && handled.has(tap.id)) return; // `handled`: 앱이 실행 사이에 보관하는 id 집합
+  if (tap?.id) handled.add(tap.id);
+  // actionId 처리
+});
+```
+
+iOS에서는 `getCapabilities().ios`가 아이폰이 실행하는 기능(`pushToStart`, `pushChannels`, `transient`,
+`scheduledStart`, `smallFamily`)을 알려 주므로 요청을 시도해 보지 않아도 됩니다.
+
+Android에서는 시작에 `android: { visibility, publicVersion, placement, wearOngoingActivity, targets }`를 줍니다:
 
 ```ts
 android: {
   visibility: 'public',       // 잠긴 기기에 보이는 정도: 'public', 'private', 'secret'
   placement: 'foreground',    // 앱의 포그라운드 서비스가 쥐는 알림(`foregroundPlacement`)
   wearOngoingActivity: false, // 워치 화면에서 뺌(Wear OS 3~6, Tauri 앱은 워치에서 돌지 않음)
+  // 버튼 `record`의 탭이 화면 없이 앱의 서비스를 바로 실행(`actionTargets`).
+  targets: { record: { kind: 'foregroundService', component: 'com.example.RecorderService', action: 'com.example.RECORD' } },
 }
 ```
 
-서비스는 `LiveUpdateForeground.attach(service, type)`로 이 알림을 쥡니다.
-[더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md#a-foreground-service)
+서비스는 `LiveUpdateForeground.attach(service, type)`(활동이 생기기 전까지 자기 알림을 띄우려면 `attachOr`)로 이 알림을
+쥐고, 탭은 `LiveUpdateActions.take(context, intent)`로 먼저 받습니다. 그 탭은 `onAction`이 아니라 `onHandled`로 옵니다.
+[더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md#a-tap-that-runs-your-own-code)
 
 스냅샷에는 `relevance`(앱의 여러 액티비티 중 Dynamic Island가 무엇을 보일지 정하는 점수)와 `android`
 콘텐츠(레이아웃 투영 대신 Android 방식 그대로 쓰는 알림: 구간이 있는 진행 막대, 지표, 칩 텍스트)를 넣을 수

@@ -284,5 +284,51 @@
       }
     },
     "android": "ok"
+  },
+  {
+    "name": "a standard notification whose actions run a service, a foreground service and a receiver of the app, which the test app does not have",
+    "content": {
+      "title": "Recorder",
+      "status": "Listening",
+      "presentation": {
+        "style": { "kind": "standard" },
+        "actions": [
+          {
+            "id": "record",
+            "title": "Record",
+            "target": { "kind": "foregroundService", "component": "dev.example.app.RecorderService", "action": "dev.example.app.RECORD" }
+          },
+          { "id": "mark", "title": "Mark", "target": { "kind": "service", "component": "dev.example.app.MarkService" } },
+          { "id": "stop", "title": "Stop", "target": { "kind": "broadcast", "component": "dev.example.app.StopReceiver" } }
+        ]
+      }
+    },
+    "android": "INVALID_INPUT",
+    "why": "the test app has none of these components, and liveupdate's adapter refuses a target that Android does not resolve in the app"
+  },
+  {
+    "name": "a standard notification whose actions run a foreground service, a service and a receiver with intent actions of their own, which the test app does not have",
+    "content": {
+      "title": "Recorder",
+      "status": "Recording",
+      "presentation": {
+        "style": { "kind": "standard" },
+        "actions": [
+          { "id": "stop", "title": "Stop", "target": { "kind": "foregroundService", "component": "dev.example.app.RecorderService" } },
+          {
+            "id": "mark",
+            "title": "Mark",
+            "target": { "kind": "service", "component": "dev.example.app.MarkService", "action": "dev.example.app.MARK" }
+          },
+          {
+            "id": "share",
+            "title": "Share",
+            "target": { "kind": "broadcast", "component": "dev.example.app.ShareReceiver", "action": "dev.example.app.SHARE" }
+          }
+        ]
+      }
+    },
+    "android": "INVALID_INPUT",
+    "why": "the test app has none of these components, and liveupdate's adapter refuses a target that Android does not resolve in the app"
   }
 ]

@@ -3,7 +3,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutEndInput, LayoutStartInput,
   LayoutUpdateInput, OpenedEvent, PermissionKind, Permissions, PushToStartTokenEvent, PushTokenEvent, PushTokens,
-  StartInput, StartedEvent, StateEvent, UnknownEvent, UpdateInput, UpdatedEvent,
+  HandledEvent, StartInput, StartedEvent, StateEvent, UnknownEvent, UpdateInput, UpdatedEvent,
 } from './types.js';
 
 export type * from './types.js';
@@ -319,4 +319,13 @@ export function onPermissions(handler: (permissions: Permissions) => void): Prom
  */
 export function onUnknown(handler: (event: UnknownEvent) => void): Promise<UnlistenFn> {
   return listen<UnknownEvent>('live-activity://unknown', event => handler(event.payload));
+}
+
+/**
+ * Receive a tap that the target of its action ran, and that the app's own component (a service or a receiver) took
+ * with `LiveUpdateActions.take` (Android). The component acted on it, so it is no tap for `onAction`: this says
+ * that it happened, with the action's `id` and the stored tap's sequence and time.
+ */
+export function onHandled(handler: (event: HandledEvent) => void): Promise<UnlistenFn> {
+  return listen<HandledEvent>('live-activity://handled', event => handler(event.payload));
 }

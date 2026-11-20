@@ -8,9 +8,10 @@ use liveactivity::liveupdate::Timer;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use tauri_plugin_live_activity::{
-    AndroidContent, AndroidPresentation, BigTextStyle, IconSource, Metric, MetricStyle,
-    MetricValue, NotificationAction, PresentationStyle, ProgressPoint, ProgressSegment,
-    ProgressStyle, PublicVersion, SamsungNowBar, SemanticStyle, TimerStyle, validate_request,
+    ActionTarget, AndroidContent, AndroidPresentation, BigTextStyle, IconSource, Metric,
+    MetricStyle, MetricValue, NotificationAction, PresentationStyle, ProgressPoint,
+    ProgressSegment, ProgressStyle, PublicVersion, SamsungNowBar, SemanticStyle, TargetKind,
+    TimerStyle, validate_request,
 };
 
 /// The contents of the fixture, each with its name.
@@ -173,10 +174,26 @@ impl Held {
                 icon,
                 authentication_required,
                 open_url,
+                target,
             } = action;
             self.icon("action.icon", icon);
             self.member("action.authenticationRequired", *authentication_required);
             self.member("action.openUrl", open_url.is_some());
+            self.member("action.target", target.is_some());
+            if let Some(ActionTarget {
+                kind,
+                component: _,
+                action,
+            }) = target
+            {
+                self.member("action.target.action", action.is_some());
+                self.variants.insert(match kind {
+                    TargetKind::Service => "target: service",
+                    TargetKind::ForegroundService => "target: foregroundService",
+                    TargetKind::Broadcast => "target: broadcast",
+                    _ => "target: a variant this test does not know",
+                });
+            }
         }
         self.member("presentation.samsungNowBar", samsung_now_bar.is_some());
         if let Some(SamsungNowBar { primary, secondary }) = samsung_now_bar {
@@ -325,7 +342,7 @@ fn locked(version: &PublicVersion) {
 
 /// The fixture is as wide as the models: what TypeScript declares and what liveupdate's Android side takes are
 /// compared with all that Rust can write, not with a part of it.
-// TP-JS-7, TP-ANDROID-14, TP-ANDROID-20
+// TP-JS-7, TP-ANDROID-14, TP-ANDROID-20, TP-ANDROID-22
 #[test]
 fn the_fixture_holds_every_member_of_the_models_given_and_left_out_and_every_variant() {
     let mut held = Held::default();
@@ -359,6 +376,9 @@ fn the_fixture_holds_every_member_of_the_models_given_and_left_out_and_every_var
             "style: progress",
             "style: standard",
             "style: timer",
+            "target: broadcast",
+            "target: foregroundService",
+            "target: service",
         ])
     );
 }

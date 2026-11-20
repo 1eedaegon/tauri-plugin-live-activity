@@ -247,6 +247,13 @@ fn ios_capabilities() -> Capabilities {
         layout: support,
         push: support,
         android_presentation: None,
+        ios: Some(crate::IosCapabilities {
+            push_to_start: true,
+            push_channels: true,
+            transient: true,
+            scheduled_start: true,
+            small_family: true,
+        }),
     }
 }
 
@@ -297,7 +304,7 @@ fn the_typescript_timer_style_is_what_rust_reads_and_writes() {
     assert_eq!(members(&ts, "Timer"), written(timer, timer));
 }
 
-// TP-JS-7, TP-ANDROID-20
+// TP-JS-7, TP-ANDROID-20, TP-ANDROID-22
 #[test]
 fn the_typescript_options_of_a_start_on_android_are_what_rust_reads_and_writes() {
     let ts = types();
@@ -321,8 +328,14 @@ fn the_typescript_options_of_a_start_on_android_are_what_rust_reads_and_writes()
     let mut full = bare.clone();
     full.public_version = Some(version);
     full.placement = Some(AndroidPlacement::Foreground);
-    // Carried unless it says otherwise, and written only then.
-    let full = full.with_wear_ongoing_activity(false);
+    // Carried unless it says otherwise, and written only then; and the targets of its buttons, written when there are.
+    let full = full.with_wear_ongoing_activity(false).with_target(
+        "record",
+        crate::ActionTarget::new(
+            crate::TargetKind::ForegroundService,
+            "dev.example.app.Recorder",
+        ),
+    );
     assert_eq!(members(&ts, "LayoutAndroidOptions"), written(&full, &bare));
     assert_eq!(
         literals(&declared(&ts, "LayoutAndroidOptions", "visibility")),
@@ -334,20 +347,22 @@ fn the_typescript_options_of_a_start_on_android_are_what_rust_reads_and_writes()
     );
 }
 
-// TP-JS-7, TP-ANDROID-17
+// TP-JS-7, TP-ANDROID-17, TP-ACTION-4, TP-IOS-20, TP-EVENT-5, TP-ANDROID-22
 #[test]
 fn the_typescript_records_have_the_members_that_the_rust_models_write() {
     let ts = types();
     let capabilities = ios_capabilities();
-    // Android writes which styles the device draws; iOS leaves the member out.
-    let android = Capabilities {
+    // Android writes which styles the device draws, iOS what it runs of the later features; each leaves the other's
+    // member out, and a backend of neither writes neither.
+    let both = Capabilities {
         android_presentation: Some(PresentationCapabilities::default()),
         ..capabilities.clone()
     };
-    assert_eq!(
-        members(&ts, "Capabilities"),
-        written(&android, &capabilities)
-    );
+    let neither = Capabilities {
+        ios: None,
+        ..capabilities.clone()
+    };
+    assert_eq!(members(&ts, "Capabilities"), written(&both, &neither));
     let styles = PresentationCapabilities::default();
     assert_eq!(
         members(&ts, "AndroidPresentationSupport"),
@@ -414,17 +429,49 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
     );
     // A tap on a toggle says which state the person asked for; a tap on a button says none.
     let tap = ActionEvent {
-        action_id: "pet".into(),
-        activity_id: "a".into(),
         activity_key: Some("k".into()),
         on: Some(true),
+        tap: crate::Tap {
+            id: Some("tap-1".into()),
+            at: Some(1),
+            revision: Some(2),
+            late: true,
+        },
+        ..ActionEvent::new("pet", "a")
     };
     let unkeyed = ActionEvent {
         activity_key: None,
         on: None,
+        tap: crate::Tap::default(),
         ..tap.clone()
     };
     assert_eq!(members(&ts, "ActionEvent"), written(&tap, &unkeyed));
+    // What a tap says of itself, each member left out when unknown; and a tap that the app's component took.
+    assert_eq!(
+        members(&ts, "Tap"),
+        written(&tap.tap, crate::Tap::default())
+    );
+    let handled = crate::HandledEvent {
+        activity_id: "a".into(),
+        activity_key: Some("k".into()),
+        action_id: "record".into(),
+        tap: tap.tap.clone(),
+    };
+    let bare = crate::HandledEvent {
+        activity_key: None,
+        tap: crate::Tap::default(),
+        ..handled.clone()
+    };
+    assert_eq!(members(&ts, "HandledEvent"), written(&handled, &bare));
+    // What an iPhone runs, and what runs a tap on Android.
+    let ios = crate::IosCapabilities::default();
+    assert_eq!(members(&ts, "IosSupport"), written(ios, ios));
+    let target = crate::ActionTarget::new(crate::TargetKind::Service, "dev.example.app.Recorder");
+    let named = crate::ActionTarget {
+        action: Some("dev.example.app.RECORD".into()),
+        ..target.clone()
+    };
+    assert_eq!(members(&ts, "ActionTarget"), written(&named, &target));
     // An opening by an action names it; one by the notification itself names none.
     let opened = OpenedEvent {
         activity_id: "a".into(),

@@ -349,6 +349,65 @@ placement, and the app's `LiveUpdateForeground.setListener` stops the service wh
 (an end). One running activity holds the placement at a time: a second is `SYSTEM_LIMIT`. A device that does not
 offer `foregroundPlacement` answers `UNSUPPORTED_FEATURE`. Without a service the notification is an ordinary one.
 
+A service that may run before the activity starts, or after it ends, keeps a notification of its own with
+`LiveUpdateForeground.attachOr(service, type, fallbackId, fallback)`: the activity's while one holds the placement,
+its own under `fallbackId` otherwise, so that Android always has one within seconds of the start; when the activity
+ends the service shows its own again and stays in the foreground (liveupdate 0.8).
+
+## A tap that runs your own code
+
+A button can run a service, a foreground service or a receiver of the app at once, with no screen, from the lock
+screen and while no process of the app runs, as a Live Activity runs an App Intent (liveupdate 0.8): a recorder's
+Record, a player's Pause. A layout's start names the target of a button or a toggle by its action id, and an
+Android content's action names its own:
+
+```ts
+android: { visibility: 'public', targets: { record: { kind: 'foregroundService', component: 'com.example.RecorderService', action: 'com.example.RECORD' } } }
+// or, in a content: actions: [{ id: 'record', title: 'Record', target: { kind: 'broadcast', component: 'com.example.RecordReceiver' } }]
+```
+
+`kind` is `service`, `foregroundService` or `broadcast`; `component` a class of the app's package (two or more Java
+identifiers joined by dots); `action` the intent's action, if any. The component is declared in the app's manifest
+(`src-tauri/gen/android/app/src/main/AndroidManifest.xml`), not exported, and in the app's process; one that Android
+does not resolve so is refused with `INVALID_INPUT`, and so is every update of an activity that names one that an
+update of the app removed: name another target, or none (liveupdate 0.8.1). A key of `targets` must be the `actionId` of a button or toggle
+of the lock screen tree, and a device without `getCapabilities().androidPresentation.actionTargets` answers
+`UNSUPPORTED_FEATURE`. The component takes the tap first:
+
+```kotlin
+override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    val tap = LiveUpdateActions.take(this, intent) // records it as handled, so that the queue does not act on it
+    if (tap != null && !tap.withheld) toggleRecording() // tap.activityId, tap.actionId
+    return START_STICKY
+}
+```
+
+Below Android 12 a locked device sends the tap of an action that asks for the unlock without asking: `take` answers
+it `withheld`, and the component must not act on it. The tap reaches the app as `onHandled` (`live-activity://handled`,
+Rust `HANDLED_EVENT`), not as `onAction`. Code of the app that wants every stored event as it is stored adds a
+listener of its own, `LiveUpdateEvents.addNativeListener { event -> … }`, which takes nothing from the queue: the one
+of `setListener` is the plugin's, and replacing it stops the plugin's events.
+
+A service that runs its own Rust while Tauri has not started, as one that a target started with the app closed,
+builds a client of the same activities from the raw pointers of its JNI entry, with the plugin's names for the
+files:
+
+```rust
+// In the service's JNI entry, with `env` and its `context: JObject`, off the main thread.
+let vm = env.get_java_vm()?;
+// SAFETY: the process's VM, and a context that is valid on this thread for the call.
+let client = unsafe {
+    tauri_plugin_live_activity::native::client_from_raw(
+        vm.get_raw().cast(), context.as_raw().cast(), files_dir, "Recorder", false,
+    )
+}?;
+let record = tauri_plugin_live_activity::native::block_on(client.update_layout(update))?;
+```
+
+`files_dir` is `context.getFilesDir()`, the name is Tauri's `productName`, and the last argument the plugin's
+`android.samsungNowBar`. While Tauri runs in the same process, its commands are the way: two clients of one store do
+not see each other's writes at once.
+
 ## A scheduled start
 
 A start with `scheduled` is stored at once and begins at its time. liveupdate's adapter sets an alarm for it, and

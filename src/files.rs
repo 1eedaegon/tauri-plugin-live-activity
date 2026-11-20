@@ -16,6 +16,12 @@ pub(crate) struct FilesDirectory {
 }
 
 impl FilesDirectory {
+    /// The folder of the app's files as the app names it itself, for a client of a service (`crate::native`).
+    #[cfg(target_os = "android")]
+    pub(crate) fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
+
     /// What liveactivity's Android backend is told of the files: the folder as the Kotlin side answered it, and
     /// under it the plugin's own names for the layouts and for the pictures of `writeImage`.
     pub(crate) fn for_app(self, app_name: String, samsung_now_bar: bool) -> AndroidFiles {

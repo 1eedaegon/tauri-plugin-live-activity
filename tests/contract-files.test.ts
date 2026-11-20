@@ -37,11 +37,13 @@ test('the layout fixtures are those of the activitykit crate that Cargo.lock nam
 
 // TP-IOS-19
 test('the documents give buttons and toggles the iOS from which the activitykit in Cargo.lock runs them', () => {
-  // activitykit says `buttons` from the iOS where the system runs its intent, and its widget draws a control there.
-  const system = readFileSync(join(activitykitDir(), 'swift/Sources/ActivityKitBridge/ActivityKitSystem.swift'), 'utf8');
-  const from = /if #available\(iOS (\d+(?:\.\d+)?), \*\) \{ buttons = true \}/.exec(system)?.[1];
-  assert.ok(from, 'activitykit says from which iOS buttons run');
-  const wanted = `iOS ${from.replace(/\.0$/, '')}`;
+  // activitykit says `buttons` from the iOS where the system runs its intent, and its widget draws a control there:
+  // since 0.7.0 in the table of the platform's support, `buttons = from(17, 2)`.
+  const support = readFileSync(join(activitykitDir(), 'swift/Sources/ActivityKitCore/PlatformSupport.swift'), 'utf8');
+  const floor = /\bbuttons = from\((\d+), (\d+)\)/.exec(support);
+  assert.ok(floor, 'activitykit says from which iOS buttons run');
+  const [, major, minor] = floor;
+  const wanted = minor === '0' ? `iOS ${major}` : `iOS ${major}.${minor}`;
   // Every line of the documents and declarations that gives a button, a toggle or its switch an iOS of 17 gives that
   // one; the records of earlier runs keep what was true then.
   const files = ['README.md', 'README.ko.md', 'docs/usage.md', 'docs/ios-integration.md', 'docs/compatibility.md',

@@ -34,6 +34,9 @@ mod exact_alarms;
 mod files;
 #[cfg(target_os = "ios")]
 mod ios;
+/// Android: the app's activities for a service of its own that runs without Tauri.
+#[cfg(target_os = "android")]
+pub mod native;
 mod openings;
 mod service;
 #[cfg(test)]
@@ -41,8 +44,8 @@ mod types_tests;
 
 pub use config::{AndroidConfig, Config, Receipts};
 pub use events::{
-    ACTION_EVENT, OPENED_EVENT, PERMISSIONS_EVENT, PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT,
-    STARTED_EVENT, STATE_EVENT, UNKNOWN_EVENT, UPDATED_EVENT,
+    ACTION_EVENT, HANDLED_EVENT, OPENED_EVENT, PERMISSIONS_EVENT, PUSH_TO_START_TOKEN_EVENT,
+    PUSH_TOKEN_EVENT, STARTED_EVENT, STATE_EVENT, UNKNOWN_EVENT, UPDATED_EVENT,
 };
 /// The contract: the requests, records, layout types, errors and checks.
 pub use liveactivity::contract::*;

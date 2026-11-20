@@ -267,12 +267,14 @@ final class DemoTests: XCTestCase {
         capture("e2e-2-buttons-after-rust")
         leaveLockScreen()
         // The page's onAction listener shows the tap, in its message and under Developer tools. A button's tap has no
-        // `on`: with one the message reads "asked off" or "asked on", and the record ends with the member.
+        // `on`: with one the message reads "asked off" or "asked on", and the record ends with the member. `tap` says
+        // which tap it is (activitykit 0.7): its id, its time, and the revision of the content shown, 0 before any
+        // update; it was taken at once, so it is not `late`.
         XCTAssertTrue(webText("Mochi felt “pet” from the Buttons example.").waitForExistence(timeout: page))
         tap("Developer tools")
         let heard = webText("Last tap: {\"actionId\":\"pet\"")
         XCTAssertTrue(heard.waitForExistence(timeout: page))
-        let record = #"^Last tap: \{"actionId":"pet","activityId":"[^"]+","activityKey":"mochi:buttons"\}$"#
+        let record = #"^Last tap: \{"actionId":"pet","activityId":"[^"]+","activityKey":"mochi:buttons","tap":\{"id":"[0-9A-F-]{36}","at":\d{13},"revision":0\}\}$"#
         XCTAssertNotNil(heard.label.range(of: record, options: .regularExpression), heard.label)
         capture("e2e-2-tap-in-javascript")
         tap("End this example")

@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+Built on liveactivity 0.10.1, with activitykit 0.7.0 and liveupdate 0.8.1, from 0.8.3, 0.6.6 and 0.7.1.
+
+- **A tap says which it is** (`ActionEvent.tap`: `id`, `at`, `revision`, `late`). On iOS a tap that the app did not
+  take at once, because the tap launched it or its process ended first, is no longer lost: activitykit keeps it, at
+  most 32 and 12 hours, and it comes later with `late`. Act on each `id` once. On Android `id` and `at` are the
+  stored tap's sequence and time.
+- **`getCapabilities().ios`**: `pushToStart`, `pushChannels`, `transient`, `scheduledStart`, `smallFamily`, what
+  the iPhone runs, so that a request need not be tried to learn it.
+- **A tap that runs your own code** (Android): `android.targets` of a layout's start, by a button's or toggle's
+  `actionId`, and `target` of an Android content's action, run a service, a foreground service or a receiver of the
+  app at once, with no screen; `androidPresentation.actionTargets` says whether the device can. The component takes
+  the tap with `LiveUpdateActions.take`, and it comes to **`onHandled`** (`live-activity://handled`, Rust
+  `HANDLED_EVENT`), not to `onAction`.
+- The plugin's Android library carries liveupdate 0.8's Kotlin: `LiveUpdateActions`, `Targets`,
+  `LiveUpdateEvents.addNativeListener` (a listener that takes nothing from the queue) and
+  `LiveUpdateForeground.attachOr` (a service with its own notification until an activity holds the placement).
+- **`native::client_from_raw`** (Android, Rust): a client of the app's activities for a service of its own that runs
+  without Tauri, built from the raw pointers of its JNI entry, on the plugin's files.
+- activitykit's widget keeps the expanded Dynamic Island's leading and trailing content 6 points from the top and
+  the outer side, so that a short trailing value is no longer cut; updates and renders cost less.
+
+When updating: a struct literal of `ActionEvent`, `Capabilities` or `AndroidOptions` names the new member or builds
+on the constructor.
+
+
 - The README shows each interface of 0.11 in a line or a few, in both languages: the options of a start on Android
   (`visibility`, `placement: 'foreground'`, `wearOngoingActivity`), the event name of `onUnknown`, the constructors
   of the Rust requests with `LayoutEndInput::immediate`, `tauri_plugin_live_activity::liveupdate`, a layout's

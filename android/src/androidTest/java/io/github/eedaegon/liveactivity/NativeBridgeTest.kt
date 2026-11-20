@@ -385,7 +385,7 @@ class NativeBridgeTest {
      * draws it is Android's. What a content needs of the app is here: the picture of its icons from files, and an
      * activity that opens its URLs (the manifest of the device tests).
      */
-    // TP-ANDROID-14
+    // TP-ANDROID-14, TP-ANDROID-22
     @Test
     fun liveupdatesAdapterPostsEveryAndroidContentThatRustWrites() {
         val fixture = instrumentation.context.assets.open("contents.json").bufferedReader().use { it.readText() }
