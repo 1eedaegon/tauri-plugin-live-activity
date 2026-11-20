@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.12.0
 
 Built on liveactivity 0.10.1, with activitykit 0.7.0 and liveupdate 0.8.1, from 0.8.3, 0.6.6 and 0.7.1.
 

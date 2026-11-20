@@ -212,6 +212,17 @@ style on the Lock Screen (`test1`), the button's tap (`test2`) and the switch (`
 - Not seen on any phone: the dark appearance on the iPhone XS, the system's question under a card, a watch,
   CarPlay. The lifecycle test asks the plugin and reads its answers: it does not look at the Lock Screen.
 
+## 0.12.0 on an iPhone
+
+0.12.0 brings activitykit 0.7.0: a tap says which it is, the authorization what the device runs, and the expanded
+island keeps its leading and trailing content 6 points in. A build of `e3577a1` passed the lifecycle test on the
+iPhone XS with iOS 18.7.12 in 2 of 2 runs, 27 checks each, and the UI tests of a bound style, of the Lock Screen
+button and of the switch at the runner's first start. The button's record read
+`{"actionId":"pet","activityId":"la-ios-layout-…","activityKey":"mochi:buttons","tap":{"id":"<UUID>","at":<ms>,"revision":0}}`:
+the content shown at revision 0, the tap taken at once. The cards were 354x86 at y 605, 355x126 at 566 and 355x123
+at 568 of 375x812, as with 0.11.1. The iPhone 16 was not run for this release. No tap came late here: the tests tap
+a running app.
+
 ## 0.11.1 on two iPhones
 
 0.11.1 brings activitykit 0.6.6: buttons and toggles from iOS 17.2, and the card's whole width for a layout on the

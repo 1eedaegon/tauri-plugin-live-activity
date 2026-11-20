@@ -1,3 +1,45 @@
+# 0.12.0 validation
+
+0.12.0 is a minor release. It brings what main has since 0.11.1: the plugin on liveactivity 0.10.1, with activitykit
+0.7.0 and liveupdate 0.8.1 (#71), documents (#69), and a page of the demo for working on a layout live (#70), which
+ships in neither package. A tap says which it is (`tap`: its id, time, revision and
+whether it came late; on iOS a tap that the app did not take at once is kept and comes later); `getCapabilities()`
+says what an iPhone runs of the later features (`ios`); on Android a button can run the app's own service or
+receiver at once, with no screen (`android.targets`, an Android content action's `target`, the capability
+`actionTargets`), and the tap that such a component took comes to `onHandled`; the Android library carries
+liveupdate 0.8.1's Kotlin (`LiveUpdateActions`, `Targets`, `addNativeListener`, `attachOr`), and `native::client_from_raw`
+gives a service that runs without Tauri a client of the app's activities. It is breaking for a Rust caller whose
+struct literal of `ActionEvent`, `Capabilities` or `AndroidOptions` names every member; JSON written for 0.11 reads
+the same, and the permissions are as they were. Checked before the tag, on a build of `e3577a1`, the release's
+version commit:
+
+- A Galaxy S23 with Android 17 (One UI 9), unlocked: the demo's lifecycle test passed, 30 of 30 in 3 of 3 runs, no
+  alarm of the demo was left, and the capabilities answered `actionTargets: true` and `wearOngoingActivity: false`.
+  The Android library's device tests passed, 10 of 10: the adapter posted the fixture's contents, and refused with
+  `INVALID_INPUT` the two whose actions name a service, a foreground service and a receiver that the test app does
+  not have, as the fixture says. [Android coverage](android-coverage.md#liveupdate-081-0120) has the runs.
+- An iPhone XS with iOS 18.7.12: the lifecycle test passed, 27 of 27, twice, and the UI tests of a bound style, of
+  the Lock Screen button and of the switch at the runner's first start. The button's record carried the tap:
+  `"tap":{"id":<UUID>,"at":<ms>,"revision":0}`. The cards were of the size and at the place of 0.11.1's run.
+  [iOS coverage](ios-coverage.md#0120-on-an-iphone) has the run.
+- The simulator suites on a hosted runner (iOS 26.2), by hand on #71's branch. On its first commit the UI test of
+  the Lock Screen button failed in both suites, three times each, and nothing else: the tap's record now ends with
+  `tap`, and the test expected it to end after `activityKey`. With the test reading the whole record (run
+  44708770984), the built demo passed its 12 tests and `tauri ios dev` its 4, each at its first try.
+- `npm test` (327 tests in six suites, with the live-editing page's), the typecheck, `cargo test` (54 unit and 10 integration tests), `cargo
+  clippy`, `cargo check --target aarch64-linux-android --lib` (the service's client is Android's alone), and
+  `tools/spec-coverage.sh` (101 requirements, each with a test). The npm package has 33 files with the names of
+  0.11.1's (npm 11.20.0); the crate has 73: liveupdate's `LiveUpdateActions.kt` and `Targets.kt` and the plugin's
+  `src/native.rs` beside the 70.
+
+Not checked: a target that runs a component, on a device: the demo has no service of its own, and the device tests
+see a target refused; liveupdate ran each kind on its own device tests. A tap that came late: the UI tests tap the
+running app; activitykit's simulator tests end the app first. `native::client_from_raw` on a device: CI's lint for
+Android builds it. An iOS below 17.2, Xcode 27, the iPhone 16 (not asked for this release), and a watch, which the
+plugin does not run on.
+
+The record of 0.11.1 follows.
+
 # 0.11.1 validation
 
 0.11.1 is a patch release. It brings what main has since 0.11.0: the plugin on liveactivity 0.8.3 with activitykit
