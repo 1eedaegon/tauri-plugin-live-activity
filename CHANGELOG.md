@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.13.0
+
+Built on liveactivity 0.11.0, with activitykit 0.8.1 and liveupdate 0.8.2, from 0.10.1, 0.7.0 and 0.8.1.
+
+- **Live Activities from iOS 16.1**, ActivityKit's first release, where every command but the reads answered
+  `UNSUPPORTED_PLATFORM` below iOS 16.2. iOS 16.1 takes the content alone: a snapshot's `staleAt` and `relevance` do
+  not reach the system, so the stale nodes are never drawn and no `stale` state comes, a record has no relevance,
+  and `frequentPushes` is `denied`. `setup` writes the widget extension for iOS 16.1.
+- **`tauri_plugin_live_activity::activitykit`**: activitykit's types are `#[non_exhaustive]` since 0.8, so a layout
+  is built on constructors, and the node functions (`text`, `vstack`, `button`, …) are reached through this
+  re-export: `Layout::new(text(Bound::key("status")))`.
+- activitykit's widget draws content that a later server pushes, with members this version does not know, instead
+  of an empty activity; a node of a type it does not know is drawn as nothing. A request of the app with such a
+  member is still `INVALID_INPUT`.
+- A receipt that cannot be read costs that receipt, not the list: `listLayout()` no longer fails with
+  `NATIVE_ERROR` for it, and the newest 256 receipts are kept.
+- The Android library carries liveupdate 0.8.2's Kotlin (`JsonScan.kt` new): every call's read passes the stored
+  receipts on without parsing them, so it costs less.
+
+When updating: build a layout with `Layout::new(lock_screen)` and `.island(..)`, `.background(..)`, `.keyline(..)`,
+`.url(..)`, `.small(..)`, a node with `activitykit::layout::text(..)` and the other node functions, a style with
+`Style::new()`, a pair of colors with `Color::adaptive(light, dark)`; a literal of `Layout`, `Node`, `Element`,
+`Style` or `Island` no longer compiles, and a `match` on `Element`, `Value` or `Bindable` needs a `_` arm. Run
+`setup` again so that `live-activity.yml` names activitykit 0.8.1's Swift package and the widget extension's iOS
+16.1; for a hand-made extension, lower its deployment target to iOS 16.1 to reach those iPhones. JSON written for
+0.12 reads the same.
+
 ## 0.12.0
 
 Built on liveactivity 0.10.1, with activitykit 0.7.0 and liveupdate 0.8.1, from 0.8.3, 0.6.6 and 0.7.1.
