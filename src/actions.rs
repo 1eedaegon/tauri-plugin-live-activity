@@ -122,12 +122,7 @@ mod tests {
     type Log = Arc<Mutex<Vec<String>>>;
 
     fn tap(action: &str) -> ActionEvent {
-        ActionEvent {
-            action_id: action.into(),
-            activity_id: "id".into(),
-            activity_key: None,
-            on: None,
-        }
+        ActionEvent::new(action, "id")
     }
 
     fn record(log: &Log, entry: String) {
@@ -305,10 +300,8 @@ mod tests {
         handler(&actions, &log, "rust");
         let started = Instant::now();
         let event = ActionEvent {
-            action_id: "pet".into(),
-            activity_id: "la-ios-layout-1".into(),
             activity_key: Some("mochi:buttons".into()),
-            on: None,
+            ..ActionEvent::new("pet", "la-ios-layout-1")
         };
         actions.tap(event.clone(), Release(log.clone(), started));
         // Queuing does not wait: activitykit's events thread goes on reading.
@@ -332,15 +325,7 @@ mod tests {
             record(&slow, format!("slow:{}", event.action_id));
         });
         let started = Instant::now();
-        actions.tap(
-            ActionEvent {
-                action_id: "pet".into(),
-                activity_id: "a".into(),
-                activity_key: None,
-                on: None,
-            },
-            Release(log.clone(), started),
-        );
+        actions.tap(ActionEvent::new("pet", "a"), Release(log.clone(), started));
         let entries = finish(actions, runner, &log);
         assert_eq!(entries, ["slow:pet", "emit:pet", "released after 1000 ms"]);
     }

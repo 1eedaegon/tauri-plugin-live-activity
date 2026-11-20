@@ -28,6 +28,11 @@ export interface Capabilities {
    * only.
    */
   readonly androidPresentation?: AndroidPresentationSupport;
+  /**
+   * What the iPhone runs of the features after the first Live Activities, so that a request need not be tried to
+   * learn it. Each is false on a device without Live Activities. iOS only.
+   */
+  readonly ios?: IosSupport;
 }
 
 /**
@@ -77,6 +82,26 @@ export interface AndroidPresentationSupport {
    * does not offer, so this is false wherever the plugin runs today.
    */
   readonly wearOngoingActivity: boolean;
+  /**
+   * Whether an action may run a service, a foreground service or a receiver of the app at once (a start's
+   * `android.targets`, an Android content action's `target`). Where it is false such a start or update answers
+   * `UNSUPPORTED_FEATURE` and posts nothing.
+   */
+  readonly actionTargets: boolean;
+}
+
+/** What an iPhone runs of the features after the first Live Activities. */
+export interface IosSupport {
+  /** A push-to-start token (`onPushToStartToken`): iOS 17.2. */
+  readonly pushToStart: boolean;
+  /** A start that subscribes to a broadcast channel (`push: { channel }`): iOS 18. */
+  readonly pushChannels: boolean;
+  /** A transient start (`ios: { transient: true }`): iOS 18. */
+  readonly transient: boolean;
+  /** A scheduled start (`scheduled`): iOS 26, in an app built with the iOS 26 SDK. */
+  readonly scheduledStart: boolean;
+  /** A layout's `small` region on a paired Apple Watch and in CarPlay: iOS 18, with `setup --small-family`. */
+  readonly smallFamily: boolean;
 }
 
 export interface Permissions {
@@ -328,6 +353,22 @@ export interface AndroidAction {
    * no tap: `onOpened` reports the opening with the action's `id`.
    */
   readonly openUrl?: string;
+  /** What runs the tap at once, with no screen: a service or a receiver of the app (`actionTargets`). Not beside `openUrl`. */
+  readonly target?: ActionTarget;
+}
+
+/**
+ * A service, a foreground service or a receiver of the app that runs a tap at once, with no screen, from the lock
+ * screen and while no process of the app runs, as a Live Activity runs an App Intent. The component is declared in
+ * the app's manifest, not exported, in the app's process, and takes the tap first with `LiveUpdateActions.take`;
+ * the tap then comes to `onHandled`, not to `onAction`.
+ */
+export interface ActionTarget {
+  readonly kind: 'service' | 'foregroundService' | 'broadcast';
+  /** A class of the app's package: two or more Java identifiers joined by dots, 256 characters at most. */
+  readonly component: string;
+  /** The intent's action: printable ASCII without spaces, 256 characters at most. */
+  readonly action?: string;
 }
 
 /**
@@ -800,6 +841,12 @@ export interface LayoutAndroidOptions {
    * platform.
    */
   readonly wearOngoingActivity?: boolean;
+  /**
+   * What runs the tap of a button or a toggle of the lock screen tree, by its `actionId`: a service or a receiver
+   * of the app (`actionTargets`). Each key names a control of the tree, else `INVALID_INPUT` on every platform. iOS
+   * ignores it.
+   */
+  readonly targets?: { readonly [actionId: string]: ActionTarget };
 }
 
 /**
@@ -956,6 +1003,40 @@ export interface ActionEvent {
    * content.
    */
   readonly on?: boolean;
+  /** Which tap it is and when it was made; absent when nothing of it is known. */
+  readonly tap?: Tap;
+}
+
+/** What a tap says of itself. Each member is absent when it is not known. */
+export interface Tap {
+  /**
+   * The same however often the tap is handed on, also in a later launch: keep the ids you handled to act on each
+   * once. On Android the sequence of the stored tap.
+   */
+  readonly id?: string;
+  /** When the person tapped, UTC Unix epoch milliseconds. On Android when the tap was stored. */
+  readonly at?: number;
+  /** The revision of the content the activity showed (iOS). */
+  readonly revision?: number;
+  /**
+   * iOS: the app did not take the tap at once (the tap launched it, or its process ended first), so it was kept
+   * and comes later, in this launch or the next, at most 12 hours later. The activity may have ended since.
+   */
+  readonly late?: boolean;
+}
+
+/**
+ * A tap that the target of its action ran, and that the app's own component took with `LiveUpdateActions.take`
+ * (Android). The component acted on it: this is no tap for `onAction`.
+ */
+export interface HandledEvent {
+  readonly activityId: string;
+  /** The key of that activity, when the plugin knows it. */
+  readonly activityKey?: string;
+  /** The action whose target took the tap. */
+  readonly actionId: string;
+  /** The stored tap's sequence and time. */
+  readonly tap?: Tap;
 }
 
 /**

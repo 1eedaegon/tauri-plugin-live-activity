@@ -658,6 +658,16 @@ The demo's Rust handler counts the pets and updates the status. Buttons need iOS
 toggles together, as notification actions. Android stores a tap that starts a killed app, and the
 plugin delivers it when it starts.
 
+A tap says which it is and when: `tap: { id, at, revision, late }`, each absent when unknown. `id` is the same
+however often the tap comes, also in a later launch. On iOS a tap that the app did not take at once, because the
+tap launched it or its process ended first, is kept (at most 32, for 12 hours) and comes later, in this launch or
+the next, with `late`; its activity may have ended since. On Android `id` is the sequence of the stored tap and
+`at` when it was stored. Keep the ids you handled, and act on each once.
+
+On Android a button can also run the app's own service or receiver at once, with no screen: a start's
+`android.targets` names it by the button's `actionId`. That tap comes to `onHandled`, not to `onAction`: see
+[A tap that runs your own code](android-integration.md#a-tap-that-runs-your-own-code).
+
 ### Links and toggles
 
 A `link` opens the app with its URL, which the app receives as any URL it is opened with; no event
@@ -845,6 +855,7 @@ order, with the current values:
 | `android.visibility` | lock screen visibility: `public`, `private` (default) or `secret` |
 | `android.publicVersion` | what a locked device shows of a `private` activity in its place, where the device offers `publicVersion` |
 | `android.placement` | `foreground`: the notification that the app's foreground service holds, where the device offers `foregroundPlacement` ([A foreground service](android-integration.md#a-foreground-service)) |
+| `android.targets` | `{ [actionId]: { kind, component, action? } }`: what runs the tap of that button or toggle at once, a service or a receiver of the app, where the device offers `actionTargets` ([A tap that runs your own code](android-integration.md#a-tap-that-runs-your-own-code)) |
 | `android.wearOngoingActivity` | `false` keeps the activity off the face of a watch, in all of its snapshots: see [Wear OS](#wear-os) |
 
 Everything else is listed in `degradedFeatures`, here `layout.symbol` and `layout.styles`:

@@ -27,6 +27,9 @@ pub const STARTED_EVENT: &str = "live-activity://started";
 /// reports the changes ActivityKit tells of while the app runs. Android reports the state an activity has when the
 /// plugin looks, each once: `active`, `stale`, `ended` and `dismissed`.
 pub const STATE_EVENT: &str = "live-activity://state";
+/// The Tauri event that carries a [`HandledEvent`](crate::HandledEvent) (Android): a tap that the target of its
+/// action ran, and that the app's own component took with `LiveUpdateActions.take`. It is no tap for `on_action`.
+pub const HANDLED_EVENT: &str = "live-activity://handled";
 /// The Tauri event that carries an [`OpenedEvent`](crate::OpenedEvent): the person opened the app from the
 /// notification of an activity (Android). The opening that launched the app goes out before the app's own listeners
 /// are there: [`take_openings`](crate::LiveActivity::take_openings) has every opening until it is taken.
@@ -94,6 +97,9 @@ pub(crate) fn sink_within<R: Runtime>(
             }
             Event::Unknown(unknown) => {
                 let _ = app.emit(UNKNOWN_EVENT, unknown);
+            }
+            Event::Handled(handled) => {
+                let _ = app.emit(HANDLED_EVENT, handled);
             }
             // A kind that a later liveactivity adds, whose enum may grow: the plugin has no name for it yet.
             _ => {}

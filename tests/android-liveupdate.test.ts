@@ -11,7 +11,7 @@ import { present } from './support.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
-// TP-ANDROID-11
+// TP-ANDROID-11, TP-ANDROID-23
 test("the Android library carries liveupdate's Kotlin, resources and manifest entries, its R renamed", () => {
   const dir = liveupdateDir();
   assert.match(readFileSync(join(dir, 'Cargo.toml'), 'utf8'), /^name = "liveupdate"$/m);

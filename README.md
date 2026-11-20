@@ -206,21 +206,39 @@ person allows exact alarms, where `openExactAlarmSettings()` takes them), and `i
 activity (iOS 18). The layout stays as it started; each update sends every value again, with a higher revision. Taps come to
 `onAction`, push tokens and pushed content to `onPushToken`, `onPushToStartToken` and `onUpdated`, and what happens
 to an activity outside the app's calls to `onState`, `onStarted`, `onOpened` (Android: the person opened the app from an
-activity's notification; the opening that launched the app waits for the page), `onPermissions` and `onUnknown`
-(`live-activity://unknown`; Android: something stored for an activity that this version has no event for).
+activity's notification; the opening that launched the app waits for the page), `onPermissions`, `onUnknown`
+(`live-activity://unknown`; Android: something stored for an activity that this version has no event for) and
+`onHandled` (Android: a tap that the app's own service or receiver took, below). A tap says which it is: `tap.id`
+is the same however often it comes, and on iOS a tap the app did not take at once (it launched the app) comes
+later with `tap.late`, so act on each id once:
 
-On Android a start takes `android: { visibility, publicVersion, placement, wearOngoingActivity }`:
+```ts
+await onAction(({ actionId, tap }) => {
+  if (tap?.id && handled.has(tap.id)) return; // `handled`: the app's own set of ids, kept across launches
+  if (tap?.id) handled.add(tap.id);
+  // act on actionId
+});
+```
+
+On iOS `getCapabilities().ios` says what the iPhone runs (`pushToStart`, `pushChannels`, `transient`,
+`scheduledStart`, `smallFamily`), so a request need not be tried to learn it.
+
+On Android a start takes `android: { visibility, publicVersion, placement, wearOngoingActivity, targets }`:
 
 ```ts
 android: {
   visibility: 'public',       // what a locked device shows: 'public', 'private' or 'secret'
   placement: 'foreground',    // the notification that the app's foreground service holds (`foregroundPlacement`)
   wearOngoingActivity: false, // off the face of a watch (Wear OS 3 to 6; a Tauri app does not run there)
+  // The button `record` runs the app's own service at once, with no screen (`actionTargets`).
+  targets: { record: { kind: 'foregroundService', component: 'com.example.RecorderService', action: 'com.example.RECORD' } },
 }
 ```
 
-The service attaches it with `LiveUpdateForeground.attach(service, type)`.
-[More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md#a-foreground-service)
+The service attaches the notification with `LiveUpdateForeground.attach(service, type)` (or `attachOr`, with a
+notification of its own until an activity holds the placement), and takes a tap first with
+`LiveUpdateActions.take(context, intent)`; the tap then comes to `onHandled`, not `onAction`.
+[More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md#a-tap-that-runs-your-own-code)
 
 A snapshot may also carry a `relevance`, which decides which of the app's activities the Dynamic Island shows, and
 an `android` content, the notification in Android's own terms (a segmented progress, metrics, the chip text) in

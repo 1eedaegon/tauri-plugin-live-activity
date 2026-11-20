@@ -324,6 +324,51 @@ test('onUnknown hands each unknown event to its handler until it is unsubscribed
   assert.equal(heard.length, 2);
 });
 
+// TP-EVENT-5
+test("onHandled hands each tap that the app's component took to its handler, and onAction hears none of them", async t => {
+  t.mock.method(console, 'warn', () => {});
+  mockIPC(() => undefined, { shouldMockEvents: true });
+  const handled: unknown[] = [];
+  const tapped: unknown[] = [];
+  const unlisten = await activity.onHandled(event => handled.push(event));
+  const unlistenTaps = await activity.onAction(event => tapped.push(event));
+  const taken = { activityId: layoutRecord.id, activityKey: layoutInput.activityKey, actionId: 'record',
+    tap: { id: '7', at: 1_800_000_000_000 } };
+  await emit('live-activity://handled', taken);
+  assert.deepEqual(handled, [taken]);
+  assert.deepEqual(tapped, []);
+  await unlisten();
+  await unlistenTaps();
+  await emit('live-activity://handled', taken);
+  assert.equal(handled.length, 1);
+});
+
+// TP-ANDROID-22
+test("a start whose button runs the app's own service is sent as given", async () => {
+  const calls: NativeCall[] = [];
+  mockIPC((nativeCommand, payload?: InvokeArgs) => {
+    calls.push({ nativeCommand, payload });
+    return layoutRecord;
+  });
+  // A target of the options, by a control's action id; and one of an Android content's action.
+  const recorder: LayoutStartInput = deepFreeze({
+    ...layoutInput,
+    android: {
+      visibility: 'public',
+      targets: { record: { kind: 'foregroundService', component: 'dev.example.app.RecorderService', action: 'dev.example.app.RECORD' } },
+    },
+    snapshot: {
+      ...layoutInput.snapshot,
+      android: {
+        title: 'Recorder', status: 'Listening',
+        presentation: { style: { kind: 'standard' }, actions: [{ id: 'stop', title: 'Stop', target: { kind: 'broadcast', component: 'dev.example.app.StopReceiver' } }] },
+      },
+    },
+  });
+  await activity.startLayout(recorder);
+  assert.deepEqual(calls, [{ nativeCommand: 'plugin:live-activity|start_layout', payload: { input: recorder } }]);
+});
+
 // TP-ANDROID-20
 test("a start that keeps its activity off a watch's face is sent as given", async () => {
   const calls: NativeCall[] = [];

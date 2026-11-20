@@ -375,6 +375,59 @@ fn what_android_stored_and_no_event_names_reaches_tauri_listeners() {
     );
 }
 
+// TP-EVENT-5
+#[test]
+fn a_tap_that_the_apps_component_took_reaches_tauri_listeners_and_no_action_handler() {
+    use crate::{ACTION_EVENT, HANDLED_EVENT};
+    use liveactivity::Event;
+    use tauri::Listener;
+    let app = mock_builder()
+        .plugin(crate::init())
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let (sender, heard) = std::sync::mpsc::channel();
+    let handled = sender.clone();
+    app.listen(HANDLED_EVENT, move |event| {
+        let payload: Value = serde_json::from_str(event.payload()).unwrap();
+        let _ = handled.send(("handled", payload));
+    });
+    app.listen(ACTION_EVENT, move |event| {
+        let payload: Value = serde_json::from_str(event.payload()).unwrap();
+        let _ = sender.send(("action", payload));
+    });
+    let handlers = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let ran = handlers.clone();
+    let actions =
+        crate::actions::spawn(move |tap| ran.lock().unwrap().push(tap.action_id.clone())).unwrap();
+    let sink = crate::events::sink(app.handle().clone(), actions, Default::default());
+    sink(Event::Handled(crate::HandledEvent {
+        activity_id: "la-1".into(),
+        activity_key: Some("rec:1".into()),
+        action_id: "record".into(),
+        tap: crate::Tap {
+            id: Some("7".into()),
+            at: Some(1_800_000_000_000),
+            ..crate::Tap::default()
+        },
+    }));
+    let wait = std::time::Duration::from_secs(10);
+    assert_eq!(
+        heard.recv_timeout(wait).unwrap(),
+        (
+            "handled",
+            json!({"activityId":"la-1","activityKey":"rec:1","actionId":"record",
+                "tap":{"id":"7","at":1_800_000_000_000_u64}})
+        )
+    );
+    // The component acted on it: no action event, and no Rust handler ran.
+    assert!(
+        heard
+            .recv_timeout(std::time::Duration::from_millis(300))
+            .is_err()
+    );
+    assert!(handlers.lock().unwrap().is_empty());
+}
+
 /// A backend that only takes where to send its events, and keeps it for the test to report through.
 struct Reporting(std::sync::Arc<std::sync::Mutex<Option<liveactivity::BackendContext>>>);
 
@@ -442,6 +495,7 @@ impl liveactivity::LiveActivityBackend for Alarms {
             layout: support,
             push: FeatureSupport::Unsupported,
             android_presentation: Some(presentation),
+            ios: None,
         };
         Box::pin(async move { Ok(capabilities) })
     }
@@ -808,10 +862,8 @@ fn push_tokens_answers_no_tokens_where_there_are_no_pushes() {
 
 fn pet_tap() -> crate::ActionEvent {
     crate::ActionEvent {
-        action_id: "pet".into(),
-        activity_id: "la-1".into(),
         activity_key: Some("job:1".into()),
-        on: None,
+        ..crate::ActionEvent::new("pet", "la-1")
     }
 }
 
