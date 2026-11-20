@@ -242,7 +242,7 @@ test('sets up a fresh Tauri 2 app: capabilities, Android minimum, widget files, 
   assert.match(spec, /\n  LiveActivityWidget:\n    type: app-extension\n/);
   for (const line of ['ActivityKitLayout: 2', 'NSExtensionPointIdentifier: com.apple.widgetkit-extension',
     'PRODUCT_BUNDLE_IDENTIFIER: "com.example.lasetupcheck.widget"', 'CFBundleShortVersionString: "0.1.0"',
-    'groups: [app]', 'product: ActivityKitWidget', 'deploymentTarget: "16.2"']) {
+    'groups: [app]', 'product: ActivityKitWidget', 'deploymentTarget: "16.1"']) {
     assert.ok(spec.includes(line), line);
   }
   // Tauri writes project.yml without a final newline.

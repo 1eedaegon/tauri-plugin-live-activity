@@ -32,7 +32,7 @@ test("the demo widget is activitykit's widget template, and the project names ac
 test('the widget extension links ActivityKitWidget and declares layout support, the app links the intent', () => {
   const widget = target('LiveActivityWidget');
   assert.match(widget, /- package: ActivityKit\n\s+product: ActivityKitWidget\n/);
-  assert.match(widget, /deploymentTarget: "16\.2"\n/);
+  assert.match(widget, /deploymentTarget: "16\.1"\n/);
   assert.match(widget, /ActivityKitLayout: 2\n/);
   for (const source of ['widget/MochiWidgets.swift', 'widget/Assets.xcassets']) assert.ok(widget.includes(source), source);
   assert.doesNotMatch(project, /LiveActivityShared|LiveActivityUI|TauriLiveActivity|templates\/ios/);

@@ -108,7 +108,10 @@ export interface Permissions {
   readonly notifications: PermissionState;
   readonly liveActivities: PermissionState;
   readonly promotion: PermissionState;
-  /** Frequent pushes, a switch in Settings on iOS (`granted` or `denied`); `notApplicable` where there are no pushes. */
+  /**
+   * Frequent pushes, a switch in Settings on iOS (`granted` or `denied`); `denied` on iOS 16.1, which has no such
+   * switch; `notApplicable` where there are no pushes.
+   */
   readonly frequentPushes: PermissionState;
 }
 
@@ -221,7 +224,7 @@ export interface LayoutSnapshot {
   readonly revision: number;
   /** The complete map. An update keeps the keys and the value types accepted at start. */
   readonly values: LayoutValues;
-  /** UTC Unix epoch milliseconds. */
+  /** UTC Unix epoch milliseconds. iOS 16.1 has no stale date: the record keeps it, and the content never goes stale. */
   readonly staleAt?: number;
   /**
    * When the content was made, UTC Unix epoch milliseconds. ActivityKit (iOS 17.2) drops content older than what it
@@ -230,7 +233,7 @@ export interface LayoutSnapshot {
   readonly timestamp?: number;
   /**
    * Which of the app's activities the Dynamic Island shows first: the highest score wins. Without it the activity
-   * keeps its score, 0 at first. Android ignores it, and an Android record does not repeat it.
+   * keeps its score, 0 at first. Android and iOS 16.1 ignore it, and their records do not repeat it.
    */
   readonly relevance?: number;
   /**

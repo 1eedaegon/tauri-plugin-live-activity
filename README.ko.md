@@ -39,7 +39,7 @@ Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과 Dynamic Island에, A
 <img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/live-editing.gif" width="800" alt="왼쪽은 iPhone 17 Pro 시뮬레이터의 화면 녹화로, 데모 위로 끌어내린 잠금 화면과 Mochi의 카드입니다. 오른쪽은 저장 기록으로 그린 편집기 화면의 card.tsx입니다. 값을 저장하면 상태 문구, 남은 시간, 진행률 막대가 그 자리에서 바뀌고, 발바닥을 자전거로 바꾸거나 제목을 키워 저장하면 카드가 사라졌다가 바뀐 모습으로 다시 뜹니다.">
 
 모두 고양이 Mochi를 따라가는 [데모 앱](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo)에서
-캡처했습니다. iOS 16.2 이상, Android 8 이상에서 동작하고, 데스크톱에서는 활동 명령이
+캡처했습니다. iOS 16.1 이상, Android 8 이상에서 동작하고, 데스크톱에서는 활동 명령이
 `UNSUPPORTED_PLATFORM`을 돌려줍니다. 플러그인은 [liveactivity](https://github.com/1eedaegon/liveactivity-rs)
 크레이트의 어댑터이고, 이 크레이트가 iOS는 [activitykit](https://github.com/1eedaegon/activitykit-rs), Android는
 [liveupdate](https://github.com/1eedaegon/liveupdate-rs) 위에서 돌립니다. 그래서 플러그인 자체의 Swift 코드가 없고
@@ -77,7 +77,7 @@ JSX이므로 레이아웃은 별도 파일에 둡니다.
 import { Button, HStack, Progress, SFSymbol, Text, VStack } from 'tauri-plugin-live-activity/jsx';
 
 // iOS: 잠금 화면이 이 트리를 그대로 그리고, 펼친 Dynamic Island에도 같은 트리가 보입니다
-//      (iOS 16.2 이상, Button은 iOS 17.2 이상).
+//      (iOS 16.1 이상, Button은 iOS 17.2 이상).
 // Android: 알림이 처음 두 Text를 제목과 본문으로, 첫 Progress를 진행률 막대로, Button을 최대 세 개까지
 //      동작으로 가져가고, 심볼과 스타일은 그리지 않습니다.
 export const lockScreen = (
@@ -136,8 +136,9 @@ prop입니다. [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activ
 ```rust
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Runtime};
+use tauri_plugin_live_activity::activitykit::layout::text;
 use tauri_plugin_live_activity::{
-    AndroidOptions, AndroidVisibility, Element, Layout, LayoutEndInput, LayoutSnapshot, LayoutStartInput,
+    AndroidOptions, AndroidVisibility, Bound, Layout, LayoutEndInput, LayoutSnapshot, LayoutStartInput,
     LayoutUpdateInput, LiveActivityExt, Result, Value,
 };
 
@@ -147,10 +148,7 @@ fn snapshot(revision: u64, status: &str) -> LayoutSnapshot {
 }
 
 fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
-    let layout = Layout {
-        lock_screen: Element::Text { value: None, bind: Some("status".into()) }.into(),
-        island: None, background: None, keyline: None, url: None, small: None,
-    };
+    let layout = Layout::new(text(Bound::key("status")));
     // Android와, Live Activity가 없는 iOS에서는 알림으로 보입니다.
     let mut input = LayoutStartInput::new("mochi:snack", layout, snapshot(0, "On time"));
     // Android 전용: 잠금 화면 표시 범위, 포그라운드 배치, 워치의 Ongoing Activity.
@@ -305,8 +303,9 @@ Auto에는 이를 보여 줄 자리가 없습니다. Android는 `small`을 `degr
 
 ## 제약
 
-- iOS: iOS 16.2의 iPhone 또는 iPadOS 17의 iPad, 버튼과 토글은 iOS 17.2부터. 액티비티는 앱이 전면일 때만 시작되고
-  (아니면 `NOT_FOREGROUND`), 시스템이 8시간 뒤 끝냅니다.
+- iOS: iOS 16.1의 iPhone 또는 iPadOS 17의 iPad, 버튼과 토글은 iOS 17.2부터. iOS 16.1에는 stale 날짜와 relevance 점수가
+  없고, `frequentPushes`는 `denied`입니다. 액티비티는 앱이 전면일 때만 시작되고 (아니면 `NOT_FOREGROUND`), 시스템이
+  8시간 뒤 끝냅니다.
 - iOS는 각 액티비티의 마지막 값을 앱의 Application Support에 평문으로 둡니다. 플러그인 설정에
   `"receipts": "redacted"`를 주면 가립니다.
 - 버튼 탭은 Rust `on_action` 핸들러를 최대 4초 기다립니다. JavaScript 리스너는 기다리지 않습니다.

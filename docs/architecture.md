@@ -231,7 +231,8 @@ loop of new requests.
 
 1. Link the shared Swift model to the Tauri app and the Widget Extension, and check that
    the link survives regenerating the project.
-2. Check the iOS 16.1/16.2 API branches and a build at the minimum deployment target.
+2. Check the iOS 16.1/16.2 API branches and a build at the minimum deployment target (iOS 16.1 for the app and the
+   widget extension since 0.13).
 3. Check the promotion request and its result on real S23 firmware, and the same data as an
    ordinary notification on the Note10.
 4. Check update and end by the same ID, permissions and app restarts on each desktop

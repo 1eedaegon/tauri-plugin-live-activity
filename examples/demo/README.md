@@ -289,7 +289,7 @@ Scheduled start example at launch, and `--start-buttons` the Buttons example.
 
 - [widget/MochiWidgets.swift](widget/MochiWidgets.swift) is activitykit's widget template,
   `ActivityKitLayoutWidget()` in a `@main` widget bundle. It draws every activity of the demo, the two
-  templates included. The extension (iOS 16.2) links activitykit's `ActivityKitWidget` product, sets
+  templates included. The extension (iOS 16.1) links activitykit's `ActivityKitWidget` product, sets
   `ActivityKitLayout` to `2` and `ActivityKitSmallFamily` to true, so that it draws a layout's `small`
   region, and holds the image `mochi` in its own [asset catalog](widget/Assets.xcassets), drawn from
   [mochi-portrait.svg](widget/mochi-portrait.svg).

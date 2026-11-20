@@ -21,7 +21,7 @@ include = [
 
 [dependencies]
 # The contract, its checks and the iOS and Android backends.
-liveactivity = "0.10.1"
+liveactivity = "0.11.0"
 tauri = { version = "2.12.5", default-features = false }
 serde = { version = "1", features = ["derive"] }
 # Correctly rounded number parsing, so that a value arrives as JavaScript sent it.
