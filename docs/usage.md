@@ -59,7 +59,7 @@ in the app's build.
     into that folder;
   - writes `src-tauri/gen/apple/live-activity.yml`, an XcodeGen spec with activitykit's Swift
     package (the `swift` folder of activitykit's crate), the `LiveActivityWidget` app extension
-    (iOS 16.2, the `ActivityKitWidget` and `ActivityKitViews` products, `ActivityKitLayout` = 2 in
+    (iOS 16.1, the `ActivityKitWidget` and `ActivityKitViews` products, `ActivityKitLayout` = 2 in
     its Info.plist, the bundle identifier `<app identifier>.widget`, the app's version, the bundled
     fonts, with `--app-group` the [App Group](#pictures-the-app-draws) and with `--small-family` the
     key for the [small region](#a-watch-and-a-car)), and in the app target
@@ -158,7 +158,7 @@ targets:
   LiveActivityWidget:
     type: app-extension
     platform: iOS
-    deploymentTarget: "16.2"
+    deploymentTarget: "16.1"
     sources: [LiveActivityWidget]
     dependencies:
       - package: ActivityKit
@@ -323,15 +323,18 @@ await updateLayout({
 });
 ```
 
-`bind('tone')` writes `{ "bind": "tone" }`. In Rust, `Bound::key("tone")` writes the same, and
-`.into()` turns it, or a literal, into the member's `Bindable`:
+`bind('tone')` writes `{ "bind": "tone" }`. In Rust, `Bound::key("tone")` writes the same, and a
+member's builder takes it or a literal. A layout is built on its constructors: `Layout::new(lock_screen)`
+with `.island(..)`, `.background(..)`, `.keyline(..)`, `.url(..)` and `.small(..)`, a node with the
+functions of `activitykit::layout` (`text`, `vstack`, `button`, …), which the plugin re-exports:
 
 ```rust
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Runtime};
+use tauri_plugin_live_activity::activitykit::layout::text;
 use tauri_plugin_live_activity::{
-    Bound, Element, Layout, LayoutSnapshot, LayoutStartInput, LayoutUpdateInput,
-    LiveActivityExt, Node, Result, Style, Value,
+    Bound, Layout, LayoutSnapshot, LayoutStartInput, LayoutUpdateInput, LiveActivityExt, Result,
+    Style, Value,
 };
 
 fn delivery(revision: u64, status: &str, tone: &str) -> LayoutSnapshot {
@@ -341,10 +344,9 @@ fn delivery(revision: u64, status: &str, tone: &str) -> LayoutSnapshot {
 }
 
 fn start_input() -> LayoutStartInput {
-    let text = Element::Text { value: None, bind: Some("status".into()) };
-    let status = Node { style: Some("status".into()), ..text.into() };
-    let style = Style { color: Some(Bound::key("tone").into()), ..Style::default() };
-    let layout = Layout { lock_screen: status, island: None, background: None, keyline: None, url: None, small: None };
+    let status = text(Bound::key("status")).style("status");
+    let style = Style::new().color(Bound::key("tone"));
+    let layout = Layout::new(status);
     LayoutStartInput {
         styles: Some(BTreeMap::from([("status".to_string(), style)])),
         ..LayoutStartInput::new("mochi:snack", layout, delivery(0, "On time", "green"))

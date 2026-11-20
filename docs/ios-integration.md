@@ -9,9 +9,11 @@ activitykit's Swift package. Installing the crate or the npm package does not ad
 `npx tauri-plugin-live-activity setup` does, for the Xcode project that Tauri generates
 ([Usage](usage.md#what-setup-does)).
 
-Live Activities need iOS 16.2 on an iPhone and iPadOS 17 on an iPad; buttons need iOS 17.2. Below that every command
+Live Activities need iOS 16.1 on an iPhone and iPadOS 17 on an iPad; buttons need iOS 17.2. Below that every command
 but the reads answers `UNSUPPORTED_PLATFORM`, and `getCapabilities()` reports every feature as unsupported. An iOS app
-running on a Mac is unsupported too.
+running on a Mac is unsupported too. iOS 16.1, ActivityKit's first release, takes the content alone: a snapshot's
+`staleAt` and `relevance` do not reach the system, so the stale nodes are never drawn and no `stale` state comes, a
+record has no relevance, and `getPermissions().frequentPushes` is `denied`.
 
 ```text
 JavaScript, Rust -> the plugin's commands -> liveactivity (Rust) -> activitykit (Rust) -> ActivityKitBridge (Swift, in the Rust library) -> ActivityKit
@@ -37,7 +39,7 @@ extension.
    Cargo's registry and names activitykit's version, so its path changes when the plugin moves to another one.
 2. Set `NSSupportsLiveActivities` (`Boolean`, `YES`) in the app's Info.plist. In a Tauri app that is
    `src-tauri/Info.ios.plist`, which Tauri merges when it builds.
-3. Add a Widget Extension target with a deployment target of iOS 16.2. Link the `ActivityKitWidget` product, and
+3. Add a Widget Extension target with a deployment target of iOS 16.1. Link the `ActivityKitWidget` product, and
    `ActivityKitViews` for custom views. Replace its Swift files with activitykit's `templates/ios/Widget.swift`, which
    `setup` writes as `gen/apple/LiveActivityWidget/LiveActivityWidget.swift`:
 
@@ -231,13 +233,19 @@ activities and the push-to-start token, and `onPushToken` and `onPushToStartToke
 subscribing. An activity a push starts comes to `onStarted` with its record while the app runs, and is in
 `listLayout`.
 
+A later server may push members that this version does not know. activitykit's widget (0.8) draws the content with
+what it knows, and a node of a type it does not know as nothing, where it drew the activity empty. A request of the
+app with such a member is `INVALID_INPUT`.
+
 ## Receipts
 
 ActivityKit can report an update late. activitykit's Swift layer therefore keeps a receipt of each accepted request in
 the app's Application Support, `activitykit/receipts-v2.json`, so that a late read cannot bring back an older revision,
 also after a restart. A receipt holds the activity's key and its last accepted values in plain text. The file is
 readable by the app only and protected until the first unlock after a restart. Leave out of activities what must not
-rest on the device in plain text.
+rest on the device in plain text. A receipt that cannot be read costs that receipt and not the list (activitykit 0.8):
+`listLayout()` fails with `NATIVE_ERROR` only for a file that cannot be opened or written, and the newest 256 receipts
+are kept.
 
 With `receipts: "redacted"` in the plugin configuration the plugin builds activitykit with redacted receipts, which keep
 a SHA-256 digest of each accepted content instead of its values. After a relaunch, `listLayout()` then gives the values
@@ -279,7 +287,7 @@ that holds the value `liveActivityTemplate` with `progress` or `timer` is taken 
    - gives `LiveActivityCustomViews.swift` activitykit's names: `@objc(ActivityKitCustomViews)`,
      `ActivityKitCustomViewRegistry`, `ActivityKitCustomView`, `ActivityKitCustomProps` and `import ActivityKitViews`.
      Your views stay as they are;
-   - writes `live-activity.yml` again on activitykit's Swift package, with iOS 16.2, `ActivityKitLayout` and, when the
+   - writes `live-activity.yml` again on activitykit's Swift package, with iOS 16.1, `ActivityKitLayout` and, when the
      spec had an App Group, the same group under `ActivityKitAppGroup`;
    - runs XcodeGen.
 

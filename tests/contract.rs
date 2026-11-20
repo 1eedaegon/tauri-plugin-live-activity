@@ -53,9 +53,10 @@ fn layout_weight(input: &Value) -> usize {
 mod changing_styles {
     use std::collections::BTreeMap;
     use tauri::{AppHandle, Runtime};
+    use tauri_plugin_live_activity::activitykit::layout::text;
     use tauri_plugin_live_activity::{
-        Bound, Element, Fallback, Layout, LayoutSnapshot, LayoutStartInput, LayoutUpdateInput,
-        LiveActivityExt, Node, Result, Style, Value,
+        Bound, Layout, LayoutSnapshot, LayoutStartInput, LayoutUpdateInput, LiveActivityExt,
+        Result, Style, Value,
     };
 
     pub fn delivery(revision: u64, status: &str, tone: &str) -> LayoutSnapshot {
@@ -65,36 +66,12 @@ mod changing_styles {
     }
 
     pub fn start_input() -> LayoutStartInput {
-        let text = Element::Text {
-            value: None,
-            bind: Some("status".into()),
-        };
-        let status = Node {
-            style: Some("status".into()),
-            ..text.into()
-        };
-        let style = Style {
-            color: Some(Bound::key("tone").into()),
-            ..Style::default()
-        };
+        let status = text(Bound::key("status")).style("status");
+        let style = Style::new().color(Bound::key("tone"));
+        let layout = Layout::new(status);
         LayoutStartInput {
-            activity_key: "mochi:snack".into(),
-            schema_version: 2,
-            fallback: Fallback::Notification,
-            layout: Layout {
-                lock_screen: status,
-                island: None,
-                background: None,
-                keyline: None,
-                url: None,
-                small: None,
-            },
             styles: Some(BTreeMap::from([("status".to_string(), style)])),
-            snapshot: delivery(0, "On time", "green"),
-            android: None,
-            ios: None,
-            scheduled: None,
-            push: None,
+            ..LayoutStartInput::new("mochi:snack", layout, delivery(0, "On time", "green"))
         }
     }
 
@@ -339,6 +316,46 @@ fn requests_are_built_on_the_constructors_through_the_plugins_exports() {
         named(Template::Timer, &EndPolicy::After { at: 1 }),
         ("timer", "after")
     );
+
+    // A layout: activitykit's types are `#[non_exhaustive]`, and are built with its node functions, which the
+    // plugin has under `activitykit`, and the constructors of the layout, the island and the style.
+    use tauri_plugin_live_activity::activitykit::layout::{button, symbol, text, vstack};
+    use tauri_plugin_live_activity::{
+        Bound, Color, Element, Island, IslandExpanded, Layout, Style,
+    };
+    let layout = Layout::new(vstack([
+        text(Bound::key("status")).style("status"),
+        button("pet", text("Pet")),
+    ]))
+    .island(
+        Island::new()
+            .expanded(IslandExpanded::new().center(text(Bound::key("status"))))
+            .minimal(symbol("cat.fill")),
+    )
+    .background(Color::adaptive("#F2F2F7", "#1C1C1E"))
+    .url("mochi://feed")
+    .small(text(Bound::key("status")));
+    assert_eq!(
+        serde_json::to_value(&layout).unwrap(),
+        json!({
+            "lockScreen":{"type":"vstack","children":[
+                {"type":"text","bind":"status","style":"status"},
+                {"type":"button","actionId":"pet","child":{"type":"text","value":"Pet"}}]},
+            "island":{"expanded":{"center":{"type":"text","bind":"status"}},
+                "minimal":{"type":"symbol","name":"cat.fill"}},
+            "background":{"light":"#F2F2F7","dark":"#1C1C1E"},
+            "url":"mochi://feed",
+            "small":{"type":"text","bind":"status"}})
+    );
+    assert_eq!(
+        serde_json::to_value(Style::new().color(Bound::key("tone"))).unwrap(),
+        json!({"color":{"bind":"tone"}})
+    );
+    let kind = match &layout.lock_screen.element {
+        Element::Vstack { .. } => "vstack",
+        _ => "later",
+    };
+    assert_eq!(kind, "vstack");
 }
 
 // TP-ANDROID-21

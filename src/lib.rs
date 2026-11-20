@@ -47,6 +47,10 @@ pub use events::{
     ACTION_EVENT, HANDLED_EVENT, OPENED_EVENT, PERMISSIONS_EVENT, PUSH_TO_START_TOKEN_EVENT,
     PUSH_TOKEN_EVENT, STARTED_EVENT, STATE_EVENT, UNKNOWN_EVENT, UPDATED_EVENT,
 };
+/// The activitykit crate that the plugin builds with, for what a layout is built of beside the contract's types:
+/// the node functions of `activitykit::layout` (`text`, `vstack`, `button`, …) and `values!`. Its types are
+/// `#[non_exhaustive]`: a node is built with those functions, not as a literal.
+pub use liveactivity::activitykit;
 /// The contract: the requests, records, layout types, errors and checks.
 pub use liveactivity::contract::*;
 /// The liveupdate crate that the plugin builds with, for what the parts of an Android content take beside the

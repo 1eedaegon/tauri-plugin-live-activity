@@ -35,6 +35,37 @@ test('the layout fixtures are those of the activitykit crate that Cargo.lock nam
   assert.throws(() => activitykitDir({ cargo: join(dir, 'no-such-cargo') }), /cargo metadata failed/);
 });
 
+// TP-IOS-21
+test('the setup and the documents give an iPhone the iOS from which the activitykit in Cargo.lock runs Live Activities', () => {
+  // Since activitykit 0.8.0 an iPhone runs Live Activities from iOS 16.1, ActivityKit's first release.
+  const support = readFileSync(join(activitykitDir(), 'swift/Sources/ActivityKitCore/PlatformSupport.swift'), 'utf8');
+  const floor = /case \.phone: return version\.majorVersion > (\d+) \|\| \(version\.majorVersion == \1 && version\.minorVersion >= (\d+)\)/
+    .exec(support);
+  assert.ok(floor, 'activitykit says from which iOS an iPhone runs Live Activities');
+  const ios = `${floor[1]}.${floor[2]}`;
+  const said: [string, string][] = [
+    ['cli/xcodegen.mts', `deploymentTarget: "${ios}"`],
+    ['README.md', `iOS ${ios}+ and Android 8+`],
+    ['README.md', `an iPhone with iOS ${ios} or an iPad with iPadOS 17`],
+    ['README.ko.md', `iOS ${ios} 이상, Android 8 이상`],
+    ['README.ko.md', `iOS ${ios}의 iPhone 또는 iPadOS 17의 iPad`],
+    ['docs/ios-integration.md', `Live Activities need iOS ${ios} on an iPhone and iPadOS 17 on an iPad`],
+    ['docs/ios-integration.md', `a deployment target of iOS ${ios}.`],
+    ['docs/usage.md', `deploymentTarget: "${ios}"`],
+    ['docs/compatibility.md', `| iPhone | iOS ${ios}+`],
+    ['docs/spec.md', `Live Activities need iOS ${ios} on an iPhone`],
+  ];
+  for (const [file, words] of said) assert.ok(read(file).includes(words), `${file} says ${words}`);
+  // No document gives an iPhone another floor.
+  for (const file of ['README.md', 'README.ko.md', 'docs/ios-integration.md', 'docs/usage.md', 'docs/spec.md']) {
+    for (const [index, line] of read(file).split('\n').entries()) {
+      for (const [, other] of line.matchAll(/(?:need|with|an iPhone with) iOS (16\.\d)\b(?! to)/g)) {
+        assert.equal(other, ios, `${file}:${index + 1}: ${line.trim()}`);
+      }
+    }
+  }
+});
+
 // TP-IOS-19
 test('the documents give buttons and toggles the iOS from which the activitykit in Cargo.lock runs them', () => {
   // activitykit says `buttons` from the iOS where the system runs its intent, and its widget draws a control there:

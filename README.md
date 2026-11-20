@@ -39,7 +39,7 @@ start it again ([live editing](https://github.com/1eedaegon/tauri-plugin-live-ac
 <img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/live-editing.gif" width="800" alt="Left, the screen recording of the iPhone 17 Pro simulator: its Lock Screen pulled down over the demo, with Mochi's card. Right, card.tsx as an editor shows it, drawn from the log of the saves. Saves of values change the status, the time and the meter in place; a save that swaps the paw for a bicycle, and one that makes the title larger, each make the card go and come back changed.">
 
 All of them come from the [demo app](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo),
-which follows a cat named Mochi. iOS 16.2+ and Android 8+; on desktop the activity commands answer
+which follows a cat named Mochi. iOS 16.1+ and Android 8+; on desktop the activity commands answer
 `UNSUPPORTED_PLATFORM`. The plugin is an adapter of the [liveactivity](https://github.com/1eedaegon/liveactivity-rs)
 crate, which runs iOS on [activitykit](https://github.com/1eedaegon/activitykit-rs) and Android on
 [liveupdate](https://github.com/1eedaegon/liveupdate-rs): the plugin has no Swift of its own, and its Kotlin answers
@@ -77,7 +77,7 @@ since this JSX has no HTML elements.
 import { Button, HStack, Progress, SFSymbol, Text, VStack } from 'tauri-plugin-live-activity/jsx';
 
 // iOS: the Lock Screen draws this tree as it is, and the expanded Dynamic Island shows it too
-//      (iOS 16.2+; the Button needs iOS 17.2).
+//      (iOS 16.1+; the Button needs iOS 17.2).
 // Android: the notification takes the first two Texts as title and body, the first Progress as its
 //      bar and up to three Buttons as actions; symbols and styles are left out.
 export const lockScreen = (
@@ -137,8 +137,9 @@ call them off the main thread (on iOS a call on the main thread answers `NATIVE_
 ```rust
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Runtime};
+use tauri_plugin_live_activity::activitykit::layout::text;
 use tauri_plugin_live_activity::{
-    AndroidOptions, AndroidVisibility, Element, Layout, LayoutEndInput, LayoutSnapshot, LayoutStartInput,
+    AndroidOptions, AndroidVisibility, Bound, Layout, LayoutEndInput, LayoutSnapshot, LayoutStartInput,
     LayoutUpdateInput, LiveActivityExt, Result, Value,
 };
 
@@ -148,10 +149,7 @@ fn snapshot(revision: u64, status: &str) -> LayoutSnapshot {
 }
 
 fn deliver<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
-    let layout = Layout {
-        lock_screen: Element::Text { value: None, bind: Some("status".into()) }.into(),
-        island: None, background: None, keyline: None, url: None, small: None,
-    };
+    let layout = Layout::new(text(Bound::key("status")));
     // Android, and iOS without Live Activities, show it as a notification.
     let mut input = LayoutStartInput::new("mochi:snack", layout, snapshot(0, "On time"));
     // Android only: the lock screen, the foreground placement, a watch's Ongoing Activity.
@@ -315,8 +313,9 @@ at most 1 MiB and 1224 × 480 pixels. [More](https://github.com/1eedaegon/tauri-
 
 ## Limits
 
-- iOS: an iPhone with iOS 16.2 or an iPad with iPadOS 17; buttons and toggles need iOS 17.2. An activity starts only while the
-  app is in the foreground (`NOT_FOREGROUND` otherwise), and the system ends it after 8 hours.
+- iOS: an iPhone with iOS 16.1 or an iPad with iPadOS 17; buttons and toggles need iOS 17.2. iOS 16.1 has no stale date and no
+  relevance score, and `frequentPushes` is `denied` there. An activity starts only while the app is in the foreground
+  (`NOT_FOREGROUND` otherwise), and the system ends it after 8 hours.
 - iOS keeps each activity's last values in plain text in the app's Application Support, unless the plugin
   configuration sets `"receipts": "redacted"`.
 - A button's tap waits for the Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.

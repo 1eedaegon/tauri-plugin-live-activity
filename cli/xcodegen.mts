@@ -232,7 +232,7 @@ export function widgetSpec({
     `  ${WIDGET}:`,
     '    type: app-extension',
     '    platform: iOS',
-    '    deploymentTarget: "16.2"',
+    '    deploymentTarget: "16.1"',
     `    sources: [${WIDGET}]`,
     '    dependencies:',
     ...product('ActivityKitWidget'),
