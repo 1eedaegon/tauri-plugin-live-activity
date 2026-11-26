@@ -5,8 +5,10 @@
 [![CI](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/workflows/ci.yml/badge.svg)](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](LICENSE)
 
-Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과 Dynamic Island에, Android에서는 진행 중 알림으로
-보여 줍니다. 레이아웃은 TSX, TypeScript 또는 Rust로 적고, 그리는 일은 플러그인이 맡습니다.
+**Tauri 2용 iOS Live Activities와 Android Live Updates.** Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과
+Dynamic Island(ActivityKit)에, Android에서는 Live Update나 진행 중 알림으로 보여 줍니다. 레이아웃은 TSX,
+TypeScript 또는 Rust로 적고, 그리는 일은 플러그인이 [liveactivity-rs](https://github.com/1eedaegon/liveactivity-rs)
+브리지를 통해 맡습니다.
 [English](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/README.md)
 
 <table>
@@ -39,11 +41,52 @@ Tauri 2 앱이 하고 있는 일을 iPhone 잠금 화면과 Dynamic Island에, A
 <img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/live-editing.gif" width="800" alt="왼쪽은 iPhone 17 Pro 시뮬레이터의 화면 녹화로, 데모 위로 끌어내린 잠금 화면과 Mochi의 카드입니다. 오른쪽은 저장 기록으로 그린 편집기 화면의 card.tsx입니다. 값을 저장하면 상태 문구, 남은 시간, 진행률 막대가 그 자리에서 바뀌고, 발바닥을 자전거로 바꾸거나 제목을 키워 저장하면 카드가 사라졌다가 바뀐 모습으로 다시 뜹니다.">
 
 모두 고양이 Mochi를 따라가는 [데모 앱](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo)에서
-캡처했습니다. iOS 16.1 이상, Android 8 이상에서 동작하고, 데스크톱에서는 활동 명령이
-`UNSUPPORTED_PLATFORM`을 돌려줍니다. 플러그인은 [liveactivity](https://github.com/1eedaegon/liveactivity-rs)
-크레이트의 어댑터이고, 이 크레이트가 iOS는 [activitykit](https://github.com/1eedaegon/activitykit-rs), Android는
-[liveupdate](https://github.com/1eedaegon/liveupdate-rs) 위에서 돌립니다. 그래서 플러그인 자체의 Swift 코드가 없고
-Kotlin은 권한 명령과 liveupdate의 Android 어댑터 호출만 맡습니다.
+캡처했습니다.
+
+## 지원 버전
+
+요약하면 iOS 16.1 이상, Android 8 이상에서 동작하고, 데스크톱에는 활동이 없습니다.
+
+| 어디서 | 최소 버전 | 무엇이 되나 |
+| --- | --- | --- |
+| iPhone | iOS 16.1 | 잠금 화면의 Live Activity, Dynamic Island가 있는 iPhone에서는 Dynamic Island에도. 오래된 표시(stale)와 relevance는 iOS 16.2부터, 버튼·토글·push-to-start는 iOS 17.2부터 |
+| iPad | iPadOS 17 | 잠금 화면의 같은 Live Activity |
+| Apple Watch | iOS 18과 watchOS 11 | 레이아웃의 `small` 영역이 워치의 Smart Stack에 |
+| Android | Android 8.0 (API 26) | 진행률 막대나 타이머, 동작 최대 세 개가 있는 진행 중 알림. 알림 권한은 Android 13 (API 33)부터 묻습니다 |
+| Android Live Updates | Android 16 (API 36) | 시스템과 사용자 설정이 허락하면 승격된 Live Update, 아니면 진행 중 알림 |
+| Samsung Now Bar | Android 17 (API 37), One UI 9 | One UI의 Now Bar가 보여 주는 제목과 본문. Samsung의 허용 목록에 있는 앱만 |
+| macOS, Windows, Linux | 지원 안 함 | 활동이 없고, 활동 명령은 `UNSUPPORTED_PLATFORM`을 돌려줍니다 |
+
+플러그인에는 Tauri 2와 Rust 1.90 이상이 필요합니다. `setup`은 위젯 확장의 배포 대상을 iOS 16.1로, Android
+`minSdk`를 26으로 맞춥니다. 기능마다의 최소 버전은
+[OS 호환성](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/compatibility.md)에 있습니다.
+
+## 동작 구조
+
+플러그인은 크레이트 네 개 중 Tauri 쪽입니다. Tauri의 명령, 이벤트, 권한과 `setup` 명령을 맡습니다.
+[liveactivity-rs](https://github.com/1eedaegon/liveactivity-rs) 브리지(`liveactivity` 크레이트)가 요청 계약과 그
+검사, 수명 주기를 맡아 각 요청을 플랫폼의 백엔드에서 돌립니다:
+
+```text
+Tauri 2 앱                    TSX, TypeScript 또는 Rust로 적은 레이아웃
+  │  시작 · 갱신 · 종료 · 이벤트
+  ▼
+tauri-plugin-live-activity   Tauri 명령, 이벤트, 권한, setup
+  │
+  ▼
+liveactivity                 liveactivity-rs 브리지: 하나의 요청 계약,
+  │                          그 검사, 수명 주기
+  ├─ iOS 16.1+ ────────────► activitykit (activitykit-rs)
+  │                          Swift 브리지로 부르는 ActivityKit, 앱의 위젯
+  │                          확장이 그림: 잠금 화면, Dynamic Island
+  └─ Android 8.0+ ─────────► liveupdate (liveupdate-rs)
+                             진행 중 알림, Android 16부터 Live Update
+```
+
+플러그인 자체의 Swift 코드는 없고, Kotlin은 권한 명령과 liveupdate의 Android 어댑터 호출만 맡습니다.
+[iOS 설정](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-integration.md)과
+[Android 설정](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md)이
+`setup`이 각 프로젝트에서 바꾸는 것을 보여 줍니다.
 
 ## 설치
 
@@ -321,6 +364,30 @@ Auto에는 이를 보여 줄 자리가 없습니다. Android는 `small`을 `degr
 `tauri.conf.json`에 `"plugins": { "live-activity": { "android": { "samsungNowBar": true } } }`를 두면 One UI 9의
 Now Bar가 보여 줄 제목과 본문을 보냅니다. One UI는 Samsung의 허용 목록에 있는 앱이나, 개발자 옵션 "모든 앱의
 라이브 알림"이 켜진 동안의 모든 앱에만 Now Bar를 보여 줍니다.
+
+## 자주 묻는 질문
+
+**Tauri 앱이 Live Activity를 띄우거나 Dynamic Island를 쓸 수 있나요?** 네. 이 플러그인으로 Tauri 2 앱은 iOS 16.1
+이상에서 ActivityKit Live Activity를 시작, 갱신, 종료하고, 잠금 화면과 Dynamic Island에 그립니다. 그리는 위젯
+확장은 `npx tauri-plugin-live-activity setup`이 앱의 Xcode 프로젝트에 넣습니다.
+
+**Android Live Updates를 지원하나요?** 네. Android 16 (API 36) 이상에서는 시스템과 사용자 설정이 허락하면 승격된
+Live Update를 요청하고, 그 밖에는 Android 8.0 (API 26)부터 같은 요청이 진행 중 알림으로 보입니다.
+
+**최소 iOS, Android 버전은요?** iPhone은 iOS 16.1, iPad는 iPadOS 17, Android는 8.0 (API 26)입니다. 더 높은 버전이
+필요한 기능은 [지원 버전](#지원-버전)에 있습니다.
+
+**Swift나 Kotlin을 써야 하나요?** 아니요. 레이아웃은 TSX, TypeScript 또는 Rust이고, 네이티브 코드는 플러그인과
+그 크레이트에 들어 있습니다. 직접 만든 뷰는 SwiftUI로 넣을 수도 있습니다([기본 부품 너머](#기본-부품-너머)).
+
+**liveactivity-rs가 뭔가요?** 이 플러그인이 올라선 Rust 브리지, `liveactivity` 크레이트입니다. 요청 계약과 수명
+주기를 맡고, iOS는 activitykit-rs, Android는 liveupdate-rs 위에서 돌립니다([동작 구조](#동작-구조)).
+
+**서버가 활동을 갱신할 수 있나요?** iOS에서는 APNs로 됩니다: 푸시 토큰, iOS 17.2부터 push-to-start, iOS 18부터
+broadcast 채널([푸시 (iOS)](#푸시-ios)). Android에는 푸시 경로가 없고, 앱이 알림을 갱신합니다.
+
+**macOS, Windows, Linux에서도 되나요?** 아니요. 그곳에서는 활동 명령이 `UNSUPPORTED_PLATFORM`을 돌려주고,
+`getCapabilities()`가 그렇다고 알려 줍니다.
 
 ## 더 알아보기
 

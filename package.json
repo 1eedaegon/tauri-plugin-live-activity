@@ -11,7 +11,7 @@
   },
   "homepage": "https://github.com/1eedaegon/tauri-plugin-live-activity#readme",
   "bugs": "https://github.com/1eedaegon/tauri-plugin-live-activity/issues",
-  "keywords": ["tauri", "tauri-plugin", "tauri-v2", "ios", "ipados", "android", "live-activity", "live-activities", "activitykit", "dynamic-island", "live-updates", "notifications"],
+  "keywords": ["tauri", "tauri-plugin", "tauri-v2", "ios", "ipados", "android", "live-activity", "live-activities", "activitykit", "dynamic-island", "live-updates", "live-update", "android-live-updates", "notifications", "ongoing-notification", "lock-screen", "widgetkit", "now-bar", "liveactivity-rs", "react", "tsx", "rust"],
   "sideEffects": false,
   "types": "./dist-js/index.d.ts",
   "main": "./dist-js/index.js",

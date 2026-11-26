@@ -8,8 +8,8 @@ rust-version = "1.90"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/1eedaegon/tauri-plugin-live-activity"
 readme = "README.md"
-keywords = ["tauri", "live-activities", "activitykit", "notifications", "android"]
-categories = ["api-bindings", "gui", "os::android-apis"]
+keywords = ["tauri", "live-activities", "dynamic-island", "live-updates", "activitykit"]
+categories = ["api-bindings", "gui", "os", "os::android-apis"]
 links = "tauri-plugin-live-activity"
 include = [
     "/src/**", "/build.rs", "/permissions/**",
