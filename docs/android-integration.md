@@ -40,7 +40,13 @@ returns `unknown` and permits an explicit request retry. A blocked channel with
 runtime permission already granted returns `settingsRequired`. Promotion is controlled by
 Android settings, so requesting `promotion` returns its current state and does not
 pretend to display a runtime permission dialog: `notApplicable` below Android 16, `granted`
-when the settings allow promoted notifications, `settingsRequired` otherwise.
+when the settings allow promoted notifications, `settingsRequired` otherwise, which is also a channel set to
+Minimized. For that state, `openPromotionSettings()`, from the person's tap, asks Android for its screen of the
+app's Live Updates
+(`android.settings.MANAGE_APP_PROMOTED_NOTIFICATIONS`, Android 16), or for the app's notification settings before,
+through liveupdate's adapter. It resolves once Android was asked, which drops the request while the app is not in
+the foreground; read `checkPermissions()` again when the page is back in view. It needs the grant
+`live-activity:allow-open-promotion-settings`, which `setup` adds.
 
 The dialog needs an Activity, so the permissions are the plugin's Kotlin and not liveactivity's.
 What they rest on, whether notifications and promotion are allowed, the plugin reads from
@@ -50,8 +56,13 @@ liveupdate's channel, as `getCapabilities` does; for an app that targets Android
 Android 13 shows its own dialog when an app creates its first channel.
 
 Progress uses a standard Android notification and timers use the system countdown
-chronometer. liveupdate's channel, `liveupdate-rs.v1`, starts at low importance; an update that alerts
-posts on its alert channel, `liveupdate-rs.alerts.v1` ("Live update alerts", high importance).
+chronometer. liveupdate's channel, `liveupdate-rs.v1` ("Live updates"), starts at low importance; an update that
+alerts posts on its alert channel, `liveupdate-rs.alerts.v1` ("Live update alerts", high importance). The names and
+descriptions that the system's settings show are liveupdate's strings, which the plugin's library carries in
+`res/values/strings.xml`: an app overrides them in its own, `src-tauri/gen/android/app/src/main/res/values/strings.xml`
+and a `values-<language>` folder for each language, with `liveupdate_channel_name`, `liveupdate_channel_description`,
+`liveupdate_alert_channel_name` and `liveupdate_alert_channel_description`. A channel that exists takes the new name
+at the next post, and keeps what the person set of its importance.
 Users retain control of channel importance and visibility. Updates request
 `onlyAlertOnce`, and notification clicks open the host app, or the URL of `layout.url` or of a
 presentation's `openUrl` where the device offers `links`. Template (v1) activities
@@ -216,6 +227,12 @@ Ongoing Activity, it cancels a shown notification that carries one before it pos
 shows the icon until the notification is cancelled. A notification that a foreground service holds cannot be
 cancelled, and keeps its icon until the activity ends. An adapter that offers none cancels nothing, which is
 every phone.
+
+What a phone can do for a watch is ask to keep an activity off it (liveupdate 0.9): `android: { localOnly: true }`
+of a start, or `localOnly: true` in an Android content's presentation, posts with `setLocalOnly(true)`, which asks
+Android not to bridge the notification to a paired watch. Set it on the start: an update that sets it later does
+not take back a copy that a watch has. The capability `localOnly` says whether the adapter offers it; where it does not, such
+a start or update answers `UNSUPPORTED_FEATURE` and posts nothing.
 
 Stored events that this version does not know are passed on: liveupdate reads an event of a kind it does not
 know for its activity, and the plugin reports it as `live-activity://unknown` (`onUnknown`, Rust

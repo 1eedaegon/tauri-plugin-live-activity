@@ -52,9 +52,10 @@ TypeScript 또는 Rust로 적고, 그리는 일은 플러그인이 [liveactivity
 | --- | --- | --- |
 | iPhone | iOS 16.1 | 잠금 화면의 Live Activity, Dynamic Island가 있는 iPhone에서는 Dynamic Island에도. 오래된 표시(stale)와 relevance는 iOS 16.2부터, 버튼·토글·push-to-start는 iOS 17.2부터 |
 | iPad | iPadOS 17 | 잠금 화면의 같은 Live Activity |
+| StandBy | iOS 17 | 옆으로 눕혀 충전하는 iPhone에서 크게 보이는 잠금 화면 카드, `ifFullscreen` 노드가 여기에만 보임 |
 | Apple Watch | iOS 18과 watchOS 11 | 레이아웃의 `small` 영역이 워치의 Smart Stack에 |
 | Android | Android 8.0 (API 26) | 진행률 막대나 타이머, 동작 최대 세 개가 있는 진행 중 알림. 알림 권한은 Android 13 (API 33)부터 묻습니다 |
-| Android Live Updates | Android 16 (API 36) | 시스템과 사용자 설정이 허락하면 승격된 Live Update, 아니면 진행 중 알림 |
+| Android Live Updates | Android 16 (API 36) | 시스템과 사용자 설정이 허락하면 승격된 Live Update, 아니면 진행 중 알림; `openPromotionSettings()`가 그 설정을 엶 |
 | Samsung Now Bar | Android 17 (API 37), One UI 9 | One UI의 Now Bar가 보여 주는 제목과 본문. Samsung의 허용 목록에 있는 앱만 |
 | macOS, Windows, Linux | 지원 안 함 | 활동이 없고, 활동 명령은 `UNSUPPORTED_PLATFORM`을 돌려줍니다 |
 
@@ -263,13 +264,14 @@ await onAction(({ actionId, tap }) => {
 iOS에서는 `getCapabilities().ios`가 아이폰이 실행하는 기능(`pushToStart`, `pushChannels`, `transient`,
 `scheduledStart`, `smallFamily`)을 알려 주므로 요청을 시도해 보지 않아도 됩니다.
 
-Android에서는 시작에 `android: { visibility, publicVersion, placement, wearOngoingActivity, targets }`를 줍니다:
+Android에서는 시작에 `android: { visibility, publicVersion, placement, wearOngoingActivity, localOnly, targets }`를 줍니다:
 
 ```ts
 android: {
   visibility: 'public',       // 잠긴 기기에 보이는 정도: 'public', 'private', 'secret'
   placement: 'foreground',    // 앱의 포그라운드 서비스가 쥐는 알림(`foregroundPlacement`)
   wearOngoingActivity: false, // 워치 화면에서 뺌(Wear OS 3~6, Tauri 앱은 워치에서 돌지 않음)
+  localOnly: true,            // 페어링된 워치로 넘기지 말라고 Android에 요청(`localOnly`)
   // 버튼 `record`의 탭이 화면 없이 앱의 서비스를 바로 실행(`actionTargets`).
   targets: { record: { kind: 'foregroundService', component: 'com.example.RecorderService', action: 'com.example.RECORD' } },
 }
@@ -322,8 +324,8 @@ keyline: '#A3D9C2', // 아일랜드 테두리 색
 iOS에서는 페어링된 Apple Watch(iOS 18)와 CarPlay(iOS 26)가 아일랜드의 compact 부분을 보여 줍니다. 위젯
 익스텐션이 그 패밀리를 그리도록 해 두면(`setup --small-family`) `small`이 거기에 자기 트리를 줍니다. 노드는
 12개까지이고 버튼·링크·토글은 넣을 수 없습니다: `small: hstack([symbol('pawprint.fill'), bound('eta')])`.
-Android에서는 폰의 ongoing 알림이 페어링된 워치로 전달되지 않고 Live Update만 일부 워치에 전달되며, Android
-Auto에는 이를 보여 줄 자리가 없습니다. Android는 `small`을 `degradedFeatures`에 적습니다. [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#a-watch-and-a-car)
+Android에서는 폰의 ongoing 알림이 페어링된 워치로 전달되지 않고 Live Update만 일부 워치에 전달됩니다.
+`android: { localOnly: true }`는 그것도 하지 말라고 Android에 요청합니다. Android Auto에는 이를 보여 줄 자리가 없습니다. Android는 `small`을 `degradedFeatures`에 적습니다. [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#a-watch-and-a-car)
 
 잠금 화면의 카드에는 여백이 없고, 더 좁은 레이아웃은 가운데에 놓입니다. 루트에 padding을 주고, 가장자리에 붙일
 노드에는 `frame: { maxWidth: 'infinity', alignment: 'leading' }`인 스타일을 줍니다.

@@ -52,9 +52,10 @@ In short: iOS 16.1+ and Android 8+, and no activities on desktop.
 | --- | --- | --- |
 | iPhone | iOS 16.1 | Live Activities on the Lock Screen and, on iPhones that have one, in the Dynamic Island. Stale dates and relevance from iOS 16.2; buttons, toggles and push-to-start from iOS 17.2 |
 | iPad | iPadOS 17 | The same Live Activities on the Lock Screen |
+| StandBy | iOS 17 | The Lock Screen card scaled up on an iPhone that charges on its side, where nodes with `ifFullscreen` show |
 | Apple Watch | iOS 18 with watchOS 11 | A layout's `small` region in the watch's Smart Stack |
 | Android | Android 8.0 (API 26) | An ongoing notification with a progress bar or a timer and up to three actions; the notification permission is asked from Android 13 (API 33) |
-| Android Live Updates | Android 16 (API 36) | A promoted Live Update where the system and the person's settings allow one, the ongoing notification otherwise |
+| Android Live Updates | Android 16 (API 36) | A promoted Live Update where the system and the person's settings allow one, the ongoing notification otherwise; `openPromotionSettings()` opens that setting |
 | Samsung Now Bar | Android 17 (API 37), One UI 9 | The title and body that One UI's Now Bar shows, for apps on Samsung's allow list |
 | macOS, Windows, Linux | not supported | No activities: the activity commands answer `UNSUPPORTED_PLATFORM` |
 
@@ -270,13 +271,14 @@ await onAction(({ actionId, tap }) => {
 On iOS `getCapabilities().ios` says what the iPhone runs (`pushToStart`, `pushChannels`, `transient`,
 `scheduledStart`, `smallFamily`), so a request need not be tried to learn it.
 
-On Android a start takes `android: { visibility, publicVersion, placement, wearOngoingActivity, targets }`:
+On Android a start takes `android: { visibility, publicVersion, placement, wearOngoingActivity, localOnly, targets }`:
 
 ```ts
 android: {
   visibility: 'public',       // what a locked device shows: 'public', 'private' or 'secret'
   placement: 'foreground',    // the notification that the app's foreground service holds (`foregroundPlacement`)
   wearOngoingActivity: false, // off the face of a watch (Wear OS 3 to 6; a Tauri app does not run there)
+  localOnly: true,            // ask Android not to bridge it to a paired watch (`localOnly`)
   // The button `record` runs the app's own service at once, with no screen (`actionTargets`).
   targets: { record: { kind: 'foregroundService', component: 'com.example.RecorderService', action: 'com.example.RECORD' } },
 }
@@ -331,8 +333,8 @@ keyline: '#A3D9C2', // the island's edge color
 On iOS a paired Apple Watch (iOS 18) and CarPlay (iOS 26) show the island's compact parts. `small` gives them a
 tree of their own, at most 12 nodes without buttons, links or toggles, once the widget extension draws that family
 (`setup --small-family`): `small: hstack([symbol('pawprint.fill'), bound('eta')])`. On Android a phone's ongoing
-notification is not bridged to a paired watch, and a Live Update only to some; Android Auto has no place for one.
-Android names `small` in `degradedFeatures`. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#a-watch-and-a-car)
+notification is not bridged to a paired watch, and a Live Update only to some, which `android: { localOnly: true }`
+asks Android not to do; Android Auto has no place for one. Android names `small` in `degradedFeatures`. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#a-watch-and-a-car)
 
 On the Lock Screen the card has no margin and shows a narrower layout in its middle: give the root a padding, and a
 node that should reach an edge a style with `frame: { maxWidth: 'infinity', alignment: 'leading' }`.

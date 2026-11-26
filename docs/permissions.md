@@ -25,7 +25,7 @@ be checked in the app that actually asks and on the connected device.
 | APNs | The Push Notifications capability, server integration, token handling | Developer account, key and environment setup. The private key stays on the server only |
 | Frequent Live Activity updates | Declare NSSupportsLiveActivitiesFrequentUpdates when needed; `checkPermissions` reports the switch as `frequentPushes` | Depends on what the user allowed and on the OS budget |
 | Android 13+ notifications | Declare POST_NOTIFICATIONS in the manifest | User consent at runtime; handle denial, revocation and blocked channels |
-| Android Live Updates | Declare POST_PROMOTED_NOTIFICATIONS; build an eligible notification | Not an ordinary runtime dialog permission. Check canPostPromotedNotifications and the user setting |
+| Android Live Updates | Declare POST_PROMOTED_NOTIFICATIONS; build an eligible notification | Not an ordinary runtime dialog permission. Check canPostPromotedNotifications and the user setting; `openPromotionSettings()` opens that setting, under the grant `live-activity:allow-open-promotion-settings` |
 | Android exact alarms, for a scheduled start on the minute | The app declares SCHEDULE_EXACT_ALARM in its own manifest; the plugin's library declares none. `openExactAlarmSettings()` opens the setting | Off until the person allows it under "Alarms & reminders", from Android 14. There is no dialog, and taking it back stops the app |
 | Android background work | Pick the FGS type and permissions that fit the actual work | Meet each OS version's start limits and execution policy; do not add an FGS just for the notification |
 | macOS | Bundle identifier, native notification setup | The user allows notifications; test with a signed app |

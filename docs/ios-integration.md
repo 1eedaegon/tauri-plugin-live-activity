@@ -36,7 +36,10 @@ extension.
 
 1. Find activitykit's folder. It is a dependency of the plugin, so `cargo metadata` lists it (the package named
    `activitykit`). Its `swift` folder is the Swift package; add it as a local package reference. The folder is in
-   Cargo's registry and names activitykit's version, so its path changes when the plugin moves to another one.
+   Cargo's registry and names activitykit's version, so its path changes when the plugin moves to another one. Run
+   `setup` again after an update of the plugin, which points the extension at the new folder: 0.15 moves to
+   activitykit 0.9, whose widget draws `ifFullscreen` (StandBy), where a widget of activitykit 0.8 draws such a node
+   always.
 2. Set `NSSupportsLiveActivities` (`Boolean`, `YES`) in the app's Info.plist. In a Tauri app that is
    `src-tauri/Info.ios.plist`, which Tauri merges when it builds.
 3. Add a Widget Extension target with a deployment target of iOS 16.1. Link the `ActivityKitWidget` product, and

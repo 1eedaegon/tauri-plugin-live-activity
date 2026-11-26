@@ -41,8 +41,8 @@ so they always match the version the app builds with. It stops with a message wh
 in the app's build.
 
 - **Permissions.** It adds `live-activity:default` and the `allow-` permissions of
-  `request_permissions`, `open_exact_alarm_settings`, `start`, `update`, `end`, `start_layout`,
-  `update_layout`, `end_layout` and `write_image` to `src-tauri/capabilities/default.json`, or to
+  `request_permissions`, `open_exact_alarm_settings`, `open_promotion_settings`, `start`, `update`, `end`,
+  `start_layout`, `update_layout`, `end_layout` and `write_image` to `src-tauri/capabilities/default.json`, or to
   the only capability file there.
   `onAction` also needs `core:event:default`, which `core:default` in a new app includes.
 - **Android.** The plugin needs Android 8 (API 26); a new Tauri app starts at 24. It sets
@@ -112,7 +112,7 @@ These steps do what `setup` does. Run them from the app's folder.
 Grant the permissions:
 
 ```sh
-for p in default allow-request-permissions allow-open-exact-alarm-settings allow-start allow-update allow-end allow-start-layout allow-update-layout allow-end-layout allow-write-image; do npx tauri permission add live-activity:$p; done
+for p in default allow-request-permissions allow-open-exact-alarm-settings allow-open-promotion-settings allow-start allow-update allow-end allow-start-layout allow-update-layout allow-end-layout allow-write-image; do npx tauri permission add live-activity:$p; done
 ```
 
 Raise the Android minimum: set `bundle.android.minSdkVersion` to `26` in
@@ -584,6 +584,25 @@ activitykit's widget gives the layout the card's whole width since 0.6.6, and a 
 middle as before: iOS 17.2 and 17.4 did not find a button or a toggle of a narrower layout under a tap, and opened
 the app instead. Android projects the layout onto a notification and places nothing of it.
 
+### StandBy
+
+From iOS 17 an iPhone that charges on its side shows the Lock Screen card scaled up, in StandBy, with room for
+more. `ifFullscreen` on any node chooses where it shows: `true` only there, `false` only on the Lock Screen and
+the island. Beside `if`, `unless` and `ifStale` the node is drawn while all of them hold.
+
+```ts
+vstack([
+  bound('eta', { style: 'title' }),
+  text('Gate 4', { style: 'huge', ifFullscreen: true }), // read from across the room
+  bound('status', { style: 'status', ifFullscreen: false }),
+], { style: 'card' })
+```
+
+The island's parts and the `small` region are never full screen, and neither is an Android notification: Android
+leaves out a node of `true`, draws one of `false`, and names nothing in `degradedFeatures`. The widget extension
+draws the member from activitykit 0.9.0, which plugin 0.15 builds on: run `setup` again after the update, so that
+the extension takes it. A widget built with an earlier activitykit draws such a node always.
+
 ### Buttons
 
 ```ts
@@ -812,7 +831,9 @@ layout: {
 
 A paired Apple Watch (iOS 18 with watchOS 11) shows an iPhone's Live Activity in its Smart Stack, and CarPlay
 (iOS 26) on the car's display. `small` is what the activity shows there: one tree of at most 12 nodes, without
-buttons, links or toggles, on the layout's `background`; a tap opens the layout's `url`. In Rust it is the member
+buttons, links or toggles, on the layout's `background`. It carries the layout's `url`, and what a tap does is the
+system's: on an Apple Watch a tap shows the tile larger, with the system's "Open on iPhone", which opens the app
+on the phone. In Rust it is the member
 `small` of `Layout`, `None` for a layout without the region.
 
 A widget states the families it draws once, for every activity, so the widget extension has to say that it draws
@@ -885,7 +906,23 @@ android: { visibility: 'public' },
 
 The captures are after an update to `Fast asleep` and `0.6`. On Android 16 and later the plugin
 requests promotion to a Live Update where the app may post one; `promotionState` reports what
-Android did.
+Android did. Where the person turned Live Updates off for the app, or set its notification channel to Minimized,
+`checkPermissions()` reads `promotion: 'settingsRequired'`. `openPromotionSettings()`, from a tap, asks Android for
+its screen of the app's Live Updates (Android 16), or for the app's notification settings before; a minimized
+channel is changed in the notification settings:
+
+```ts
+import { checkPermissions, openPromotionSettings } from 'tauri-plugin-live-activity';
+
+if ((await checkPermissions()).promotion === 'settingsRequired') {
+  // In the handler of a button: Android drops the request of an app that is not in the foreground.
+  await openPromotionSettings();
+}
+```
+
+It resolves once Android was asked, not when the person is back: read `checkPermissions()` again when the page is
+in view again. It needs the grant `live-activity:allow-open-promotion-settings`, which `setup` adds. iOS answers
+`UNSUPPORTED_FEATURE`, desktop `UNSUPPORTED_PLATFORM`.
 
 From Android 15 a timer whose clock is more than 14 days old is refused with `INVALID_INPUT`: its end when it
 counts down, its start when it counts up. Android would show nothing of such a notification and tell the app
@@ -1013,6 +1050,16 @@ ongoing notification, and bridges a Live Update to some watches, by the Wear OS 
 ([Android's documentation](https://developer.android.com/training/wearables/notifications/bridger)); on
 liveupdate's Galaxy Watch4 with Wear OS 5 the phone's activity stayed on the phone. The members are there so that a request written for the liveactivity crate is the same
 request here, and for the day a Tauri app runs on a watch.
+
+A phone's activity can ask to stay off the watches that would get it (liveupdate 0.9), with Android's
+`setLocalOnly(true)`, which asks Android not to bridge the notification:
+
+- `android: { visibility, localOnly: true }` in a start asks it for every snapshot
+  (`AndroidOptions::new(visibility).with_local_only(true)` in Rust).
+- `localOnly: true` in the presentation of an Android content asks it for its snapshot. Set it from the start: an
+  update that sets it later does not take back a copy that a watch has.
+- `getCapabilities().androidPresentation.localOnly` says whether the device can; where it cannot, such a start or
+  update answers `UNSUPPORTED_FEATURE` and posts nothing. iOS ignores the member.
 
 ### Samsung Now Bar
 
