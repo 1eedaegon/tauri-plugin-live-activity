@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.1
+
+Documentation and search metadata; no code changes, still on liveactivity 0.11.0 with activitykit 0.8.1 and
+liveupdate 0.8.2.
+
+- The README and its Korean twin give the supported versions in one table (iOS 16.1, iPadOS 17, Android 8.0,
+  Live Updates on Android 16), draw how the plugin runs on the liveactivity-rs bridge, which runs iOS on
+  activitykit and Android on liveupdate, and answer the common questions.
+- crates.io keywords `dynamic-island` and `live-updates` in place of `notifications` and `android`, the `os`
+  category, and more npm keywords.
+
 ## 0.13.0
 
 Built on liveactivity 0.11.0, with activitykit 0.8.1 and liveupdate 0.8.2, from 0.10.1, 0.7.0 and 0.8.1.
