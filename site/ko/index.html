@@ -45,6 +45,7 @@
         { "@type": "Question", "name": "최소 iOS, Android 버전은요?", "acceptedAnswer": { "@type": "Answer", "text": "iPhone은 iOS 16.1, iPad는 iPadOS 17, Android는 8.0 (API 26)입니다. 더 높은 버전이 필요한 기능은 지원 버전에 있습니다." } },
         { "@type": "Question", "name": "Swift나 Kotlin을 써야 하나요?", "acceptedAnswer": { "@type": "Answer", "text": "아니요. 레이아웃은 TSX, TypeScript 또는 Rust이고, 네이티브 코드는 플러그인과 그 크레이트에 들어 있습니다. 직접 만든 뷰는 SwiftUI로 넣을 수도 있습니다." } },
         { "@type": "Question", "name": "liveactivity-rs가 뭔가요?", "acceptedAnswer": { "@type": "Answer", "text": "이 플러그인이 올라선 Rust 브리지, liveactivity 크레이트입니다. 요청 계약과 수명 주기를 맡고, iOS는 activitykit-rs, Android는 liveupdate-rs 위에서 돌립니다." } },
+        { "@type": "Question", "name": "백엔드를 바꾸거나 덧붙일 수 있나요?", "acceptedAnswer": { "@type": "Answer", "text": "네. Builder::layer는 플랫폼 백엔드 위에 렌더러, 로그, 시험용 대역 같은 층을 씌우고, Builder::backend는 그 자리에 직접 만든 백엔드를 넣습니다. 둘 다 liveactivity-rs 브리지의 LiveActivityBackend 인터페이스를 씁니다." } },
         { "@type": "Question", "name": "홈 화면 위젯 플러그인과 무엇이 다른가요?", "acceptedAnswer": { "@type": "Answer", "text": "tauri-plugin-widgets 같은 위젯 플러그인은 홈 화면에 계속 머무는 WidgetKit, Android Glance 위젯을 그립니다. 이 플러그인은 작업 하나가 진행되는 동안 그 작업을 따라가는 Live Activity와 Android Live Update를 그립니다. 한 앱에서 둘 다 쓸 수 있습니다." } },
         { "@type": "Question", "name": "서버가 활동을 갱신할 수 있나요?", "acceptedAnswer": { "@type": "Answer", "text": "iOS에서는 APNs로 됩니다: 푸시 토큰, iOS 17.2부터 push-to-start, iOS 18부터 broadcast 채널. Android에는 푸시 경로가 없고, 앱이 알림을 갱신합니다." } },
         { "@type": "Question", "name": "macOS, Windows, Linux에서도 되나요?", "acceptedAnswer": { "@type": "Answer", "text": "아니요. 그곳에서는 활동 명령이 UNSUPPORTED_PLATFORM을 돌려주고, getCapabilities()가 그렇다고 알려 줍니다." } }
@@ -187,7 +188,8 @@ liveactivity                 liveactivity-rs 브리지: 하나의 요청 계약,
                              진행 중 알림, Android 16부터 Live Update</code></pre>
 <p><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-integration.md">iOS 설정</a>과
 <a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md">Android 설정</a>이
-<code>setup</code>이 각 프로젝트에서 바꾸는 것을 보여 줍니다.</p>
+<code>setup</code>이 각 프로젝트에서 바꾸는 것을 보여 줍니다. 플러그인 아래의 백엔드는
+<code>Builder::backend</code>로 바꾸거나 <code>Builder::layer</code>로 층을 씌울 수 있습니다.</p>
 
 <h2 id="questions">자주 묻는 질문</h2>
 <h3>iOS Live Activity와 Dynamic Island를 위한 Tauri 플러그인이 있나요?</h3>
@@ -202,6 +204,8 @@ liveactivity                 liveactivity-rs 브리지: 하나의 요청 계약,
 <p>아니요. 레이아웃은 TSX, TypeScript 또는 Rust이고, 네이티브 코드는 플러그인과 그 크레이트에 들어 있습니다. 직접 만든 뷰는 SwiftUI로 넣을 수도 있습니다.</p>
 <h3>liveactivity-rs가 뭔가요?</h3>
 <p>이 플러그인이 올라선 Rust 브리지, <code>liveactivity</code> 크레이트입니다. 요청 계약과 수명 주기를 맡고, iOS는 activitykit-rs, Android는 liveupdate-rs 위에서 돌립니다.</p>
+<h3>백엔드를 바꾸거나 덧붙일 수 있나요?</h3>
+<p>네. <code>Builder::layer</code>는 플랫폼 백엔드 위에 렌더러, 로그, 시험용 대역 같은 층을 씌우고, <code>Builder::backend</code>는 그 자리에 직접 만든 백엔드를 넣습니다. 둘 다 liveactivity-rs 브리지의 <code>LiveActivityBackend</code> 인터페이스를 씁니다.</p>
 <h3>홈 화면 위젯 플러그인과 무엇이 다른가요?</h3>
 <p>tauri-plugin-widgets 같은 위젯 플러그인은 홈 화면에 계속 머무는 WidgetKit, Android Glance 위젯을 그립니다. 이 플러그인은 작업 하나가 진행되는 동안 그 작업을 따라가는 Live Activity와 Android Live Update를 그립니다. 한 앱에서 둘 다 쓸 수 있습니다.</p>
 <h3>서버가 활동을 갱신할 수 있나요?</h3>

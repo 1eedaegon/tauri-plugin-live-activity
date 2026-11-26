@@ -212,6 +212,14 @@ style on the Lock Screen (`test1`), the button's tap (`test2`) and the switch (`
 - Not seen on any phone: the dark appearance on the iPhone XS, the system's question under a card, a watch,
   CarPlay. The lifecycle test asks the plugin and reads its answers: it does not look at the Lock Screen.
 
+## 0.13.2 on an iPhone and a paired Apple Watch
+
+On 2026-11-26 a build of the demo from `fe102c1`, 0.13.2, ran the Watch and car example on the iPhone 16 with iOS
+27.2.1, paired with an Apple Watch SE 3 with watchOS 26.6. The watch's Smart Stack showed the example's `small`
+region: the paw, the title, the arrival time and the circular progress. It is the first watch seen to draw the region
+outside the simulator. A tap on the tile only enlarged it, and the app did not open on the phone. Not checked: the
+record's `degradedFeatures`, and CarPlay.
+
 ## 0.13.0 on an iPhone
 
 0.13.0 brings activitykit 0.8.1: Live Activities from iOS 16.1, the widget extension built for it, a widget that

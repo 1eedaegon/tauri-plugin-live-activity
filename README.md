@@ -85,7 +85,7 @@ liveactivity                 the liveactivity-rs bridge: one request contract,
 ```
 
 The plugin has no Swift of its own; its Kotlin answers the permission commands and carries liveupdate's Android
-adapter. [iOS setup](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-integration.md) and
+adapter. The backend under the plugin can be replaced, or wrapped in layers: see [Your own backend](#your-own-backend). [iOS setup](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-integration.md) and
 [Android setup](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md) show
 what `setup` changes in each project.
 
@@ -355,6 +355,50 @@ A view of your own is SwiftUI in `gen/apple/LiveActivityWidget/LiveActivityCusto
 creates once and never overwrites, placed with `custom('ring', { props: { level: bind('done') } })`. A drawn PNG is
 at most 1 MiB and 1224 × 480 pixels. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#beyond-the-built-in-parts)
 
+## Your own backend
+
+`init()` is `Builder::new().build()`, on the platform's backend: ActivityKit on iOS and liveupdate on Android.
+`Builder::layer` puts a layer over it, such as a renderer of what Android leaves out of a layout, a log or a stand-in
+for tests. A `BackendLayer` overrides the calls it changes, and every other call goes to the backend under it, so a
+layer never turns a feature off by leaving a method out; one that watches the taps wraps the `BackendContext` that
+`attach` passes on.
+
+`Builder::backend` puts a backend of your own in the platform's place, for example on desktop, and the layers go over
+it. The platform's backend is then not built, except on Android, where it still opens the setting for exact alarms;
+on iOS the plugin then builds no kit, so the configuration's `receipts` and `pushToStart` are your backend's to keep.
+Your backend implements `LiveActivityBackend`, the interface of the liveactivity-rs bridge, and sends its events,
+taps among them, through the context it gets in `attach`; the plugin calls no `sync_events`. liveactivity's `testkit`
+feature checks a backend against the contract (`conformance`). The plugin keeps its Tauri side around either: the
+commands, the events and the `live-activity:` permissions.
+
+```rust
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use tauri_plugin_live_activity::{
+    BackendFuture, BackendLayer, Builder, LayoutActivityRecord, LayoutStartInput, LiveActivityBackend,
+};
+
+/// Counts the layout activities that start; every other call goes on unchanged.
+#[derive(Default)]
+struct Starts(AtomicUsize);
+
+impl BackendLayer for Starts {
+    fn start_layout<'a>(
+        &'a self,
+        input: LayoutStartInput,
+        next: &'a dyn LiveActivityBackend,
+    ) -> BackendFuture<'a, LayoutActivityRecord> {
+        self.0.fetch_add(1, Ordering::Relaxed);
+        next.start_layout(input)
+    }
+}
+
+// In the builder of the app, in place of `.plugin(tauri_plugin_live_activity::init())`, with a handle to read the
+// count by, `starts.0.load(Ordering::Relaxed)`:
+let starts = Arc::new(Starts::default());
+// .plugin(Builder::new().layer(starts.clone()).build())
+```
+
 ## Limits
 
 - iOS: an iPhone with iOS 16.1 or an iPad with iPadOS 17; buttons and toggles need iOS 17.2. iOS 16.1 has no stale date and no
@@ -398,6 +442,10 @@ plugin and its crates. A view of your own can still be SwiftUI ([Beyond the buil
 
 **What is liveactivity-rs?** The Rust bridge this plugin is built on, the `liveactivity` crate. It owns the request
 contract and the lifecycle, and runs iOS on activitykit-rs and Android on liveupdate-rs ([How it works](#how-it-works)).
+
+**Can I replace the backend, or add to it?** Yes. `Builder::layer` puts a layer over the platform's backend, such as
+a renderer, a log or a stand-in for tests, and `Builder::backend` puts a backend of your own in its place. Both use
+the liveactivity-rs bridge's `LiveActivityBackend` interface ([Your own backend](#your-own-backend)).
 
 **How is it different from a home-screen widget plugin?** Widget plugins such as tauri-plugin-widgets draw
 WidgetKit and Android Glance widgets that stay on the home screen. This plugin draws Live Activities and Android Live

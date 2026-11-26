@@ -84,7 +84,8 @@ liveactivity                 liveactivity-rs 브리지: 하나의 요청 계약,
                              진행 중 알림, Android 16부터 Live Update
 ```
 
-플러그인 자체의 Swift 코드는 없고, Kotlin은 권한 명령과 liveupdate의 Android 어댑터 호출만 맡습니다.
+플러그인 자체의 Swift 코드는 없고, Kotlin은 권한 명령과 liveupdate의 Android 어댑터 호출만 맡습니다. 플러그인
+아래의 백엔드는 바꾸거나 층으로 감쌀 수 있습니다: [직접 만든 백엔드](#직접-만든-백엔드).
 [iOS 설정](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-integration.md)과
 [Android 설정](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md)이
 `setup`이 각 프로젝트에서 바꾸는 것을 보여 줍니다.
@@ -345,6 +346,49 @@ Auto에는 이를 보여 줄 자리가 없습니다. Android는 `small`을 `degr
 덮어쓰지 않으며, `custom('ring', { props: { level: bind('done') } })`으로 놓습니다. 그린 PNG는 최대 1 MiB,
 1224 × 480 픽셀입니다. [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#beyond-the-built-in-parts)
 
+## 직접 만든 백엔드
+
+`init()`은 `Builder::new().build()`이고, 플랫폼 백엔드 위에서 돕니다: iOS는 ActivityKit, Android는 liveupdate.
+`Builder::layer`는 그 위에 층을 씌웁니다. Android가 레이아웃에서 빼는 것을 그리는 렌더러, 로그, 시험용 대역 같은
+것입니다. `BackendLayer`는 바꾸는 호출만 덮어쓰고, 나머지 호출은 그대로 아래 백엔드로 갑니다. 그래서 메서드를
+빠뜨려도 기능이 꺼지지 않습니다. 탭을 지켜보는 층은 `attach`가 넘기는 `BackendContext`를 감쌉니다.
+
+`Builder::backend`는 플랫폼 백엔드 자리에 직접 만든 백엔드를 넣습니다(예를 들어 데스크톱). 층은 그 위에 씌워집니다.
+이때 플랫폼 백엔드는 만들어지지 않습니다. 다만 Android에서는 정확한 알람 설정을 열기 위해 계속 만들어집니다. iOS에서는
+플러그인이 kit을 만들지 않으므로, 설정의 `receipts`와 `pushToStart`는 직접 만든 백엔드가 지켜야 합니다. 직접 만든
+백엔드는 liveactivity-rs 브리지의 인터페이스인 `LiveActivityBackend`를 구현하고, 탭을 비롯한 이벤트를 `attach`에서
+받은 컨텍스트로 보냅니다. 플러그인은 `sync_events`를 부르지 않습니다. liveactivity의 `testkit` 기능(`conformance`)으로
+백엔드가 계약을 지키는지 확인할 수 있습니다. 어느 쪽이든 Tauri 쪽인 명령, 이벤트, `live-activity:` 권한은 플러그인이
+계속 맡습니다.
+
+```rust
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use tauri_plugin_live_activity::{
+    BackendFuture, BackendLayer, Builder, LayoutActivityRecord, LayoutStartInput, LiveActivityBackend,
+};
+
+/// 시작하는 레이아웃 활동을 셉니다. 나머지 호출은 그대로 넘어갑니다.
+#[derive(Default)]
+struct Starts(AtomicUsize);
+
+impl BackendLayer for Starts {
+    fn start_layout<'a>(
+        &'a self,
+        input: LayoutStartInput,
+        next: &'a dyn LiveActivityBackend,
+    ) -> BackendFuture<'a, LayoutActivityRecord> {
+        self.0.fetch_add(1, Ordering::Relaxed);
+        next.start_layout(input)
+    }
+}
+
+// 앱의 빌더에서 `.plugin(tauri_plugin_live_activity::init())` 대신 씁니다. 수는 핸들로 읽습니다:
+// `starts.0.load(Ordering::Relaxed)`.
+let starts = Arc::new(Starts::default());
+// .plugin(Builder::new().layer(starts.clone()).build())
+```
+
 ## 제약
 
 - iOS: iOS 16.1의 iPhone 또는 iPadOS 17의 iPad, 버튼과 토글은 iOS 17.2부터. iOS 16.1에는 stale 날짜와 relevance 점수가
@@ -387,6 +431,10 @@ Live Update를 요청하고, 그 밖에는 Android 8.0 (API 26)부터 같은 요
 
 **liveactivity-rs가 뭔가요?** 이 플러그인이 올라선 Rust 브리지, `liveactivity` 크레이트입니다. 요청 계약과 수명
 주기를 맡고, iOS는 activitykit-rs, Android는 liveupdate-rs 위에서 돌립니다([동작 구조](#동작-구조)).
+
+**백엔드를 바꾸거나 덧붙일 수 있나요?** 네. `Builder::layer`는 플랫폼 백엔드 위에 렌더러, 로그, 시험용 대역 같은
+층을 씌우고, `Builder::backend`는 그 자리에 직접 만든 백엔드를 넣습니다. 둘 다 liveactivity-rs 브리지의
+`LiveActivityBackend` 인터페이스를 씁니다([직접 만든 백엔드](#직접-만든-백엔드)).
 
 **홈 화면 위젯 플러그인과 무엇이 다른가요?** tauri-plugin-widgets 같은 위젯 플러그인은 홈 화면에 계속 머무는
 WidgetKit, Android Glance 위젯을 그립니다. 이 플러그인은 작업 하나가 진행되는 동안 그 작업을 따라가는 Live
