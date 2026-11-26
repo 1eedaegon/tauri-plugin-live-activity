@@ -835,8 +835,11 @@ on Android, and the record names `layout.small`.
 
 No test of this project sees the region on a watch or in a car. One capture shows it, taken by hand from 0.10.3:
 the demo's Watch and car example in the Smart Stack of an Apple Watch simulator (Series 11, watchOS 26.2), paired
-with the iPhone simulator that ran it. No watch has been tried. No capture shows the region in a car: the
-Simulator's CarPlay display shows no Live Activity, by activitykit's account.
+with the iPhone simulator that ran it. One watch has drawn it as well, seen by hand with a build of 0.13.2: an Apple
+Watch SE 3 with watchOS 26.6, paired with an iPhone 16 with iOS 27.2.1, showed the example's paw, title, arrival time
+and ring in its Smart Stack, and a tap on it only enlarged it, without opening the app on the phone
+([iOS coverage](ios-coverage.md#0132-on-an-iphone-and-a-paired-apple-watch)). No capture shows the region in a car:
+the Simulator's CarPlay display shows no Live Activity, by activitykit's account.
 
 <img src="images/ios-layout-small-watch.png" width="200" alt="The Smart Stack of an Apple Watch under its date and clock: the example's glance, a paw, Mochi’s snack, 4 min and a ring">
 

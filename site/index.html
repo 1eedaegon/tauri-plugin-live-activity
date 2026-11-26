@@ -48,6 +48,7 @@
         { "@type": "Question", "name": "What are the minimum iOS and Android versions?", "acceptedAnswer": { "@type": "Answer", "text": "iOS 16.1 on an iPhone, iPadOS 17 on an iPad and Android 8.0 (API 26). Some features need more: see Supported versions." } },
         { "@type": "Question", "name": "Do I have to write Swift or Kotlin?", "acceptedAnswer": { "@type": "Answer", "text": "No. Layouts are TSX, TypeScript or Rust, and the native code comes with the plugin and its crates. A view of your own can still be SwiftUI." } },
         { "@type": "Question", "name": "What is liveactivity-rs?", "acceptedAnswer": { "@type": "Answer", "text": "The Rust bridge this plugin is built on, the liveactivity crate. It owns the request contract and the lifecycle, and runs iOS on activitykit-rs and Android on liveupdate-rs." } },
+        { "@type": "Question", "name": "Can I replace the backend, or add to it?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Builder::layer puts a layer over the platform's backend, such as a renderer, a log or a stand-in for tests, and Builder::backend puts a backend of your own in its place. Both use the liveactivity-rs bridge's LiveActivityBackend interface." } },
         { "@type": "Question", "name": "How is it different from a home-screen widget plugin?", "acceptedAnswer": { "@type": "Answer", "text": "Widget plugins such as tauri-plugin-widgets draw WidgetKit and Android Glance widgets that stay on the home screen. This plugin draws Live Activities and Android Live Updates, which follow one task while it runs. An app can use both." } },
         { "@type": "Question", "name": "Can a server update an activity?", "acceptedAnswer": { "@type": "Answer", "text": "On iOS, through APNs: push tokens, push-to-start from iOS 17.2 and broadcast channels from iOS 18. Android has no push path; the app updates its notification." } },
         { "@type": "Question", "name": "Does it work on macOS, Windows or Linux?", "acceptedAnswer": { "@type": "Answer", "text": "No. There the activity commands answer UNSUPPORTED_PLATFORM, and getCapabilities() says so." } }
@@ -190,7 +191,8 @@ liveactivity                 the liveactivity-rs bridge: one request contract,
                              an ongoing notification, a Live Update on Android 16+</code></pre>
 <p><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-integration.md">iOS setup</a>
 and <a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md">Android
-setup</a> show what <code>setup</code> changes in each project.</p>
+setup</a> show what <code>setup</code> changes in each project. The backend under the plugin can be replaced, or
+wrapped in layers, with <code>Builder::backend</code> and <code>Builder::layer</code>.</p>
 
 <h2 id="questions">Questions</h2>
 <h3>Is there a Tauri plugin for iOS Live Activities and the Dynamic Island?</h3>
@@ -205,6 +207,8 @@ setup</a> show what <code>setup</code> changes in each project.</p>
 <p>No. Layouts are TSX, TypeScript or Rust, and the native code comes with the plugin and its crates. A view of your own can still be SwiftUI.</p>
 <h3>What is liveactivity-rs?</h3>
 <p>The Rust bridge this plugin is built on, the <code>liveactivity</code> crate. It owns the request contract and the lifecycle, and runs iOS on activitykit-rs and Android on liveupdate-rs.</p>
+<h3>Can I replace the backend, or add to it?</h3>
+<p>Yes. <code>Builder::layer</code> puts a layer over the platform's backend, such as a renderer, a log or a stand-in for tests, and <code>Builder::backend</code> puts a backend of your own in its place. Both use the liveactivity-rs bridge's <code>LiveActivityBackend</code> interface.</p>
 <h3>How is it different from a home-screen widget plugin?</h3>
 <p>Widget plugins such as tauri-plugin-widgets draw WidgetKit and Android Glance widgets that stay on the home screen. This plugin draws Live Activities and Android Live Updates, which follow one task while it runs. An app can use both.</p>
 <h3>Can a server update an activity?</h3>

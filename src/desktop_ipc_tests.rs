@@ -16,6 +16,14 @@ pub(super) fn local_ipc_url() -> &'static str {
 }
 
 fn webview_with_grants(commands: &[&str]) -> tauri::WebviewWindow<MockRuntime> {
+    webview_of(crate::init(), commands)
+}
+
+/// A web view of an app with `plugin`, which may call `commands`.
+pub(super) fn webview_of(
+    plugin: tauri::plugin::TauriPlugin<MockRuntime, Option<crate::Config>>,
+    commands: &[&str],
+) -> tauri::WebviewWindow<MockRuntime> {
     let mut context = mock_context(noop_assets());
     for command in commands {
         context.runtime_authority_mut().__allow_command(
@@ -23,13 +31,13 @@ fn webview_with_grants(commands: &[&str]) -> tauri::WebviewWindow<MockRuntime> {
             ExecutionContext::Local,
         );
     }
-    let app = mock_builder().plugin(crate::init()).build(context).unwrap();
+    let app = mock_builder().plugin(plugin).build(context).unwrap();
     tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
         .build()
         .unwrap()
 }
 
-fn invoke(
+pub(super) fn invoke(
     webview: &tauri::WebviewWindow<MockRuntime>,
     command: &str,
     body: Value,

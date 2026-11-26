@@ -185,9 +185,13 @@ impl<R: Runtime> LiveActivityBackend for Android<R> {
     }
 }
 
+/// The plugin on Android: the commands go to what `chosen` makes of the platform's backend. That backend is built
+/// whatever the app chose, for it opens the setting for exact alarms; when the app's own backend takes its place,
+/// nothing attaches it, and its drains hand nothing over.
 pub(crate) fn init<R: Runtime>(
     app: &AppHandle<R>,
     api: PluginApi<R, Option<Config>>,
+    chosen: crate::builder::Chosen,
 ) -> Result<LiveActivity<R>> {
     let samsung_now_bar = api
         .config()
@@ -215,7 +219,7 @@ pub(crate) fn init<R: Runtime>(
         wake: signal.clone(),
     });
     drain::spawn(Arc::downgrade(&backend), woken).map_err(|_| Error::native())?;
-    let plugin = service::connect(app, backend.clone(), backend.clone())?;
+    let plugin = service::connect(app, chosen.over(|| Ok(backend.clone()))?, backend.clone())?;
     // The channel is handed over here, on the thread that registers every native plugin. The Kotlin side sends on
     // it from liveupdate's receivers, on the main thread: it only wakes the draining thread.
     let wake = signal.clone();

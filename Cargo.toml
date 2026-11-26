@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-live-activity"
-version = "0.13.2"
+version = "0.14.0"
 description = "Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates with ongoing notification fallback"
 authors = ["1eedaegon"]
 edition = "2024"
@@ -37,4 +37,6 @@ tauri = { version = "2.12.5", default-features = false, features = ["wry"] }
 tauri-plugin = { version = "2.7.2", features = ["build"] }
 
 [dev-dependencies]
+# Its test kit: the memory backend and the contract's conformance checks, for the tests of layers (TP-RUST-7).
+liveactivity = { version = "0.11.0", features = ["testkit"] }
 tauri = { version = "2.12.5", default-features = false, features = ["test"] }

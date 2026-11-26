@@ -6,6 +6,8 @@ In short: iOS 16.1+ and Android 8+, and no activities on desktop, where the acti
 
 Install in a Tauri 2 app: `cargo add tauri-plugin-live-activity --manifest-path src-tauri/Cargo.toml`, `npm i tauri-plugin-live-activity`, then `npx tauri-plugin-live-activity setup`, which grants the plugin's permissions, raises the Android minimum to API 26 and adds the widget extension that draws the activity to the Xcode project in `src-tauri/gen/apple`. Register the plugin with `.plugin(tauri_plugin_live_activity::init())`. No Swift or Kotlin is needed; a view of your own can still be SwiftUI.
 
+The backend can be wrapped or replaced: `tauri_plugin_live_activity::Builder::new().layer(..)` puts a layer over the platform's backend, such as a renderer, a log or a stand-in for tests, and `.backend(..)` puts a backend of your own in its place; both use the liveactivity-rs bridge's `LiveActivityBackend` interface.
+
 ## Docs
 
 - [README](https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/README.md): what it does, supported versions, how it works, examples in TSX, React, TypeScript and Rust, questions

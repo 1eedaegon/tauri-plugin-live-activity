@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.14.0
+
+The backend under the plugin can be wrapped or replaced; still on liveactivity 0.11.0 with activitykit 0.8.1 and
+liveupdate 0.8.2.
+
+- **`Builder`**: `init()` is `Builder::new().build()`. `Builder::layer` puts a `BackendLayer` over the platform's
+  backend, such as a renderer of what Android leaves out of a layout, a log or a stand-in for tests: a layer overrides
+  the calls it changes, and every other call goes to the backend under it unchanged, so leaving a method out turns no
+  feature off. An `Arc` of a layer is a layer, for a handle that the app keeps. A later layer gets each call first
+  (TP-RUST-7).
+- `Builder::backend` sends the commands to a backend of the app's own in the platform's place: it answers each of
+  them, the permissions among them, and the events it sends through the context of `attach` reach the app. The
+  platform's backend is then not built, except on Android, where it still opens the setting for exact alarms; on iOS
+  the plugin builds no kit, so the configuration's `receipts` and `pushToStart` are the app's backend's to keep. The
+  plugin calls no `sync_events`.
+- The crate re-exports the bridge's backend interface, `LiveActivityBackend`, `BackendFuture`, `BackendContext`,
+  `Event` and `EventSink`, for a backend or a layer of the app's own.
+- A test compares the layers' methods with the backend methods of the bridge that `Cargo.lock` holds, so that a
+  method a later bridge adds cannot go past a layer unforwarded.
+- The READMEs, the site and docs.rs show how, with an example, and answer whether the backend can be replaced.
+- Nothing that a 0.13 app calls changes. A crate that imports `tauri::*` or `liveactivity::*` beside
+  `tauri_plugin_live_activity::*` names either `Builder` by its path.
+- The demo's Watch and car example says on Android what #66 corrected elsewhere: a phone's ongoing notification is
+  not bridged to a paired watch, a Live Update only to some, and Android Auto has no place for one.
+
 ## 0.13.2
 
 Documentation, a site and search metadata; no code changes, still on liveactivity 0.11.0 with activitykit 0.8.1 and
