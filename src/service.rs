@@ -116,6 +116,17 @@ impl<R: Runtime> LiveActivity<R> {
         ))
     }
 
+    /// Asks Android for the screen where the person allows or stops the app's Live Updates (Android 16 and later),
+    /// or for the app's notification settings before that: for an app whose `check_permissions().promotion` is
+    /// `SettingsRequired`, Android having no dialog for them; that state is also a channel set to Minimized, which
+    /// is changed in the notification settings. Android starts it only while the app is in the
+    /// foreground and drops it otherwise without a word, so call it from a person's tap: `Ok` says that Android was
+    /// asked, not that the screen shows. It does not wait for the person; read the permissions again when the app is
+    /// back. iOS and a device without such a screen answer `UNSUPPORTED_FEATURE`, desktop `UNSUPPORTED_PLATFORM`.
+    pub fn open_promotion_settings(&self) -> Result<()> {
+        wait(self.live.open_promotion_settings())
+    }
+
     /// The push tokens the plugin holds since launch: the newest of each of the last [`TOKENS_KEPT`](crate::TOKENS_KEPT)
     /// activities that got one, and the app's push-to-start token. The events report each token as it comes; this is
     /// for a reader that came later, as a page that subscribes after launch. Android and desktop hold none.

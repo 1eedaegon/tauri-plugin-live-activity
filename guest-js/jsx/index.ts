@@ -1,6 +1,7 @@
 // Layout components for TSX. Each returns the plain node object of its `layout` builder; nothing here
 // imports Tauri or React, so a server can build the same layout. Every component takes the members any node
-// may carry as props: `style`, `if` or `unless`, `ifStale`, `accessibility`, `transition` and `privacy`.
+// may carry as props: `style`, `if` or `unless`, `ifStale`, `ifFullscreen`, `accessibility`, `transition` and
+// `privacy`.
 import {
   bound, button, custom, divider, gauge, hstack, image, link, path, progress, spacer, symbol, text, timerText, toggle,
   vstack, zstack,

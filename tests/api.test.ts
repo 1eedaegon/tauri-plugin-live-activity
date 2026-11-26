@@ -77,6 +77,7 @@ for (const [name, command, args, expectedPayload, result] of [
   ['checkPermissions', 'check_permissions', [], {}, { notifications: 'notApplicable', liveActivities: 'granted', promotion: 'notApplicable' }],
   ['requestPermissions', 'request_permissions', ['notifications'], { kind: 'notifications' }, { notifications: 'granted' }],
   ['openExactAlarmSettings', 'open_exact_alarm_settings', [], {}, { platform: 'android', backend: 'androidNotification', androidPresentation: { scheduledStart: true, exactStart: true } }],
+  ['openPromotionSettings', 'open_promotion_settings', [], {}, null],
   ['start', 'start', [input], { input }, record],
   ['update', 'update', [{ id: record.id, snapshot: { ...snapshot, revision: 1, progress: 0.5 } }], { input: { id: record.id, snapshot: { ...snapshot, revision: 1, progress: 0.5 } } }, { ...record, snapshot: { ...snapshot, revision: 1, progress: 0.5 } }],
   ['end', 'end', [{ id: record.id, policy: { kind: 'immediate' } }], { input: { id: record.id, policy: { kind: 'immediate' } } }, { ...record, state: 'ended' }],
@@ -388,6 +389,27 @@ test("a start that keeps its activity off a watch's face is sent as given", asyn
   });
   await activity.startLayout(quiet);
   assert.deepEqual(calls, [{ nativeCommand: 'plugin:live-activity|start_layout', payload: { input: quiet } }]);
+});
+
+// TP-ANDROID-24
+test('a start that keeps its activity off a paired watch is sent as given', async () => {
+  const calls: NativeCall[] = [];
+  mockIPC((nativeCommand, payload?: InvokeArgs) => {
+    calls.push({ nativeCommand, payload });
+    return layoutRecord;
+  });
+  // In the options of the start, for every snapshot of the activity; and in the presentation of an Android content,
+  // for its snapshot.
+  const local: LayoutStartInput = deepFreeze({
+    ...layoutInput,
+    android: { visibility: 'private', localOnly: true },
+    snapshot: {
+      ...layoutInput.snapshot,
+      android: { title: 'Mochi', status: 'Napping by the window', presentation: { style: { kind: 'standard' }, localOnly: true } },
+    },
+  });
+  await activity.startLayout(local);
+  assert.deepEqual(calls, [{ nativeCommand: 'plugin:live-activity|start_layout', payload: { input: local } }]);
 });
 
 /** How many openings the plugin of this page has kept so far. The tests of this file are one page with one plugin:
@@ -914,8 +936,8 @@ test('layout.bind writes the binding of a style member and nothing else', () => 
 // TP-JS-6
 test('every layout builder takes the members any node may carry', () => {
   const common = deepFreeze({
-    style: 'card', unless: 'hidden', ifStale: false, accessibility: { label: 'Mochi', value: layout.bind('mood') }, transition: 'moveTop',
-    privacy: 'sensitive',
+    style: 'card', unless: 'hidden', ifStale: false, ifFullscreen: true, accessibility: { label: 'Mochi', value: layout.bind('mood') },
+    transition: 'moveTop', privacy: 'sensitive',
   } as const);
   const child = layout.text('a');
   const built = {

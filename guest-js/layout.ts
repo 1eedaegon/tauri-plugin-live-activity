@@ -14,8 +14,8 @@ function given<T extends object>(options: T | undefined): T {
 }
 
 // The builders return plain node objects. They do not validate: the plugin checks the whole request. The options
-// of every builder take the members any node may carry: `style`, `if` or `unless`, `ifStale`, `accessibility`,
-// `transition` and `privacy`.
+// of every builder take the members any node may carry: `style`, `if` or `unless`, `ifStale`, `ifFullscreen`,
+// `accessibility`, `transition` and `privacy`.
 
 /** Children from top to bottom. */
 export function vstack(children: readonly LayoutNode[], options?: Options<LayoutVStackNode, 'children'>): LayoutVStackNode {

@@ -20,13 +20,21 @@ test("the Android library carries liveupdate's Kotlin, resources and manifest en
     assert.ok(files.includes(`android/src/main/java/io/github/eedaegon/liveupdate/${file}`), file);
   }
   assert.ok(files.includes('android/src/main/res/drawable/liveupdate_status.xml'));
+  // The names of the channels, which an app overrides in its own strings.
+  assert.ok(files.includes('android/src/main/res/values/strings.xml'));
   assert.deepEqual(differing(dir), []);
   assert.deepEqual(missingManifestEntries(dir), []);
-  // The one change of the copy: liveupdate's `R` becomes the plugin's.
+  // The one change of the copy: liveupdate's `R` becomes the plugin's, for its drawables and its strings.
   const renderer = readFileSync(join(root, 'android/src/main/java/io/github/eedaegon/liveupdate/NotificationRenderer.kt'), 'utf8');
   assert.match(renderer, /io\.github\.eedaegon\.liveactivity\.R\.drawable\.liveupdate_status/);
   assert.doesNotMatch(renderer, /[^.]R\.drawable\./);
+  const adapter = readFileSync(join(root, 'android/src/main/java/io/github/eedaegon/liveupdate/AndroidAdapter.kt'), 'utf8');
+  assert.match(adapter, /io\.github\.eedaegon\.liveactivity\.R\.string\.liveupdate_channel_name/);
+  assert.doesNotMatch(adapter, /[^.]R\.string\./);
   assert.equal(adapt('a R.drawable.x b'), 'a io.github.eedaegon.liveactivity.R.drawable.x b');
+  assert.equal(adapt('a R.string.y b'), 'a io.github.eedaegon.liveactivity.R.string.y b');
+  // Android's own resources keep their `R`.
+  assert.equal(adapt('a android.R.string.ok b'), 'a android.R.string.ok b');
   assert.throws(() => liveupdateDir({ cargo: join(dir, 'no-such-cargo') }), /cargo metadata failed/);
   assert.throws(() => crateDir('no-such-crate'), /^Error: no-such-crate is not a dependency of this crate$/);
 });

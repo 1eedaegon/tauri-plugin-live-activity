@@ -31,7 +31,7 @@ test('liveactivity is one line of Cargo.toml and its test kit one more at the sa
   assert.doesNotMatch(read('build.rs'), /ios_path/);
   assert.doesNotMatch(manifest, /"\/ios\/|"\/templates\//);
   for (const gone of ['ios', 'templates']) assert.equal(existsSync(new URL(`../${gone}`, import.meta.url)), false, gone);
-  assert.match(read('Cargo.lock'), /name = "activitykit"\nversion = "0\.8\.\d+"\nsource = "registry\+https:\/\/github\.com\/rust-lang\/crates\.io-index"/);
+  assert.match(read('Cargo.lock'), /name = "activitykit"\nversion = "0\.9\.\d+"\nsource = "registry\+https:\/\/github\.com\/rust-lang\/crates\.io-index"/);
 });
 
 // TP-RUST-7
@@ -45,7 +45,9 @@ test("a layer has a method for each of the bridge's backend methods, and the lay
     return [...block.matchAll(/^ {4}fn (\w+)/gm)].map(([, name = '']) => name).sort();
   };
   const bridge = methods(readFileSync(join(crateDir('liveactivity'), 'src/backend.rs'), 'utf8'), 'pub trait LiveActivityBackend');
-  assert.equal(bridge.length, 15, bridge.join(', '));
+  // The reading found the trait's methods, required and defaulted: so the comparisons below compare something.
+  for (const known of ['attach', 'start', 'start_layout', 'sync_events']) assert.ok(bridge.includes(known), known);
+  assert.ok(bridge.length >= 16, bridge.join(', '));
   const layers = read('src/layers.rs');
   for (const header of [
     'pub trait BackendLayer',

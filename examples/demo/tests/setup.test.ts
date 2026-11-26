@@ -97,3 +97,14 @@ test('the demo is an app that can be allowed exact alarms: it declares the permi
   assert.ok(page.includes("'exact-alarms'"), 'the page has no handler for the button');
   assert.ok(page.includes('activity.openExactAlarmSettings()'), 'the page does not call the command');
 });
+
+// TP-ANDROID-25
+test("the demo offers Android's screen of Live Updates where they are off: it grants the command and its button calls it", () => {
+  const permissions = list(member(JSON.parse(read('../src-tauri/capabilities/default.json')), 'permissions'), 'the permissions');
+  assert.ok(permissions.includes('live-activity:allow-open-promotion-settings'));
+  assert.match(read('../src/index.html'), /<aside id="promotion-panel"[^>]* hidden>.*<button id="promotion-settings"/);
+  const page = read('../src/main.ts');
+  assert.ok(page.includes("'promotion-settings'"), 'the page has no handler for the button');
+  assert.ok(page.includes('activity.openPromotionSettings()'), 'the page does not call the command');
+  assert.ok(page.includes('offersPromotionSettings(permissions)'), 'the page does not read the permission');
+});

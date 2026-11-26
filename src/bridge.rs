@@ -259,4 +259,69 @@ mod tests {
             decode(json!({"ok":true,"data":"{\"status\":\"ok\",\"data\":null}"})).unwrap();
         assert_eq!(reply, r#"{"status":"ok","data":null}"#);
     }
+
+    /// liveupdate's Kotlin side for its screen of promotion: it notes each command with its payload, and answers
+    /// `settings` as its adapter does, with nothing, or with the refusal it is given.
+    struct Screen {
+        commands: Arc<std::sync::Mutex<Vec<String>>>,
+        refusal: Option<&'static str>,
+    }
+
+    impl liveupdate::Bridge for Screen {
+        fn invoke(&self, command: &str, payload: &str) -> liveupdate::Result<String> {
+            self.commands
+                .lock()
+                .unwrap()
+                .push(format!("{command} {payload}"));
+            Ok(match (command, self.refusal) {
+                ("settings", Some(code)) => format!(
+                    r#"{{"status":"error","error":{{"code":"{code}","message":"No screen."}}}}"#
+                ),
+                ("settings", None) => r#"{"status":"ok","data":null}"#.to_owned(),
+                _ => r#"{"status":"ok","data":[]}"#.to_owned(),
+            })
+        }
+    }
+
+    // TP-ANDROID-25
+    #[test]
+    fn the_screen_of_promotion_is_liveupdates_command_settings_and_its_refusal_is_the_answer() {
+        let folder =
+            std::env::temp_dir().join(format!("live-activity-screen-{}", std::process::id()));
+        let commands = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let asked = engine(
+            Screen {
+                commands: commands.clone(),
+                refusal: None,
+            },
+            AndroidFiles::new("Mochi", &folder),
+        );
+        wait(asked.open_promotion_settings()).unwrap();
+        assert_eq!(*commands.lock().unwrap(), ["settings {}"]);
+        // A device without such a screen, and an adapter that has none: the refusal is the answer, code and all.
+        let refused = engine(
+            Screen {
+                commands: Arc::default(),
+                refusal: Some("UNSUPPORTED_FEATURE"),
+            },
+            AndroidFiles::new("Mochi", &folder),
+        );
+        assert_eq!(
+            wait(refused.open_promotion_settings()).unwrap_err().code,
+            "UNSUPPORTED_FEATURE"
+        );
+        // Without an activity of the app, Tauri's call panics: no answer, and no panic past the plugin.
+        let no_activity = Arc::new(AtomicBool::new(true));
+        let gone = engine(
+            Kotlin {
+                no_activity: no_activity.clone(),
+            },
+            AndroidFiles::new("Mochi", &folder),
+        );
+        assert_eq!(
+            wait(gone.open_promotion_settings()).unwrap_err().code,
+            "NATIVE_ERROR"
+        );
+        let _ = std::fs::remove_dir_all(folder);
+    }
 }

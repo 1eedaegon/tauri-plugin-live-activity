@@ -17,13 +17,13 @@ export const CRATE = 'tauri-plugin-live-activity';
 /** The crate whose Swift package the widget extension and the app target link. */
 export const ACTIVITYKIT = 'activitykit';
 /**
- * `default` reads; the others allow the commands that change activities, and the two that ask the person: with
- * Android's dialog, and in its setting for exact alarms.
+ * `default` reads; the others allow the commands that change activities, and the three that ask the person: with
+ * Android's dialog, in its setting for exact alarms, and in its screen of Live Updates.
  */
 export const PERMISSIONS: readonly string[] = [
   'live-activity:default',
-  ...['request-permissions', 'open-exact-alarm-settings', 'start', 'update', 'end', 'start-layout', 'update-layout', 'end-layout',
-    'write-image']
+  ...['request-permissions', 'open-exact-alarm-settings', 'open-promotion-settings', 'start', 'update', 'end', 'start-layout',
+    'update-layout', 'end-layout', 'write-image']
     .map(command => `live-activity:allow-${command}`),
 ];
 // The plugin's Android library needs API 26: Tauri's Jackson runtime fails below it.

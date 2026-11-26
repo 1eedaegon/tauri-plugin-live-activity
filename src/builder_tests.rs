@@ -97,18 +97,13 @@ impl LiveActivityBackend for Recorder {
     fn sync_events(&self) -> BackendFuture<'_, ()> {
         self.note("sync_events", ())
     }
+    fn open_promotion_settings(&self) -> BackendFuture<'_, ()> {
+        self.note("open_promotion_settings", ())
+    }
 }
 
-// TP-RUST-7
-#[test]
-fn a_layer_that_overrides_nothing_passes_every_call_to_the_backend_under_it() {
-    let recorder = Arc::new(Recorder::default());
-    // The builder of the service attaches the backend it is given, before any command.
-    let _live = liveactivity::LiveActivity::builder()
-        .backend(Layered::new(Nothing, recorder.clone()))
-        .build()
-        .unwrap();
-    let layered = Layered::new(Nothing, recorder.clone());
+/// Makes every call of the backend interface on `layered` once, each with a request of its own.
+fn every_call(layered: &dyn LiveActivityBackend) {
     let _ = block_on(layered.capabilities());
     let _ = block_on(layered.permissions());
     let _ = block_on(layered.start(input(start())));
@@ -128,41 +123,75 @@ fn a_layer_that_overrides_nothing_passes_every_call_to_the_backend_under_it() {
     let _ = block_on(layered.write_image("paw.png".into(), vec![7]));
     let _ = block_on(layered.push_tokens());
     let _ = block_on(layered.sync_events());
-    let calls = recorder.calls.lock().unwrap();
-    let names: Vec<&str> = calls.iter().map(|(call, _)| *call).collect();
-    assert_eq!(
-        names,
-        [
-            "attach",
-            "capabilities",
-            "permissions",
-            "start",
-            "update",
-            "end",
-            "list",
-            "request_permissions",
-            "start_layout",
-            "update_layout",
-            "end_layout",
-            "list_layout",
-            "write_image",
-            "push_tokens",
-            "sync_events",
-        ]
-    );
-    // Each call came with what it was given.
-    for (call, given) in [
-        ("start", "job:1"),
-        ("update", "update-1"),
-        ("end", "end-1"),
-        ("request_permissions", "Notifications"),
-        ("start_layout", "job:2"),
-        ("update_layout", "update-2"),
-        ("end_layout", "end-2"),
-        ("write_image", "(\"paw.png\", [7])"),
-    ] {
-        let (_, with) = calls.iter().find(|(name, _)| *name == call).unwrap();
-        assert!(with.contains(given), "{call}: {with}");
+    let _ = block_on(layered.open_promotion_settings());
+}
+
+/// A layer over a recorder, as a backend, with what the messages of a test call it.
+type Over = (
+    &'static str,
+    Box<dyn Fn(Arc<Recorder>) -> Arc<dyn LiveActivityBackend>>,
+);
+
+// TP-RUST-7, TP-ANDROID-25
+#[test]
+fn a_layer_that_overrides_nothing_passes_every_call_to_the_backend_under_it() {
+    // The layer itself, and the layer behind an `Arc`, whose methods forward to it.
+    let layers: [Over; 2] = [
+        (
+            "the layer",
+            Box::new(|recorder| Arc::new(Layered::new(Nothing, recorder))),
+        ),
+        (
+            "its Arc",
+            Box::new(|recorder| Arc::new(Layered::new(Arc::new(Nothing), recorder))),
+        ),
+    ];
+    for (layer, layered) in layers {
+        let recorder = Arc::new(Recorder::default());
+        // The builder of the service attaches the backend it is given, before any command.
+        let _live = liveactivity::LiveActivity::builder()
+            .backend(layered(recorder.clone()))
+            .build()
+            .unwrap();
+        every_call(layered(recorder.clone()).as_ref());
+        let calls = recorder.calls.lock().unwrap();
+        let names: Vec<&str> = calls.iter().map(|(call, _)| *call).collect();
+        assert_eq!(
+            names,
+            [
+                "attach",
+                "capabilities",
+                "permissions",
+                "start",
+                "update",
+                "end",
+                "list",
+                "request_permissions",
+                "start_layout",
+                "update_layout",
+                "end_layout",
+                "list_layout",
+                "write_image",
+                "push_tokens",
+                "sync_events",
+                "open_promotion_settings",
+            ],
+            "{layer}"
+        );
+        // Each call came with what it was given.
+        for (call, given) in [
+            ("start", "job:1"),
+            ("update", "update-1"),
+            ("end", "end-1"),
+            ("request_permissions", "Notifications"),
+            ("start_layout", "job:2"),
+            ("update_layout", "update-2"),
+            ("end_layout", "end-2"),
+            ("write_image", "(\"paw.png\", [7])"),
+        ] {
+            let (_, with) = calls.iter().find(|(name, _)| *name == call).unwrap();
+            assert!(with.contains(given), "{layer}, {call}: {with}");
+        }
     }
 }
 

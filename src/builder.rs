@@ -99,8 +99,9 @@ impl Builder {
 
     /// Sends the commands to `backend` in place of the platform's backend: it answers each of them, the permissions
     /// among them, and the events that it sends through the context that `attach` gives it, its taps among them,
-    /// reach the app. The platform's backend is then not built, but on Android, where it still opens the setting for
-    /// exact alarms; on iOS the configuration's `receipts` and `pushToStart` set no kit, and are `backend`'s to keep.
+    /// reach the app, and so does its answer to `open_promotion_settings`, which the trait defaults to
+    /// `UNSUPPORTED_FEATURE`. The platform's backend is then not built, but on Android, where it still opens the
+    /// setting for exact alarms; on iOS the configuration's `receipts` and `pushToStart` set no kit, and are `backend`'s to keep.
     /// A later call replaces an earlier one, and the layers go over it, wherever this call stands among theirs.
     pub fn backend(mut self, backend: impl LiveActivityBackend) -> Self {
         let backend: Arc<dyn LiveActivityBackend> = Arc::new(backend);
@@ -130,6 +131,7 @@ impl Builder {
                 commands::check_permissions,
                 commands::request_permissions,
                 commands::open_exact_alarm_settings,
+                commands::open_promotion_settings,
                 commands::start,
                 commands::update,
                 commands::end,

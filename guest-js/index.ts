@@ -46,6 +46,22 @@ export function openExactAlarmSettings(): Promise<Capabilities> {
   return invoke('plugin:live-activity|open_exact_alarm_settings', {});
 }
 
+/**
+ * Ask Android for the screen where the person allows or stops the app's Live Updates (Android 16 and later), or for
+ * the app's notification settings before that: for an app whose `checkPermissions()` reads
+ * `promotion: 'settingsRequired'`, Android having no dialog for them. That state is also a channel that the person
+ * set to Minimized, which is changed in the app's notification settings.
+ * Android starts it only while the app is in the foreground and drops it otherwise without a word, so call it from
+ * a person's tap. It resolves once Android was asked, not when the screen shows, and does not wait for the person:
+ * read `checkPermissions()` again when the page is back in view.
+ *
+ * It rejects with `UNSUPPORTED_FEATURE` on iOS and on a device without such a screen, and with
+ * `UNSUPPORTED_PLATFORM` on desktop. The command needs its own grant, `live-activity:allow-open-promotion-settings`.
+ */
+export function openPromotionSettings(): Promise<void> {
+  return invoke('plugin:live-activity|open_promotion_settings', {});
+}
+
 /** Start an activity; repeated identical starts for an active key are idempotent. */
 export function start(input: StartInput): Promise<ActivityRecord> {
   return invoke('plugin:live-activity|start', { input });

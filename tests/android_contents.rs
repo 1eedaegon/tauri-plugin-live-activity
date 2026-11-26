@@ -160,6 +160,7 @@ impl Held {
             accent_color,
             sub_text,
             wear_ongoing_activity,
+            local_only,
         } = presentation;
         self.member(
             "presentation.shortCriticalText",
@@ -212,6 +213,8 @@ impl Held {
         self.member("presentation.subText", sub_text.is_some());
         // True by default, and written only when it is not.
         self.member("presentation.wearOngoingActivity", !*wear_ongoing_activity);
+        // False by default, and written only when it is true.
+        self.member("presentation.localOnly", *local_only);
         self.style(style);
     }
 
@@ -342,7 +345,7 @@ fn locked(version: &PublicVersion) {
 
 /// The fixture is as wide as the models: what TypeScript declares and what liveupdate's Android side takes are
 /// compared with all that Rust can write, not with a part of it.
-// TP-JS-7, TP-ANDROID-14, TP-ANDROID-20, TP-ANDROID-22
+// TP-JS-7, TP-ANDROID-14, TP-ANDROID-20, TP-ANDROID-22, TP-ANDROID-24
 #[test]
 fn the_fixture_holds_every_member_of_the_models_given_and_left_out_and_every_variant() {
     let mut held = Held::default();

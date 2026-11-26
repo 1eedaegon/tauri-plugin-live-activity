@@ -183,6 +183,12 @@ impl<R: Runtime> LiveActivityBackend for Android<R> {
     fn sync_events(&self) -> BackendFuture<'_, ()> {
         self.engine.sync_events()
     }
+
+    // liveupdate's adapter asks Android for the screen of the app's Live Updates, or of its notifications before
+    // Android 16, from the application's context: `Ok` says that Android was asked.
+    fn open_promotion_settings(&self) -> BackendFuture<'_, ()> {
+        self.engine.open_promotion_settings()
+    }
 }
 
 /// The plugin on Android: the commands go to what `chosen` makes of the platform's backend. That backend is built
