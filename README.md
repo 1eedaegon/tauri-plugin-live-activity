@@ -5,8 +5,10 @@
 [![CI](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/workflows/ci.yml/badge.svg)](https://github.com/1eedaegon/tauri-plugin-live-activity/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](LICENSE)
 
-Show what your Tauri 2 app is doing on the iPhone Lock Screen and in the Dynamic Island, and as
-an ongoing notification on Android. You describe the layout in TSX, TypeScript or Rust; the plugin draws it.
+**iOS Live Activities and Android Live Updates for Tauri 2.** Show what your Tauri 2 app is doing on the iPhone
+Lock Screen and in the Dynamic Island (ActivityKit), and as a Live Update or an ongoing notification on Android.
+You describe the layout in TSX, TypeScript or Rust; the plugin draws it, through the
+[liveactivity-rs](https://github.com/1eedaegon/liveactivity-rs) bridge.
 [한국어](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/README.ko.md)
 
 <table>
@@ -39,11 +41,52 @@ start it again ([live editing](https://github.com/1eedaegon/tauri-plugin-live-ac
 <img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/live-editing.gif" width="800" alt="Left, the screen recording of the iPhone 17 Pro simulator: its Lock Screen pulled down over the demo, with Mochi's card. Right, card.tsx as an editor shows it, drawn from the log of the saves. Saves of values change the status, the time and the meter in place; a save that swaps the paw for a bicycle, and one that makes the title larger, each make the card go and come back changed.">
 
 All of them come from the [demo app](https://github.com/1eedaegon/tauri-plugin-live-activity/tree/main/examples/demo),
-which follows a cat named Mochi. iOS 16.1+ and Android 8+; on desktop the activity commands answer
-`UNSUPPORTED_PLATFORM`. The plugin is an adapter of the [liveactivity](https://github.com/1eedaegon/liveactivity-rs)
-crate, which runs iOS on [activitykit](https://github.com/1eedaegon/activitykit-rs) and Android on
-[liveupdate](https://github.com/1eedaegon/liveupdate-rs): the plugin has no Swift of its own, and its Kotlin answers
-the permission commands and carries liveupdate's Android adapter.
+which follows a cat named Mochi.
+
+## Supported versions
+
+In short: iOS 16.1+ and Android 8+, and no activities on desktop.
+
+| Where | From | What you get |
+| --- | --- | --- |
+| iPhone | iOS 16.1 | Live Activities on the Lock Screen and, on iPhones that have one, in the Dynamic Island. Stale dates and relevance from iOS 16.2; buttons, toggles and push-to-start from iOS 17.2 |
+| iPad | iPadOS 17 | The same Live Activities on the Lock Screen |
+| Apple Watch | iOS 18 with watchOS 11 | A layout's `small` region in the watch's Smart Stack |
+| Android | Android 8.0 (API 26) | An ongoing notification with a progress bar or a timer and up to three actions; the notification permission is asked from Android 13 (API 33) |
+| Android Live Updates | Android 16 (API 36) | A promoted Live Update where the system and the person's settings allow one, the ongoing notification otherwise |
+| Samsung Now Bar | Android 17 (API 37), One UI 9 | The title and body that One UI's Now Bar shows, for apps on Samsung's allow list |
+| macOS, Windows, Linux | not supported | No activities: the activity commands answer `UNSUPPORTED_PLATFORM` |
+
+The plugin needs Tauri 2 and Rust 1.90 or later. `setup` sets the widget extension's deployment target to iOS 16.1 and
+the Android `minSdk` to 26. The floor of every feature is in
+[OS compatibility](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/compatibility.md).
+
+## How it works
+
+The plugin is the Tauri side of four crates. It keeps Tauri's commands, events, permissions and the `setup`
+command. The [liveactivity-rs](https://github.com/1eedaegon/liveactivity-rs) bridge, the `liveactivity` crate, holds
+the request contract, its checks and the lifecycle, and runs each request on the platform's backend:
+
+```text
+your Tauri 2 app             a layout in TSX, TypeScript or Rust
+  │  start · update · end · events
+  ▼
+tauri-plugin-live-activity   Tauri commands, events, permissions, setup
+  │
+  ▼
+liveactivity                 the liveactivity-rs bridge: one request contract,
+  │                          its checks, the lifecycle
+  ├─ iOS 16.1+ ────────────► activitykit (activitykit-rs)
+  │                          ActivityKit through its Swift bridge, drawn by the
+  │                          app's widget extension: Lock Screen, Dynamic Island
+  └─ Android 8.0+ ─────────► liveupdate (liveupdate-rs)
+                             an ongoing notification, a Live Update on Android 16+
+```
+
+The plugin has no Swift of its own; its Kotlin answers the permission commands and carries liveupdate's Android
+adapter. [iOS setup](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-integration.md) and
+[Android setup](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md) show
+what `setup` changes in each project.
 
 ## Install
 
@@ -331,6 +374,31 @@ at most 1 MiB and 1224 × 480 pixels. [More](https://github.com/1eedaegon/tauri-
 `"plugins": { "live-activity": { "android": { "samsungNowBar": true } } }` in `tauri.conf.json` sends One UI 9
 the title and body its Now Bar shows. One UI shows the Now Bar only for apps on Samsung's allow list, or for every
 app while the developer option "Live notifications for all apps" is on.
+
+## Questions
+
+**Can a Tauri app show a Live Activity or use the Dynamic Island?** Yes. With this plugin a Tauri 2 app starts,
+updates and ends ActivityKit Live Activities on iOS 16.1 and later, drawn on the Lock Screen and in the Dynamic
+Island. `npx tauri-plugin-live-activity setup` adds the widget extension that draws them to the app's Xcode project.
+
+**Does it support Android Live Updates?** Yes. On Android 16 (API 36) and later the plugin asks for a promoted Live
+Update where the system and the person's settings allow one; elsewhere, from Android 8.0 (API 26), the same request
+shows as an ongoing notification.
+
+**What are the minimum iOS and Android versions?** iOS 16.1 on an iPhone, iPadOS 17 on an iPad and Android 8.0
+(API 26). Some features need more: see [Supported versions](#supported-versions).
+
+**Do I have to write Swift or Kotlin?** No. Layouts are TSX, TypeScript or Rust, and the native code comes with the
+plugin and its crates. A view of your own can still be SwiftUI ([Beyond the built-in parts](#beyond-the-built-in-parts)).
+
+**What is liveactivity-rs?** The Rust bridge this plugin is built on, the `liveactivity` crate. It owns the request
+contract and the lifecycle, and runs iOS on activitykit-rs and Android on liveupdate-rs ([How it works](#how-it-works)).
+
+**Can a server update an activity?** On iOS, through APNs: push tokens, push-to-start from iOS 17.2 and broadcast
+channels from iOS 18 ([Pushes (iOS)](#pushes-ios)). Android has no push path; the app updates its notification.
+
+**Does it work on macOS, Windows or Linux?** No. There the activity commands answer `UNSUPPORTED_PLATFORM`, and
+`getCapabilities()` says so.
 
 ## More
 
