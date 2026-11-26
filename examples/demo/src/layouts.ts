@@ -486,7 +486,7 @@ const smallExample: LayoutExample = {
   id: 'small',
   name: 'Watch and car',
   feature: 'The small member is what a paired Apple Watch and CarPlay show: a glance of at most 12 nodes, without buttons. The widget extension says that it draws it.',
-  android: 'A watch and a car show the notification by themselves. Android draws nothing of the region and lists layout.small.',
+  android: "A phone's ongoing notification is not bridged to a paired watch, a Live Update only to some, and Android Auto has no place for one. Android lists layout.small.",
   start: () => ({
     activityKey: 'mochi:small', schemaVersion, fallback,
     layout: {
