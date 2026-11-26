@@ -53,16 +53,17 @@ const markdownRows = (text: string): string[][] =>
 
 /** The rows of the HTML table of a part, the header among them. */
 const htmlRows = (html: string): string[][] =>
-  [...html.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map(([, row]) => [...row.matchAll(/<t[hd]>([\s\S]*?)<\/t[hd]>/g)].map(([, cell]) => shown(cell)));
+  [...html.matchAll(/<tr>([\s\S]*?)<\/tr>/g)]
+    .map(([, row = '']) => [...row.matchAll(/<t[hd]>([\s\S]*?)<\/t[hd]>/g)].map(([, cell = '']) => shown(cell)));
 
 /** The questions of a README: each paragraph of its questions' part opens with one in bold. */
 const readmeQuestions = (text: string, heading: string): string[] =>
-  [...part(text, heading).matchAll(/^\*\*(.+?)\*\*/gm)].map(([, question]) => question);
+  [...part(text, heading).matchAll(/^\*\*(.+?)\*\*/gm)].map(([, question = '']) => question);
 
 /** The questions and answers that a page shows: each `<h3>` of its questions and the paragraph after it. */
 const pageQuestions = (html: string): { question: string; answer: string }[] =>
   [...section(html, 'questions').matchAll(/<h3>([\s\S]*?)<\/h3>\s*<p>([\s\S]*?)<\/p>/g)]
-    .map(([, question, answer]) => ({ question: shown(question), answer: shown(answer) }));
+    .map(([, question = '', answer = '']) => ({ question: shown(question), answer: shown(answer) }));
 
 interface Answered { readonly name: string; readonly acceptedAnswer: { readonly text: string } }
 
@@ -109,7 +110,7 @@ test("the site's addresses hold together: each page's canonical and alternates, 
   // Every link of a page or of llms.txt into this repository names a file that is tracked.
   const repository = /https:\/\/(?:github\.com\/1eedaegon\/tauri-plugin-live-activity\/blob\/main|raw\.githubusercontent\.com\/1eedaegon\/tauri-plugin-live-activity\/main)\/([^"#)\s]+)/g;
   for (const file of ['site/index.html', 'site/ko/index.html', 'site/llms.txt']) {
-    const named = [...read(file).matchAll(repository)].map(([, path]) => path);
+    const named = [...read(file).matchAll(repository)].map(([, path = '']) => path);
     assert.ok(named.length > 0, `${file} links into the repository`);
     for (const path of named) assert.ok(tracked.has(path), `${file} names ${path}, which is not tracked`);
   }
