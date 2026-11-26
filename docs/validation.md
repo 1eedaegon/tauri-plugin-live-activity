@@ -1,3 +1,15 @@
+# 0.13.1 validation
+
+0.13.1 is a patch release of documentation and search metadata (#75). The README and its Korean twin give the
+supported versions in one table, draw how the plugin runs on the liveactivity-rs bridge, and answer the common
+questions; the crate has the keywords `dynamic-island` and `live-updates` and the `os` category, and the npm package
+more keywords. It carries no code change: the plugin, its CLI and its libraries are 0.13.0's, on liveactivity 0.11.0
+with activitykit 0.8.1 and liveupdate 0.8.2, so the device and simulator checks of 0.13.0 below stand for it.
+Checked before the tag: `npm test` with every suite passing, both lockfiles with `cargo metadata --locked --offline`,
+and the packages as in 0.13.0: the crate's 74 files and the npm package's 33.
+
+The record of 0.13.0 follows.
+
 # 0.13.0 validation
 
 0.13.0 is a minor release. It brings what main has since 0.12.0: the plugin on liveactivity 0.11.0, with activitykit
