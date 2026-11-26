@@ -1,3 +1,22 @@
+# 0.15.1 validation
+
+0.15.1 is a patch release (#79). It moves the plugin to liveactivity 0.12.1, with activitykit 0.9.1, from 0.12.0 and
+0.9.0. Its one change is activitykit's: with `pushToStart: true`, the push-to-start token the app already has is
+reported at each launch, then each new one. The plugin's code is 0.15.0's. Its documents now say how the token comes.
+
+Checked before the tag:
+
+- `cargo test`, `cargo clippy -D warnings` and rustdoc, as for 0.15.0.
+- `npm test` with every suite passing, and `npm run typecheck`.
+- `tools/spec-coverage.sh`.
+- Both lockfiles with `cargo metadata --locked --offline`.
+
+Not proven: no test here receives a token. The simulator has no APNs, and the demo app has no Push Notifications
+capability (TP-PUSH-3). The activitykit session saw the fix on an iPhone XS: the token came at once, and a
+push-to-start through APNs started an activity. That check is activitykit's, not the plugin's.
+
+The record of 0.15.0 follows.
+
 # 0.15.0 validation
 
 0.15.0 is a minor release (#78). It moves the plugin to liveactivity 0.12.0, with activitykit 0.9.0 and liveupdate

@@ -1784,8 +1784,9 @@ The iOS capture is after an update that moved the end by a minute.
   of guessable values can be guessed, and ActivityKit keeps the values in the activity's content.
   Android ignores the option for now and stores records in full in app-private preferences.
 - `android.samsungNowBar`: the [Samsung Now Bar](#samsung-now-bar) extras; off when absent.
-- `pushToStart`: on iOS 17.2 and later the plugin watches the app's push-to-start token and reports it, new or
-  changed, as `live-activity://push-to-start-token` ([Pushes](#pushes)); off when absent. Like the receipts, the
+- `pushToStart`: on iOS 17.2 and later the plugin watches the app's push-to-start token and reports it as
+  `live-activity://push-to-start-token` ([Pushes](#pushes)): at each launch the token the app already has, then each
+  new one, never the same one twice. Off when absent. Like the receipts, the
   setting holds for the process.
 
 ## Try the demo

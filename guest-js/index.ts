@@ -158,8 +158,8 @@ export async function onPushToken(handler: (event: PushTokenEvent) => void): Pro
 }
 
 /**
- * Receive the app's push-to-start token, with `pushToStart: true` in the plugin configuration (iOS 17.2), when the
- * system gives it and each time it changes, and first the one the plugin already holds, each token once. The server
+ * Receive the app's push-to-start token, with `pushToStart: true` in the plugin configuration (iOS 17.2): the token the
+ * app has at each launch and each new one, and first the one the plugin already holds, each token once. The server
  * starts activities with it. Rejects, subscribed to nothing, when the plugin cannot be asked for the token it holds.
  */
 export async function onPushToStartToken(handler: (event: PushToStartTokenEvent) => void): Promise<UnlistenFn> {
