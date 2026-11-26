@@ -29,8 +29,9 @@ pub struct AndroidConfig {
 pub struct Config {
     pub receipts: Option<Receipts>,
     pub android: Option<AndroidConfig>,
-    /// Watches the app's push-to-start token on iOS 17.2 and later and reports it, new or changed, as a
-    /// `live-activity://push-to-start-token` event. Off when absent. Like the receipts, the setting holds for
+    /// Watches the app's push-to-start token on iOS 17.2 and later and reports it as a
+    /// `live-activity://push-to-start-token` event: at each launch the token the app already has, then each new one,
+    /// never the same one twice. Off when absent. Like the receipts, the setting holds for
     /// the process: a kit that already runs with other settings is `CONFLICT`.
     pub push_to_start: Option<bool>,
 }

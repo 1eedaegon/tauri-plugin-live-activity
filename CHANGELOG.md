@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.15.1
+
+Built on liveactivity 0.12.1, with activitykit 0.9.1, from 0.12.0 and 0.9.0; liveupdate stays 0.9.0.
+
+- **The push-to-start token comes at each launch** (iOS 17.2): with `pushToStart: true`, the plugin now reports the
+  token the app already has when the watch begins, then each new one, never the same one twice. Before, it reported
+  only a change, so an app that already had a token got none: on an iPhone XS none came in five minutes.
+  `onPushToStartToken` and `pushTokens()` get it as before. The fix is in activitykit's Swift bridge, which cargo
+  builds into the app. Run `setup` again after the update, so that the widget extension links activitykit 0.9.1's
+  Swift package too, and both come from one version.
+- No API changes.
+
 ## 0.15.0
 
 Built on liveactivity 0.12.0, with activitykit 0.9.0 and liveupdate 0.9.0, from 0.11.0, 0.8.1 and 0.8.2.
