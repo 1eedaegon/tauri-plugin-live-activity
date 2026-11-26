@@ -1,3 +1,38 @@
+# 0.14.0 validation
+
+0.14.0 is a minor release (#77). The plugin has a public `Builder`: `layer` puts a `BackendLayer` over the platform's
+backend, `backend` puts a backend of the app's own in its place, and the crate re-exports the liveactivity-rs
+bridge's backend interface and its events; `init()` is `Builder::new().build()`. Without a layer or a backend the
+builder hands the platform's backend on as it is, as an `Arc` that liveactivity forwards call for call, all fifteen
+methods of the interface; on Android it was one already. With a backend of the app's own the platform's is not
+built, except on Android, where it still opens the setting for exact alarms. The commands, the CLI and the libraries
+are otherwise 0.13.2's, on liveactivity 0.11.0 with activitykit 0.8.1 and liveupdate 0.8.2, and the demo's Watch and
+car example has #66's Android text. A review of the change before the tag found no defect in the forwarding or the
+order, and four gaps that the release closes: nothing calls `sync_events`, which the documents now say; `Event` and
+`EventSink`, without which a layer cannot wrap the events, were not exported; on iOS the plugin built its kit beside
+an app's backend, which could refuse a kit that the app built with other settings; and a layer had no `Arc`, which an
+app could not add itself. Checked before the tag:
+
+- The eight TP-RUST-7 tests on macOS. A layer that overrides nothing passes all fifteen calls on with what they were
+  given, and keeps the checks of the contract that liveactivity's test kit runs. A backend of the app's own answers
+  `start` and `list` through Tauri's IPC, where `init()` answers `UNSUPPORTED_PLATFORM`, and its own answer to
+  `start_layout`, a method that the interface defaults to an error, comes back; the platform's backend is built only
+  without it. A layer, here through its `Arc`, sees only the calls it overrides; a later layer gets a call first; a
+  tap on the backend reaches the app's handler through a layer, and a layer that wraps the events in `attach` sees it
+  on the way. One forwarding default broken by hand failed the first test.
+- TP-RUST-7's node test: the methods of the layer, of its `Arc` and of the layered backend are those of the bridge
+  that `Cargo.lock` holds; with one of them taken out of the layered backend by hand, it failed.
+- The example in `Builder`'s documentation, as a doc test, and rustdoc with warnings as errors.
+- `cargo clippy -D warnings` on macOS for all targets, and for the library on `aarch64-apple-ios` and
+  `aarch64-linux-android`.
+- `npm test` with every suite passing, `tools/spec-coverage.sh`, both lockfiles with `cargo metadata --locked
+  --offline`, and the packages: the crate's 77 files, the three new sources among them, and the npm package's 33.
+
+Not proven: no device or simulator ran this release. On iOS and Android the builder's wiring was compiled and linted,
+not run, so a layer has been seen to work only on desktop, over the test kit's memory backend.
+
+The record of 0.13.2 follows.
+
 # 0.13.2 validation
 
 0.13.2 is a patch release of documentation, a site and search metadata (#76). A site on GitHub Pages, in English and
