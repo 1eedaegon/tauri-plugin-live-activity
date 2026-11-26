@@ -1,12 +1,14 @@
 [package]
 name = "tauri-plugin-live-activity"
-version = "0.13.1"
+version = "0.13.2"
 description = "Tauri 2 plugin for iOS Live Activities (ActivityKit and Dynamic Island) and Android Live Updates with ongoing notification fallback"
 authors = ["1eedaegon"]
 edition = "2024"
 rust-version = "1.90"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/1eedaegon/tauri-plugin-live-activity"
+homepage = "https://1eedaegon.github.io/tauri-plugin-live-activity/"
+documentation = "https://docs.rs/tauri-plugin-live-activity"
 readme = "README.md"
 keywords = ["tauri", "live-activities", "dynamic-island", "live-updates", "activitykit"]
 categories = ["api-bindings", "gui", "os", "os::android-apis"]

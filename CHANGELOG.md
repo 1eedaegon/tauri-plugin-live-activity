@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.13.2
+
+Documentation, a site and search metadata; no code changes, still on liveactivity 0.11.0 with activitykit 0.8.1 and
+liveupdate 0.8.2.
+
+- A site on GitHub Pages, <https://1eedaegon.github.io/tauri-plugin-live-activity/>, in English and Korean: what the
+  plugin does, the supported versions, how it runs on the liveactivity-rs bridge and the common questions, with
+  structured data (`SoftwareSourceCode`, `FAQPage`), a sitemap and an `llms.txt`. `tests/site.test.ts` keeps it in
+  step with the READMEs (TP-CI-9).
+- The README's questions also answer whether Tauri has a plugin for iOS Live Activities, whether the Widget
+  Extension is added in Xcode by hand, and how the plugin differs from a home-screen widget plugin.
+- docs.rs opens with what the plugin does, its supported versions and its structure, and the crate and the npm
+  package name the site as their homepage.
+
 ## 0.13.1
 
 Documentation and search metadata; no code changes, still on liveactivity 0.11.0 with activitykit 0.8.1 and

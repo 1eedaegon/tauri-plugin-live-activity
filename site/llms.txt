@@ -1,0 +1,29 @@
+# tauri-plugin-live-activity
+
+> A Tauri 2 plugin for iOS Live Activities (ActivityKit: the Lock Screen and the Dynamic Island; iOS 16.1+, iPadOS 17+) and Android Live Updates (Android 16+, an ongoing notification from Android 8.0, API 26). Layouts are written in TSX, TypeScript or Rust. It is built on the liveactivity-rs bridge, which runs iOS on activitykit-rs and Android on liveupdate-rs. It is a community plugin: Tauri has no official plugin for Live Activities.
+
+In short: iOS 16.1+ and Android 8+, and no activities on desktop, where the activity commands answer `UNSUPPORTED_PLATFORM`.
+
+Install in a Tauri 2 app: `cargo add tauri-plugin-live-activity --manifest-path src-tauri/Cargo.toml`, `npm i tauri-plugin-live-activity`, then `npx tauri-plugin-live-activity setup`, which grants the plugin's permissions, raises the Android minimum to API 26 and adds the widget extension that draws the activity to the Xcode project in `src-tauri/gen/apple`. Register the plugin with `.plugin(tauri_plugin_live_activity::init())`. No Swift or Kotlin is needed; a view of your own can still be SwiftUI.
+
+## Docs
+
+- [README](https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/README.md): what it does, supported versions, how it works, examples in TSX, React, TypeScript and Rust, questions
+- [Usage](https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/usage.md): layouts, values, styles, buttons, pushes and every option
+- [iOS setup](https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/ios-integration.md): the widget extension, and what `setup` changes in the Xcode project
+- [Android setup](https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/android-integration.md): what `setup` changes in the Android project
+- [OS compatibility](https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/compatibility.md): the minimum OS version of every feature
+- [Permissions](https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/permissions.md): the plugin's Tauri permissions
+
+## Packages
+
+- [crates.io](https://crates.io/crates/tauri-plugin-live-activity): the Rust crate
+- [npm](https://www.npmjs.com/package/tauri-plugin-live-activity): the JavaScript API, the JSX layout components, React's `useLiveActivity` and the `setup` command
+- [docs.rs](https://docs.rs/tauri-plugin-live-activity): the Rust API
+
+## Optional
+
+- [liveactivity-rs](https://github.com/1eedaegon/liveactivity-rs): the bridge, the `liveactivity` crate: the request contract, its checks and the lifecycle
+- [activitykit-rs](https://github.com/1eedaegon/activitykit-rs): the iOS backend, ActivityKit through a Swift bridge
+- [liveupdate-rs](https://github.com/1eedaegon/liveupdate-rs): the Android backend, Live Updates and ongoing notifications
+- [Korean page](https://1eedaegon.github.io/tauri-plugin-live-activity/ko/)

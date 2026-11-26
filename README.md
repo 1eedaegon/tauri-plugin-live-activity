@@ -9,7 +9,8 @@
 Lock Screen and in the Dynamic Island (ActivityKit), and as a Live Update or an ongoing notification on Android.
 You describe the layout in TSX, TypeScript or Rust; the plugin draws it, through the
 [liveactivity-rs](https://github.com/1eedaegon/liveactivity-rs) bridge.
-[한국어](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/README.ko.md)
+[한국어](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/README.ko.md) ·
+[Site](https://1eedaegon.github.io/tauri-plugin-live-activity/)
 
 <table>
   <tr><th>iOS Lock Screen</th><th>Dynamic Island</th></tr>
@@ -377,9 +378,13 @@ app while the developer option "Live notifications for all apps" is on.
 
 ## Questions
 
-**Can a Tauri app show a Live Activity or use the Dynamic Island?** Yes. With this plugin a Tauri 2 app starts,
-updates and ends ActivityKit Live Activities on iOS 16.1 and later, drawn on the Lock Screen and in the Dynamic
-Island. `npx tauri-plugin-live-activity setup` adds the widget extension that draws them to the app's Xcode project.
+**Is there a Tauri plugin for iOS Live Activities and the Dynamic Island?** Yes: this one. tauri-plugin-live-activity
+is a community plugin; Tauri has no official one. With it a Tauri 2 app starts, updates and ends ActivityKit Live
+Activities on iOS 16.1 and later, drawn on the Lock Screen and in the Dynamic Island.
+
+**Do I have to add a Widget Extension in Xcode by hand?** No. `npx tauri-plugin-live-activity setup` adds the widget
+extension that draws the activity to the Xcode project in `src-tauri/gen/apple`. Run it again whenever `gen/apple` is
+made from scratch.
 
 **Does it support Android Live Updates?** Yes. On Android 16 (API 36) and later the plugin asks for a promoted Live
 Update where the system and the person's settings allow one; elsewhere, from Android 8.0 (API 26), the same request
@@ -393,6 +398,10 @@ plugin and its crates. A view of your own can still be SwiftUI ([Beyond the buil
 
 **What is liveactivity-rs?** The Rust bridge this plugin is built on, the `liveactivity` crate. It owns the request
 contract and the lifecycle, and runs iOS on activitykit-rs and Android on liveupdate-rs ([How it works](#how-it-works)).
+
+**How is it different from a home-screen widget plugin?** Widget plugins such as tauri-plugin-widgets draw
+WidgetKit and Android Glance widgets that stay on the home screen. This plugin draws Live Activities and Android Live
+Updates, which follow one task while it runs. An app can use both.
 
 **Can a server update an activity?** On iOS, through APNs: push tokens, push-to-start from iOS 17.2 and broadcast
 channels from iOS 18 ([Pushes (iOS)](#pushes-ios)). Android has no push path; the app updates its notification.

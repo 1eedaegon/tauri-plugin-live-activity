@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https://raw.githubusercontent.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>tauri-plugin-live-activity: iOS Live Activities and Android Live Updates for Tauri 2</title>
+<meta name="description" content="A Tauri 2 plugin for iOS Live Activities (ActivityKit, Lock Screen, Dynamic Island; iOS 16.1+) and Android Live Updates (Android 16+, an ongoing notification from Android 8). Layouts in TSX, TypeScript or Rust, built on the liveactivity-rs bridge.">
+<link rel="canonical" href="https://1eedaegon.github.io/tauri-plugin-live-activity/">
+<link rel="alternate" hreflang="en" href="https://1eedaegon.github.io/tauri-plugin-live-activity/">
+<link rel="alternate" hreflang="ko" href="https://1eedaegon.github.io/tauri-plugin-live-activity/ko/">
+<link rel="alternate" hreflang="x-default" href="https://1eedaegon.github.io/tauri-plugin-live-activity/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="tauri-plugin-live-activity: iOS Live Activities and Android Live Updates for Tauri 2">
+<meta property="og:description" content="Start, update and end iOS Live Activities and Android Live Updates from a Tauri 2 app. iOS 16.1+, Android 8+.">
+<meta property="og:url" content="https://1eedaegon.github.io/tauri-plugin-live-activity/">
+<meta property="og:image" content="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-paths.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://1eedaegon.github.io/tauri-plugin-live-activity/#software",
+      "name": "tauri-plugin-live-activity",
+      "description": "A Tauri 2 plugin for iOS Live Activities (ActivityKit, Lock Screen, Dynamic Island) and Android Live Updates, with an ongoing notification as the fallback. It is built on the liveactivity-rs bridge, which runs iOS on activitykit-rs and Android on liveupdate-rs.",
+      "url": "https://1eedaegon.github.io/tauri-plugin-live-activity/",
+      "codeRepository": "https://github.com/1eedaegon/tauri-plugin-live-activity",
+      "programmingLanguage": ["Rust", "TypeScript", "Swift", "Kotlin"],
+      "runtimePlatform": ["Tauri 2", "iOS 16.1 or later", "iPadOS 17 or later", "Android 8.0 (API 26) or later"],
+      "keywords": "Tauri, Tauri plugin, Live Activities, ActivityKit, Dynamic Island, Lock Screen, Android Live Updates, ongoing notification, Rust, liveactivity-rs",
+      "license": ["https://opensource.org/licenses/MIT", "https://www.apache.org/licenses/LICENSE-2.0"],
+      "author": { "@type": "Person", "name": "1eedaegon", "url": "https://github.com/1eedaegon" },
+      "sameAs": [
+        "https://github.com/1eedaegon/tauri-plugin-live-activity",
+        "https://crates.io/crates/tauri-plugin-live-activity",
+        "https://www.npmjs.com/package/tauri-plugin-live-activity",
+        "https://docs.rs/tauri-plugin-live-activity"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "Is there a Tauri plugin for iOS Live Activities and the Dynamic Island?", "acceptedAnswer": { "@type": "Answer", "text": "Yes: tauri-plugin-live-activity. It is a community plugin; Tauri has no official one. With it a Tauri 2 app starts, updates and ends ActivityKit Live Activities on iOS 16.1 and later, drawn on the Lock Screen and in the Dynamic Island." } },
+        { "@type": "Question", "name": "Do I have to add a Widget Extension in Xcode by hand?", "acceptedAnswer": { "@type": "Answer", "text": "No. npx tauri-plugin-live-activity setup adds the widget extension that draws the activity to the Xcode project in src-tauri/gen/apple. Run it again whenever gen/apple is made from scratch." } },
+        { "@type": "Question", "name": "Does it support Android Live Updates?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. On Android 16 (API 36) and later the plugin asks for a promoted Live Update where the system and the person's settings allow one; elsewhere, from Android 8.0 (API 26), the same request shows as an ongoing notification." } },
+        { "@type": "Question", "name": "What are the minimum iOS and Android versions?", "acceptedAnswer": { "@type": "Answer", "text": "iOS 16.1 on an iPhone, iPadOS 17 on an iPad and Android 8.0 (API 26). Some features need more: see Supported versions." } },
+        { "@type": "Question", "name": "Do I have to write Swift or Kotlin?", "acceptedAnswer": { "@type": "Answer", "text": "No. Layouts are TSX, TypeScript or Rust, and the native code comes with the plugin and its crates. A view of your own can still be SwiftUI." } },
+        { "@type": "Question", "name": "What is liveactivity-rs?", "acceptedAnswer": { "@type": "Answer", "text": "The Rust bridge this plugin is built on, the liveactivity crate. It owns the request contract and the lifecycle, and runs iOS on activitykit-rs and Android on liveupdate-rs." } },
+        { "@type": "Question", "name": "How is it different from a home-screen widget plugin?", "acceptedAnswer": { "@type": "Answer", "text": "Widget plugins such as tauri-plugin-widgets draw WidgetKit and Android Glance widgets that stay on the home screen. This plugin draws Live Activities and Android Live Updates, which follow one task while it runs. An app can use both." } },
+        { "@type": "Question", "name": "Can a server update an activity?", "acceptedAnswer": { "@type": "Answer", "text": "On iOS, through APNs: push tokens, push-to-start from iOS 17.2 and broadcast channels from iOS 18. Android has no push path; the app updates its notification." } },
+        { "@type": "Question", "name": "Does it work on macOS, Windows or Linux?", "acceptedAnswer": { "@type": "Answer", "text": "No. There the activity commands answer UNSUPPORTED_PLATFORM, and getCapabilities() says so." } }
+      ]
+    }
+  ]
+}
+</script>
+<style>
+  :root {
+    --bg: #fbfbfa; --fg: #1d1f23; --muted: #5c6370; --line: #e3e4e8; --code: #f1f2f4; --accent: #2f5fbf;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15171a; --fg: #e6e7ea; --muted: #a0a6b0; --line: #2c3036; --code: #1f2227; --accent: #8fb0ff; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", Roboto, sans-serif;
+  }
+  main { max-width: 820px; margin: 0 auto; padding: 32px max(16px, env(safe-area-inset-left)) 64px; }
+  header p.lead { font-size: 1.15rem; margin: 8px 0 12px; }
+  h1 { font-size: 1.9rem; line-height: 1.25; margin: 0; text-wrap: balance; }
+  h2 { font-size: 1.35rem; margin: 40px 0 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 22px 0 4px; }
+  a { color: var(--accent); }
+  nav.links { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.95rem; }
+  .answer { border-left: 4px solid var(--accent); padding: 8px 16px; background: var(--code); border-radius: 6px; }
+  figure { margin: 16px 0; }
+  figure img { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); }
+  figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+  pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+  pre { background: var(--code); padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 0.88rem; line-height: 1.45; }
+  pre code { background: none; padding: 0; }
+  .table { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { white-space: nowrap; }
+  footer { color: var(--muted); font-size: 0.9rem; margin-top: 48px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>tauri-plugin-live-activity</h1>
+  <p class="lead">iOS Live Activities and Android Live Updates for Tauri 2.</p>
+  <nav class="links" aria-label="Where the plugin lives">
+    <a href="https://github.com/1eedaegon/tauri-plugin-live-activity">GitHub</a>
+    <a href="https://crates.io/crates/tauri-plugin-live-activity">crates.io</a>
+    <a href="https://www.npmjs.com/package/tauri-plugin-live-activity">npm</a>
+    <a href="https://docs.rs/tauri-plugin-live-activity">docs.rs</a>
+    <a href="https://1eedaegon.github.io/tauri-plugin-live-activity/ko/" hreflang="ko" lang="ko">한국어</a>
+  </nav>
+</header>
+
+<p class="answer">Is there a Tauri plugin for iOS Live Activities? <strong>Yes: tauri-plugin-live-activity.</strong>
+A Tauri 2 app with it starts, updates and ends ActivityKit Live Activities on iOS 16.1 and later, on the Lock Screen
+and in the Dynamic Island, and shows the same request on Android as a Live Update or an ongoing notification. You
+describe the layout in TSX, TypeScript or Rust; the plugin draws it, through the
+<a href="https://github.com/1eedaegon/liveactivity-rs">liveactivity-rs</a> bridge.</p>
+
+<figure>
+  <img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-paths.png" width="1206" height="341" alt="A Live Activity of a Tauri app on the iOS Lock Screen">
+  <figcaption>The iOS Lock Screen.</figcaption>
+</figure>
+<figure>
+  <img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-island-expanded.png" width="1194" height="393" loading="lazy" decoding="async" alt="The same activity in the expanded Dynamic Island">
+  <figcaption>The expanded Dynamic Island.</figcaption>
+</figure>
+<figure>
+  <img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/android-layout-android.png" width="1040" height="559" loading="lazy" decoding="async" alt="The same request as an Android notification with a progress bar and an action">
+  <figcaption>The same request on Android.</figcaption>
+</figure>
+
+<h2 id="install">Install</h2>
+<p>In the folder of your Tauri 2 app:</p>
+<pre><code>cargo add tauri-plugin-live-activity --manifest-path src-tauri/Cargo.toml
+npm i tauri-plugin-live-activity
+npx tauri-plugin-live-activity setup</code></pre>
+<p>Then register the plugin in <code>src-tauri/src/lib.rs</code> with
+<code>.plugin(tauri_plugin_live_activity::init())</code>. <code>setup</code> grants the plugin's permissions, raises
+the Android minimum to API 26 and, on a Mac, adds the widget extension that draws the activity to the Xcode project.
+Run it after <code>tauri ios init</code>, and again whenever <code>src-tauri/gen/apple</code> is made from scratch.</p>
+
+<h2 id="layout">A layout in TSX</h2>
+<pre><code>/** @jsxImportSource tauri-plugin-live-activity/jsx */
+import { HStack, Progress, SFSymbol, Text, VStack } from 'tauri-plugin-live-activity/jsx';
+
+// iOS draws this tree on the Lock Screen and in the expanded Dynamic Island;
+// Android takes the Texts as title and body and the Progress as its bar.
+export const lockScreen = (
+  &lt;VStack alignment="leading" spacing={8}&gt;
+    &lt;HStack spacing={8}&gt;&lt;SFSymbol name="cat.fill" /&gt;&lt;Text bind="title" /&gt;&lt;/HStack&gt;
+    &lt;Text bind="status" /&gt;
+    &lt;Progress bind="done" /&gt;
+  &lt;/VStack&gt;
+);</code></pre>
+<p>React's <code>useLiveActivity</code>, plain TypeScript and Rust do the same:
+<a href="https://github.com/1eedaegon/tauri-plugin-live-activity#readme">the README</a> and the
+<a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md">usage guide</a> show each.</p>
+
+<h2 id="supported-versions">Supported versions</h2>
+<p>In short: iOS 16.1+ and Android 8+, and no activities on desktop.</p>
+<div class="table">
+<table>
+  <thead><tr><th>Where</th><th>From</th><th>What you get</th></tr></thead>
+  <tbody>
+    <tr><td>iPhone</td><td>iOS 16.1</td><td>Live Activities on the Lock Screen and, on iPhones that have one, in the Dynamic Island. Stale dates and relevance from iOS 16.2; buttons, toggles and push-to-start from iOS 17.2</td></tr>
+    <tr><td>iPad</td><td>iPadOS 17</td><td>The same Live Activities on the Lock Screen</td></tr>
+    <tr><td>Apple Watch</td><td>iOS 18 with watchOS 11</td><td>A layout's <code>small</code> region in the watch's Smart Stack</td></tr>
+    <tr><td>Android</td><td>Android 8.0 (API 26)</td><td>An ongoing notification with a progress bar or a timer and up to three actions; the notification permission is asked from Android 13 (API 33)</td></tr>
+    <tr><td>Android Live Updates</td><td>Android 16 (API 36)</td><td>A promoted Live Update where the system and the person's settings allow one, the ongoing notification otherwise</td></tr>
+    <tr><td>Samsung Now Bar</td><td>Android 17 (API 37), One UI 9</td><td>The title and body that One UI's Now Bar shows, for apps on Samsung's allow list</td></tr>
+    <tr><td>macOS, Windows, Linux</td><td>not supported</td><td>No activities: the activity commands answer <code>UNSUPPORTED_PLATFORM</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p>The plugin needs Tauri 2 and Rust 1.90 or later. The floor of every feature is in
+<a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/compatibility.md">OS compatibility</a>.</p>
+
+<h2 id="how-it-works">How it works</h2>
+<p>The plugin is the Tauri side of four crates. It keeps Tauri's commands, events, permissions and the
+<code>setup</code> command. The <a href="https://github.com/1eedaegon/liveactivity-rs">liveactivity-rs</a> bridge, the
+<code>liveactivity</code> crate, holds the request contract, its checks and the lifecycle, and runs each request on
+the platform's backend:</p>
+<pre><code>your Tauri 2 app             a layout in TSX, TypeScript or Rust
+  │  start · update · end · events
+  ▼
+tauri-plugin-live-activity   Tauri commands, events, permissions, setup
+  │
+  ▼
+liveactivity                 the liveactivity-rs bridge: one request contract,
+  │                          its checks, the lifecycle
+  ├─ iOS 16.1+ ────────────► activitykit (activitykit-rs)
+  │                          ActivityKit through its Swift bridge, drawn by the
+  │                          app's widget extension: Lock Screen, Dynamic Island
+  └─ Android 8.0+ ─────────► liveupdate (liveupdate-rs)
+                             an ongoing notification, a Live Update on Android 16+</code></pre>
+<p><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-integration.md">iOS setup</a>
+and <a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md">Android
+setup</a> show what <code>setup</code> changes in each project.</p>
+
+<h2 id="questions">Questions</h2>
+<h3>Is there a Tauri plugin for iOS Live Activities and the Dynamic Island?</h3>
+<p>Yes: tauri-plugin-live-activity. It is a community plugin; Tauri has no official one. With it a Tauri 2 app starts, updates and ends ActivityKit Live Activities on iOS 16.1 and later, drawn on the Lock Screen and in the Dynamic Island.</p>
+<h3>Do I have to add a Widget Extension in Xcode by hand?</h3>
+<p>No. <code>npx tauri-plugin-live-activity setup</code> adds the widget extension that draws the activity to the Xcode project in <code>src-tauri/gen/apple</code>. Run it again whenever <code>gen/apple</code> is made from scratch.</p>
+<h3>Does it support Android Live Updates?</h3>
+<p>Yes. On Android 16 (API 36) and later the plugin asks for a promoted Live Update where the system and the person's settings allow one; elsewhere, from Android 8.0 (API 26), the same request shows as an ongoing notification.</p>
+<h3>What are the minimum iOS and Android versions?</h3>
+<p>iOS 16.1 on an iPhone, iPadOS 17 on an iPad and Android 8.0 (API 26). Some features need more: see <a href="#supported-versions">Supported versions</a>.</p>
+<h3>Do I have to write Swift or Kotlin?</h3>
+<p>No. Layouts are TSX, TypeScript or Rust, and the native code comes with the plugin and its crates. A view of your own can still be SwiftUI.</p>
+<h3>What is liveactivity-rs?</h3>
+<p>The Rust bridge this plugin is built on, the <code>liveactivity</code> crate. It owns the request contract and the lifecycle, and runs iOS on activitykit-rs and Android on liveupdate-rs.</p>
+<h3>How is it different from a home-screen widget plugin?</h3>
+<p>Widget plugins such as tauri-plugin-widgets draw WidgetKit and Android Glance widgets that stay on the home screen. This plugin draws Live Activities and Android Live Updates, which follow one task while it runs. An app can use both.</p>
+<h3>Can a server update an activity?</h3>
+<p>On iOS, through APNs: push tokens, push-to-start from iOS 17.2 and broadcast channels from iOS 18. Android has no push path; the app updates its notification.</p>
+<h3>Does it work on macOS, Windows or Linux?</h3>
+<p>No. There the activity commands answer <code>UNSUPPORTED_PLATFORM</code>, and <code>getCapabilities()</code> says so.</p>
+
+<h2 id="docs">Documentation</h2>
+<ul>
+  <li><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md">Usage</a>: layouts, values, styles, buttons, pushes and every option</li>
+  <li><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-integration.md">iOS setup</a> and <a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md">Android setup</a></li>
+  <li><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/compatibility.md">OS compatibility</a> and <a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/permissions.md">permissions</a></li>
+  <li><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/live-editing.md">Live editing</a>: a save of the TSX reaches the running activity</li>
+  <li>The crates underneath: <a href="https://github.com/1eedaegon/liveactivity-rs">liveactivity-rs</a>, <a href="https://github.com/1eedaegon/activitykit-rs">activitykit-rs</a>, <a href="https://github.com/1eedaegon/liveupdate-rs">liveupdate-rs</a></li>
+</ul>
+
+<footer>
+  <p>tauri-plugin-live-activity is MIT or Apache-2.0. A community plugin, not made by the Tauri team.
+  <a href="https://github.com/1eedaegon/tauri-plugin-live-activity">Source on GitHub</a>.</p>
+</footer>
+</main>
+</body>
+</html>

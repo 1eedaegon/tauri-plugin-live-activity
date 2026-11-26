@@ -1,3 +1,18 @@
+# 0.13.2 validation
+
+0.13.2 is a patch release of documentation, a site and search metadata (#76). A site on GitHub Pages, in English and
+Korean, says what the plugin does, its supported versions, how it runs on the liveactivity-rs bridge and the common
+questions, with structured data, a sitemap and an `llms.txt`; `tests/site.test.ts` keeps it in step with the READMEs
+(TP-CI-9). The READMEs answer three more questions, docs.rs opens with what the plugin does and its structure, and
+the crate and the npm package name the site as their homepage. It carries no code change: the plugin, its CLI and its
+libraries are 0.13.0's, on liveactivity 0.11.0 with activitykit 0.8.1 and liveupdate 0.8.2, so the device and
+simulator checks of 0.13.0 below stand for it. Checked before the tag: `npm test` with every suite passing, the new
+TP-CI-9 tests among them, `tools/spec-coverage.sh`, rustdoc with warnings as errors, both lockfiles with
+`cargo metadata --locked --offline`, and the packages as in 0.13.0: the crate's 74 files and the npm package's 33,
+the site in neither.
+
+The record of 0.13.1 follows.
+
 # 0.13.1 validation
 
 0.13.1 is a patch release of documentation and search metadata (#75). The README and its Korean twin give the

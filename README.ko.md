@@ -9,7 +9,8 @@
 Dynamic Island(ActivityKit)에, Android에서는 Live Update나 진행 중 알림으로 보여 줍니다. 레이아웃은 TSX,
 TypeScript 또는 Rust로 적고, 그리는 일은 플러그인이 [liveactivity-rs](https://github.com/1eedaegon/liveactivity-rs)
 브리지를 통해 맡습니다.
-[English](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/README.md)
+[English](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/README.md) ·
+[사이트](https://1eedaegon.github.io/tauri-plugin-live-activity/ko/)
 
 <table>
   <tr><th>iOS 잠금 화면</th><th>Dynamic Island</th></tr>
@@ -367,9 +368,13 @@ Now Bar가 보여 줄 제목과 본문을 보냅니다. One UI는 Samsung의 허
 
 ## 자주 묻는 질문
 
-**Tauri 앱이 Live Activity를 띄우거나 Dynamic Island를 쓸 수 있나요?** 네. 이 플러그인으로 Tauri 2 앱은 iOS 16.1
-이상에서 ActivityKit Live Activity를 시작, 갱신, 종료하고, 잠금 화면과 Dynamic Island에 그립니다. 그리는 위젯
-확장은 `npx tauri-plugin-live-activity setup`이 앱의 Xcode 프로젝트에 넣습니다.
+**iOS Live Activity와 Dynamic Island를 위한 Tauri 플러그인이 있나요?** 네, 이 플러그인입니다.
+tauri-plugin-live-activity는 커뮤니티 플러그인이고, Tauri 공식 플러그인은 없습니다. 이 플러그인으로 Tauri 2 앱은
+iOS 16.1 이상에서 ActivityKit Live Activity를 시작, 갱신, 종료하고, 잠금 화면과 Dynamic Island에 그립니다.
+
+**Xcode에서 Widget Extension을 손으로 넣어야 하나요?** 아니요. `npx tauri-plugin-live-activity setup`이 활동을
+그리는 위젯 확장을 `src-tauri/gen/apple`의 Xcode 프로젝트에 넣습니다. `gen/apple`을 새로 만들 때마다 다시
+실행하세요.
 
 **Android Live Updates를 지원하나요?** 네. Android 16 (API 36) 이상에서는 시스템과 사용자 설정이 허락하면 승격된
 Live Update를 요청하고, 그 밖에는 Android 8.0 (API 26)부터 같은 요청이 진행 중 알림으로 보입니다.
@@ -382,6 +387,10 @@ Live Update를 요청하고, 그 밖에는 Android 8.0 (API 26)부터 같은 요
 
 **liveactivity-rs가 뭔가요?** 이 플러그인이 올라선 Rust 브리지, `liveactivity` 크레이트입니다. 요청 계약과 수명
 주기를 맡고, iOS는 activitykit-rs, Android는 liveupdate-rs 위에서 돌립니다([동작 구조](#동작-구조)).
+
+**홈 화면 위젯 플러그인과 무엇이 다른가요?** tauri-plugin-widgets 같은 위젯 플러그인은 홈 화면에 계속 머무는
+WidgetKit, Android Glance 위젯을 그립니다. 이 플러그인은 작업 하나가 진행되는 동안 그 작업을 따라가는 Live
+Activity와 Android Live Update를 그립니다. 한 앱에서 둘 다 쓸 수 있습니다.
 
 **서버가 활동을 갱신할 수 있나요?** iOS에서는 APNs로 됩니다: 푸시 토큰, iOS 17.2부터 push-to-start, iOS 18부터
 broadcast 채널([푸시 (iOS)](#푸시-ios)). Android에는 푸시 경로가 없고, 앱이 알림을 갱신합니다.
