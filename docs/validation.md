@@ -1,3 +1,50 @@
+# 0.15.0 validation
+
+0.15.0 is a minor release (#78). It moves the plugin to liveactivity 0.12.0, with activitykit 0.9.0 and liveupdate
+0.9.0, from 0.11.0, 0.8.1 and 0.8.2, and offers what they add:
+
+- `ifFullscreen` on any node, for StandBy (iOS 17);
+- `localOnly`, which asks Android not to bridge an activity to a paired watch;
+- `openPromotionSettings()`, Android's screen of the app's Live Updates;
+- the channels' names, as strings that an app overrides.
+
+The Android library's Kotlin and resources are liveupdate 0.9.0's, copied anew. The builder's layers forward the
+bridge's new method.
+
+A review of the change before the commit found no defect in the code. It found gaps in the documents and the tests,
+which the release closes:
+
+- `localOnly` was described as a guarantee; it is a request to Android, and set later it does not take back a copy
+  that a watch has.
+- `settingsRequired` is also a channel set to Minimized, which the promotion screen does not change.
+- A tap on the `small` region is the system's, not the layout's `url`, as activitykit 0.9.0 now says.
+- No test sent the new command through the Android engine, `localOnly` had no test of the contract, and a layer's
+  `Arc` was compared by its method names only.
+
+Checked before the tag:
+
+- `cargo test`, `cargo clippy -D warnings` and rustdoc:
+  - the tests: the library's 63, the integration tests and the doc test. Among them:
+    - the engine sends liveupdate's `settings` with `{}`, and its refusal is the answer;
+    - `localOnly` is a boolean in a start and in a content;
+    - every call passes through a layer and through its `Arc`, and a broken forward of the new method in the
+      `Arc` failed that test;
+  - clippy on macOS for all targets, and for the library on `aarch64-apple-ios` and `aarch64-linux-android`;
+  - rustdoc with warnings as errors.
+- `npm test` with every suite passing, and `npm run typecheck`.
+- `tools/spec-coverage.sh`: 106 requirements, among them the new TP-ANDROID-24 and TP-ANDROID-25.
+- Both lockfiles with `cargo metadata --locked --offline`.
+- `node tools/sync-liveupdate.ts`: the copy is the same as liveupdate 0.9.0's, `R.string.` and `R.drawable.` renamed.
+- The packages: the crate's 79 files, `res/values/strings.xml` and the new command's permission among them, and the
+  npm package's 33.
+
+Not proven: no device ran this release. The S23 was in the user's own use at the time, with a dictation in the
+foreground, and the two iPhones were another session's. So none of these has been seen on a device: StandBy on an
+iPhone, an activity asked to stay off a paired watch, Android's screen of Live Updates, or the channels' names. What
+liveupdate 0.9.0 and liveactivity 0.12.0 checked of their own is theirs.
+
+The record of 0.14.0 follows.
+
 # 0.14.0 validation
 
 0.14.0 is a minor release (#77). The plugin has a public `Builder`: `layer` puts a `BackendLayer` over the platform's

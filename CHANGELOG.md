@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.15.0
+
+Built on liveactivity 0.12.0, with activitykit 0.9.0 and liveupdate 0.9.0, from 0.11.0, 0.8.1 and 0.8.2.
+
+- **A node drawn only in StandBy** (iOS 17): `ifFullscreen` on any node, in the TypeScript declarations, the `layout`
+  builders and the TSX components as in Rust (`when_fullscreen()`, `unless_fullscreen()`). `true` draws the node only
+  while the Lock Screen card fills the screen of an iPhone that charges on its side, `false` only while it does not.
+  Android leaves out a node of `true`, draws one of `false`, and names nothing. Run `setup` again after the update,
+  so that the widget extension builds on activitykit 0.9.0: a widget of activitykit 0.8 draws such a node always.
+- **An activity off a paired watch** (Android): `android.localOnly` of a layout's start asks Android not to bridge
+  any snapshot to a paired watch (`setLocalOnly`), and `localOnly` in an Android content's presentation asks it for
+  that snapshot; set later, it does not take back a copy that a watch has.
+  `getCapabilities().androidPresentation.localOnly` says whether the device can; where it cannot, such a start or
+  update answers `UNSUPPORTED_FEATURE` and posts nothing (TP-ANDROID-24).
+- **`openPromotionSettings()`** (Android; `open_promotion_settings` of the Rust API): asks Android for the screen where
+  the person allows the app's Live Updates, or for its notification settings before Android 16, for an app whose
+  `promotion` reads `settingsRequired`. It resolves once Android was asked. It needs the grant
+  `live-activity:allow-open-promotion-settings`, which `setup` adds. iOS answers `UNSUPPORTED_FEATURE`, desktop
+  `UNSUPPORTED_PLATFORM` (TP-ANDROID-25). The demo offers it where Live Updates are off.
+- **Channels in the app's words** (Android): the plugin's library carries liveupdate's channel strings in
+  `res/values/strings.xml`, and an app overrides `liveupdate_channel_name`, `liveupdate_channel_description`,
+  `liveupdate_alert_channel_name` and `liveupdate_alert_channel_description` in its own `res/values*/strings.xml`.
+  The library's Kotlin is liveupdate 0.9.0's, copied anew.
+- `BackendLayer`, its `Arc` and the layered backend forward the bridge's new backend method,
+  `open_promotion_settings`; a layer that overrides nothing passes it on (TP-RUST-7).
+- Breaking for a Rust caller where liveactivity 0.12 is. One that builds liveupdate's `AndroidPresentation` or
+  `PresentationCapabilities` as a literal, or matches either field by field, names `local_only`. A backend of the
+  app's own that wraps another forwards `open_promotion_settings`. In TypeScript, `AndroidPresentationSupport` has
+  the required member `localOnly`, which a mock of it gives. JSON written for 0.14 reads the same.
+
 ## 0.14.0
 
 The backend under the plugin can be wrapped or replaced; still on liveactivity 0.11.0 with activitykit 0.8.1 and
