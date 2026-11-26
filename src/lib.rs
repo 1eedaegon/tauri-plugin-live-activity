@@ -12,7 +12,9 @@
 //!
 //! The plugin is an adapter of the `liveactivity` crate, the liveactivity-rs bridge: the contract, its checks and
 //! the iOS and Android backends are that crate's, and the plugin adds Tauri's commands, events, configuration and
-//! Android's permission dialog.
+//! Android's permission dialog. [`Builder`] puts layers over the platform's backend, such as a renderer or a log, or
+//! a backend of the app's own in its place: a backend implements the bridge's [`LiveActivityBackend`] interface, and
+//! a layer [`BackendLayer`], whose methods get the backend under it.
 //!
 //! ```text
 //! tauri-plugin-live-activity   Tauri commands, events, permissions, setup
@@ -27,16 +29,16 @@
 // unwrap: a test that panics has failed.
 #![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
 
-use tauri::{
-    Manager, Runtime,
-    plugin::{Builder, TauriPlugin},
-};
+use tauri::{Manager, Runtime, plugin::TauriPlugin};
 
 mod actions;
 #[cfg(target_os = "android")]
 mod android;
 #[cfg(any(target_os = "android", test))]
 mod bridge;
+mod builder;
+#[cfg(all(test, desktop))]
+mod builder_tests;
 #[cfg(all(test, desktop))]
 mod command_tests;
 mod commands;
@@ -51,6 +53,7 @@ mod exact_alarms;
 mod files;
 #[cfg(target_os = "ios")]
 mod ios;
+mod layers;
 /// Android: the app's activities for a service of its own that runs without Tauri.
 #[cfg(target_os = "android")]
 pub mod native;
@@ -59,11 +62,13 @@ mod service;
 #[cfg(test)]
 mod types_tests;
 
+pub use builder::Builder;
 pub use config::{AndroidConfig, Config, Receipts};
 pub use events::{
     ACTION_EVENT, HANDLED_EVENT, OPENED_EVENT, PERMISSIONS_EVENT, PUSH_TO_START_TOKEN_EVENT,
     PUSH_TOKEN_EVENT, STARTED_EVENT, STATE_EVENT, UNKNOWN_EVENT, UPDATED_EVENT,
 };
+pub use layers::BackendLayer;
 /// The activitykit crate that the plugin builds with, for what a layout is built of beside the contract's types:
 /// the node functions of `activitykit::layout` (`text`, `vstack`, `button`, …) and `values!`. Its types are
 /// `#[non_exhaustive]`: a node is built with those functions, not as a literal.
@@ -73,6 +78,9 @@ pub use liveactivity::contract::*;
 /// The liveupdate crate that the plugin builds with, for what the parts of an Android content take beside the
 /// contract's types: its `Timer` for a `TimerStyle`, whose name the contract gives to the template's timer.
 pub use liveactivity::liveupdate;
+/// What a backend of the app's own or a [`BackendLayer`] implements and gets: the bridge's backend interface, and the
+/// events that a backend sends through the context that `attach` gives it.
+pub use liveactivity::{BackendContext, BackendFuture, Event, EventSink, LiveActivityBackend};
 pub use openings::OPENINGS_KEPT;
 pub use service::LiveActivity;
 
@@ -87,40 +95,8 @@ impl<R: Runtime, T: Manager<R>> LiveActivityExt<R> for T {
     }
 }
 
-/// Register commands and the platform backend. `plugins.live-activity` in the Tauri
-/// configuration is optional; see [`Config`].
+/// Register commands and the platform backend: `Builder::new().build()`. `plugins.live-activity` in the Tauri
+/// configuration is optional; see [`Config`]. [`Builder`] takes a backend of the app's own or layers over it.
 pub fn init<R: Runtime>() -> TauriPlugin<R, Option<Config>> {
-    Builder::<R, Option<Config>>::new("live-activity")
-        .invoke_handler(tauri::generate_handler![
-            commands::get_capabilities,
-            commands::check_permissions,
-            commands::request_permissions,
-            commands::open_exact_alarm_settings,
-            commands::start,
-            commands::update,
-            commands::end,
-            commands::list,
-            commands::start_layout,
-            commands::update_layout,
-            commands::end_layout,
-            commands::list_layout,
-            commands::write_image,
-            commands::push_tokens,
-            commands::openings
-        ])
-        .setup(|app, _api| {
-            #[cfg(target_os = "android")]
-            let plugin = android::init(app, _api)?;
-            #[cfg(target_os = "ios")]
-            let plugin = ios::init(app, _api)?;
-            #[cfg(desktop)]
-            let plugin = service::connect(
-                app,
-                liveactivity::UnsupportedBackend,
-                exact_alarms::NoSetting(Error::unsupported),
-            )?;
-            app.manage(plugin);
-            Ok(())
-        })
-        .build()
+    Builder::new().build()
 }

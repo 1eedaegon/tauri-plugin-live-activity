@@ -8,22 +8,50 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as pause } from 'node:timers/promises';
+import { crateDir } from '../tools/cargo.ts';
 import { list, member, present, record, text } from './support.ts';
 
 const read = (path: string): string => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 // TP-RUST-5
-test('liveactivity is one line of Cargo.toml, brings both engines, and the crate builds no Swift of its own', () => {
+test('liveactivity is one line of Cargo.toml and its test kit one more at the same version, brings both engines, and the crate builds no Swift of its own', () => {
   const manifest = read('Cargo.toml');
   // The engines come through liveactivity alone, so the plugin and the interface always build on the same versions.
   const lines = manifest.split('\n').filter(line => /^\s*(liveactivity|activitykit|liveupdate)\s*=/.test(line));
-  assert.equal(lines.length, 1, lines.join('\n'));
-  assert.match(present(lines[0]), /^liveactivity = /);
-  assert.doesNotMatch(manifest, /\[dependencies\.(liveactivity|activitykit|liveupdate)\]/);
+  assert.equal(lines.length, 2, lines.join('\n'));
+  const [crate = '', kit = ''] = lines;
+  const version = present(/^liveactivity = "(\d+\.\d+\.\d+)"$/.exec(crate)?.[1], 'the version of liveactivity');
+  // The tests of layers (TP-RUST-7) take liveactivity's memory backend and its checks of the contract, from the
+  // version that the crate builds on.
+  assert.equal(kit, `liveactivity = { version = "${version}", features = ["testkit"] }`);
+  const section = (name: string): string => manifest.split(/^(?=\[)/m).find(part => part.startsWith(`[${name}]\n`)) ?? '';
+  assert.ok(section('dependencies').includes(`\n${crate}\n`), crate);
+  assert.ok(section('dev-dependencies').includes(`\n${kit}\n`), kit);
+  assert.doesNotMatch(manifest, /\[(dev-)?dependencies\.(liveactivity|activitykit|liveupdate)\]/);
   assert.doesNotMatch(read('build.rs'), /ios_path/);
   assert.doesNotMatch(manifest, /"\/ios\/|"\/templates\//);
   for (const gone of ['ios', 'templates']) assert.equal(existsSync(new URL(`../${gone}`, import.meta.url)), false, gone);
   assert.match(read('Cargo.lock'), /name = "activitykit"\nversion = "0\.8\.\d+"\nsource = "registry\+https:\/\/github\.com\/rust-lang\/crates\.io-index"/);
+});
+
+// TP-RUST-7
+test("a layer has a method for each of the bridge's backend methods, and the layered backend and a layer's Arc forward each", () => {
+  // A method that a later bridge adds with a default would answer through a layer with that default, and so turn its
+  // feature off: the lists are the locked bridge's.
+  const methods = (source: string, header: string): string[] => {
+    const start = source.indexOf(header);
+    assert.ok(start >= 0, header);
+    const block = source.slice(start, source.indexOf('\n}\n', start));
+    return [...block.matchAll(/^ {4}fn (\w+)/gm)].map(([, name = '']) => name).sort();
+  };
+  const bridge = methods(readFileSync(join(crateDir('liveactivity'), 'src/backend.rs'), 'utf8'), 'pub trait LiveActivityBackend');
+  assert.equal(bridge.length, 15, bridge.join(', '));
+  const layers = read('src/layers.rs');
+  for (const header of [
+    'pub trait BackendLayer',
+    'impl<T: BackendLayer + ?Sized> BackendLayer for Arc<T>',
+    'impl<L: BackendLayer> LiveActivityBackend for Layered<L>',
+  ]) assert.deepEqual(methods(layers, header), bridge, header);
 });
 
 // TP-BUILD-2

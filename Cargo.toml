@@ -37,4 +37,6 @@ tauri = { version = "2.12.5", default-features = false, features = ["wry"] }
 tauri-plugin = { version = "2.7.2", features = ["build"] }
 
 [dev-dependencies]
+# Its test kit: the memory backend and the contract's conformance checks, for the tests of layers (TP-RUST-7).
+liveactivity = { version = "0.11.0", features = ["testkit"] }
 tauri = { version = "2.12.5", default-features = false, features = ["test"] }
