@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https://raw.githubusercontent.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>tauri-plugin-live-activity: Tauri 2용 iOS Live Activities와 Android Live Updates</title>
+<meta name="description" content="Tauri 2 앱에서 iOS Live Activity(ActivityKit, 잠금 화면, Dynamic Island; iOS 16.1 이상)와 Android Live Updates(Android 16 이상, Android 8부터 진행 중 알림)를 쓰는 플러그인. 레이아웃은 TSX, TypeScript 또는 Rust로, liveactivity-rs 브리지 위에서 동작합니다.">
+<link rel="canonical" href="https://1eedaegon.github.io/tauri-plugin-live-activity/ko/">
+<link rel="alternate" hreflang="en" href="https://1eedaegon.github.io/tauri-plugin-live-activity/">
+<link rel="alternate" hreflang="ko" href="https://1eedaegon.github.io/tauri-plugin-live-activity/ko/">
+<link rel="alternate" hreflang="x-default" href="https://1eedaegon.github.io/tauri-plugin-live-activity/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:title" content="tauri-plugin-live-activity: Tauri 2용 iOS Live Activities와 Android Live Updates">
+<meta property="og:description" content="Tauri 2 앱에서 iOS Live Activity와 Android Live Update를 시작, 갱신, 종료합니다. iOS 16.1 이상, Android 8 이상.">
+<meta property="og:url" content="https://1eedaegon.github.io/tauri-plugin-live-activity/ko/">
+<meta property="og:image" content="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-paths.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://1eedaegon.github.io/tauri-plugin-live-activity/#software",
+      "name": "tauri-plugin-live-activity",
+      "description": "Tauri 2 앱에서 iOS Live Activity(ActivityKit, 잠금 화면, Dynamic Island)와 Android Live Updates를 쓰는 플러그인. Android에서는 진행 중 알림이 기본이고, liveactivity-rs 브리지가 iOS는 activitykit-rs, Android는 liveupdate-rs 위에서 돌립니다.",
+      "url": "https://1eedaegon.github.io/tauri-plugin-live-activity/ko/",
+      "inLanguage": "ko",
+      "codeRepository": "https://github.com/1eedaegon/tauri-plugin-live-activity",
+      "programmingLanguage": ["Rust", "TypeScript", "Swift", "Kotlin"],
+      "runtimePlatform": ["Tauri 2", "iOS 16.1 이상", "iPadOS 17 이상", "Android 8.0 (API 26) 이상"],
+      "keywords": "Tauri, Tauri 플러그인, 라이브 액티비티, Live Activities, ActivityKit, Dynamic Island, 다이내믹 아일랜드, 잠금 화면, Android Live Updates, 진행 중 알림, Rust, liveactivity-rs",
+      "license": ["https://opensource.org/licenses/MIT", "https://www.apache.org/licenses/LICENSE-2.0"],
+      "author": { "@type": "Person", "name": "1eedaegon", "url": "https://github.com/1eedaegon" }
+    },
+    {
+      "@type": "FAQPage",
+      "inLanguage": "ko",
+      "mainEntity": [
+        { "@type": "Question", "name": "iOS Live Activity와 Dynamic Island를 위한 Tauri 플러그인이 있나요?", "acceptedAnswer": { "@type": "Answer", "text": "네, tauri-plugin-live-activity입니다. 커뮤니티 플러그인이고, Tauri 공식 플러그인은 없습니다. 이 플러그인으로 Tauri 2 앱은 iOS 16.1 이상에서 ActivityKit Live Activity를 시작, 갱신, 종료하고, 잠금 화면과 Dynamic Island에 그립니다." } },
+        { "@type": "Question", "name": "Xcode에서 Widget Extension을 손으로 넣어야 하나요?", "acceptedAnswer": { "@type": "Answer", "text": "아니요. npx tauri-plugin-live-activity setup이 활동을 그리는 위젯 확장을 src-tauri/gen/apple의 Xcode 프로젝트에 넣습니다. gen/apple을 새로 만들 때마다 다시 실행하세요." } },
+        { "@type": "Question", "name": "Android Live Updates를 지원하나요?", "acceptedAnswer": { "@type": "Answer", "text": "네. Android 16 (API 36) 이상에서는 시스템과 사용자 설정이 허락하면 승격된 Live Update를 요청하고, 그 밖에는 Android 8.0 (API 26)부터 같은 요청이 진행 중 알림으로 보입니다." } },
+        { "@type": "Question", "name": "최소 iOS, Android 버전은요?", "acceptedAnswer": { "@type": "Answer", "text": "iPhone은 iOS 16.1, iPad는 iPadOS 17, Android는 8.0 (API 26)입니다. 더 높은 버전이 필요한 기능은 지원 버전에 있습니다." } },
+        { "@type": "Question", "name": "Swift나 Kotlin을 써야 하나요?", "acceptedAnswer": { "@type": "Answer", "text": "아니요. 레이아웃은 TSX, TypeScript 또는 Rust이고, 네이티브 코드는 플러그인과 그 크레이트에 들어 있습니다. 직접 만든 뷰는 SwiftUI로 넣을 수도 있습니다." } },
+        { "@type": "Question", "name": "liveactivity-rs가 뭔가요?", "acceptedAnswer": { "@type": "Answer", "text": "이 플러그인이 올라선 Rust 브리지, liveactivity 크레이트입니다. 요청 계약과 수명 주기를 맡고, iOS는 activitykit-rs, Android는 liveupdate-rs 위에서 돌립니다." } },
+        { "@type": "Question", "name": "홈 화면 위젯 플러그인과 무엇이 다른가요?", "acceptedAnswer": { "@type": "Answer", "text": "tauri-plugin-widgets 같은 위젯 플러그인은 홈 화면에 계속 머무는 WidgetKit, Android Glance 위젯을 그립니다. 이 플러그인은 작업 하나가 진행되는 동안 그 작업을 따라가는 Live Activity와 Android Live Update를 그립니다. 한 앱에서 둘 다 쓸 수 있습니다." } },
+        { "@type": "Question", "name": "서버가 활동을 갱신할 수 있나요?", "acceptedAnswer": { "@type": "Answer", "text": "iOS에서는 APNs로 됩니다: 푸시 토큰, iOS 17.2부터 push-to-start, iOS 18부터 broadcast 채널. Android에는 푸시 경로가 없고, 앱이 알림을 갱신합니다." } },
+        { "@type": "Question", "name": "macOS, Windows, Linux에서도 되나요?", "acceptedAnswer": { "@type": "Answer", "text": "아니요. 그곳에서는 활동 명령이 UNSUPPORTED_PLATFORM을 돌려주고, getCapabilities()가 그렇다고 알려 줍니다." } }
+      ]
+    }
+  ]
+}
+</script>
+<style>
+  :root {
+    --bg: #fbfbfa; --fg: #1d1f23; --muted: #5c6370; --line: #e3e4e8; --code: #f1f2f4; --accent: #2f5fbf;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15171a; --fg: #e6e7ea; --muted: #a0a6b0; --line: #2c3036; --code: #1f2227; --accent: #8fb0ff; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
+    word-break: keep-all;
+  }
+  main { max-width: 820px; margin: 0 auto; padding: 32px max(16px, env(safe-area-inset-left)) 64px; }
+  header p.lead { font-size: 1.15rem; margin: 8px 0 12px; }
+  h1 { font-size: 1.9rem; line-height: 1.25; margin: 0; text-wrap: balance; }
+  h2 { font-size: 1.35rem; margin: 40px 0 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 22px 0 4px; }
+  a { color: var(--accent); }
+  nav.links { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.95rem; }
+  .answer { border-left: 4px solid var(--accent); padding: 8px 16px; background: var(--code); border-radius: 6px; }
+  figure { margin: 16px 0; }
+  figure img { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); }
+  figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+  pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+  pre { background: var(--code); padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 0.88rem; line-height: 1.45; }
+  pre code { background: none; padding: 0; }
+  .table { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { white-space: nowrap; }
+  footer { color: var(--muted); font-size: 0.9rem; margin-top: 48px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>tauri-plugin-live-activity</h1>
+  <p class="lead">Tauri 2용 iOS Live Activities와 Android Live Updates.</p>
+  <nav class="links" aria-label="플러그인이 있는 곳">
+    <a href="https://github.com/1eedaegon/tauri-plugin-live-activity">GitHub</a>
+    <a href="https://crates.io/crates/tauri-plugin-live-activity">crates.io</a>
+    <a href="https://www.npmjs.com/package/tauri-plugin-live-activity">npm</a>
+    <a href="https://docs.rs/tauri-plugin-live-activity">docs.rs</a>
+    <a href="https://1eedaegon.github.io/tauri-plugin-live-activity/" hreflang="en" lang="en">English</a>
+  </nav>
+</header>
+
+<p class="answer">iOS 라이브 액티비티를 위한 Tauri 플러그인이 있나요? <strong>네, tauri-plugin-live-activity입니다.</strong>
+이 플러그인으로 Tauri 2 앱은 iOS 16.1 이상에서 ActivityKit Live Activity를 시작, 갱신, 종료해 잠금 화면과 Dynamic
+Island에 보여 주고, Android에서는 같은 요청을 Live Update나 진행 중 알림으로 보여 줍니다. 레이아웃은 TSX,
+TypeScript 또는 Rust로 적고, 그리는 일은 플러그인이 <a href="https://github.com/1eedaegon/liveactivity-rs">liveactivity-rs</a>
+브리지를 통해 맡습니다.</p>
+
+<figure>
+  <img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-layout-paths.png" width="1206" height="341" alt="iOS 잠금 화면에 보이는 Tauri 앱의 Live Activity">
+  <figcaption>iOS 잠금 화면.</figcaption>
+</figure>
+<figure>
+  <img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/ios-island-expanded.png" width="1194" height="393" loading="lazy" decoding="async" alt="펼친 Dynamic Island에 보이는 같은 활동">
+  <figcaption>펼친 Dynamic Island.</figcaption>
+</figure>
+<figure>
+  <img src="https://raw.githubusercontent.com/1eedaegon/tauri-plugin-live-activity/main/docs/images/android-layout-android.png" width="1040" height="559" loading="lazy" decoding="async" alt="진행률 막대와 동작이 있는 Android 알림으로 보이는 같은 요청">
+  <figcaption>Android에서 같은 요청.</figcaption>
+</figure>
+
+<h2 id="install">설치</h2>
+<p>Tauri 2 앱 폴더에서:</p>
+<pre><code>cargo add tauri-plugin-live-activity --manifest-path src-tauri/Cargo.toml
+npm i tauri-plugin-live-activity
+npx tauri-plugin-live-activity setup</code></pre>
+<p>그다음 <code>src-tauri/src/lib.rs</code>의 빌더에 <code>.plugin(tauri_plugin_live_activity::init())</code>로
+플러그인을 등록합니다. <code>setup</code>은 플러그인 권한을 주고, Android 최소 버전을 API 26으로 올리고, Mac에서는
+활동을 그리는 위젯 확장을 Xcode 프로젝트에 넣습니다. <code>tauri ios init</code> 다음에 실행하고,
+<code>src-tauri/gen/apple</code>을 새로 만들 때마다 다시 실행하세요.</p>
+
+<h2 id="layout">TSX로 적은 레이아웃</h2>
+<pre><code>/** @jsxImportSource tauri-plugin-live-activity/jsx */
+import { HStack, Progress, SFSymbol, Text, VStack } from 'tauri-plugin-live-activity/jsx';
+
+// iOS는 이 트리를 잠금 화면과 펼친 Dynamic Island에 그리고,
+// Android는 Text를 제목과 본문으로, Progress를 진행률 막대로 씁니다.
+export const lockScreen = (
+  &lt;VStack alignment="leading" spacing={8}&gt;
+    &lt;HStack spacing={8}&gt;&lt;SFSymbol name="cat.fill" /&gt;&lt;Text bind="title" /&gt;&lt;/HStack&gt;
+    &lt;Text bind="status" /&gt;
+    &lt;Progress bind="done" /&gt;
+  &lt;/VStack&gt;
+);</code></pre>
+<p>React의 <code>useLiveActivity</code>, TypeScript만으로, Rust로도 똑같이 할 수 있습니다.
+<a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/README.ko.md">한국어 README</a>와
+<a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md">사용법</a>에 각각 있습니다.</p>
+
+<h2 id="supported-versions">지원 버전</h2>
+<p>요약하면 iOS 16.1 이상, Android 8 이상에서 동작하고, 데스크톱에는 활동이 없습니다.</p>
+<div class="table">
+<table>
+  <thead><tr><th>어디서</th><th>최소 버전</th><th>무엇이 되나</th></tr></thead>
+  <tbody>
+    <tr><td>iPhone</td><td>iOS 16.1</td><td>잠금 화면의 Live Activity, Dynamic Island가 있는 iPhone에서는 Dynamic Island에도. 오래된 표시(stale)와 relevance는 iOS 16.2부터, 버튼·토글·push-to-start는 iOS 17.2부터</td></tr>
+    <tr><td>iPad</td><td>iPadOS 17</td><td>잠금 화면의 같은 Live Activity</td></tr>
+    <tr><td>Apple Watch</td><td>iOS 18과 watchOS 11</td><td>레이아웃의 <code>small</code> 영역이 워치의 Smart Stack에</td></tr>
+    <tr><td>Android</td><td>Android 8.0 (API 26)</td><td>진행률 막대나 타이머, 동작 최대 세 개가 있는 진행 중 알림. 알림 권한은 Android 13 (API 33)부터 묻습니다</td></tr>
+    <tr><td>Android Live Updates</td><td>Android 16 (API 36)</td><td>시스템과 사용자 설정이 허락하면 승격된 Live Update, 아니면 진행 중 알림</td></tr>
+    <tr><td>Samsung Now Bar</td><td>Android 17 (API 37), One UI 9</td><td>One UI의 Now Bar가 보여 주는 제목과 본문. Samsung의 허용 목록에 있는 앱만</td></tr>
+    <tr><td>macOS, Windows, Linux</td><td>지원 안 함</td><td>활동이 없고, 활동 명령은 <code>UNSUPPORTED_PLATFORM</code>을 돌려줍니다</td></tr>
+  </tbody>
+</table>
+</div>
+<p>플러그인에는 Tauri 2와 Rust 1.90 이상이 필요합니다. 기능마다의 최소 버전은
+<a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/compatibility.md">OS 호환성</a>에 있습니다.</p>
+
+<h2 id="how-it-works">동작 구조</h2>
+<p>플러그인은 크레이트 네 개 중 Tauri 쪽입니다. Tauri의 명령, 이벤트, 권한과 <code>setup</code> 명령을 맡습니다.
+<a href="https://github.com/1eedaegon/liveactivity-rs">liveactivity-rs</a> 브리지(<code>liveactivity</code> 크레이트)가
+요청 계약과 그 검사, 수명 주기를 맡아 각 요청을 플랫폼의 백엔드에서 돌립니다:</p>
+<pre><code>Tauri 2 앱                    TSX, TypeScript 또는 Rust로 적은 레이아웃
+  │  시작 · 갱신 · 종료 · 이벤트
+  ▼
+tauri-plugin-live-activity   Tauri 명령, 이벤트, 권한, setup
+  │
+  ▼
+liveactivity                 liveactivity-rs 브리지: 하나의 요청 계약,
+  │                          그 검사, 수명 주기
+  ├─ iOS 16.1+ ────────────► activitykit (activitykit-rs)
+  │                          Swift 브리지로 부르는 ActivityKit, 앱의 위젯
+  │                          확장이 그림: 잠금 화면, Dynamic Island
+  └─ Android 8.0+ ─────────► liveupdate (liveupdate-rs)
+                             진행 중 알림, Android 16부터 Live Update</code></pre>
+<p><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-integration.md">iOS 설정</a>과
+<a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md">Android 설정</a>이
+<code>setup</code>이 각 프로젝트에서 바꾸는 것을 보여 줍니다.</p>
+
+<h2 id="questions">자주 묻는 질문</h2>
+<h3>iOS Live Activity와 Dynamic Island를 위한 Tauri 플러그인이 있나요?</h3>
+<p>네, tauri-plugin-live-activity입니다. 커뮤니티 플러그인이고, Tauri 공식 플러그인은 없습니다. 이 플러그인으로 Tauri 2 앱은 iOS 16.1 이상에서 ActivityKit Live Activity를 시작, 갱신, 종료하고, 잠금 화면과 Dynamic Island에 그립니다.</p>
+<h3>Xcode에서 Widget Extension을 손으로 넣어야 하나요?</h3>
+<p>아니요. <code>npx tauri-plugin-live-activity setup</code>이 활동을 그리는 위젯 확장을 <code>src-tauri/gen/apple</code>의 Xcode 프로젝트에 넣습니다. <code>gen/apple</code>을 새로 만들 때마다 다시 실행하세요.</p>
+<h3>Android Live Updates를 지원하나요?</h3>
+<p>네. Android 16 (API 36) 이상에서는 시스템과 사용자 설정이 허락하면 승격된 Live Update를 요청하고, 그 밖에는 Android 8.0 (API 26)부터 같은 요청이 진행 중 알림으로 보입니다.</p>
+<h3>최소 iOS, Android 버전은요?</h3>
+<p>iPhone은 iOS 16.1, iPad는 iPadOS 17, Android는 8.0 (API 26)입니다. 더 높은 버전이 필요한 기능은 <a href="#supported-versions">지원 버전</a>에 있습니다.</p>
+<h3>Swift나 Kotlin을 써야 하나요?</h3>
+<p>아니요. 레이아웃은 TSX, TypeScript 또는 Rust이고, 네이티브 코드는 플러그인과 그 크레이트에 들어 있습니다. 직접 만든 뷰는 SwiftUI로 넣을 수도 있습니다.</p>
+<h3>liveactivity-rs가 뭔가요?</h3>
+<p>이 플러그인이 올라선 Rust 브리지, <code>liveactivity</code> 크레이트입니다. 요청 계약과 수명 주기를 맡고, iOS는 activitykit-rs, Android는 liveupdate-rs 위에서 돌립니다.</p>
+<h3>홈 화면 위젯 플러그인과 무엇이 다른가요?</h3>
+<p>tauri-plugin-widgets 같은 위젯 플러그인은 홈 화면에 계속 머무는 WidgetKit, Android Glance 위젯을 그립니다. 이 플러그인은 작업 하나가 진행되는 동안 그 작업을 따라가는 Live Activity와 Android Live Update를 그립니다. 한 앱에서 둘 다 쓸 수 있습니다.</p>
+<h3>서버가 활동을 갱신할 수 있나요?</h3>
+<p>iOS에서는 APNs로 됩니다: 푸시 토큰, iOS 17.2부터 push-to-start, iOS 18부터 broadcast 채널. Android에는 푸시 경로가 없고, 앱이 알림을 갱신합니다.</p>
+<h3>macOS, Windows, Linux에서도 되나요?</h3>
+<p>아니요. 그곳에서는 활동 명령이 <code>UNSUPPORTED_PLATFORM</code>을 돌려주고, <code>getCapabilities()</code>가 그렇다고 알려 줍니다.</p>
+
+<h2 id="docs">문서</h2>
+<ul>
+  <li><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md">사용법</a>: 레이아웃, 값, 스타일, 버튼, 푸시와 모든 옵션</li>
+  <li><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/ios-integration.md">iOS 설정</a>과 <a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/android-integration.md">Android 설정</a></li>
+  <li><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/compatibility.md">OS 호환성</a>과 <a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/permissions.md">권한</a></li>
+  <li><a href="https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/live-editing.md">실시간 편집</a>: TSX를 저장하면 도는 활동에 바로 반영</li>
+  <li>아래의 크레이트: <a href="https://github.com/1eedaegon/liveactivity-rs">liveactivity-rs</a>, <a href="https://github.com/1eedaegon/activitykit-rs">activitykit-rs</a>, <a href="https://github.com/1eedaegon/liveupdate-rs">liveupdate-rs</a></li>
+</ul>
+
+<footer>
+  <p>tauri-plugin-live-activity는 MIT 또는 Apache-2.0입니다. Tauri 팀이 아닌 커뮤니티가 만든 플러그인입니다.
+  <a href="https://github.com/1eedaegon/tauri-plugin-live-activity">GitHub의 소스</a>.</p>
+</footer>
+</main>
+</body>
+</html>

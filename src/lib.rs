@@ -1,10 +1,27 @@
-//! Local ongoing activity presentation for Tauri 2.
+//! iOS Live Activities and Android Live Updates for Tauri 2.
 //!
-//! Initialize with `.plugin(tauri_plugin_live_activity::init())` and explicitly
-//! grant mutation permissions in the host capability file. The plugin is an adapter of the
-//! `liveactivity` crate: the contract, its checks and the iOS and Android backends are that crate's, and the
-//! plugin adds Tauri's commands, events, configuration and Android's permission dialog. Desktop mutations
-//! return `UNSUPPORTED_PLATFORM`.
+//! A Tauri 2 app with this plugin starts, updates and ends ActivityKit Live Activities on iOS 16.1 and later, on the
+//! Lock Screen and in the Dynamic Island, and shows the same request on Android as an ongoing notification from
+//! Android 8.0 (API 26), promoted to a Live Update on Android 16 (API 36) where the system allows it. Layouts are
+//! written in TSX, TypeScript or Rust. In short: iOS 16.1+ and Android 8+; desktop mutations return
+//! `UNSUPPORTED_PLATFORM`.
+//!
+//! Initialize with `.plugin(tauri_plugin_live_activity::init())` and explicitly grant mutation permissions in the
+//! host capability file. `npx tauri-plugin-live-activity setup` grants them, raises the Android minimum to API 26 and
+//! adds the widget extension that draws the activity to the Xcode project.
+//!
+//! The plugin is an adapter of the `liveactivity` crate, the liveactivity-rs bridge: the contract, its checks and
+//! the iOS and Android backends are that crate's, and the plugin adds Tauri's commands, events, configuration and
+//! Android's permission dialog.
+//!
+//! ```text
+//! tauri-plugin-live-activity   Tauri commands, events, permissions, setup
+//!   └─ liveactivity            the liveactivity-rs bridge: one request contract, its checks, the lifecycle
+//!        ├─ iOS 16.1+     ──►  activitykit (activitykit-rs): ActivityKit through its Swift bridge
+//!        └─ Android 8.0+  ──►  liveupdate (liveupdate-rs): an ongoing notification, a Live Update on Android 16+
+//! ```
+//!
+//! Supported versions, examples and questions: <https://1eedaegon.github.io/tauri-plugin-live-activity/>.
 
 // TP-BUILD-2: a value that is not there is an error to answer, and no reason to end the app's process. Tests may
 // unwrap: a test that panics has failed.
