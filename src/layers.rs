@@ -141,6 +141,14 @@ pub trait BackendLayer: Send + Sync + 'static {
     fn sync_events<'a>(&'a self, next: &'a dyn LiveActivityBackend) -> BackendFuture<'a, ()> {
         next.sync_events()
     }
+
+    /// Asks the system for the screen where the person allows or stops the app's Live Updates (Android).
+    fn open_promotion_settings<'a>(
+        &'a self,
+        next: &'a dyn LiveActivityBackend,
+    ) -> BackendFuture<'a, ()> {
+        next.open_promotion_settings()
+    }
 }
 
 /// A layer that the app keeps a handle to, such as one whose state it reads, or one it chooses at run time as an
@@ -253,6 +261,13 @@ impl<T: BackendLayer + ?Sized> BackendLayer for Arc<T> {
     fn sync_events<'a>(&'a self, next: &'a dyn LiveActivityBackend) -> BackendFuture<'a, ()> {
         (**self).sync_events(next)
     }
+
+    fn open_promotion_settings<'a>(
+        &'a self,
+        next: &'a dyn LiveActivityBackend,
+    ) -> BackendFuture<'a, ()> {
+        (**self).open_promotion_settings(next)
+    }
 }
 
 /// A layer and the backend under it, as one backend.
@@ -326,5 +341,9 @@ impl<L: BackendLayer> LiveActivityBackend for Layered<L> {
 
     fn sync_events(&self) -> BackendFuture<'_, ()> {
         self.layer.sync_events(self.next.as_ref())
+    }
+
+    fn open_promotion_settings(&self) -> BackendFuture<'_, ()> {
+        self.layer.open_promotion_settings(self.next.as_ref())
     }
 }

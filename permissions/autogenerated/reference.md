@@ -205,6 +205,32 @@ Denies the open_exact_alarm_settings command without any pre-configured scope.
 <tr>
 <td>
 
+`live-activity:allow-open-promotion-settings`
+
+</td>
+<td>
+
+Enables the open_promotion_settings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`live-activity:deny-open-promotion-settings`
+
+</td>
+<td>
+
+Denies the open_promotion_settings command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `live-activity:allow-openings`
 
 </td>

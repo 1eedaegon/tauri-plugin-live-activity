@@ -96,7 +96,7 @@ fn desktop_ipc_never_advertises_native_features_or_requests_os_permissions() {
     );
 }
 
-// TP-DESKTOP-1
+// TP-DESKTOP-1, TP-ANDROID-25
 #[test]
 fn granted_desktop_ipc_returns_structured_unsupported_errors() {
     let webview = webview_with_grants(&[
@@ -106,6 +106,7 @@ fn granted_desktop_ipc_returns_structured_unsupported_errors() {
         "list",
         "request_permissions",
         "open_exact_alarm_settings",
+        "open_promotion_settings",
     ]);
     let snapshot = json!({"revision": 0, "title": "Mochi", "status": "Napping",
         "timer": {"startedAt": 1_800_000_000_000_u64, "endsAt": 1_800_000_060_000_u64}});
@@ -128,6 +129,7 @@ fn granted_desktop_ipc_returns_structured_unsupported_errors() {
         ("request_permissions", json!({"kind": "liveActivities"})),
         ("request_permissions", json!({"kind": "promotion"})),
         ("open_exact_alarm_settings", json!({})),
+        ("open_promotion_settings", json!({})),
     ];
     for (command, body) in requests {
         let error = invoke(&webview, command, body).unwrap_err();

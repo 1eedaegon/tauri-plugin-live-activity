@@ -387,8 +387,9 @@ started activity.
 ```
 
 `small` is what the activity shows where iOS asks for the small activity family: the Smart Stack of a paired Apple
-Watch (iOS 18) and CarPlay (iOS 26). It has no default, is drawn on `background` and opens `url`, as the lock screen
-tree does. activitykit's widget draws the family only when the widget extension's Info.plist sets
+Watch (iOS 18) and CarPlay (iOS 26). It has no default, is drawn on `background` and carries `url` as the lock
+screen tree does; what a tap there does is the system's (on an Apple Watch it shows the tile larger, with the
+system's "Open on iPhone"). activitykit's widget draws the family only when the widget extension's Info.plist sets
 `ActivityKitSmallFamily` to the Boolean true, which `setup --small-family` writes: then a layout's `small` is drawn
 there, and a layout without it shows its `compactLeading` and `compactTrailing` parts, or their defaults, in a row.
 Without the key the system shows the compact parts itself, and the record of a layout with `small` lists
@@ -416,6 +417,10 @@ Every node is an object with a `type`. Any node may also carry:
   the value is truthy, with `unless` only when it is not.
 - `ifStale`: `true` draws the node and its subtree only while the content is stale, `false` only while it is
   not. Android draws the layout as it is while fresh and names `layout.ifStale`.
+- `ifFullscreen`: `true` draws the node and its subtree only while the Lock Screen presentation fills the screen,
+  in StandBy on an iPhone that charges on its side (iOS 17), `false` only while it does not. The island's parts and
+  the small family are never full screen. Android leaves out a node of `true`, draws one of `false`, and names
+  nothing. The widget draws it from activitykit 0.9.0; one built with an earlier activitykit draws the node always.
 - `accessibility`: `label`, `value` or `hint`, each text of 1 to 200 code points or a binding of any type, or
   `hidden: true` for decoration.
 - `transition`: `opacity`, `slide`, `moveTop`, `moveBottom`, `moveLeading`, `moveTrailing`, `pushTop`,

@@ -438,3 +438,60 @@ fn a_watchs_ongoing_activity_is_a_boolean_in_a_start_and_in_a_content() {
         option(json!(false))["android"]
     );
 }
+
+// TP-ANDROID-24
+#[test]
+fn an_activity_off_a_paired_watch_is_a_boolean_in_a_start_and_in_a_content() {
+    let start = |members: Value| {
+        let mut request = json!({"activityKey":"ride:7","schemaVersion":2,"fallback":"notification",
+            "layout":{"lockScreen":{"type":"text","bind":"eta"}},
+            "snapshot":{"revision":0,"values":{"eta":"4 min"}}});
+        request
+            .as_object_mut()
+            .unwrap()
+            .extend(members.as_object().unwrap().clone());
+        validate_request("start_layout", request).map_err(|error| error.code)
+    };
+    let option = |value: Value| json!({"android":{"visibility":"private","localOnly":value}});
+    let content = |value: Value| {
+        json!({"snapshot":{"revision":0,"values":{"eta":"4 min"},"android":{"title":"Ride","status":"On the way",
+            "presentation":{"style":{"kind":"standard"},"localOnly":value}}}})
+    };
+    // On, and off, which is what a request without the member says.
+    for right in [
+        option(json!(true)),
+        option(json!(false)),
+        content(json!(true)),
+        content(json!(false)),
+    ] {
+        assert_eq!(start(right.clone()), Ok(()), "{right}");
+    }
+    for wrong in [
+        option(json!("yes")),
+        option(json!(1)),
+        option(Value::Null),
+        content(json!("yes")),
+        content(json!(1)),
+        content(Value::Null),
+        // Where it does not belong: in a style, and beside the options.
+        json!({"snapshot":{"revision":0,"values":{"eta":"4 min"},"android":{"title":"Ride","status":"On the way",
+            "presentation":{"style":{"kind":"standard","localOnly":true}}}}}),
+        json!({"localOnly":true}),
+    ] {
+        assert_eq!(
+            start(wrong.clone()),
+            Err("INVALID_INPUT".to_owned()),
+            "{wrong}"
+        );
+    }
+    // What a start that keeps it off the watch is to Rust: the options built on their constructor, written as the
+    // request.
+    let options = tauri_plugin_live_activity::AndroidOptions::new(
+        tauri_plugin_live_activity::AndroidVisibility::Private,
+    )
+    .with_local_only(true);
+    assert_eq!(
+        serde_json::to_value(options).unwrap(),
+        option(json!(true))["android"]
+    );
+}

@@ -1,4 +1,6 @@
-import type { ActivityRecord, AndroidPresentationSupport, PermissionKind, PermissionState } from '../../../guest-js/index.js';
+import type {
+  ActivityRecord, AndroidPresentationSupport, PermissionKind, PermissionState, Permissions,
+} from '../../../guest-js/index.js';
 
 export function permissionFeedback(state: PermissionState): string {
   if (state === 'granted') return 'All set for your next little moment.';
@@ -28,6 +30,20 @@ export function exactAlarmFeedback(allowed: boolean): string {
   return allowed
     ? 'Exact alarms are allowed: a scheduled start begins on the minute.'
     : 'Exact alarms are still off: a scheduled start may begin minutes late.';
+}
+
+/**
+ * Whether to offer Android's screen of Live Updates: Android 16 promotes notifications, and the person turned them
+ * off for this app or minimized its channel, which the plugin reads as `settingsRequired`, Android having no dialog
+ * for them.
+ */
+export function offersPromotionSettings(permissions: Pick<Permissions, 'promotion'>): boolean {
+  return permissions.promotion === 'settingsRequired';
+}
+
+/** What the page says once Android was asked for that screen, which does not tell when the person is back. */
+export function promotionFeedback(): string {
+  return 'Allow Live Updates for this app in Android’s screen, then come back and refresh.';
 }
 
 /** The record that the page goes on with: the one it had while that lives, or the first that is on the screen. */

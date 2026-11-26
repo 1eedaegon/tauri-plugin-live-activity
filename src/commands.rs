@@ -50,6 +50,13 @@ pub(crate) async fn open_exact_alarm_settings<R: Runtime>(
     service::open_exact_alarm_settings(live(&app), exact_alarms).await
 }
 
+/// Asks Android for the screen where the person allows or stops the app's Live Updates, or for its notification
+/// settings before Android 16. `Ok` says that Android was asked, not that the screen shows.
+#[tauri::command]
+pub(crate) async fn open_promotion_settings<R: Runtime>(app: AppHandle<R>) -> Result<()> {
+    live(&app).open_promotion_settings().await
+}
+
 #[tauri::command]
 pub(crate) async fn start<R: Runtime>(app: AppHandle<R>, input: Value) -> Result<ActivityRecord> {
     live(&app).start(parse_request("start", input)?).await

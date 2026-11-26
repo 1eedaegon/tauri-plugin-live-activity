@@ -10,14 +10,24 @@ import type { CargoOptions } from './cargo.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 /** The folders that hold liveupdate's copied files, at the same path in the crate and in the plugin. */
-export const FOLDERS: readonly string[] = ['android/src/main/java/io/github/eedaegon/liveupdate', 'android/src/main/res/drawable'];
-/** In the resource folder only liveupdate's own files are copies. */
-const OWN = (folder: string, name: string): boolean => folder.endsWith('/liveupdate') || name.startsWith('liveupdate_');
+export const FOLDERS: readonly string[] = [
+  'android/src/main/java/io/github/eedaegon/liveupdate',
+  'android/src/main/res/drawable',
+  'android/src/main/res/values',
+];
 /**
- * The one change the copy makes: liveupdate's sources name their resources through their own package's `R`, which
- * this library, whose namespace is the plugin's, does not generate.
+ * In the resource folders only liveupdate's own files are copies: its drawables by their prefix, and the strings of
+ * its channels, whose file has the name that liveupdate gives it. Strings of the plugin's own would go in a file of
+ * another name.
  */
-export const adapt = (source: string): string => source.replaceAll('R.drawable.', 'io.github.eedaegon.liveactivity.R.drawable.');
+const OWN = (folder: string, name: string): boolean =>
+  folder.endsWith('/liveupdate') || name.startsWith('liveupdate_') || (folder.endsWith('/values') && name === 'strings.xml');
+/**
+ * The one change the copy makes: liveupdate's sources name their drawables and strings through their own package's
+ * `R`, which this library, whose namespace is the plugin's, does not generate. Android's own `android.R` stays.
+ */
+export const adapt = (source: string): string =>
+  source.replaceAll(/(?<![\w.])R\.(drawable|string)\./g, 'io.github.eedaegon.liveactivity.R.$1.');
 const MANIFEST = 'android/src/main/AndroidManifest.xml';
 const NAMESPACE = 'io.github.eedaegon.liveupdate';
 

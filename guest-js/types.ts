@@ -88,6 +88,12 @@ export interface AndroidPresentationSupport {
    * `UNSUPPORTED_FEATURE` and posts nothing.
    */
   readonly actionTargets: boolean;
+  /**
+   * Whether an activity can ask to stay off a paired watch (a start's `android.localOnly`, an Android content's
+   * `presentation.localOnly`). Where it is false such a start or update answers `UNSUPPORTED_FEATURE` and posts
+   * nothing.
+   */
+  readonly localOnly: boolean;
 }
 
 /** What an iPhone runs of the features after the first Live Activities. */
@@ -313,6 +319,13 @@ export interface AndroidPresentation {
    * A phone carries none, whatever this says.
    */
   readonly wearOngoingActivity?: boolean;
+  /**
+   * `true`: this snapshot's notification asks Android not to bridge it to a paired watch (`setLocalOnly`). A copy
+   * that a watch got of an earlier snapshot stays there, so set it from the start (`android.localOnly`). Absent,
+   * it may be sent to the watch unless the start keeps the activity off it. A device that does not offer it
+   * (`localOnly` in the capabilities) answers `UNSUPPORTED_FEATURE` and posts nothing.
+   */
+  readonly localOnly?: boolean;
 }
 
 export type AndroidStyle =
@@ -569,6 +582,15 @@ type NodeFields = {
    * Android draws the layout as it is while fresh and names `layout.ifStale` in `degradedFeatures`.
    */
   readonly ifStale?: boolean;
+  /**
+   * `true`: the node and its subtree are drawn only while the Lock Screen presentation fills the screen, in StandBy
+   * on an iPhone that charges on its side (iOS 17); `false`: only while it does not. Beside the other conditions the
+   * node is drawn while all hold. The island's parts and the small family are never full screen, and neither is an
+   * Android notification: Android leaves out a node of `true` and draws one of `false`, and names nothing. The widget
+   * extension needs activitykit 0.9.0, which `setup` points it at: one built with an earlier activitykit draws such a
+   * node always.
+   */
+  readonly ifFullscreen?: boolean;
   /** What assistive technologies read of the node. */
   readonly accessibility?: LayoutAccessibility;
   /** How the node comes and goes when its `if` or `unless` shows or hides it. Without it the system chooses. */
@@ -844,6 +866,12 @@ export interface LayoutAndroidOptions {
    * platform.
    */
   readonly wearOngoingActivity?: boolean;
+  /**
+   * `true`: every snapshot of the activity asks Android not to bridge it to a paired watch (`setLocalOnly`),
+   * whatever an Android content says. Absent, it may be sent to the watch. A device that does not offer it (`localOnly` in the
+   * capabilities) answers `UNSUPPORTED_FEATURE` and posts nothing; iOS ignores it.
+   */
+  readonly localOnly?: boolean;
   /**
    * What runs the tap of a button or a toggle of the lock screen tree, by its `actionId`: a service or a receiver
    * of the app (`actionTargets`). Each key names a control of the tree, else `INVALID_INPUT` on every platform. iOS

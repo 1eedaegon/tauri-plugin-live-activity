@@ -3,6 +3,7 @@ const COMMANDS: &[&str] = &[
     "check_permissions",
     "request_permissions",
     "open_exact_alarm_settings",
+    "open_promotion_settings",
     "start",
     "update",
     "end",

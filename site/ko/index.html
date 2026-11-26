@@ -158,9 +158,10 @@ export const lockScreen = (
   <tbody>
     <tr><td>iPhone</td><td>iOS 16.1</td><td>잠금 화면의 Live Activity, Dynamic Island가 있는 iPhone에서는 Dynamic Island에도. 오래된 표시(stale)와 relevance는 iOS 16.2부터, 버튼·토글·push-to-start는 iOS 17.2부터</td></tr>
     <tr><td>iPad</td><td>iPadOS 17</td><td>잠금 화면의 같은 Live Activity</td></tr>
+    <tr><td>StandBy</td><td>iOS 17</td><td>옆으로 눕혀 충전하는 iPhone에서 크게 보이는 잠금 화면 카드, <code>ifFullscreen</code> 노드가 여기에만 보임</td></tr>
     <tr><td>Apple Watch</td><td>iOS 18과 watchOS 11</td><td>레이아웃의 <code>small</code> 영역이 워치의 Smart Stack에</td></tr>
     <tr><td>Android</td><td>Android 8.0 (API 26)</td><td>진행률 막대나 타이머, 동작 최대 세 개가 있는 진행 중 알림. 알림 권한은 Android 13 (API 33)부터 묻습니다</td></tr>
-    <tr><td>Android Live Updates</td><td>Android 16 (API 36)</td><td>시스템과 사용자 설정이 허락하면 승격된 Live Update, 아니면 진행 중 알림</td></tr>
+    <tr><td>Android Live Updates</td><td>Android 16 (API 36)</td><td>시스템과 사용자 설정이 허락하면 승격된 Live Update, 아니면 진행 중 알림; <code>openPromotionSettings()</code>가 그 설정을 엶</td></tr>
     <tr><td>Samsung Now Bar</td><td>Android 17 (API 37), One UI 9</td><td>One UI의 Now Bar가 보여 주는 제목과 본문. Samsung의 허용 목록에 있는 앱만</td></tr>
     <tr><td>macOS, Windows, Linux</td><td>지원 안 함</td><td>활동이 없고, 활동 명령은 <code>UNSUPPORTED_PLATFORM</code>을 돌려줍니다</td></tr>
   </tbody>

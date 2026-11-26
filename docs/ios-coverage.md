@@ -217,8 +217,8 @@ style on the Lock Screen (`test1`), the button's tap (`test2`) and the switch (`
 On 2026-11-26 a build of the demo from `fe102c1`, 0.13.2, ran the Watch and car example on the iPhone 16 with iOS
 27.2.1, paired with an Apple Watch SE 3 with watchOS 26.6. The watch's Smart Stack showed the example's `small`
 region: the paw, the title, the arrival time and the circular progress. It is the first watch seen to draw the region
-outside the simulator. A tap on the tile only enlarged it, and the app did not open on the phone. Not checked: the
-record's `degradedFeatures`, and CarPlay.
+outside the simulator. A tap on the tile only enlarged it, and the app did not open on the phone; the system's "Open on
+iPhone" there was not tried. Not checked: the record's `degradedFeatures`, and CarPlay.
 
 ## 0.13.0 on an iPhone
 

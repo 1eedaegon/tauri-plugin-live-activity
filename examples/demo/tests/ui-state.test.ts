@@ -3,7 +3,10 @@ import { test } from 'node:test';
 import type { ActivityRecord, Snapshot, UpdateInput } from '../../../guest-js/index.js';
 import { present } from '../../../tests/support.ts';
 import { keep } from '../../../tests/typescript-requests.ts';
-import { exactAlarmFeedback, offersExactAlarms, permissionAction, permissionFeedback, selectCurrent } from '../src/ui-state.ts';
+import {
+  exactAlarmFeedback, offersExactAlarms, offersPromotionSettings, permissionAction, permissionFeedback, promotionFeedback,
+  selectCurrent,
+} from '../src/ui-state.ts';
 import { startMochiActivity, advanceMochiActivity, snackStage, countdown, selectMochiActivity } from '../src/mochi.ts';
 
 /** Of a record, the members that the page reads when it selects one. */
@@ -38,6 +41,16 @@ test('the setting for exact alarms is offered where a start can be scheduled and
   assert.equal(offersExactAlarms({}), false);
   assert.match(exactAlarmFeedback(true), /on the minute/);
   assert.match(exactAlarmFeedback(false), /still off/);
+});
+
+test("Android's screen of Live Updates is offered only where they are turned off", () => {
+  // Android has no dialog for them: the plugin reads a promotion that is off as `settingsRequired`.
+  assert.equal(offersPromotionSettings({ promotion: 'settingsRequired' }), true);
+  // Allowed, unknown, not Android 16, or a state that the plugin does not report for it: nothing to offer.
+  for (const promotion of ['granted', 'prompt', 'unknown', 'notApplicable', 'denied'] as const) {
+    assert.equal(offersPromotionSettings({ promotion }), false, promotion);
+  }
+  assert.match(promotionFeedback(), /refresh/i);
 });
 
 test('preserves the current handle while Android observation is pending', () => {

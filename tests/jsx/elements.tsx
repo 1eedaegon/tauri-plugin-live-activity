@@ -29,6 +29,7 @@ export const elements = {
   // The members any node may carry.
   stale: <Text ifStale transition="slide">No signal</Text>,
   fresh: <Text bind="eta" ifStale={false} privacy="sensitive" />,
+  standBy: <Text ifFullscreen>Gate 4 in big letters</Text>,
   spoken: <Progress bind="done" accessibility={{ label: 'Snack', value: bind('percent'), hint: 'Opens the app' }} />,
   hidden: <SFSymbol name="sparkles" accessibility={{ hidden: true }} />,
 };

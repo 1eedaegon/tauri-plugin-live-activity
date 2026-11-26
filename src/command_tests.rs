@@ -7,7 +7,7 @@ fn start_input() -> Value {
         "snapshot":{"revision":0,"title":"Job","status":"Running","progress":0.5}})
 }
 
-// TP-DESKTOP-1
+// TP-DESKTOP-1, TP-ANDROID-25
 #[test]
 fn desktop_queries_report_unavailable_and_mutations_fail_explicitly() {
     let app = mock_builder()
@@ -55,6 +55,14 @@ fn desktop_queries_report_unavailable_and_mutations_fail_explicitly() {
         // Desktop has no setting for exact alarms either.
         assert_eq!(
             commands::open_exact_alarm_settings(handle.clone())
+                .await
+                .unwrap_err()
+                .code,
+            "UNSUPPORTED_PLATFORM"
+        );
+        // Nor any screen of Live Updates.
+        assert_eq!(
+            commands::open_promotion_settings(handle.clone())
                 .await
                 .unwrap_err()
                 .code,

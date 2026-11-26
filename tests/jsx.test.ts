@@ -62,6 +62,7 @@ const expected = {
   custom: custom('Paw', { props: { size: 3 } }),
   stale: text('No signal', { ifStale: true, transition: 'slide' }),
   fresh: bound('eta', { ifStale: false, privacy: 'sensitive' }),
+  standBy: text('Gate 4 in big letters', { ifFullscreen: true }),
   spoken: progress('done', { accessibility: { label: 'Snack', value: bind('percent'), hint: 'Opens the app' } }),
   hidden: symbol('sparkles', { accessibility: { hidden: true } }),
 };
@@ -90,6 +91,7 @@ test('each component returns the node of its layout builder', () => {
     custom: Custom({ name: 'Paw', props: { size: 3 } }),
     stale: Text({ ifStale: true, transition: 'slide', children: 'No signal' }),
     fresh: Text({ bind: 'eta', ifStale: false, privacy: 'sensitive' }),
+    standBy: Text({ ifFullscreen: true, children: 'Gate 4 in big letters' }),
     spoken: Progress({ bind: 'done', accessibility: { label: 'Snack', value: bind('percent'), hint: 'Opens the app' } }),
     hidden: SFSymbol({ name: 'sparkles', accessibility: { hidden: true } }),
   };

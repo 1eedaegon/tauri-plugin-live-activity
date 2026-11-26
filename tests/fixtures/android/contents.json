@@ -116,6 +116,18 @@
     "android": "ok"
   },
   {
+    "name": "a standard notification that a paired watch does not get",
+    "content": {
+      "title": "Mochi",
+      "status": "Napping by the window",
+      "presentation": {
+        "style": { "kind": "standard" },
+        "localOnly": true
+      }
+    },
+    "android": "ok"
+  },
+  {
     "name": "a long text",
     "content": {
       "title": "Mochi’s day",

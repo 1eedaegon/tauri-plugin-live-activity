@@ -1,7 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import * as activity from '../../../guest-js/index.js';
 import { describeError, runLifecycleChecks } from './self-test.js';
-import { exactAlarmFeedback, offersExactAlarms, permissionAction, permissionFeedback } from './ui-state.js';
+import {
+  exactAlarmFeedback, offersExactAlarms, offersPromotionSettings, permissionAction, permissionFeedback, promotionFeedback,
+} from './ui-state.js';
 import { advanceMochiActivity, countdown, selectMochiActivity, snackStage, snackSteps, startMochiActivity, type MochiMode } from './mochi.js';
 import {
   actionMessage, layoutExamples, layoutRecordFor, nextLayoutSnapshot, openedMessage, runningLayoutExamples,
@@ -27,6 +29,8 @@ let platform = 'unknown';
 let permissionState: activity.PermissionState = 'unknown';
 /** Whether a scheduled start would begin late for want of the permission for exact alarms (Android). */
 let exactAlarmsOffered = false;
+/** Whether Live Updates are off for the app, so that Android shows Mochi as an ordinary notification (Android 16). */
+let promotionOffered = false;
 let busy = false;
 /** How many openings from a notification this page has heard. */
 let openings = 0;
@@ -141,6 +145,9 @@ function renderPermissions(): void {
   text('permission-heading', permissionState === 'denied' || permissionState === 'settingsRequired' ? 'A quick visit to Settings' : 'One small thing first');
   text('permission-copy', platform === 'ios' ? 'Enable Live Activities for this app in Settings, then check again.' : permissionState === 'denied' || permissionState === 'settingsRequired' ? 'Allow this app’s notifications in Settings, then refresh.' : 'Allow notifications to follow Mochi’s activity on your phone.');
   text('native-note', nativeNote());
+  // Live Updates off is a matter of Android's own screen, apart from the notifications above.
+  element('promotion-panel').hidden = !supported || !promotionOffered;
+  element<HTMLButtonElement>('promotion-settings').disabled = busy;
 }
 
 async function refresh(): Promise<void> {
@@ -150,6 +157,7 @@ async function refresh(): Promise<void> {
   platform = capabilities.platform;
   permissionState = permissions[platform === 'ios' ? 'liveActivities' : 'notifications'];
   exactAlarmsOffered = offersExactAlarms(capabilities);
+  promotionOffered = offersPromotionSettings(permissions);
   show('capabilities', capabilities);
   show('permissions', permissions);
   records = supported ? await activity.list() : [];
@@ -302,6 +310,11 @@ const handlers: Readonly<Record<string, () => Promise<void>>> = {
     exactAlarmsOffered = offersExactAlarms(capabilities);
     show('capabilities', capabilities);
     message(exactAlarmFeedback(!exactAlarmsOffered));
+  },
+  // Android was asked for its screen of Live Updates; whether the person allows them shows at the next refresh.
+  'promotion-settings': async () => {
+    await activity.openPromotionSettings();
+    message(promotionFeedback());
   },
   'run-self-test': selfTest,
 };
