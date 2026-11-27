@@ -2,8 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   ActionEvent, ActivityRecord, Capabilities, EndInput, LayoutActivityRecord, LayoutEndInput, LayoutStartInput,
-  LayoutUpdateInput, OpenedEvent, PermissionKind, Permissions, PushToStartTokenEvent, PushTokenEvent, PushTokens,
-  HandledEvent, StartInput, StartedEvent, StateEvent, UnknownEvent, UpdateInput, UpdatedEvent,
+  LayoutUpdateInput, OpenedEvent, PermissionKind, Permissions, PushedEvent, PushTarget, PushToStartTokenEvent,
+  PushTokenEvent, PushTokens, HandledEvent, StartInput, StartedEvent, StateEvent, UnknownEvent, UpdateInput, UpdatedEvent,
 } from './types.js';
 
 export type * from './types.js';
@@ -175,6 +175,18 @@ export async function onPushToStartToken(handler: (event: PushToStartTokenEvent)
   return unlisten;
 }
 
+/**
+ * Where the server sends pushes for a token's event: `{ type: 'apnsActivity', token }` for an activity's token of
+ * `onPushToken`, which takes its updates and its end, and `{ type: 'apnsPushToStart', token }` for the app's token of
+ * `onPushToStartToken`, which takes starts. Send it with the activity's key; the liveactivity crate's `push::Target`
+ * reads it on the server.
+ */
+export function pushTarget(event: PushTokenEvent | PushToStartTokenEvent): PushTarget {
+  return 'activityId' in event
+    ? { type: 'apnsActivity', token: event.token }
+    : { type: 'apnsPushToStart', token: event.token };
+}
+
 /** What the plugin holds, or the subscription given up and the failure passed on. */
 async function heldTokens(unlisten: UnlistenFn): Promise<PushTokens> {
   try {
@@ -186,9 +198,9 @@ async function heldTokens(unlisten: UnlistenFn): Promise<PushTokens> {
 }
 
 /**
- * Receive the record of an activity whose content a push changed (iOS): content above every revision this app sent
- * or accepted, so the app's own updates do not come this way. Content pushed before the page listened is in the
- * activity's record, as `listLayout` gives it.
+ * Receive the record of an activity whose content a push changed (iOS, and Android with the plugin's feature
+ * `android-push`): content above every revision this app sent or accepted, so the app's own updates do not come this
+ * way. Content pushed before the page listened is in the activity's record, as `listLayout` gives it.
  */
 export function onUpdated(handler: (event: UpdatedEvent) => void): Promise<UnlistenFn> {
   return listen<UpdatedEvent>('live-activity://updated', event => handler(event.payload));
@@ -196,7 +208,8 @@ export function onUpdated(handler: (event: UpdatedEvent) => void): Promise<Unlis
 
 /**
  * Receive the record of a layout activity that began while the app ran (iOS): one the app started, or one a push
- * started with the app's push-to-start token. An activity that began before the page listened is in `listLayout`.
+ * started with the app's push-to-start token. On Android, with the plugin's feature `android-push`, one that a push
+ * from the app's server started. An activity that began before the page listened is in `listLayout`.
  */
 export function onStarted(handler: (event: StartedEvent) => void): Promise<UnlistenFn> {
   return listen<StartedEvent>('live-activity://started', event => handler(event.payload));
@@ -335,6 +348,16 @@ export function onPermissions(handler: (permissions: Permissions) => void): Prom
  */
 export function onUnknown(handler: (event: UnknownEvent) => void): Promise<UnlistenFn> {
   return listen<UnknownEvent>('live-activity://unknown', event => handler(event.payload));
+}
+
+/**
+ * Receive what a push from the app's server did on Android, taken or refused: its key, its command, its revision and
+ * the code of a refusal. It comes only to an app built with the plugin's feature `android-push`, whose messaging
+ * service hands the server's data messages to `LiveUpdatePush.handle`. A start or an update that was taken also comes
+ * to `onStarted` or `onUpdated` after it, with the activity's record, when the plugin's store holds the activity.
+ */
+export function onPushed(handler: (event: PushedEvent) => void): Promise<UnlistenFn> {
+  return listen<PushedEvent>('live-activity://pushed', event => handler(event.payload));
 }
 
 /**

@@ -264,7 +264,7 @@ await onAction(({ actionId, tap }) => {
 iOS에서는 `getCapabilities().ios`가 아이폰이 실행하는 기능(`pushToStart`, `pushChannels`, `transient`,
 `scheduledStart`, `smallFamily`)을 알려 주므로 요청을 시도해 보지 않아도 됩니다.
 
-Android에서는 시작에 `android: { visibility, publicVersion, placement, wearOngoingActivity, localOnly, targets }`를 줍니다:
+Android에서는 시작에 `android: { visibility, publicVersion, placement, wearOngoingActivity, localOnly, watchMirror, targets }`를 줍니다:
 
 ```ts
 android: {
@@ -272,6 +272,7 @@ android: {
   placement: 'foreground',    // 앱의 포그라운드 서비스가 쥐는 알림(`foregroundPlacement`)
   wearOngoingActivity: false, // 워치 화면에서 뺌(Wear OS 3~6, Tauri 앱은 워치에서 돌지 않음)
   localOnly: true,            // 페어링된 워치로 넘기지 말라고 Android에 요청(`localOnly`)
+  // 또는 watchMirror: true,   // 대신 페어링된 워치에 미러링, localOnly와 함께는 안 됨(`watchMirror`)
   // 버튼 `record`의 탭이 화면 없이 앱의 서비스를 바로 실행(`actionTargets`).
   targets: { record: { kind: 'foregroundService', component: 'com.example.RecorderService', action: 'com.example.RECORD' } },
 }
@@ -325,18 +326,26 @@ iOS에서는 페어링된 Apple Watch(iOS 18)와 CarPlay(iOS 26)가 아일랜드
 익스텐션이 그 패밀리를 그리도록 해 두면(`setup --small-family`) `small`이 거기에 자기 트리를 줍니다. 노드는
 12개까지이고 버튼·링크·토글은 넣을 수 없습니다: `small: hstack([symbol('pawprint.fill'), bound('eta')])`.
 Android에서는 폰의 ongoing 알림이 페어링된 워치로 전달되지 않고 Live Update만 일부 워치에 전달됩니다.
-`android: { localOnly: true }`는 그것도 하지 말라고 Android에 요청합니다. Android Auto에는 이를 보여 줄 자리가 없습니다. Android는 `small`을 `degradedFeatures`에 적습니다. [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#a-watch-and-a-car)
+`android: { localOnly: true }`는 그것도 하지 말라고 Android에 요청합니다. `android: { watchMirror: true }`는 진행 중이
+아닌 두 번째 알림으로 모든 스냅샷을 워치에 미러링합니다. Android Auto에는 이를 보여 줄 자리가 없습니다. Android는 `small`을 `degradedFeatures`에 적습니다. [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#a-watch-and-a-car)
 
 잠금 화면의 카드에는 여백이 없고, 더 좁은 레이아웃은 가운데에 놓입니다. 루트에 padding을 주고, 가장자리에 붙일
 노드에는 `frame: { maxWidth: 'infinity', alignment: 'leading' }`인 스타일을 줍니다.
 [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#placement-on-the-lock-screen)
 
-## 푸시 (iOS)
+## 푸시
 
-서버가 APNs로 액티비티를 갱신하고 끝내고 시작합니다. `push: 'token'`(iOS 18에서는 `{ channel }`도)으로
+iOS에서는 서버가 APNs로 액티비티를 갱신하고 끝내고 시작합니다. `push: 'token'`(iOS 18에서는 `{ channel }`도)으로
 시작하면 액티비티의 토큰이 `onPushToken`으로, 앱의 push-to-start 토큰(iOS 17.2, 플러그인 설정의
 `pushToStart`)이 `onPushToStartToken`으로, 푸시가 전달한 내용이 `onUpdated`로 옵니다. 페이지가 구독할 때
-플러그인이 이미 쥐고 있던 토큰은 바로 옵니다. 페이로드는 서버에서 activitykit의 `push::Payload`로 만듭니다.
+플러그인이 이미 쥐고 있던 토큰은 바로 옵니다. `pushTarget(event)`는 토큰 이벤트를 서버가 액티비티 키 옆에 둘 JSON으로
+만들고, 서버는 그곳으로 liveactivity의 `push::Message`를 보냅니다
+([서버 푸시](https://github.com/1eedaegon/liveactivity-rs/blob/main/docs/server-push.md)).
+
+Android에서는 같은 메시지가 FCM 대상(`{ type: 'fcm', token }`, Firebase Messaging의 토큰)으로 가서, 앱이 돌지 않을
+때도 레이아웃 액티비티를 시작하고 갱신하고 끝냅니다. 플러그인을 기능 `android-push`로 빌드하고, 메시징 서비스의
+데이터 메시지를 `LiveUpdatePush.handle(this, message.data)`에 넘기고, 매니페스트에 앱의 라이브러리 이름을 적습니다.
+푸시마다 한 일은 `onPushed`로 옵니다.
 [더 보기](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#pushes)
 
 ## 기본 부품 너머
@@ -399,7 +408,8 @@ let starts = Arc::new(Starts::default());
 - iOS는 각 액티비티의 마지막 값을 앱의 Application Support에 평문으로 둡니다. 플러그인 설정에
   `"receipts": "redacted"`를 주면 가립니다.
 - 버튼 탭은 Rust `on_action` 핸들러를 최대 4초 기다립니다. JavaScript 리스너는 기다리지 않습니다.
-- 푸시는 iOS만. Android는 진행 중 알림을 보여 주고, 시스템이 허용하는 곳에서는 Live Update로 올립니다.
+- Android의 푸시에는 플러그인의 기능 `android-push`, 앱의 FCM 메시징 서비스, 레이아웃 액티비티가 필요합니다. 없으면
+  앱이 알림을 직접 갱신합니다.
 - Android 15부터 시계가 14일보다 오래된 타이머는 `INVALID_INPUT`으로 거절됩니다. Android는 그런 알림을 보여 주지
   않고 앱에도 알리지 않습니다.
 - `SYSTEM_LIMIT`은 플랫폼의 한도입니다. Android에서는 살아 있는 액티비티 32개, 1,000,000바이트 저장소가 꽉 찬 경우,
@@ -443,7 +453,8 @@ WidgetKit, Android Glance 위젯을 그립니다. 이 플러그인은 작업 하
 Activity와 Android Live Update를 그립니다. 한 앱에서 둘 다 쓸 수 있습니다.
 
 **서버가 활동을 갱신할 수 있나요?** iOS에서는 APNs로 됩니다: 푸시 토큰, iOS 17.2부터 push-to-start, iOS 18부터
-broadcast 채널([푸시 (iOS)](#푸시-ios)). Android에는 푸시 경로가 없고, 앱이 알림을 갱신합니다.
+broadcast 채널([푸시](#푸시)). Android에서는 FCM으로 됩니다: 플러그인의 기능 `android-push`와 앱의 메시징
+서비스가 있으면 됩니다.
 
 **macOS, Windows, Linux에서도 되나요?** 아니요. 그곳에서는 활동 명령이 `UNSUPPORTED_PLATFORM`을 돌려주고,
 `getCapabilities()`가 그렇다고 알려 줍니다.

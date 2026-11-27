@@ -234,6 +234,14 @@ Android not to bridge the notification to a paired watch. Set it on the start: a
 not take back a copy that a watch has. The capability `localOnly` says whether the adapter offers it; where it does not, such
 a start or update answers `UNSUPPORTED_FEATURE` and posts nothing.
 
+Or it can send the activity there (liveupdate 0.11): `android: { watchMirror: true }` of a start, or `watchMirror:
+true` in an Android content's presentation, posts a second notification of the activity, the mirror, that is not
+ongoing, so a watch's bridge takes it; the activity's own stays on the phone, and the phone lists the mirror too,
+quietly, on a channel of its own (`liveupdate_watch_channel_name`, `liveupdate_watch_channel_description`). Beside
+`localOnly` it is `INVALID_INPUT`. The capability `watchMirror` says whether the adapter offers it; where it does not,
+such a start or update answers `UNSUPPORTED_FEATURE` and posts nothing. Whether the watch shows the mirror is the
+watch's and its bridge's: no device here has tried it yet.
+
 Stored events that this version does not know are passed on: liveupdate reads an event of a kind it does not
 know for its activity, and the plugin reports it as `live-activity://unknown` (`onUnknown`, Rust
 `UNKNOWN_EVENT`). Such an event is one that a later version of the plugin stored, as after the app went back to
@@ -564,6 +572,79 @@ What only the user can do:
 The chip and the card are held back while the app's own activity is in front; whether
 the lock screen pill is too was not confirmed. The plugin changes none of these settings
 and does not read them.
+
+## Pushes from the app's server
+
+liveupdate 0.12's push path starts, updates and ends a layout activity from a data message of the app's server,
+while the app may not run: the server sends the liveactivity crate's `push::Message` to `{ "type": "fcm", "token": … }`,
+FCM HTTP v1 delivers the message's data member `liveupdate.layer`, and liveupdate's `LiveUpdatePush.handle` hands it to
+liveactivity's native entry in the app's library, which runs it as `startLayout`, `updateLayout` or `endLayout` of the
+key, with the layouts the plugin keeps under `Context.getFilesDir()`. The backend writes `liveactivity/push.json`
+there when the app runs, so that a process that a message started finds the plugin's files: let the app run once
+after it installs the plugin before a push arrives, or the push answers `NATIVE_ERROR`. The server's side is
+[liveactivity's server pushes](https://github.com/1eedaegon/liveactivity-rs/blob/main/docs/server-push.md).
+
+The app takes three steps, which the plugin cannot take for it:
+
+1. The plugin's feature `android-push`, which puts the native entry in the app's library:
+
+   ```toml
+   [dependencies]
+   tauri-plugin-live-activity = { version = "0.16", features = ["android-push"] }
+   ```
+
+2. A messaging service of the app's, Firebase Messaging's or another provider's, that hands each data message to
+   liveupdate first. It runs in the app's main process, and the Kotlin class `LiveUpdatePush` is in the plugin's
+   Android library:
+
+   ```kotlin
+   import com.google.firebase.messaging.FirebaseMessagingService
+   import com.google.firebase.messaging.RemoteMessage
+   import io.github.eedaegon.liveupdate.LiveUpdatePush
+
+   class PushService : FirebaseMessagingService() {
+       override fun onMessageReceived(message: RemoteMessage) {
+           if (LiveUpdatePush.handle(this, message.data)) return
+           // The app's own messages.
+       }
+
+       override fun onNewToken(token: String) {
+           // Send { type: "fcm", token } to the server, beside the keys of the activities it pushes to.
+       }
+   }
+   ```
+
+3. In `gen/android/app/src/main/AndroidManifest.xml`, the service and the meta-data that names the app's Rust
+   library as `System.loadLibrary` takes it (`app_lib` in a new Tauri app, the `[lib] name` of `src-tauri/Cargo.toml`),
+   so that a process that a message started loads it:
+
+   ```xml
+   <application>
+       <meta-data android:name="io.github.eedaegon.liveupdate.LIBRARY" android:value="app_lib" />
+       <service android:name=".PushService" android:exported="false">
+           <intent-filter>
+               <action android:name="com.google.firebase.MESSAGING_EVENT" />
+           </intent-filter>
+       </service>
+   </application>
+   ```
+
+A push that lands while the app runs is handled in the app's own process, one call after another with the app's
+calls: liveactivity holds one lock of the process over the plugin's layouts, and the revision rule decides between a
+push and an update of the same key (the older one answers `STALE_REVISION`, in the app's call or in the push's
+`code`). That holds while there is one process and one copy of liveactivity: leave the service in the main process,
+with no `android:process`, and let the meta-data name the library that links the plugin, the app's own.
+
+A message without liveupdate's members is the app's: `handle` answers `false`. What each push did, taken or refused,
+is stored as an event, which the plugin reports as `live-activity://pushed` (`onPushed`, Rust `PUSHED_EVENT`) when it
+drains the stored events, and a start or an update that was taken, after it, also as `live-activity://started` or
+`live-activity://updated` when the plugin's store holds the activity. FCM delivers a message at least once: a start that comes again after its activity ended
+answers that activity. The capabilities say what the device's liveupdate offers (`androidPresentation.push` and
+`pushLayer`), and `push` reads `supported` only where `pushLayer` is true and the app built the feature. The plugin's
+consumer rules keep `LiveUpdatePush`'s and `LiveUpdateBridge`'s names for R8, as liveupdate's own do.
+
+Not proven yet: no test here receives a real FCM message. The liveactivity session checked the path in its own tests,
+and a device check needs the app's Firebase project.
 
 ## Plugin configuration on Android
 

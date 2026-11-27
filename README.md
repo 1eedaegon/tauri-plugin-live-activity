@@ -271,7 +271,7 @@ await onAction(({ actionId, tap }) => {
 On iOS `getCapabilities().ios` says what the iPhone runs (`pushToStart`, `pushChannels`, `transient`,
 `scheduledStart`, `smallFamily`), so a request need not be tried to learn it.
 
-On Android a start takes `android: { visibility, publicVersion, placement, wearOngoingActivity, localOnly, targets }`:
+On Android a start takes `android: { visibility, publicVersion, placement, wearOngoingActivity, localOnly, watchMirror, targets }`:
 
 ```ts
 android: {
@@ -279,6 +279,7 @@ android: {
   placement: 'foreground',    // the notification that the app's foreground service holds (`foregroundPlacement`)
   wearOngoingActivity: false, // off the face of a watch (Wear OS 3 to 6; a Tauri app does not run there)
   localOnly: true,            // ask Android not to bridge it to a paired watch (`localOnly`)
+  // or watchMirror: true,     // mirror it to a paired watch instead, never beside localOnly (`watchMirror`)
   // The button `record` runs the app's own service at once, with no screen (`actionTargets`).
   targets: { record: { kind: 'foregroundService', component: 'com.example.RecorderService', action: 'com.example.RECORD' } },
 }
@@ -334,18 +335,26 @@ On iOS a paired Apple Watch (iOS 18) and CarPlay (iOS 26) show the island's comp
 tree of their own, at most 12 nodes without buttons, links or toggles, once the widget extension draws that family
 (`setup --small-family`): `small: hstack([symbol('pawprint.fill'), bound('eta')])`. On Android a phone's ongoing
 notification is not bridged to a paired watch, and a Live Update only to some, which `android: { localOnly: true }`
-asks Android not to do; Android Auto has no place for one. Android names `small` in `degradedFeatures`. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#a-watch-and-a-car)
+asks Android not to do; `android: { watchMirror: true }` mirrors every snapshot to the watch by a second
+notification that is not ongoing. Android Auto has no place for one. Android names `small` in `degradedFeatures`. [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#a-watch-and-a-car)
 
 On the Lock Screen the card has no margin and shows a narrower layout in its middle: give the root a padding, and a
 node that should reach an edge a style with `frame: { maxWidth: 'infinity', alignment: 'leading' }`.
 [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#placement-on-the-lock-screen)
 
-## Pushes (iOS)
+## Pushes
 
-A server updates, ends or starts activities through APNs. Start with `push: 'token'` (or `{ channel }` on iOS 18)
-and the activity's token comes to `onPushToken`; the app's push-to-start token (iOS 17.2, `pushToStart` in the
-plugin configuration) to `onPushToStartToken`; content a push delivered to `onUpdated`. Tokens the plugin already
-holds when a page subscribes come at once. The server builds the payloads with activitykit's `push::Payload`.
+A server updates, ends or starts activities through APNs on iOS. Start with `push: 'token'` (or `{ channel }` on
+iOS 18) and the activity's token comes to `onPushToken`; the app's push-to-start token (iOS 17.2, `pushToStart` in
+the plugin configuration) to `onPushToStartToken`; content a push delivered to `onUpdated`. Tokens the plugin
+already holds when a page subscribes come at once. `pushTarget(event)` makes of a token's event the JSON the server
+keeps beside the activity's key, and the server sends liveactivity's `push::Message` to it
+([server pushes](https://github.com/1eedaegon/liveactivity-rs/blob/main/docs/server-push.md)).
+
+On Android the same message goes to an FCM target (`{ type: 'fcm', token }`, the token of Firebase Messaging) and
+starts, updates or ends a layout activity while the app may not run. Build the plugin with its feature
+`android-push`, hand the data messages of your messaging service to `LiveUpdatePush.handle(this, message.data)`,
+and name your library in the manifest; what each push did comes to `onPushed`.
 [More](https://github.com/1eedaegon/tauri-plugin-live-activity/blob/main/docs/usage.md#pushes)
 
 ## Beyond the built-in parts
@@ -409,7 +418,8 @@ let starts = Arc::new(Starts::default());
 - iOS keeps each activity's last values in plain text in the app's Application Support, unless the plugin
   configuration sets `"receipts": "redacted"`.
 - A button's tap waits for the Rust `on_action` handlers, at most 4 seconds; JavaScript listeners are not awaited.
-- Pushes are iOS only. Android shows an ongoing notification, promoted to a Live Update where the system allows it.
+- Pushes on Android need the plugin's feature `android-push`, the app's own FCM messaging service and a layout
+  activity; without them the app updates its notification itself.
 - From Android 15 a timer whose clock is more than 14 days old is refused with `INVALID_INPUT`: Android would show
   nothing of such a notification and tell the app nothing.
 - `SYSTEM_LIMIT` is the platform's limit: on Android 32 live activities, or no room left in the store of 1,000,000
@@ -454,7 +464,8 @@ WidgetKit and Android Glance widgets that stay on the home screen. This plugin d
 Updates, which follow one task while it runs. An app can use both.
 
 **Can a server update an activity?** On iOS, through APNs: push tokens, push-to-start from iOS 17.2 and broadcast
-channels from iOS 18 ([Pushes (iOS)](#pushes-ios)). Android has no push path; the app updates its notification.
+channels from iOS 18 ([Pushes](#pushes)). On Android, through FCM, with the plugin's feature `android-push` and the
+app's messaging service.
 
 **Does it work on macOS, Windows or Linux?** No. There the activity commands answer `UNSUPPORTED_PLATFORM`, and
 `getCapabilities()` says so.

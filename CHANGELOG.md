@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.16.0
+
+Built on liveactivity 0.16.0, with liveupdate 0.12.0, from 0.12.1 and 0.9.0; activitykit stays 0.9.1.
+
+- **Pushes on Android** (feature `android-push`, off by default): a data message from the app's server starts,
+  updates or ends a layout activity while the app may not run. The server sends liveactivity's `push::Message` to an
+  FCM target; liveupdate's `LiveUpdatePush.handle`, which the app's messaging service calls, hands it to
+  liveactivity's native entry in the app's library, which runs it with the layouts the plugin keeps. The app builds
+  the plugin with `features = ["android-push"]`, calls `LiveUpdatePush.handle(this, message.data)` from its messaging
+  service, and names its library in the manifest's meta-data `io.github.eedaegon.liveupdate.LIBRARY`
+  ([Android integration](docs/android-integration.md#pushes-from-the-apps-server)). Without the feature nothing of
+  it is in the app, and `push` stays `unsupported` on Android (TP-PUSH-10).
+- **`onPushed`** and `live-activity://pushed` (`PUSHED_EVENT` in Rust): what each Android push did, taken or refused,
+  with its key, its command, its revision and the code of a refusal. A start or an update that was taken also comes
+  to `onStarted` or `onUpdated` after it, with the activity's record, as on iOS (TP-PUSH-10). With React, give
+  `push: 'token'` to a hook whose activity the server pushes to on Android, so that it takes the pushed content.
+- **`pushTarget(event)`**: the JSON that the app hands its server for a token's event, `{ type: 'apnsActivity', token }`
+  or `{ type: 'apnsPushToStart', token }`, which liveactivity's `push::Target` reads on the server. The TypeScript
+  `PushTarget` declares all four targets, the FCM and channel ones among them, and Rust re-exports the type as
+  `PushTarget` (TP-PUSH-9).
+- **An activity mirrored to a paired watch** (Android): `android.watchMirror` of a layout's start, or `watchMirror` in
+  an Android content's presentation, posts a second notification that is not ongoing, so the watch's bridge takes it.
+  Beside `localOnly` it is `INVALID_INPUT`; where the device cannot, `UNSUPPORTED_FEATURE`
+  (`getCapabilities().androidPresentation.watchMirror`, TP-ANDROID-26). Its channel's names are the strings
+  `liveupdate_watch_channel_name` and `liveupdate_watch_channel_description`, which an app overrides.
+- `getCapabilities().androidPresentation` has `push`, `pushLayer` and `watchMirror`, in every build.
+- The Android library carries liveupdate 0.12.0's Kotlin, `LiveUpdatePush` among it, copied anew. Its consumer rules
+  keep every class that liveupdate's own rules keep: `LiveUpdatePush`, and `LiveUpdateBridge`, which liveupdate's Rust
+  side loads by name and which an app's release build could rename before.
+- Breaking for a Rust caller where liveactivity 0.16 is. One that builds liveupdate's `AndroidPresentation` or
+  `PresentationCapabilities` as a literal, or matches either field by field, names `watch_mirror`, and the latter
+  `push` and `push_layer` too. A match on `Event` with a `_` arm is unchanged. In TypeScript,
+  `AndroidPresentationSupport` has the required members `push`, `pushLayer` and `watchMirror`, which a mock of it
+  gives. JSON written for 0.15 reads the same.
+
 ## 0.15.1
 
 Built on liveactivity 0.12.1, with activitykit 0.9.1, from 0.12.0 and 0.9.0; liveupdate stays 0.9.0.

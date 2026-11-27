@@ -128,6 +128,18 @@
     "android": "ok"
   },
   {
+    "name": "a standard notification mirrored to a paired watch",
+    "content": {
+      "title": "Mochi",
+      "status": "Chasing a moth",
+      "presentation": {
+        "style": { "kind": "standard" },
+        "watchMirror": true
+      }
+    },
+    "android": "ok"
+  },
+  {
     "name": "a long text",
     "content": {
       "title": "Mochi’s day",

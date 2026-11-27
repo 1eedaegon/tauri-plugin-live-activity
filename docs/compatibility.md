@@ -39,6 +39,8 @@ Android notification styles, each of which the device reports in `getCapabilitie
 | An action's unlock before its tap | Android 12 / API 31+ | `authenticationRequired` of an Android content's action; on Android 8 to 11 the tap of a locked device is dropped |
 | A watch's Ongoing Activity | An app on a watch with Wear OS 3 to 6 that has `androidx.wear:wear-ongoing` | Offered in the contract (`wearOngoingActivity`) and not reachable from a Tauri app, which Wear OS, having no web view, does not run |
 | An activity off a paired watch | Where the device offers `localOnly` (liveupdate 0.9) | `android.localOnly` of a start or `localOnly` of a content's presentation posts with `setLocalOnly(true)`, which asks Android not to bridge it; set later, it does not take back a watch's copy; elsewhere `UNSUPPORTED_FEATURE` |
+| An activity mirrored to a paired watch | Where the device offers `watchMirror` (liveupdate 0.11) | `android.watchMirror` of a start or `watchMirror` of a content's presentation posts a second notification, not ongoing, that a watch's bridge takes; beside `localOnly` `INVALID_INPUT`, elsewhere `UNSUPPORTED_FEATURE`. Not seen by this project on a watch |
+| Android pushes from the app's server | Android 8.0 / API 26+, where the device offers `pushLayer` (liveupdate 0.12) | A layout activity started, updated or ended by an FCM data message while the app may not run, with the plugin's feature `android-push`, the app's messaging service and the manifest's meta-data that names its library; what each did comes to `onPushed`. Not run here with real FCM |
 | Android links | Where the device offers `links` | A layout's `url` and a `link` open the app's URL; the app declares the scheme in an intent filter |
 | Android alerts of an update | Where the device offers `alert` | An update's alert alerts again; elsewhere the update is silent and the record names `alert` |
 | Android foreground placement | Where the device offers `foregroundPlacement` | `android.placement: 'foreground'`: the notification that the app's foreground service holds with `LiveUpdateForeground.attach`; one activity at a time |
@@ -134,7 +136,8 @@ for a device check.
   or after it is killed.
 - The plugin does not get around a dismissal by the user or a revoked permission by
   posting again. After a restart it reconciles stored IDs with the OS state.
-- Pushes are iOS only, and FCM and background work are not in this release: the plugin runs no background task.
+- Pushes on Android need the plugin's feature `android-push` and the app's own messaging service, and reach layout
+  activities only; the plugin runs no background task of its own.
   Since 0.2.0, buttons, links and toggles work in layout activities only.
 - From Android 15 a timer whose clock is more than 14 days old is refused with `INVALID_INPUT`: Android would
   show nothing of it and tell the app nothing.

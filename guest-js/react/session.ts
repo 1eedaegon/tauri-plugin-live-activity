@@ -21,7 +21,11 @@ export interface SessionOptions {
   readonly android?: LayoutAndroidOptions;
   /** Read at start: what only iOS reads, such as a transient activity. */
   readonly ios?: LayoutIosOptions;
-  /** Read at start: what the activity asks ActivityKit for, a push token or a channel (iOS). */
+  /**
+   * Read at start: what the activity asks ActivityKit for, a push token or a channel (iOS). It also makes the hook take
+   * pushed content: on Android, where the start ignores the member, give `'token'` to an activity that the app's server
+   * pushes to (the plugin's feature `android-push`).
+   */
   readonly push?: LayoutPush;
   /** False ends the activity, and true starts it again. Defaults to true. */
   readonly enabled?: boolean;

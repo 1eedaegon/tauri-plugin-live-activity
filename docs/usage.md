@@ -1061,6 +1061,20 @@ A phone's activity can ask to stay off the watches that would get it (liveupdate
 - `getCapabilities().androidPresentation.localOnly` says whether the device can; where it cannot, such a start or
   update answers `UNSUPPORTED_FEATURE` and posts nothing. iOS ignores the member.
 
+Or it can go to the watch on purpose (liveupdate 0.11): a mirror is a second notification of the activity that is not
+ongoing, so the watch's bridge takes it, while the activity's own stays on the phone, which lists the mirror too,
+quietly.
+
+- `android: { visibility, watchMirror: true }` in a start mirrors every snapshot
+  (`AndroidOptions::new(visibility).with_watch_mirror(true)` in Rust).
+- `watchMirror: true` in the presentation of an Android content mirrors its snapshot.
+- Beside `localOnly`, in the options or in a content, it is `INVALID_INPUT`: one keeps the activity off the watch and
+  the other sends it there.
+- `getCapabilities().androidPresentation.watchMirror` says whether the device can; where it cannot, such a start or
+  update answers `UNSUPPORTED_FEATURE` and posts nothing. iOS ignores the member.
+- The mirror has a channel of its own, named by the strings `liveupdate_watch_channel_name` and
+  `liveupdate_watch_channel_description`, which an app sets in its own `res/values` as it does the other channels'.
+
 ### Samsung Now Bar
 
 One UI shows a promoted notification in the Now Bar only for apps on Samsung's allow list, or
@@ -1266,7 +1280,7 @@ What happens to an activity outside the app's own calls comes as events:
 import { onPermissions, onStarted, onState, onUnknown } from 'tauri-plugin-live-activity';
 
 await onState(({ activityId, activityKey, state }) => { /* 'stale', 'ended', 'dismissed', … */ });
-await onStarted(({ record }) => { /* a layout activity began, also one a push started (iOS) */ });
+await onStarted(({ record }) => { /* a layout activity began, also one a push started */ });
 await onPermissions(permissions => { /* the person changed them in Settings (iOS) */ });
 await onUnknown(({ activityId, activityKey }) => { /* Android stored something this version has no event for */ });
 ```
@@ -1275,8 +1289,9 @@ await onUnknown(({ activityId, activityKey }) => { /* Android stored something t
 | --- | --- | --- | --- |
 | `live-activity://state` | `onState` | every new lifecycle state of an activity, of a template or a layout, while the app runs | `pending` for a scheduled start, `active`, `stale`, `ended` and `dismissed`, each once, for templates and layouts; `stale` arrives at the stale time while the app runs |
 | `live-activity://opened` | `onOpened` | none | the person opened the app from an activity's notification, by the notification or by an action that opens a URL |
-| `live-activity://started` | `onStarted` | a layout activity began: one the app started, or one a push started | none |
+| `live-activity://started` | `onStarted` | a layout activity began: one the app started, or one a push started | a layout activity that a push from the app's server started, with the feature `android-push` ([Pushes](#pushes)) |
 | `live-activity://permissions` | `onPermissions` | Live Activities or frequent pushes were turned on or off in Settings | none |
+| `live-activity://pushed` | `onPushed` | none | what a push from the app's server did, taken or refused, with the feature `android-push` ([Pushes](#pushes)) |
 | `live-activity://unknown` | `onUnknown` | none | Android stored something for an activity that this version has no event for: an event of a later version of the plugin, as after the app went back to an earlier one. It names the activity and nothing else |
 
 An event reaches only the listeners there are when it goes out. What happened while the app did not run, or before
@@ -1284,7 +1299,7 @@ the page listened, is in the records: `list()` and `listLayout()` at launch give
 `checkPermissions()` the permissions. On Android liveupdate stores the dismissal of a notification as it stores a tap, and the plugin reports it
 when it drains them: at once while the app's process lives, else when the app starts. The plugin's events
 thread also wakes at an activity's stale time and at the time of a scheduled start. The event names are public in Rust (`STATE_EVENT`, `STARTED_EVENT`,
-`PERMISSIONS_EVENT`, `OPENED_EVENT`, `UNKNOWN_EVENT`) for `app.listen`.
+`PERMISSIONS_EVENT`, `OPENED_EVENT`, `PUSHED_EVENT`, `UNKNOWN_EVENT`) for `app.listen`.
 
 An opening is in no record, and the one that launches the app is reported before its page has loaded. So the plugin
 keeps every opening until a page has handed it to a handler, the newest 16, and `onOpened` asks for them: its handler
@@ -1322,11 +1337,13 @@ details.
 ## Pushes
 
 On iOS a server can update an activity, end it, or start one, through APNs; the plugin asks ActivityKit for what the
-server needs and reports it, and the server builds the payloads with the activitykit crate's `push::Payload`
-(see [its usage guide](https://github.com/1eedaegon/activitykit-rs/blob/main/docs/usage.md#pushes)). The plugin
-holds no key and sends nothing. The app needs the Push Notifications capability (`aps-environment`); without it, as in
-the simulator, a start that asks for a token fails with `CONFIGURATION_REQUIRED`. Android takes no pushes and ignores
-the member.
+server needs and reports it. On Android it can do the same to a layout activity through FCM, with the plugin's feature
+`android-push` ([below](#pushes-on-android)). The server builds its messages with the liveactivity crate's
+`push::Message`, one for every target, or for APNs alone with activitykit's `push::Payload`
+([liveactivity's server pushes](https://github.com/1eedaegon/liveactivity-rs/blob/main/docs/server-push.md)). The
+plugin holds no key and sends nothing. On iOS the app needs the Push Notifications capability (`aps-environment`);
+without it, as in the simulator, a start that asks for a token fails with `CONFIGURATION_REQUIRED`. Android ignores
+the start's member `push`.
 
 ```ts
 import { onPushToken, onPushToStartToken, onUpdated, startLayout } from 'tauri-plugin-live-activity';
@@ -1367,9 +1384,60 @@ delays the taps and the events behind it. One that panics is caught, so that the
 JavaScript go on, but Tauri then delivers nothing more to any Rust listener of the app: a listener must not panic.
 Rust reads the tokens with `push_tokens()`.
 
+### Where the server sends
+
+The server keeps, beside an activity's key, where its pushes go: the JSON that the liveactivity crate reads as its
+`push::Target` (`PushTarget` in TypeScript and in the plugin's Rust). `pushTarget(event)` makes it of a token's event:
+
+```ts
+import { onPushToken, onPushToStartToken, pushTarget } from 'tauri-plugin-live-activity';
+
+await onPushToken(event => send({ key: event.activityKey, target: pushTarget(event) })); // { type: 'apnsActivity', token }
+await onPushToStartToken(event => send({ target: pushTarget(event) }));                  // { type: 'apnsPushToStart', token }
+```
+
+The two others the app makes itself: `{ type: 'apnsChannel', channel }` of a channel its server made at APNs, and
+`{ type: 'fcm', token }` of the registration token that Firebase Messaging gives the app on Android.
+
+### Pushes on Android
+
+liveupdate's push path takes a data message from the app's server in a process that the message started, while the
+app may not run, and hands the member `liveupdate.layer` to the liveactivity crate's push entry, which runs it as the
+app's `startLayout`, `updateLayout` or `endLayout` of the key, with the layouts the plugin keeps. It needs three
+things of the app, and the plugin cannot do them for it:
+
+1. Build the plugin with its feature `android-push`:
+   `tauri-plugin-live-activity = { version = "0.16", features = ["android-push"] }`. It puts the push entry in the
+   app's library; without it the capability `push` stays `unsupported` on Android.
+2. A messaging service, Firebase's or another provider's, that hands each data message over and stops there when it
+   was liveupdate's: `if (LiveUpdatePush.handle(this, message.data)) return`. It runs in the app's main process.
+3. The meta-data `io.github.eedaegon.liveupdate.LIBRARY` in the manifest, naming the app's Rust library as
+   `System.loadLibrary` takes it (`app_lib` in a new Tauri app), so that a process that a message started can load it.
+
+[Android integration](android-integration.md#pushes-from-the-apps-server) has the code. The server sends to
+`{ type: 'fcm', token }`. What each push did comes to `onPushed`, taken or refused:
+
+```ts
+import { onPushed } from 'tauri-plugin-live-activity';
+
+await onPushed(({ activityKey, command, revision, code }) => {
+  // command: 'start', 'update' or 'end'; code: the contract's error code of a refusal, absent when it was taken
+});
+```
+
+A start or an update that was taken comes to `onStarted` or `onUpdated` as well, after its `onPushed`, with the
+activity's record, as on iOS, when the plugin's store holds the activity; `onPushed` always comes. The plugin reports them when it drains Android's stored events: at once while the app's process lives, else when
+the app starts. `getCapabilities().androidPresentation` says what the device's liveupdate offers: `push`, its push path,
+and `pushLayer`, the hand-over to layout activities; `getCapabilities().push` is `supported` on Android where
+`pushLayer` is and the app built the feature. Only layout activities take pushes on Android, not those of a template.
+
+### React
+
 With React, `useLiveActivity` listens for pushes when its options carry `push`, keeps the activity's `pushToken` in
 its state and takes pushed content as its record; the component's values stand as last sent, and their next change
-goes above the pushed revision. A subscription the plugin refuses lands in `error`.
+goes above the pushed revision. A subscription the plugin refuses lands in `error`. On Android, where the start
+ignores `push`, give `push: 'token'` to a hook whose activity the app's server pushes to: the hook then takes the
+pushed content, and its next change goes above it instead of answering `STALE_REVISION`.
 
 ## TSX and React
 

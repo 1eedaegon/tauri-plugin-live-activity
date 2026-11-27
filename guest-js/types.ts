@@ -19,7 +19,10 @@ export interface Capabilities {
   readonly nativeLiveActivity: FeatureSupport;
   /** Layout activities of request contract v2. */
   readonly layout: FeatureSupport;
-  /** Pushes: tokens, channels and push-to-start (iOS). */
+  /**
+   * Pushes: tokens, channels and push-to-start on iOS; on Android, layout activities by FCM where the app built the
+   * plugin's feature `android-push` and the device's liveupdate offers `pushLayer`.
+   */
   readonly push: FeatureSupport;
   readonly maxPayloadBytes: number;
   /**
@@ -94,6 +97,23 @@ export interface AndroidPresentationSupport {
    * nothing.
    */
   readonly localOnly: boolean;
+  /**
+   * Whether liveupdate's push path is in the app's Android library: a data message from the app's server, handed
+   * over by `LiveUpdatePush.handle`, reaches liveupdate while the app does not run (liveupdate 0.10).
+   */
+  readonly push: boolean;
+  /**
+   * Whether that path hands a message's member `liveupdate.layer` to the plugin's layout activities (liveupdate
+   * 0.12). The capability `push` is `supported` on Android only where this is true and the app built the plugin with
+   * its feature `android-push`.
+   */
+  readonly pushLayer: boolean;
+  /**
+   * Whether an activity can be mirrored to a paired watch (a start's `android.watchMirror`, an Android content's
+   * `presentation.watchMirror`). Where it is false such a start or update answers `UNSUPPORTED_FEATURE` and posts
+   * nothing.
+   */
+  readonly watchMirror: boolean;
 }
 
 /** What an iPhone runs of the features after the first Live Activities. */
@@ -326,6 +346,13 @@ export interface AndroidPresentation {
    * (`localOnly` in the capabilities) answers `UNSUPPORTED_FEATURE` and posts nothing.
    */
   readonly localOnly?: boolean;
+  /**
+   * `true`: this snapshot is mirrored to a paired watch by a second notification, which is not ongoing, so the
+   * watch's bridge takes it; the activity's own notification stays on the phone. Absent, the watch gets no mirror
+   * unless the start asks for one (`android.watchMirror`). Not beside `localOnly`: `INVALID_INPUT`. A device that does
+   * not offer it (`watchMirror` in the capabilities) answers `UNSUPPORTED_FEATURE` and posts nothing.
+   */
+  readonly watchMirror?: boolean;
 }
 
 export type AndroidStyle =
@@ -873,6 +900,13 @@ export interface LayoutAndroidOptions {
    */
   readonly localOnly?: boolean;
   /**
+   * `true`: every snapshot of the activity is mirrored to a paired watch by a second notification, which is not
+   * ongoing, so the watch's bridge takes it, whatever an Android content says. Absent, no mirror unless a content asks
+   * for one. Not beside `localOnly`: `INVALID_INPUT`. A device that does not offer it (`watchMirror` in the
+   * capabilities) answers `UNSUPPORTED_FEATURE` and posts nothing; iOS ignores it.
+   */
+  readonly watchMirror?: boolean;
+  /**
    * What runs the tap of a button or a toggle of the lock screen tree, by its `actionId`: a service or a receiver
    * of the app (`actionTargets`). Each key names a control of the tree, else `INVALID_INPUT` on every platform. iOS
    * ignores it.
@@ -1069,6 +1103,35 @@ export interface HandledEvent {
   /** The stored tap's sequence and time. */
   readonly tap?: Tap;
 }
+
+/**
+ * What a push from the app's server did (Android, with the plugin's feature `android-push`): liveupdate's push path
+ * ran it while the app may not have run, and the plugin reports it at its next look. A push is taken or refused as
+ * the call it stands for.
+ */
+export interface PushedEvent {
+  /** Handle of the activity the push acted on; absent when it named no live activity. */
+  readonly activityId?: string;
+  /** The key the push named. */
+  readonly activityKey: string;
+  /** What the push asked for. */
+  readonly command: 'start' | 'update' | 'end';
+  /** The revision of the push's snapshot; absent for an end. */
+  readonly revision?: number;
+  /** Why the push was refused, an error code of the contract; absent when it did what it asked. */
+  readonly code?: string;
+}
+
+/**
+ * Where a server sends pushes: the JSON that the app hands its server beside an activity's key, which the liveactivity
+ * crate's `push::Target` reads on the server. `pushTarget` makes the APNs ones of a token's event; the app makes the
+ * FCM one of the token that Firebase Messaging gives it, and the channel one of a channel its server made.
+ */
+export type PushTarget =
+  | { readonly type: 'apnsActivity'; readonly token: string }
+  | { readonly type: 'apnsPushToStart'; readonly token: string }
+  | { readonly type: 'apnsChannel'; readonly channel: string }
+  | { readonly type: 'fcm'; readonly token: string };
 
 /**
  * Something that Android stored for an activity and this version has no event for (Android): liveupdate read what

@@ -1,3 +1,29 @@
+# 0.16.0 validation
+
+0.16.0 moves the plugin to liveactivity 0.16.0, with liveupdate 0.12.0, from 0.12.1 and 0.9.0; activitykit stays
+0.9.1. It adds Android pushes behind the feature `android-push` (TP-PUSH-10), `onPushed`, `pushTarget` and the type
+`PushTarget` (TP-PUSH-9), and an activity mirrored to a paired watch (TP-ANDROID-26).
+
+Checked before the tag:
+
+- `cargo test`, `cargo clippy -D warnings` with and without `--features android-push`, and rustdoc.
+- `cargo clippy --target aarch64-linux-android --lib` with and without `android-push`, which CI now runs as well.
+- `npm test` with every suite passing, and `npm run typecheck`.
+- `tools/spec-coverage.sh`: 109 requirements.
+- `node tools/sync-liveupdate.ts`: the Android library is liveupdate 0.12.0's, with `LiveUpdatePush.kt` and the watch
+  mirror's strings; the consumer rules keep every class that liveupdate's own keep (`LiveUpdateBridge`, `LiveUpdatePush`).
+- Both lockfiles with `cargo metadata --locked --offline`.
+
+Not proven:
+
+- No test here receives an FCM message. The demo has no messaging service and no Firebase project. The push entry and
+  its outcomes are liveactivity's and liveupdate's, checked in their tests; the plugin's tests cover the event
+  (`live-activity://pushed`), the capabilities' members and the feature's build.
+- No watch has shown a mirror here. The S23's paired Galaxy Watch could, and it is held by another session.
+- The simulator suites do not touch Android; they run to show that iOS is unchanged.
+
+The record of 0.15.1 follows.
+
 # 0.15.1 validation
 
 0.15.1 is a patch release (#79). It moves the plugin to liveactivity 0.12.1, with activitykit 0.9.1, from 0.12.0 and

@@ -15,7 +15,8 @@ import { LAYOUT_FIXTURES, contract } from '../tools/activitykit.ts';
 import * as activity from '../dist-js/index.js';
 import type {
   ActionEvent, ActivityRecord, ErrorCode, Layout, LayoutActivityRecord, LayoutBound, LayoutEndInput, LayoutNode, LayoutPush,
-  LayoutStartInput, LayoutUpdateInput, OpenedEvent, Permissions, ProgressSnapshot, PushToStartTokenEvent, PushTokenEvent, StartInput,
+  LayoutStartInput, LayoutUpdateInput, OpenedEvent, Permissions, ProgressSnapshot, PushedEvent, PushTarget, PushToStartTokenEvent,
+  PushTokenEvent, StartInput,
   StartedEvent, StateEvent, UpdateInput, UpdatedEvent,
 } from '../dist-js/index.js';
 import { isRecord, list, member, number, present, record as jsonObject, text, unchecked } from './support.ts';
@@ -53,8 +54,11 @@ interface NativeCall {
   readonly payload: InvokeArgs | undefined;
 }
 
-/** The functions of the API, which a table of tests calls by name: every export but the builders of `layout`. */
-type Commands = Omit<typeof activity, 'layout'>;
+/**
+ * The functions of the API, which a table of tests calls by name: every export but the builders of `layout` and
+ * `pushTarget`, which asks the plugin nothing.
+ */
+type Commands = Omit<typeof activity, 'layout' | 'pushTarget'>;
 /** The arguments that each of them takes. */
 type CommandArgs = { readonly [Name in keyof Commands]: Parameters<Commands[Name]> };
 /**
@@ -279,6 +283,37 @@ test('onPushToken, onPushToStartToken and onUpdated listen to their events', asy
   await unlisten();
   await emit('live-activity://push-token', { ...token, token: 'later' });
   assert.deepEqual(tokens, [token]);
+});
+
+// TP-PUSH-9
+test("pushTarget makes the target of APNs for a token's event, which the server's liveactivity reads", () => {
+  const activityToken: PushTokenEvent = { activityId: 'la-1', activityKey: 'job:1', token: '0a1b' };
+  const startToken: PushToStartTokenEvent = { token: 'ff00' };
+  const targets: PushTarget[] = [activity.pushTarget(activityToken), activity.pushTarget(startToken)];
+  assert.deepEqual(targets, [{ type: 'apnsActivity', token: '0a1b' }, { type: 'apnsPushToStart', token: 'ff00' }]);
+  // An activity's event without its key is still the activity's.
+  assert.deepEqual(activity.pushTarget({ activityId: 'la-2', token: '0c0d' }), { type: 'apnsActivity', token: '0c0d' });
+  // The JSON that crosses to the server is the target and nothing of the event.
+  assert.equal(JSON.stringify(activity.pushTarget(activityToken)), '{"type":"apnsActivity","token":"0a1b"}');
+});
+
+// TP-PUSH-10
+test('onPushed hands what each Android push did to its handler until it is unsubscribed', async t => {
+  t.mock.method(console, 'warn', () => {});
+  mockIPC(() => undefined, { shouldMockEvents: true });
+  const heard: PushedEvent[] = [];
+  const unlisten = await activity.onPushed(event => heard.push(event));
+  const taken: PushedEvent = { activityId: layoutRecord.id, activityKey: layoutInput.activityKey, command: 'update', revision: 4 };
+  const refused: PushedEvent = { activityKey: 'job:3', command: 'end', code: 'NOT_FOUND' };
+  await emit('live-activity://pushed', taken);
+  await emit('live-activity://pushed', refused);
+  // Another event is none of its own.
+  await emit('live-activity://updated', { record: layoutRecord });
+  assert.deepEqual(heard, [taken, refused]);
+
+  await unlisten();
+  await emit('live-activity://pushed', taken);
+  assert.equal(heard.length, 2);
 });
 
 // TP-EVENT-1
