@@ -10,7 +10,7 @@ import { snackSteps } from './mochi.ts';
 
 export type LayoutExampleId =
   | 'text' | 'symbols' | 'image' | 'paths' | 'gauge' | 'progress' | 'timer' | 'stacks' | 'buttons' | 'switch' | 'link'
-  | 'styles' | 'staleness' | 'later' | 'island' | 'small' | 'android' | 'nowBar';
+  | 'styles' | 'staleness' | 'later' | 'island' | 'small' | 'android' | 'nowBar' | 'location';
 
 export interface LayoutExample {
   readonly id: LayoutExampleId;
@@ -575,10 +575,104 @@ const nowBarExample: LayoutExample = {
   next: nextSnack,
 };
 
+/** A place on the Earth, in degrees. */
+export interface Place {
+  readonly latitude: number;
+  readonly longitude: number;
+}
+
+/** Where Mochi's walk begins before the device says where it is: Seoul Plaza. */
+export const walkStart: Place = { latitude: 37.5663, longitude: 126.9779 };
+/** How far one step of the walk goes when the app moves Mochi itself, in degrees: some 40 m north and 30 m east. */
+const walkStep: Place = { latitude: 0.0004, longitude: 0.0003 };
+/** Four decimals of a degree: some 11 m, as far as the card cares. */
+const DECIMALS = 4;
+
+/** A coordinate as the card shows it, with its hemisphere: `37.5663° N`. */
+export function coordinate(value: number, positive: string, negative: string): string {
+  return `${Math.abs(value).toFixed(DECIMALS)}° ${value < 0 ? negative : positive}`;
+}
+
+/** The values of the location example at `place`. */
+export function placeValues(place: Place): LayoutValues {
+  return { latitude: coordinate(place.latitude, 'N', 'S'), longitude: coordinate(place.longitude, 'E', 'W') };
+}
+
+/** The place that the values of the location example show, or undefined when they show none. */
+export function placeOf(values: LayoutValues): Place | undefined {
+  const read = (value: LayoutValues[string] | undefined, negative: string): number | undefined => {
+    const match = typeof value === 'string' ? /^(\d+(?:\.\d+)?)° ([NSEW])$/.exec(value) : null;
+    if (match === null) return undefined;
+    const degrees = Number(match[1]);
+    return match[2] === negative ? -degrees : degrees;
+  };
+  const latitude = read(values.latitude, 'S');
+  const longitude = read(values.longitude, 'W');
+  return latitude === undefined || longitude === undefined ? undefined : { latitude, longitude };
+}
+
+/**
+ * The snapshot of the location example at `place`, above the record's revision; undefined when the card would show
+ * what it shows already, so that a position that moved less than the card's precision sends nothing.
+ */
+export function placeSnapshot(record: Pick<LayoutActivityRecord, 'snapshot'>, place: Place): LayoutSnapshot | undefined {
+  const values = { ...record.snapshot.values, ...placeValues(place) };
+  const same = Object.keys(values).every(key => values[key] === record.snapshot.values[key]);
+  return same ? undefined : { revision: record.snapshot.revision + 1, values };
+}
+
+const locationExample: LayoutExample = {
+  id: 'location',
+  name: 'Location',
+  feature: 'Where the phone is, from tauri-plugin-geolocation: each new position updates the same activity in place.',
+  android: 'The notification shows the title and the latitude, updated in place, and lists layout.symbol and layout.island.',
+  start: () => ({
+    activityKey: 'mochi:location', schemaVersion, fallback,
+    layout: {
+      lockScreen: hstack([
+        symbol('location.fill', { style: 'pin' }),
+        vstack([
+          bound('title', { style: 'title' }),
+          hstack([bound('latitude', { style: 'place' }), bound('longitude', { style: 'place' })], { spacing: 10 }),
+        ], { alignment: 'leading', spacing: 4 }),
+        spacer(),
+      ], { spacing: 12, style: 'card' }),
+      island: {
+        expanded: {
+          leading: symbol('location.fill', { style: 'islandPin' }),
+          center: bound('title', { style: 'islandTitle' }),
+          bottom: hstack([
+            bound('latitude', { style: 'islandPlace' }), spacer(), bound('longitude', { style: 'islandPlace' }),
+          ]),
+        },
+        compactLeading: symbol('location.fill', { style: 'islandPin' }),
+        compactTrailing: bound('latitude', { style: 'islandPlace' }),
+        minimal: symbol('location.fill', { style: 'islandPin' }),
+      },
+      background,
+      keyline: mint,
+    },
+    styles: {
+      card, title,
+      pin: { size: 26, color: coral },
+      place: { font: 'subheadline', monospacedDigit: true, color: teal, lineLimit: 1 },
+      islandPin: { color: mint },
+      islandTitle: { font: 'headline', design: 'rounded', color: 'white', lineLimit: 1 },
+      islandPlace: { font: 'caption', weight: 'semibold', monospacedDigit: true, color: mint, lineLimit: 1 },
+    },
+    snapshot: { revision: 0, values: { title: 'Mochi’s walk', ...placeValues(walkStart) } },
+  }),
+  // Without a position from the device, a step of the walk.
+  next: values => {
+    const place = placeOf(values) ?? walkStart;
+    return { ...values, ...placeValues({ latitude: place.latitude + walkStep.latitude, longitude: place.longitude + walkStep.longitude }) };
+  },
+};
+
 export const layoutExamples: readonly LayoutExample[] = [
   textExample, symbolsExample, imageExample, pathsExample, gaugeExample, progressExample, timerExample,
   stacksExample, buttonsExample, switchExample, linkExample, stylesExample, stalenessExample, laterExample,
-  islandExample, smallExample, androidExample, nowBarExample,
+  islandExample, smallExample, androidExample, nowBarExample, locationExample,
 ];
 
 export function findLayoutExample(id: string): LayoutExample | undefined {

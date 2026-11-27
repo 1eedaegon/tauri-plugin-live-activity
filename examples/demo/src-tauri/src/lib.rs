@@ -34,6 +34,8 @@ fn self_test_requested() -> bool {
 pub fn run() {
     let built = tauri::Builder::default()
         .plugin(tauri_plugin_live_activity::init())
+        // The device's position, for the location example.
+        .plugin(tauri_plugin_geolocation::init())
         .invoke_handler(tauri::generate_handler![
             save_self_test_report,
             self_test_requested

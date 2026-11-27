@@ -52,6 +52,7 @@ targets:
       path: live-activity-demo_iOS/Info.plist
       properties:
         NSSupportsLiveActivities: true
+        NSLocationWhenInUseUsageDescription: Mochi’s walk shows where the phone is on the Lock Screen and in the Dynamic Island.
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIRequiredDeviceCapabilities: [arm64, metal]
