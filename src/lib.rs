@@ -66,7 +66,7 @@ pub use builder::Builder;
 pub use config::{AndroidConfig, Config, Receipts};
 pub use events::{
     ACTION_EVENT, HANDLED_EVENT, OPENED_EVENT, PERMISSIONS_EVENT, PUSH_TO_START_TOKEN_EVENT,
-    PUSH_TOKEN_EVENT, STARTED_EVENT, STATE_EVENT, UNKNOWN_EVENT, UPDATED_EVENT,
+    PUSH_TOKEN_EVENT, PUSHED_EVENT, STARTED_EVENT, STATE_EVENT, UNKNOWN_EVENT, UPDATED_EVENT,
 };
 pub use layers::BackendLayer;
 /// The activitykit crate that the plugin builds with, for what a layout is built of beside the contract's types:
@@ -78,6 +78,9 @@ pub use liveactivity::contract::*;
 /// The liveupdate crate that the plugin builds with, for what the parts of an Android content take beside the
 /// contract's types: its `Timer` for a `TimerStyle`, whose name the contract gives to the template's timer.
 pub use liveactivity::liveupdate;
+/// Where a server sends pushes: the JSON that the app hands its server beside an activity's key, as `pushTarget` makes
+/// it in JavaScript. The server's side of liveactivity reads it as its `push::Target`.
+pub use liveactivity::push::Target as PushTarget;
 /// What a backend of the app's own or a [`BackendLayer`] implements and gets: the bridge's backend interface, and the
 /// events that a backend sends through the context that `attach` gives it.
 pub use liveactivity::{BackendContext, BackendFuture, Event, EventSink, LiveActivityBackend};

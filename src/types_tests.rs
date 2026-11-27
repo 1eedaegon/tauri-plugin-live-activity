@@ -304,7 +304,7 @@ fn the_typescript_timer_style_is_what_rust_reads_and_writes() {
     assert_eq!(members(&ts, "Timer"), written(timer, timer));
 }
 
-// TP-JS-7, TP-ANDROID-20, TP-ANDROID-22, TP-ANDROID-24
+// TP-JS-7, TP-ANDROID-20, TP-ANDROID-22, TP-ANDROID-24, TP-ANDROID-26
 #[test]
 fn the_typescript_options_of_a_start_on_android_are_what_rust_reads_and_writes() {
     let ts = types();
@@ -328,11 +328,13 @@ fn the_typescript_options_of_a_start_on_android_are_what_rust_reads_and_writes()
     let mut full = bare.clone();
     full.public_version = Some(version);
     full.placement = Some(AndroidPlacement::Foreground);
-    // Carried unless it says otherwise, and written only then; kept off a paired watch, written only then; and the
-    // targets of its buttons, written when there are.
+    // Carried unless it says otherwise, and written only then; kept off a paired watch or mirrored to it, each written
+    // only when given (the contract takes no start with both, but the models write what they hold); and the targets of
+    // its buttons, written when there are.
     let full = full
         .with_wear_ongoing_activity(false)
         .with_local_only(true)
+        .with_watch_mirror(true)
         .with_target(
             "record",
             crate::ActionTarget::new(
@@ -351,7 +353,8 @@ fn the_typescript_options_of_a_start_on_android_are_what_rust_reads_and_writes()
     );
 }
 
-// TP-JS-7, TP-ANDROID-17, TP-ACTION-4, TP-IOS-20, TP-EVENT-5, TP-ANDROID-22, TP-ANDROID-24
+// TP-JS-7, TP-ANDROID-17, TP-ACTION-4, TP-IOS-20, TP-EVENT-5, TP-ANDROID-22, TP-ANDROID-24, TP-ANDROID-26,
+// TP-PUSH-10
 #[test]
 fn the_typescript_records_have_the_members_that_the_rust_models_write() {
     let ts = types();
@@ -467,6 +470,29 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
         ..handled.clone()
     };
     assert_eq!(members(&ts, "HandledEvent"), written(&handled, &bare));
+    // What an Android push did: the activity and the revision when there are, the code of a refusal.
+    let pushed = crate::PushedEvent {
+        activity_id: Some("a".into()),
+        activity_key: "k".into(),
+        command: crate::PushCommand::Start,
+        revision: Some(0),
+        code: Some("UNSUPPORTED_FEATURE".into()),
+    };
+    let bare = crate::PushedEvent {
+        activity_id: None,
+        revision: None,
+        code: None,
+        ..pushed.clone()
+    };
+    assert_eq!(members(&ts, "PushedEvent"), written(&pushed, &bare));
+    assert_eq!(
+        literals(&declared(&ts, "PushedEvent", "command")),
+        names(&[
+            crate::PushCommand::Start,
+            crate::PushCommand::Update,
+            crate::PushCommand::End
+        ])
+    );
     // What an iPhone runs, and what runs a tap on Android.
     let ios = crate::IosCapabilities::default();
     assert_eq!(members(&ts, "IosSupport"), written(ios, ios));
@@ -546,4 +572,55 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
         union(&ts, "AndroidSemanticStyle"),
         names(&every_semantic_style())
     );
+}
+
+// TP-PUSH-9
+#[test]
+fn the_typescript_push_targets_are_the_types_of_liveactivitys_target_with_its_members() {
+    let ts = types();
+    // A union of object types, one to a line, which ends at the blank line after it.
+    let start = ts.find("export type PushTarget =").unwrap();
+    let rest = &ts[start..];
+    let written_union = &rest[..rest.find("\n\n").unwrap()];
+    let declared: BTreeSet<String> = written_union
+        .lines()
+        .filter_map(|line| line.split("type: '").nth(1))
+        .filter_map(|rest| rest.split('\'').next())
+        .map(str::to_owned)
+        .collect();
+    let targets: Vec<crate::PushTarget> = [
+        serde_json::json!({"type":"apnsActivity","token":"0a1b"}),
+        serde_json::json!({"type":"apnsPushToStart","token":"ff00"}),
+        serde_json::json!({"type":"apnsChannel","channel":"dHJpcHM="}),
+        serde_json::json!({"type":"fcm","token":"t"}),
+    ]
+    .into_iter()
+    .map(|target| serde_json::from_value(target).unwrap())
+    .collect();
+    let types: BTreeSet<String> = targets
+        .iter()
+        .map(|target| {
+            serde_json::to_value(target).unwrap()["type"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        })
+        .collect();
+    assert_eq!(declared, types);
+    // Each member of the union declares the members that Rust writes of its target, and no other.
+    for target in &targets {
+        let value = serde_json::to_value(target).unwrap();
+        let kind = value["type"].as_str().unwrap();
+        let line = written_union
+            .lines()
+            .find(|line| line.contains(&format!("'{kind}'")))
+            .unwrap_or_else(|| panic!("no member {kind}"));
+        let names: BTreeSet<String> = line
+            .split("readonly ")
+            .skip(1)
+            .map(|member| member.split(':').next().unwrap().trim().to_owned())
+            .collect();
+        let keys: BTreeSet<String> = value.as_object().unwrap().keys().cloned().collect();
+        assert_eq!(names, keys, "{kind}");
+    }
 }

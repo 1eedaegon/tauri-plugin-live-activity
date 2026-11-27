@@ -68,6 +68,7 @@ test('unwrap and expect are denied outside tests, in the crate and the demo, and
     'cargo clippy --locked --all-targets -- -D warnings',
     'cargo clippy --locked --target aarch64-apple-ios --lib -- -D warnings',
     'cargo clippy --locked --target aarch64-linux-android --lib -- -D warnings',
+    'cargo clippy --locked --target aarch64-linux-android --lib --features android-push -- -D warnings',
     'cargo clippy --locked --manifest-path examples/demo/src-tauri/Cargo.toml --all-targets -- -D warnings',
   ]) assert.ok(workflow.includes(run), run);
   // The Rust that a document tells an app to write.

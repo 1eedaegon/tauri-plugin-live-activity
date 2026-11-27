@@ -21,7 +21,7 @@ pub const PUSH_TO_START_TOKEN_EVENT: &str = "live-activity://push-to-start-token
 /// The Tauri event that carries an [`UpdatedEvent`](crate::UpdatedEvent).
 pub const UPDATED_EVENT: &str = "live-activity://updated";
 /// The Tauri event that carries a [`StartedEvent`](crate::StartedEvent): a layout activity began, one the app
-/// started or one a push started (iOS).
+/// started or one a push started (iOS), or one that a push from the app's server started on Android (`android-push`).
 pub const STARTED_EVENT: &str = "live-activity://started";
 /// The Tauri event that carries a [`StateEvent`](crate::StateEvent): a new lifecycle state of an activity. iOS
 /// reports the changes ActivityKit tells of while the app runs. Android reports the state an activity has when the
@@ -40,6 +40,12 @@ pub const PERMISSIONS_EVENT: &str = "live-activity://permissions";
 /// The Tauri event that carries an [`UnknownEvent`](crate::UnknownEvent): something that Android stored for an
 /// activity and this version has no event for. It names the activity and nothing else.
 pub const UNKNOWN_EVENT: &str = "live-activity://unknown";
+
+/// The Tauri event that carries a [`PushedEvent`](crate::PushedEvent) (Android): what a push from the app's server did,
+/// taken or refused. liveupdate's push path runs it while the app may not run, and the plugin reports it at its next
+/// look; a start or an update that was taken also comes as [`STARTED_EVENT`] or [`UPDATED_EVENT`] with the activity's
+/// record. It comes only to an app built with the plugin's feature `android-push`.
+pub const PUSHED_EVENT: &str = "live-activity://pushed";
 
 /// How long a tap waits for the handlers of `on_action`: what iOS gives a tap's intent.
 const HANDLERS: Duration = Duration::from_secs(4);
@@ -100,6 +106,9 @@ pub(crate) fn sink_within<R: Runtime>(
             }
             Event::Handled(handled) => {
                 let _ = app.emit(HANDLED_EVENT, handled);
+            }
+            Event::Pushed(pushed) => {
+                let _ = app.emit(PUSHED_EVENT, pushed);
             }
             // A kind that a later liveactivity adds, whose enum may grow: the plugin has no name for it yet.
             _ => {}

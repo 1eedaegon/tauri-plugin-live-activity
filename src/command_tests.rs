@@ -753,12 +753,12 @@ fn a_channel_that_is_no_base64_is_refused_before_the_native_side() {
     });
 }
 
-// TP-PUSH-2, TP-PUSH-4
+// TP-PUSH-2, TP-PUSH-4, TP-PUSH-10
 #[test]
 fn push_events_reach_tauri_listeners() {
     use crate::{
-        PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT, PushToStartTokenEvent, PushTokenEvent,
-        UPDATED_EVENT, UpdatedEvent,
+        PUSH_TO_START_TOKEN_EVENT, PUSH_TOKEN_EVENT, PUSHED_EVENT, PushCommand,
+        PushToStartTokenEvent, PushTokenEvent, PushedEvent, UPDATED_EVENT, UpdatedEvent,
     };
     use liveactivity::Event;
     use tauri::Listener;
@@ -767,7 +767,12 @@ fn push_events_reach_tauri_listeners() {
         .build(mock_context(noop_assets()))
         .unwrap();
     let (sender, heard) = std::sync::mpsc::channel();
-    for name in [PUSH_TOKEN_EVENT, PUSH_TO_START_TOKEN_EVENT, UPDATED_EVENT] {
+    for name in [
+        PUSH_TOKEN_EVENT,
+        PUSH_TO_START_TOKEN_EVENT,
+        UPDATED_EVENT,
+        PUSHED_EVENT,
+    ] {
         let sender = sender.clone();
         app.listen(name, move |event| {
             let payload: Value = serde_json::from_str(event.payload()).unwrap();
@@ -791,6 +796,21 @@ fn push_events_reach_tauri_listeners() {
         }),
         Event::Updated(UpdatedEvent {
             record: record.clone(),
+        }),
+        // What an Android push did: an update taken, and an end refused for want of a live activity.
+        Event::Pushed(PushedEvent {
+            activity_id: Some("la-2".into()),
+            activity_key: "job:2".into(),
+            command: PushCommand::Update,
+            revision: Some(4),
+            code: None,
+        }),
+        Event::Pushed(PushedEvent {
+            activity_id: None,
+            activity_key: "job:3".into(),
+            command: PushCommand::End,
+            revision: None,
+            code: Some("NOT_FOUND".into()),
         }),
     ];
     // The sink of the backend's events, as the plugin connects it.
@@ -818,6 +838,14 @@ fn push_events_reach_tauri_listeners() {
             (
                 UPDATED_EVENT,
                 json!({"record": serde_json::to_value(&record).unwrap()})
+            ),
+            (
+                PUSHED_EVENT,
+                json!({"activityId":"la-2","activityKey":"job:2","command":"update","revision":4})
+            ),
+            (
+                PUSHED_EVENT,
+                json!({"activityKey":"job:3","command":"end","code":"NOT_FOUND"})
             ),
         ]
     );

@@ -495,3 +495,87 @@ fn an_activity_off_a_paired_watch_is_a_boolean_in_a_start_and_in_a_content() {
         option(json!(true))["android"]
     );
 }
+
+// TP-ANDROID-26
+#[test]
+fn a_mirror_to_a_paired_watch_is_a_boolean_and_never_beside_local_only() {
+    let start = |android: Value, presentation: Value| {
+        let mut content = json!({"title":"Ride","status":"On the way","presentation":{"style":{"kind":"standard"}}});
+        content["presentation"]
+            .as_object_mut()
+            .unwrap()
+            .extend(presentation.as_object().unwrap().clone());
+        let mut options = json!({"visibility":"private"});
+        options
+            .as_object_mut()
+            .unwrap()
+            .extend(android.as_object().unwrap().clone());
+        let request = json!({"activityKey":"ride:7","schemaVersion":2,"fallback":"notification",
+            "layout":{"lockScreen":{"type":"text","bind":"eta"}},"android":options,
+            "snapshot":{"revision":0,"values":{"eta":"4 min"},"android":content}});
+        validate_request("start_layout", request).map_err(|error| error.code)
+    };
+    let none = json!({});
+    // On, and off, in the options of the start and in a content's presentation.
+    for value in [json!(true), json!(false)] {
+        assert_eq!(start(json!({"watchMirror":value}), none.clone()), Ok(()));
+        assert_eq!(start(none.clone(), json!({"watchMirror":value})), Ok(()));
+    }
+    for wrong in [json!("yes"), json!(1), Value::Null] {
+        assert_eq!(
+            start(json!({"watchMirror":wrong}), none.clone()),
+            Err("INVALID_INPUT".to_owned()),
+            "{wrong}"
+        );
+        assert_eq!(
+            start(none.clone(), json!({"watchMirror":wrong})),
+            Err("INVALID_INPUT".to_owned()),
+            "{wrong}"
+        );
+    }
+    // One keeps the activity off the watch and the other sends it there: never both, in the options or in a content.
+    assert_eq!(
+        start(json!({"watchMirror":true,"localOnly":true}), none.clone()),
+        Err("INVALID_INPUT".to_owned())
+    );
+    assert_eq!(
+        start(none.clone(), json!({"watchMirror":true,"localOnly":true})),
+        Err("INVALID_INPUT".to_owned())
+    );
+    // What a start that mirrors the activity is to Rust: the options built on their constructor, written as the request.
+    let options = tauri_plugin_live_activity::AndroidOptions::new(
+        tauri_plugin_live_activity::AndroidVisibility::Private,
+    )
+    .with_watch_mirror(true);
+    assert_eq!(
+        serde_json::to_value(options).unwrap(),
+        json!({"visibility":"private","watchMirror":true})
+    );
+}
+
+// TP-PUSH-9
+#[test]
+fn each_push_target_of_the_typescript_declarations_is_the_json_of_liveactivitys_target() {
+    use tauri_plugin_live_activity::PushTarget;
+    // The four members of `PushTarget` in guest-js/types.ts, as `pushTarget` and an app make them.
+    for target in [
+        json!({"type":"apnsActivity","token":"0a1b"}),
+        json!({"type":"apnsPushToStart","token":"ff00"}),
+        json!({"type":"apnsChannel","channel":"dHJpcHM="}),
+        json!({"type":"fcm","token":"fcm-registration-token"}),
+    ] {
+        let read: PushTarget = serde_json::from_value(target.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&read).unwrap(), target);
+    }
+    // A target of another type, or with a member beside its own, is none.
+    for wrong in [
+        json!({"type":"apns","token":"0a1b"}),
+        json!({"type":"apnsActivity","token":"0a1b","activityId":"la-1"}),
+        json!({"type":"apnsChannel","token":"0a1b"}),
+    ] {
+        assert!(
+            serde_json::from_value::<PushTarget>(wrong.clone()).is_err(),
+            "{wrong}"
+        );
+    }
+}

@@ -11,7 +11,7 @@ import { present } from './support.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
-// TP-ANDROID-11, TP-ANDROID-23
+// TP-ANDROID-11, TP-ANDROID-23, TP-ANDROID-26, TP-PUSH-10
 test("the Android library carries liveupdate's Kotlin, resources and manifest entries, its R renamed", () => {
   const dir = liveupdateDir();
   assert.match(readFileSync(join(dir, 'Cargo.toml'), 'utf8'), /^name = "liveupdate"$/m);
@@ -20,8 +20,25 @@ test("the Android library carries liveupdate's Kotlin, resources and manifest en
     assert.ok(files.includes(`android/src/main/java/io/github/eedaegon/liveupdate/${file}`), file);
   }
   assert.ok(files.includes('android/src/main/res/drawable/liveupdate_status.xml'));
-  // The names of the channels, which an app overrides in its own strings.
+  // The names of the channels, which an app overrides in its own strings, the watch's mirror's among them.
   assert.ok(files.includes('android/src/main/res/values/strings.xml'));
+  const strings = readFileSync(join(root, 'android/src/main/res/values/strings.xml'), 'utf8');
+  for (const name of ['liveupdate_watch_channel_name', 'liveupdate_watch_channel_description']) assert.match(strings, new RegExp(`name="${name}"`), name);
+  // The push entry that an app's messaging service calls, whose native side the plugin's feature `android-push` adds.
+  const push = readFileSync(join(root, 'android/src/main/java/io/github/eedaegon/liveupdate/LiveUpdatePush.kt'), 'utf8');
+  assert.match(push, /const val LIBRARY = "io\.github\.eedaegon\.liveupdate\.LIBRARY"/);
+  assert.match(push, /private external fun nativeLayer\(/);
+  // R8 keeps its names in a release build, as liveupdate's own consumer rules do.
+  const rules = readFileSync(join(root, 'android/consumer-rules.pro'), 'utf8');
+  const theirs = readFileSync(join(dir, 'android/consumer-rules.pro'), 'utf8');
+  // The bridge, which liveupdate's Rust side loads by its name, and the push entry, whose native methods are found by
+  // theirs: every keep rule of liveupdate's is the plugin's too.
+  const keeps = theirs.split('\n').filter(line => line.startsWith('-keep '));
+  for (const keep of [
+    '-keep class io.github.eedaegon.liveupdate.LiveUpdateBridge { public static *; }',
+    '-keep class io.github.eedaegon.liveupdate.LiveUpdatePush { native <methods>; public *; }',
+  ]) assert.ok(keeps.includes(keep), keep);
+  for (const keep of keeps) assert.ok(rules.includes(keep), keep);
   assert.deepEqual(differing(dir), []);
   assert.deepEqual(missingManifestEntries(dir), []);
   // The one change of the copy: liveupdate's `R` becomes the plugin's, for its drawables and its strings.
