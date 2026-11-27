@@ -47,7 +47,7 @@
         { "@type": "Question", "name": "liveactivity-rs가 뭔가요?", "acceptedAnswer": { "@type": "Answer", "text": "이 플러그인이 올라선 Rust 브리지, liveactivity 크레이트입니다. 요청 계약과 수명 주기를 맡고, iOS는 activitykit-rs, Android는 liveupdate-rs 위에서 돌립니다." } },
         { "@type": "Question", "name": "백엔드를 바꾸거나 덧붙일 수 있나요?", "acceptedAnswer": { "@type": "Answer", "text": "네. Builder::layer는 플랫폼 백엔드 위에 렌더러, 로그, 시험용 대역 같은 층을 씌우고, Builder::backend는 그 자리에 직접 만든 백엔드를 넣습니다. 둘 다 liveactivity-rs 브리지의 LiveActivityBackend 인터페이스를 씁니다." } },
         { "@type": "Question", "name": "홈 화면 위젯 플러그인과 무엇이 다른가요?", "acceptedAnswer": { "@type": "Answer", "text": "tauri-plugin-widgets 같은 위젯 플러그인은 홈 화면에 계속 머무는 WidgetKit, Android Glance 위젯을 그립니다. 이 플러그인은 작업 하나가 진행되는 동안 그 작업을 따라가는 Live Activity와 Android Live Update를 그립니다. 한 앱에서 둘 다 쓸 수 있습니다." } },
-        { "@type": "Question", "name": "서버가 활동을 갱신할 수 있나요?", "acceptedAnswer": { "@type": "Answer", "text": "iOS에서는 APNs로 됩니다: 푸시 토큰, iOS 17.2부터 push-to-start, iOS 18부터 broadcast 채널. Android에는 푸시 경로가 없고, 앱이 알림을 갱신합니다." } },
+        { "@type": "Question", "name": "서버가 활동을 갱신할 수 있나요?", "acceptedAnswer": { "@type": "Answer", "text": "iOS에서는 APNs로 됩니다: 푸시 토큰, iOS 17.2부터 push-to-start, iOS 18부터 broadcast 채널. Android에서는 FCM으로 됩니다: 플러그인의 기능 android-push와 앱의 메시징 서비스가 있으면 됩니다." } },
         { "@type": "Question", "name": "macOS, Windows, Linux에서도 되나요?", "acceptedAnswer": { "@type": "Answer", "text": "아니요. 그곳에서는 활동 명령이 UNSUPPORTED_PLATFORM을 돌려주고, getCapabilities()가 그렇다고 알려 줍니다." } }
       ]
     }
@@ -210,7 +210,7 @@ liveactivity                 liveactivity-rs 브리지: 하나의 요청 계약,
 <h3>홈 화면 위젯 플러그인과 무엇이 다른가요?</h3>
 <p>tauri-plugin-widgets 같은 위젯 플러그인은 홈 화면에 계속 머무는 WidgetKit, Android Glance 위젯을 그립니다. 이 플러그인은 작업 하나가 진행되는 동안 그 작업을 따라가는 Live Activity와 Android Live Update를 그립니다. 한 앱에서 둘 다 쓸 수 있습니다.</p>
 <h3>서버가 활동을 갱신할 수 있나요?</h3>
-<p>iOS에서는 APNs로 됩니다: 푸시 토큰, iOS 17.2부터 push-to-start, iOS 18부터 broadcast 채널. Android에는 푸시 경로가 없고, 앱이 알림을 갱신합니다.</p>
+<p>iOS에서는 APNs로 됩니다: 푸시 토큰, iOS 17.2부터 push-to-start, iOS 18부터 broadcast 채널. Android에서는 FCM으로 됩니다: 플러그인의 기능 <code>android-push</code>와 앱의 메시징 서비스가 있으면 됩니다.</p>
 <h3>macOS, Windows, Linux에서도 되나요?</h3>
 <p>아니요. 그곳에서는 활동 명령이 <code>UNSUPPORTED_PLATFORM</code>을 돌려주고, <code>getCapabilities()</code>가 그렇다고 알려 줍니다.</p>
 

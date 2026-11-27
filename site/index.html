@@ -50,7 +50,7 @@
         { "@type": "Question", "name": "What is liveactivity-rs?", "acceptedAnswer": { "@type": "Answer", "text": "The Rust bridge this plugin is built on, the liveactivity crate. It owns the request contract and the lifecycle, and runs iOS on activitykit-rs and Android on liveupdate-rs." } },
         { "@type": "Question", "name": "Can I replace the backend, or add to it?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Builder::layer puts a layer over the platform's backend, such as a renderer, a log or a stand-in for tests, and Builder::backend puts a backend of your own in its place. Both use the liveactivity-rs bridge's LiveActivityBackend interface." } },
         { "@type": "Question", "name": "How is it different from a home-screen widget plugin?", "acceptedAnswer": { "@type": "Answer", "text": "Widget plugins such as tauri-plugin-widgets draw WidgetKit and Android Glance widgets that stay on the home screen. This plugin draws Live Activities and Android Live Updates, which follow one task while it runs. An app can use both." } },
-        { "@type": "Question", "name": "Can a server update an activity?", "acceptedAnswer": { "@type": "Answer", "text": "On iOS, through APNs: push tokens, push-to-start from iOS 17.2 and broadcast channels from iOS 18. Android has no push path; the app updates its notification." } },
+        { "@type": "Question", "name": "Can a server update an activity?", "acceptedAnswer": { "@type": "Answer", "text": "On iOS, through APNs: push tokens, push-to-start from iOS 17.2 and broadcast channels from iOS 18. On Android, through FCM, with the plugin's feature android-push and the app's messaging service." } },
         { "@type": "Question", "name": "Does it work on macOS, Windows or Linux?", "acceptedAnswer": { "@type": "Answer", "text": "No. There the activity commands answer UNSUPPORTED_PLATFORM, and getCapabilities() says so." } }
       ]
     }
@@ -213,7 +213,7 @@ wrapped in layers, with <code>Builder::backend</code> and <code>Builder::layer</
 <h3>How is it different from a home-screen widget plugin?</h3>
 <p>Widget plugins such as tauri-plugin-widgets draw WidgetKit and Android Glance widgets that stay on the home screen. This plugin draws Live Activities and Android Live Updates, which follow one task while it runs. An app can use both.</p>
 <h3>Can a server update an activity?</h3>
-<p>On iOS, through APNs: push tokens, push-to-start from iOS 17.2 and broadcast channels from iOS 18. Android has no push path; the app updates its notification.</p>
+<p>On iOS, through APNs: push tokens, push-to-start from iOS 17.2 and broadcast channels from iOS 18. On Android, through FCM, with the plugin's feature <code>android-push</code> and the app's messaging service.</p>
 <h3>Does it work on macOS, Windows or Linux?</h3>
 <p>No. There the activity commands answer <code>UNSUPPORTED_PLATFORM</code>, and <code>getCapabilities()</code> says so.</p>
 
