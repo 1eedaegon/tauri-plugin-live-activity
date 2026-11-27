@@ -578,12 +578,15 @@ fn the_typescript_records_have_the_members_that_the_rust_models_write() {
 #[test]
 fn the_typescript_push_targets_are_the_types_of_liveactivitys_target_with_its_members() {
     let ts = types();
-    // A union of object types, one to a line, which ends at the blank line after it.
+    // A union of object types, one to a line, which ends at the blank line after it (by lines: a checkout on Windows
+    // ends them with \r\n).
     let start = ts.find("export type PushTarget =").unwrap();
-    let rest = &ts[start..];
-    let written_union = &rest[..rest.find("\n\n").unwrap()];
-    let declared: BTreeSet<String> = written_union
+    let written_union: Vec<&str> = ts[start..]
         .lines()
+        .take_while(|line| !line.trim().is_empty())
+        .collect();
+    let declared: BTreeSet<String> = written_union
+        .iter()
         .filter_map(|line| line.split("type: '").nth(1))
         .filter_map(|rest| rest.split('\'').next())
         .map(str::to_owned)
@@ -612,7 +615,7 @@ fn the_typescript_push_targets_are_the_types_of_liveactivitys_target_with_its_me
         let value = serde_json::to_value(target).unwrap();
         let kind = value["type"].as_str().unwrap();
         let line = written_union
-            .lines()
+            .iter()
             .find(|line| line.contains(&format!("'{kind}'")))
             .unwrap_or_else(|| panic!("no member {kind}"));
         let names: BTreeSet<String> = line
