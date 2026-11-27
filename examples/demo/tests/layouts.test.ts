@@ -9,8 +9,8 @@ import { list, member, present, text } from '../../../tests/support.ts';
 import { keep } from '../../../tests/typescript-requests.ts';
 import type { KeptRequest } from '../../../tests/typescript-requests.ts';
 import {
-  actionMessage, findLayoutExample, freshFor, layoutExamples, layoutRecordFor, nextLayoutSnapshot, openedMessage,
-  runningLayoutExamples, startsIn,
+  actionMessage, coordinate, findLayoutExample, freshFor, layoutExamples, layoutRecordFor, nextLayoutSnapshot, openedMessage,
+  placeOf, placeSnapshot, placeValues, runningLayoutExamples, startsIn, walkStart,
 } from '../src/layouts.ts';
 import type { LayoutExample } from '../src/layouts.ts';
 
@@ -54,7 +54,7 @@ const ofType = <T extends LayoutNode['type']>(id: string, type: T): NodeOf<T>[] 
 test('offers one example per layout feature, each under its own key', () => {
   assert.deepEqual(layoutExamples.map(example => example.id), [
     'text', 'symbols', 'image', 'paths', 'gauge', 'progress', 'timer', 'stacks', 'buttons', 'switch', 'link', 'styles',
-    'staleness', 'later', 'island', 'small', 'android', 'nowBar',
+    'staleness', 'later', 'island', 'small', 'android', 'nowBar', 'location',
   ]);
   const keys = layoutExamples.map(example => example.start(NOW).activityKey);
   assert.deepEqual(keys, layoutExamples.map(example => `mochi:${example.id}`));
@@ -274,6 +274,39 @@ test('the Android and Now Bar examples are public and lead with a title and a bo
     assert.equal(ofType(id, 'progress').length, 1);
   }
   assert.deepEqual(ofType('android', 'button').map(node => node.actionId), ['wake']);
+});
+
+test('the location example shows a place to four decimals with its hemisphere, and reads it back', () => {
+  assert.equal(coordinate(37.56634, 'N', 'S'), '37.5663° N');
+  assert.equal(coordinate(-33.8688, 'N', 'S'), '33.8688° S');
+  assert.equal(coordinate(-0.12756, 'E', 'W'), '0.1276° W');
+  const london = { latitude: 51.5072, longitude: -0.1276 };
+  assert.deepEqual(placeValues(london), { latitude: '51.5072° N', longitude: '0.1276° W' });
+  assert.deepEqual(placeOf(placeValues(london)), london);
+  assert.equal(placeOf({ latitude: 'here', longitude: '0.1276° W' }), undefined);
+  assert.equal(placeOf({ latitude: 51.5, longitude: '0.1276° W' }), undefined);
+  assert.equal(placeOf({}), undefined);
+  // It starts at its own place before the device says where it is, and a step of the walk moves it north and east.
+  const { values } = startOf('location').snapshot;
+  assert.deepEqual(placeOf(values), walkStart);
+  const step = present(placeOf(present(present(findLayoutExample('location')).next)(values)));
+  assert.ok(step.latitude > walkStart.latitude && step.longitude > walkStart.longitude);
+  // A value of the start the walk does not know of stays; one it cannot read starts the walk over.
+  assert.deepEqual(present(findLayoutExample('location')).next?.({ title: 'Walk', latitude: '?', longitude: '?' }).title, 'Walk');
+});
+
+test('a new position updates the location example in place, and one the card would show the same sends nothing', () => {
+  const input = startOf('location');
+  const record = Object.freeze({ snapshot: Object.freeze({ ...input.snapshot, revision: 3 }) });
+  const moved = present(placeSnapshot(record, { latitude: 37.5701, longitude: 126.9822 }));
+  assert.equal(moved.revision, 4);
+  assert.deepEqual(moved.values, { ...input.snapshot.values, latitude: '37.5701° N', longitude: '126.9822° E' });
+  assert.equal(record.snapshot.revision, 3);
+  // Less than the card's precision away.
+  assert.equal(placeSnapshot(record, { latitude: walkStart.latitude + 0.00001, longitude: walkStart.longitude }), undefined);
+  // The lock screen shows both coordinates, the compact island the latitude, as an activity of a place does.
+  assert.deepEqual(ofType('location', 'text').map(node => node.bind), ['title', 'latitude', 'longitude', 'title', 'latitude', 'longitude', 'latitude']);
+  assert.equal(input.layout.island?.compactTrailing?.type, 'text');
 });
 
 test('only the demo examples that are still running are ended before another starts', () => {

@@ -2556,6 +2556,227 @@
     "after": "the nowBar example starts"
   },
   {
+    "name": "the location example starts",
+    "command": "start_layout",
+    "input": {
+      "activityKey": "mochi:location",
+      "schemaVersion": 2,
+      "fallback": "notification",
+      "layout": {
+        "lockScreen": {
+          "type": "hstack",
+          "children": [
+            {
+              "type": "symbol",
+              "name": "location.fill",
+              "style": "pin"
+            },
+            {
+              "type": "vstack",
+              "children": [
+                {
+                  "type": "text",
+                  "bind": "title",
+                  "style": "title"
+                },
+                {
+                  "type": "hstack",
+                  "children": [
+                    {
+                      "type": "text",
+                      "bind": "latitude",
+                      "style": "place"
+                    },
+                    {
+                      "type": "text",
+                      "bind": "longitude",
+                      "style": "place"
+                    }
+                  ],
+                  "spacing": 10
+                }
+              ],
+              "alignment": "leading",
+              "spacing": 4
+            },
+            {
+              "type": "spacer"
+            }
+          ],
+          "spacing": 12,
+          "style": "card"
+        },
+        "island": {
+          "expanded": {
+            "leading": {
+              "type": "symbol",
+              "name": "location.fill",
+              "style": "islandPin"
+            },
+            "center": {
+              "type": "text",
+              "bind": "title",
+              "style": "islandTitle"
+            },
+            "bottom": {
+              "type": "hstack",
+              "children": [
+                {
+                  "type": "text",
+                  "bind": "latitude",
+                  "style": "islandPlace"
+                },
+                {
+                  "type": "spacer"
+                },
+                {
+                  "type": "text",
+                  "bind": "longitude",
+                  "style": "islandPlace"
+                }
+              ]
+            }
+          },
+          "compactLeading": {
+            "type": "symbol",
+            "name": "location.fill",
+            "style": "islandPin"
+          },
+          "compactTrailing": {
+            "type": "text",
+            "bind": "latitude",
+            "style": "islandPlace"
+          },
+          "minimal": {
+            "type": "symbol",
+            "name": "location.fill",
+            "style": "islandPin"
+          }
+        },
+        "background": {
+          "light": "#FAF7EF",
+          "dark": "#2E3229"
+        },
+        "keyline": "#A3D9C2"
+      },
+      "styles": {
+        "card": {
+          "padding": 16,
+          "frame": {
+            "maxWidth": "infinity",
+            "alignment": "leading"
+          }
+        },
+        "title": {
+          "font": "headline",
+          "design": "rounded",
+          "lineLimit": 1
+        },
+        "pin": {
+          "size": 26,
+          "color": "#C9654D"
+        },
+        "place": {
+          "font": "subheadline",
+          "monospacedDigit": true,
+          "color": {
+            "light": "#286D60",
+            "dark": "#A3D9C2"
+          },
+          "lineLimit": 1
+        },
+        "islandPin": {
+          "color": "#A3D9C2"
+        },
+        "islandTitle": {
+          "font": "headline",
+          "design": "rounded",
+          "color": "white",
+          "lineLimit": 1
+        },
+        "islandPlace": {
+          "font": "caption",
+          "weight": "semibold",
+          "monospacedDigit": true,
+          "color": "#A3D9C2",
+          "lineLimit": 1
+        }
+      },
+      "snapshot": {
+        "revision": 0,
+        "values": {
+          "title": "Mochi’s walk",
+          "latitude": "37.5663° N",
+          "longitude": "126.9779° E"
+        }
+      }
+    }
+  },
+  {
+    "name": "the location example, update 1",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 1,
+        "values": {
+          "title": "Mochi’s walk",
+          "latitude": "37.5667° N",
+          "longitude": "126.9782° E"
+        }
+      }
+    },
+    "after": "the location example starts"
+  },
+  {
+    "name": "the location example, update 2",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 2,
+        "values": {
+          "title": "Mochi’s walk",
+          "latitude": "37.5671° N",
+          "longitude": "126.9785° E"
+        }
+      }
+    },
+    "after": "the location example starts"
+  },
+  {
+    "name": "the location example, update 3",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 3,
+        "values": {
+          "title": "Mochi’s walk",
+          "latitude": "37.5675° N",
+          "longitude": "126.9788° E"
+        }
+      }
+    },
+    "after": "the location example starts"
+  },
+  {
+    "name": "the location example, update 4",
+    "command": "update_layout",
+    "input": {
+      "id": "handle",
+      "snapshot": {
+        "revision": 4,
+        "values": {
+          "title": "Mochi’s walk",
+          "latitude": "37.5679° N",
+          "longitude": "126.9791° E"
+        }
+      }
+    },
+    "after": "the location example starts"
+  },
+  {
     "name": "the styles example, an update with a color that is none",
     "command": "update_layout",
     "input": {

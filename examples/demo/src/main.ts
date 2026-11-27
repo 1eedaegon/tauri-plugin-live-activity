@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import * as geolocation from '@tauri-apps/plugin-geolocation';
 import * as activity from '../../../guest-js/index.js';
 import { describeError, runLifecycleChecks } from './self-test.js';
 import {
@@ -6,8 +7,8 @@ import {
 } from './ui-state.js';
 import { advanceMochiActivity, countdown, selectMochiActivity, snackStage, snackSteps, startMochiActivity, type MochiMode } from './mochi.js';
 import {
-  actionMessage, layoutExamples, layoutRecordFor, nextLayoutSnapshot, openedMessage, runningLayoutExamples,
-  type LayoutExample,
+  actionMessage, layoutExamples, layoutRecordFor, nextLayoutSnapshot, openedMessage, placeSnapshot, placeValues,
+  runningLayoutExamples, type LayoutExample, type Place,
 } from './layouts.js';
 
 type Mode = MochiMode | 'layout';
@@ -34,6 +35,12 @@ let promotionOffered = false;
 let busy = false;
 /** How many openings from a notification this page has heard. */
 let openings = 0;
+/** The watch of the device's position that moves the location example, while it runs. */
+let watching: number | undefined;
+/** The updates of the location example, one after another: a position that comes during an update waits for it. */
+let moves: Promise<void> = Promise.resolve();
+/** How the location example asks for positions: the freshest, as precise as the device has. */
+const positions: geolocation.PositionOptions = { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 };
 const show = (id: string, value: unknown) => { element(id).textContent = JSON.stringify(value, null, 2); };
 const text = (id: string, value: string) => { element(id).textContent = value; };
 const currentLayout = () => layoutRecordFor(layoutRecords, example.id);
@@ -207,12 +214,58 @@ async function end(): Promise<void> {
   await refresh();
 }
 
+/** Where the device is, after asking the person once; undefined where it cannot say, as on desktop. */
+async function where(): Promise<Place | undefined> {
+  try {
+    const allowed = await geolocation.checkPermissions();
+    const asked = allowed.location === 'granted' ? allowed : await geolocation.requestPermissions(['location']);
+    if (asked.location !== 'granted') return undefined;
+    const { coords } = await geolocation.getCurrentPosition(positions);
+    return { latitude: coords.latitude, longitude: coords.longitude };
+  } catch { return undefined; }
+}
+
+/** Moves the running location example to `place`, in place: an update of the same activity, never a new one. */
+function move(place: Place): void {
+  moves = moves.then(async () => {
+    const running = layoutRecordFor(layoutRecords, 'location');
+    const snapshot = running === undefined ? undefined : placeSnapshot(running, place);
+    if (running === undefined || snapshot === undefined) return;
+    rememberLayout(await activity.updateLayout({ id: running.id, snapshot }));
+    if (example.id === 'location') renderScene();
+  }).catch(error => { message(describeError(error), true); });
+}
+
+/** Follows the device's position while the location example runs. */
+async function follow(): Promise<void> {
+  await stopFollowing();
+  try {
+    watching = await geolocation.watchPosition(positions, position => {
+      if (position !== null) move({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+    });
+  } catch (error) { message(`Mochi’s walk cannot follow this device: ${describeError(error)}`, true); }
+}
+
+async function stopFollowing(): Promise<void> {
+  if (watching === undefined) return;
+  const stopped = watching;
+  watching = undefined;
+  await geolocation.clearWatch(stopped).catch(() => undefined);
+}
+
 // One example at a time: starting one ends the demo's other layout activities first.
 async function startLayout(): Promise<void> {
+  await stopFollowing();
   for (const running of runningLayoutExamples(layoutRecords)) {
     rememberLayout(await activity.endLayout({ id: running.id, policy: { kind: 'immediate' } }));
   }
-  const started = await activity.startLayout(example.start(Date.now()));
+  const input = example.start(Date.now());
+  // The location example starts where the device is, when it can say, and then follows it.
+  const place = example.id === 'location' ? await where() : undefined;
+  const started = await activity.startLayout(place === undefined ? input : {
+    ...input, snapshot: { ...input.snapshot, values: { ...input.snapshot.values, ...placeValues(place) } },
+  });
+  if (example.id === 'location' && place !== undefined) await follow();
   rememberLayout(started);
   message(started.state === 'pending' ? `${example.name} is waiting for its time.` : `${example.name} is on its way to your phone.`);
   await refresh();
@@ -229,6 +282,7 @@ async function updateLayout(): Promise<void> {
 async function endLayout(): Promise<void> {
   const running = currentLayout();
   if (running === undefined) throw new Error('Start this example first.');
+  if (example.id === 'location') await stopFollowing();
   rememberLayout(await activity.endLayout({ id: running.id, policy: { kind: 'immediate' } }));
   message(`${example.name} has ended.`);
   await refresh();
