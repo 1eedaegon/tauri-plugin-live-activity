@@ -243,7 +243,31 @@ What each example shows:
     <td><img src="../../docs/images/ios-layout-nowbar.png" width="300" alt="The same layout on the iOS Lock Screen: title, status and a bar"></td>
     <td><img src="../../docs/images/samsung-now-bar.png" width="300" alt="Mochi's snack delivery and On the way to Mochi in the One UI Now Bar of a Galaxy S23"><br>A Galaxy S23, 2026-11-06. One UI shows the Now Bar for apps on Samsung's allow list, or for all while the developer option is on.</td>
   </tr>
+  <tr>
+    <td><b>Location</b><br>Where the phone is, from <a href="https://v2.tauri.app/plugin/geolocation/">tauri-plugin-geolocation</a>: the Lock Screen shows the latitude and the longitude, the compact island the latitude. Each new position updates the same activity in place, below.</td>
+    <td><img src="../../docs/images/ios-location.gif" width="300" alt="The page starts the Location example; on the Home Screen the Dynamic Island shows the latitude, which grows as the phone moves north, and opens to Mochi's walk with both coordinates; on the Lock Screen the card's coordinates change in place"></td>
+    <td>Not taken yet. The notification shows the title and the latitude, updated in place.</td>
+  </tr>
 </table>
+
+### Location
+
+The Location example is an app's position on its Live Activity, with the plugin and
+[tauri-plugin-geolocation](https://v2.tauri.app/plugin/geolocation/) side by side, and no Swift or Kotlin of
+its own:
+
+- `src-tauri/src/lib.rs` registers `tauri_plugin_geolocation::init()`, `capabilities/default.json` grants its
+  commands (`geolocation:allow-check-permissions`, `-request-permissions`, `-get-current-position`,
+  `-watch-position`, `-clear-watch`), and the app's `Info.plist` has `NSLocationWhenInUseUsageDescription`.
+- [src/main.ts](src/main.ts) asks for the position once and starts the activity there, then follows it with
+  `watchPosition`. Each new position becomes the next snapshot of the same activity (`placeSnapshot` in
+  [src/layouts.ts](src/layouts.ts)), one update after another; a position that the card would show the same,
+  to four decimals, sends nothing. Ending the example, or starting another, stops the watch.
+- Without a position, on desktop or without the permission, it starts at Seoul Plaza, and **Send new values**
+  takes a step of the walk.
+
+On a simulator, move the position with `xcrun simctl location <udid> start --speed=12 37.5663,126.9779
+37.5716,126.9768 37.5760,126.9770`, a walk north along Sejong-daero, and the card follows it.
 
 ### Taps
 
@@ -376,7 +400,8 @@ the page.
 ## The pictures
 
 Every picture of this page, and every picture of the demo in the [usage guide](../../docs/usage.md), is a
-screen as it was: the whole of it, or a part cut out, with nothing drawn over it. Two commands take them
+screen as it was: the whole of it, or a part cut out, with nothing drawn over it, but the pointer of the
+Location picture (below). Two commands take them
 again after a change, each on a device of its own.
 
 ```sh
@@ -406,6 +431,11 @@ The three moving pictures are parts of screen recordings, joined and scaled down
 was driven the same way. What lies between the parts is left out, and nothing is drawn over a frame. One part
 is longer than it took: the picture of the Changing styles example stays on its last frame, the red card on the
 Lock Screen, for a few seconds after the recording had left it.
+
+The Location picture is one take, cut and scaled down, of `xcrun simctl io <udid> recordVideo` while a UI test
+started the example, went to the Home Screen, pressed the island and pulled the Lock Screen down, and
+`xcrun simctl location` moved the position. It is the one picture with something drawn over it: the pointer,
+drawn afterwards at the points and the moments where the test touched the screen.
 
 The glance of the Watch and car example is the whole screen of an Apple Watch Series 11 (46mm) simulator with
 watchOS 26.2, paired with the iPhone simulator that ran the example, as `xcrun simctl io <udid> screenshot`
